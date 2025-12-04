@@ -1,0 +1,29 @@
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { container } from '@/infrastructure/di/container';
+import { TYPES } from '@/infrastructure/di/types';
+import { DiagnosticService } from '@/application/services/DiagnosticService';
+
+const ChatRequestSchema = z.object({
+  sessionId: z.string().uuid(),
+  message: z.string().min(1).max(500),
+});
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { sessionId, message } = ChatRequestSchema.parse(body);
+
+    const diagnosticService = container.get<DiagnosticService>(TYPES.DiagnosticService);
+    const reply = await diagnosticService.handleChatInteraction(sessionId, message);
+
+    return NextResponse.json({ 
+      role: 'assistant',
+      content: reply 
+    });
+
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'AI Service Unavailable' }, { status: 503 });
+  }
+}
