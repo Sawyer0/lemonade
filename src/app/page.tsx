@@ -22,7 +22,7 @@ export default function Home() {
     try {
       await signInWithPopup(auth, provider);
       // Redirect handled by useEffect
-    } catch (error) {
+    } catch {
       showToast('Login failed. Please try again.', 'error');
     }
   };

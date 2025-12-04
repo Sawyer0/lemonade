@@ -1,7 +1,7 @@
 import { injectable } from 'inversify';
 import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
 import { IVideoDiagnosticAI } from '@/core/interfaces/IAIService';
-import { AIAnalysis, AIAnalysisSchema } from '@/core/types/models';
+import { AIAnalysis, AIAnalysisSchema } from '@/core/entities/DiagnosticSession';
 import { VIDEO_PROMPTS } from '@/core/prompts/video';
 import { SYSTEM_PROMPTS } from '@/core/prompts/system';
 
@@ -10,7 +10,17 @@ export class GeminiProAdapter implements IVideoDiagnosticAI {
     private model: GenerativeModel;
 
     constructor(projectId: string) {
-        const vertex = new VertexAI({ project: projectId, location: 'us-central1' });
+        const authOptions = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+            ? { credentials: JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) }
+            : undefined;
+
+        console.log('DEBUG: GeminiProAdapter authOptions present:', !!authOptions);
+
+        const vertex = new VertexAI({
+            project: projectId,
+            location: 'us-central1',
+            googleAuthOptions: authOptions
+        });
 
         this.model = vertex.getGenerativeModel({
             model: 'gemini-2.0-flash-thinking-exp-1219',

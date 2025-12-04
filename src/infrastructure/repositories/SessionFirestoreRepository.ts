@@ -2,7 +2,7 @@ import { injectable } from 'inversify';
 import { db } from '@/infrastructure/firebase/config';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, query, where, orderBy, getDocs, collection } from 'firebase/firestore';
 import { ISessionRepository } from '@/core/interfaces/ISessionRepository';
-import { DiagnosticSession, AIAnalysis } from '@/core/types/models';
+import { DiagnosticSession, AIAnalysis } from '@/core/entities/DiagnosticSession';
 
 @injectable()
 export class SessionFirestoreRepository implements ISessionRepository {

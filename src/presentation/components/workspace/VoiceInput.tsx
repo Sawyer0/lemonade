@@ -28,7 +28,8 @@ export function VoiceInput({ onAudioDetected, isProcessing }: VoiceInputProps) {
     // Sync internal status with prop
     useEffect(() => {
         if (!isProcessing && status === 'processing') {
-            setStatus('idle');
+            const timer = setTimeout(() => setStatus('idle'), 0);
+            return () => clearTimeout(timer);
         }
     }, [isProcessing, status]);
 

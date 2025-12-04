@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Vehicle } from '@/core/types/models';
+import { Vehicle } from '@/core/entities/Vehicle';
 import { Logger } from '@/infrastructure/logging/Logger';
 import { auth } from '@/infrastructure/firebase/config';
 

@@ -1,7 +1,7 @@
 import { injectable } from 'inversify';
 import { adminDb } from '@/infrastructure/firebase/admin';
 import { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
-import { Vehicle } from '@/core/types/models';
+import { Vehicle } from '@/core/entities/Vehicle';
 
 @injectable()
 export class VehicleAdminRepository implements IVehicleRepository {

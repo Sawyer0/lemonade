@@ -1,5 +1,6 @@
-import { Vehicle } from '@/core/types/models';
+import { Vehicle } from '@/core/entities/Vehicle';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 
 interface VehicleCardProps {
@@ -35,10 +36,12 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
                 {/* LAYER 1: THE REALITY ANCHOR (Real Photo) */}
                 <div className="absolute inset-0 bg-zinc-900">
                     {vehicle.photoUrl ? (
-                        <img
+                        <Image
                             src={vehicle.photoUrl}
                             alt={vehicle.specs.model}
-                            className="object-cover w-full h-full opacity-90 group-hover:opacity-100 transition-opacity"
+                            fill
+                            className="object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                            unoptimized
                         />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-600 font-mono">

@@ -1,4 +1,4 @@
-import { DiagnosticSession } from '@/core/types/models';
+import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
 import Link from 'next/link';
 
 interface ServiceHistoryProps {
@@ -15,7 +15,7 @@ export function ServiceHistory({ sessions }: ServiceHistoryProps) {
                     </svg>
                 </div>
                 <h3 className="text-xl font-bold text-white">No Service History</h3>
-                <p className="text-zinc-400 mt-2">This vehicle hasn't had any diagnostic sessions yet.</p>
+                <p className="text-zinc-400 mt-2">This vehicle hasn&apos;t had any diagnostic sessions yet.</p>
             </div>
         );
     }

@@ -2,7 +2,7 @@ import { injectable } from 'inversify';
 import { adminDb } from '@/infrastructure/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { ISessionRepository } from '@/core/interfaces/ISessionRepository';
-import { DiagnosticSession, AIAnalysis, DiagnosticSessionSchema } from '@/core/types/models';
+import { DiagnosticSession, AIAnalysis, DiagnosticSessionSchema } from '@/core/entities/DiagnosticSession';
 
 @injectable()
 export class SessionAdminRepository implements ISessionRepository {

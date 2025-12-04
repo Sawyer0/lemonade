@@ -8,10 +8,12 @@ import { ISessionRepository } from "@/core/interfaces/ISessionRepository";
 import { IVideoDiagnosticAI, IChatAssistantAI } from "@/core/interfaces/IAIService";
 import { ILogger } from "@/core/interfaces/ILogger";
 import { IDiagnosticService } from "@/core/interfaces/IDiagnosticService";
+import { IVehicleInfoProvider } from "@/core/interfaces/IVehicleInfoProvider";
 
 // Implementations (Infrastructure)
 import { VehicleAdminRepository } from "../repositories/VehicleAdminRepository";
 import { SessionAdminRepository } from "../repositories/SessionAdminRepository";
+import { NHTSAVehicleInfoProvider } from "../external/NHTSAVehicleInfoProvider";
 import { GeminiProAdapter } from "../ai/GeminiProAdapter";
 import { GeminiFlashAdapter } from "../ai/GeminiFlashAdapter";
 import { Logger } from "../logging/Logger";
@@ -30,6 +32,10 @@ container.bind<IVehicleRepository>(TYPES.VehicleRepo)
 
 container.bind<ISessionRepository>(TYPES.SessionRepo)
     .to(SessionAdminRepository)
+    .inSingletonScope();
+
+container.bind<IVehicleInfoProvider>(TYPES.VehicleInfoProvider)
+    .to(NHTSAVehicleInfoProvider)
     .inSingletonScope();
 
 // --- 2. Bind AI Adapters (The "Brain") ---

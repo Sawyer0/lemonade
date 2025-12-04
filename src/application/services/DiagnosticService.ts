@@ -9,7 +9,7 @@ import type { ISessionRepository } from '@/core/interfaces/ISessionRepository';
 import type { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
 import type { IDiagnosticService } from '@/core/interfaces/IDiagnosticService';
 import type { ILogger } from '@/core/interfaces/ILogger';
-import { DiagnosticSession } from '@/core/types/models';
+import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
 
 @injectable()
 export class DiagnosticService implements IDiagnosticService {

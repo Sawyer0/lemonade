@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
-import { AIAnalysis } from '@/core/types/models';
-import { Camera, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { AIAnalysis } from '@/core/entities/DiagnosticSession';
+import { Camera, ShieldAlert } from 'lucide-react';
 
 interface SafetyOverlayProps {
     analysis: AIAnalysis | null;

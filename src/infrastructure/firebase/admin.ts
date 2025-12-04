@@ -1,15 +1,18 @@
 import "server-only";
-import { initializeApp, getApps, getApp, cert } from "firebase-admin/app";
+import { initializeApp, getApps, getApp, cert, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { getStorage } from "firebase-admin/storage";
 
-// Use environment variable for Service Account
 // In production (Cloud Run), we might use ADC (Application Default Credentials) instead,
 // but for local dev/Vercel, the JSON string is standard.
 const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
     ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
     : {};
+
+if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    console.warn('FIREBASE_SERVICE_ACCOUNT_KEY is missing in admin.ts');
+}
 
 const firebaseAdminConfig = {
     credential: cert(serviceAccount),

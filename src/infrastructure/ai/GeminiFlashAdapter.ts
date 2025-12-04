@@ -1,7 +1,7 @@
 import { injectable } from 'inversify';
 import { VertexAI, GenerativeModel, Tool } from '@google-cloud/vertexai';
 import { IChatAssistantAI } from '@/core/interfaces/IAIService';
-import { AIAnalysis } from '@/core/types/models';
+import { AIAnalysis } from '@/core/entities/DiagnosticSession';
 import { VOICE_PROMPTS } from '@/core/prompts/voice';
 import { SYSTEM_PROMPTS } from '@/core/prompts/system';
 import { SAFETY_PROMPTS } from '@/core/prompts/safety';
@@ -13,7 +13,20 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
     private safetyTools: Tool[];
 
     constructor(projectId: string) {
-        const vertex = new VertexAI({ project: projectId, location: 'us-central1' });
+        const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        if (!key) {
+            console.error('CRITICAL: FIREBASE_SERVICE_ACCOUNT_KEY is missing in GeminiFlashAdapter');
+            throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is missing');
+        }
+        console.log('DEBUG: GeminiFlashAdapter Key present, length:', key.length);
+
+        const authOptions = { credentials: JSON.parse(key) };
+
+        const vertex = new VertexAI({
+            project: projectId,
+            location: 'us-central1',
+            googleAuthOptions: authOptions
+        });
 
         // Define tools for function calling (Safety 2.0)
         this.safetyTools = [{

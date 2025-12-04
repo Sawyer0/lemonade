@@ -15,7 +15,7 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
         setLoading(true);
         try {
             const functions = getFunctions();
-            const createCheckoutSession = httpsCallable<{}, { url: string }>(functions, 'createCheckoutSession');
+            const createCheckoutSession = httpsCallable<Record<string, unknown>, { url: string }>(functions, 'createCheckoutSession');
             const result = await createCheckoutSession({});
 
             if (result.data.url) {

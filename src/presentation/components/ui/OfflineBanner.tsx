@@ -9,12 +9,15 @@ export function OfflineBanner() {
         const handleOffline = () => setIsOffline(true);
 
         // Initial check
-        setIsOffline(!navigator.onLine);
+        const timer = setTimeout(() => {
+            setIsOffline(!navigator.onLine);
+        }, 0);
 
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
 
         return () => {
+            clearTimeout(timer);
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };

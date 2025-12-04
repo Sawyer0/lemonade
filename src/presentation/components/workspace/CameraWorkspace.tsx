@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { DiagnosticSession } from '@/core/types/models';
+import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
 import { useDirectUpload } from '@/presentation/hooks/useDirectUpload';
 import { useVoiceCommand } from '@/presentation/hooks/useVoiceCommand';
 import { useTTS } from '@/presentation/hooks/useTTS';
@@ -18,7 +18,7 @@ interface CameraWorkspaceProps {
 
 export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps) {
     const [input, setInput] = useState('');
-    const [voiceMode, setVoiceMode] = useState(false);
+    const [voiceMode] = useState(false);
     const { uploadFile, uploading, progress } = useDirectUpload();
     const { processAudio, isProcessing: isProcessingAudio } = useVoiceCommand();
     const { showToast } = useToast();
@@ -62,7 +62,7 @@ export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps
                     body: JSON.stringify({ sessionId: session.id, publicUrl })
                 });
                 showToast('Video uploaded successfully', 'success');
-            } catch (err) {
+            } catch {
                 showToast('Upload failed. Please try again.', 'error');
             }
         }

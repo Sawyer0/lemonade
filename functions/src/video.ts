@@ -7,9 +7,14 @@ import { CONFIG } from './config';
 
 const db = getFirestore();
 
+const authOptions = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+    ? { credentials: JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) }
+    : undefined;
+
 const vertex = new VertexAI({
     project: CONFIG.GCLOUD_PROJECT,
     location: CONFIG.LOCATION,
+    googleAuthOptions: authOptions
 });
 
 const model = vertex.getGenerativeModel({
@@ -88,7 +93,7 @@ export const analyzeUploadedVideo = onObjectFinalized(
             let analysis;
             try {
                 analysis = JSON.parse(rawText);
-            } catch (err) {
+            } catch {
                 throw new AppError(ErrorCode.AI_PARSE_ERROR, 'Failed to parse AI response as JSON', 500);
             }
 

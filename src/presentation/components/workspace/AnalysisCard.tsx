@@ -1,5 +1,5 @@
 import React from 'react';
-import { AIAnalysis } from '@/core/types/models';
+import { AIAnalysis } from '@/core/entities/DiagnosticSession';
 
 interface AnalysisCardProps {
     analysis: AIAnalysis | null;

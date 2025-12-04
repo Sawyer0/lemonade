@@ -5,14 +5,12 @@ import useSWR from 'swr';
 import { VehicleCard } from '@/presentation/components/garage/VehicleCard';
 import { AddVehicleModal } from '@/presentation/components/garage/AddVehicleModal';
 import { UpgradeModal } from '@/presentation/components/modals/UpgradeModal';
-import { Vehicle } from '@/core/types/models';
+import { Vehicle } from '@/core/entities/Vehicle';
 import { useAuth } from '@/presentation/context/AuthContext';
 import { auth } from '@/infrastructure/firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/infrastructure/firebase/config';
 import { Crown, Zap } from 'lucide-react';
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function GaragePage() {
     const [isAdding, setIsAdding] = useState(false);
@@ -42,7 +40,19 @@ export default function GaragePage() {
     }, [user]);
 
     // 3. Data Fetching
-    const { data, error, isLoading, mutate } = useSWR(
+    const fetcher = async (url: string) => {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error('No token');
+
+        const res = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return res.json();
+    };
+
+    const { data, isLoading, mutate } = useSWR(
         user ? `/api/vehicles?userId=${user.uid}` : null,
         fetcher
     );

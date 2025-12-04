@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/infrastructure/firebase/config';
-import { DiagnosticSession } from '@/core/types/models';
+import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
 
 interface LiveSessionState {
     session: DiagnosticSession | null;

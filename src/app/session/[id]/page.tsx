@@ -1,5 +1,5 @@
 'use client';
-import { use, useState } from 'react';
+import { use } from 'react';
 import { useLiveSession } from '@/presentation/hooks/useLiveSession';
 import { CameraWorkspace } from '@/presentation/components/workspace/CameraWorkspace';
 import { useToast } from '@/presentation/components/ui/Toast';
@@ -17,7 +17,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sessionId: session.id, message })
             });
-        } catch (err) {
+        } catch {
             showToast('Failed to send message', 'error');
         }
     };

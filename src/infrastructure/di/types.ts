@@ -2,6 +2,7 @@ export const TYPES = {
     // --- Infrastructure (Tools) ---
     VehicleRepo: Symbol.for('VehicleRepository'),
     SessionRepo: Symbol.for('SessionRepository'),
+    VehicleInfoProvider: Symbol.for('VehicleInfoProvider'),
 
     // --- AI Adapters ---
     VideoAI: Symbol.for('VideoDiagnosticAI'), // Maps to Gemini 3 Pro

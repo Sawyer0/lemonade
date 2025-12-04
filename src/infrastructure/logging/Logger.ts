@@ -3,7 +3,7 @@ import { ILogger } from '@/core/interfaces/ILogger';
 
 @injectable()
 export class Logger implements ILogger {
-    private formatMessage(level: string, message: string, context?: Record<string, any>, error?: unknown) {
+    private formatMessage(level: string, message: string, context?: Record<string, unknown>, error?: unknown) {
         return JSON.stringify({
             timestamp: new Date().toISOString(),
             level,
@@ -17,19 +17,19 @@ export class Logger implements ILogger {
         });
     }
 
-    info(message: string, context?: Record<string, any>): void {
+    info(message: string, context?: Record<string, unknown>): void {
         console.log(this.formatMessage('INFO', message, context));
     }
 
-    error(message: string, error?: unknown, context?: Record<string, any>): void {
+    error(message: string, error?: unknown, context?: Record<string, unknown>): void {
         console.error(this.formatMessage('ERROR', message, context, error));
     }
 
-    warn(message: string, context?: Record<string, any>): void {
+    warn(message: string, context?: Record<string, unknown>): void {
         console.warn(this.formatMessage('WARN', message, context));
     }
 
-    debug(message: string, context?: Record<string, any>): void {
+    debug(message: string, context?: Record<string, unknown>): void {
         // Only log debug in development or if explicitly enabled
         if (process.env.NODE_ENV !== 'production') {
             console.debug(this.formatMessage('DEBUG', message, context));
