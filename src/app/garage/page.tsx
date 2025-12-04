@@ -1,43 +1,47 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import { VehicleCard } from '@/presentation/components/garage/VehicleCard';
 import { AddVehicleModal } from '@/presentation/components/garage/AddVehicleModal';
 import { Vehicle } from '@/core/types/models';
 import { useAuth } from '@/presentation/context/AuthContext';
+import { auth } from '@/infrastructure/firebase/config';
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function GaragePage() {
     const [isAdding, setIsAdding] = useState(false);
-    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-    const [loading, setLoading] = useState(true);
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
+    const router = useRouter();
 
+    // 1. Auth Guard (Client-Side)
+    // We still need this effect for redirection, as we are using client-side auth.
     useEffect(() => {
-        if (!user) return;
+        if (!authLoading && !user) {
+            router.push('/');
+        }
+    }, [user, authLoading, router]);
 
-        const fetchVehicles = async () => {
-            try {
-                const res = await fetch(`/api/vehicles?userId=${user.uid}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setVehicles(data.data);
-                }
-            } catch (err) {
-                console.error("Failed to load garage", err);
-            } finally {
-                setLoading(false);
-            }
-        };
+    // 2. Data Fetching (Replaces useEffect)
+    // Only fetch when user.uid is available (conditional fetching)
+    const { data, error, isLoading, mutate } = useSWR(
+        user ? `/api/vehicles?userId=${user.uid}` : null,
+        fetcher
+    );
 
-        fetchVehicles();
-    }, [user]);
+    const vehicles: Vehicle[] = data?.data || [];
 
-    if (loading) {
+    if (authLoading || (isLoading && user)) {
         return (
             <div className="min-h-screen bg-black text-white p-6 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
             </div>
         );
     }
+
+    // If not loading and no user, we render nothing (waiting for redirect)
+    if (!user) return null;
 
     return (
         <div className="min-h-screen bg-black text-white p-6 pb-24">
@@ -48,12 +52,20 @@ export default function GaragePage() {
                     <h1 className="text-3xl font-black tracking-tighter">MY GARAGE</h1>
                     <p className="text-zinc-500 text-sm font-mono">MASTER TECH ACCESS GRANTED</p>
                 </div>
-                <button
-                    onClick={() => setIsAdding(true)}
-                    className="bg-zinc-800 hover:bg-zinc-700 text-white w-10 h-10 rounded-full flex items-center justify-center border border-zinc-600"
-                >
-                    <span className="text-xl font-bold">+</span>
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => auth.signOut()}
+                        className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-bold px-4 py-2 rounded-full border border-zinc-800"
+                    >
+                        SIGN OUT
+                    </button>
+                    <button
+                        onClick={() => setIsAdding(true)}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white w-10 h-10 rounded-full flex items-center justify-center border border-zinc-600"
+                    >
+                        <span className="text-xl font-bold">+</span>
+                    </button>
+                </div>
             </div>
 
             {/* GRID LAYOUT */}
@@ -79,12 +91,7 @@ export default function GaragePage() {
             {/* MODAL */}
             {isAdding && <AddVehicleModal onClose={() => {
                 setIsAdding(false);
-                // Quick refresh hack for MVP - ideally we'd use SWR mutate or context
-                if (user) {
-                    fetch(`/api/vehicles?userId=${user.uid}`)
-                        .then(res => res.json())
-                        .then(data => setVehicles(data.data));
-                }
+                mutate(); // Re-fetch data automatically
             }} />}
         </div>
     );
