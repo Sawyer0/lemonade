@@ -3,6 +3,7 @@ import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
 import { IVideoDiagnosticAI } from '@/core/interfaces/IAIService';
 import { AIAnalysis, AIAnalysisSchema } from '@/core/types/models';
 import { VIDEO_PROMPTS } from '@/core/prompts/video';
+import { SYSTEM_PROMPTS } from '@/core/prompts/system';
 
 @injectable()
 export class GeminiProAdapter implements IVideoDiagnosticAI {
@@ -18,7 +19,12 @@ export class GeminiProAdapter implements IVideoDiagnosticAI {
     }
 
     async analyzeMechanicalVideo(videoUrl: string, vehicleContext: string): Promise<AIAnalysis> {
-        const prompt = VIDEO_PROMPTS.ANALYSIS(vehicleContext);
+        const prompt = `
+        ${SYSTEM_PROMPTS.IDENTITY}
+        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        
+        ${VIDEO_PROMPTS.ANALYSIS(vehicleContext)}
+        `;
 
         const result = await this.model.generateContent({
             contents: [{

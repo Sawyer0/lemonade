@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/presentation/context/AuthContext";
 import { ToastProvider } from "@/presentation/components/ui/Toast";
+import { OfflineBanner } from "@/presentation/components/ui/OfflineBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +16,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lemonade MVP",
-  description: "Master Tech AI Diagnostic Platform",
+  title: "Master Tech",
+  description: "Your AI-powered automotive diagnostic assistant",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Master Tech",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#3B82F6",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({
@@ -26,11 +41,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
       >
         <AuthProvider>
           <ToastProvider>
+            <OfflineBanner />
             {children}
           </ToastProvider>
         </AuthProvider>
@@ -38,3 +57,4 @@ export default function RootLayout({
     </html>
   );
 }
+

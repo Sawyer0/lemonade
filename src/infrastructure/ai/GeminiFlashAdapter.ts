@@ -1,17 +1,29 @@
 import { injectable } from 'inversify';
-import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
+import { VertexAI, GenerativeModel, Tool } from '@google-cloud/vertexai';
 import { IChatAssistantAI } from '@/core/interfaces/IAIService';
 import { AIAnalysis } from '@/core/types/models';
 import { VOICE_PROMPTS } from '@/core/prompts/voice';
+import { SYSTEM_PROMPTS } from '@/core/prompts/system';
+import { SAFETY_PROMPTS } from '@/core/prompts/safety';
+import { VERIFY_SAFE_SUPPORT_TOOL } from '@/core/tools/verifySafeSupport';
 
 @injectable()
 export class GeminiFlashAdapter implements IChatAssistantAI {
     private model: GenerativeModel;
+    private safetyTools: Tool[];
 
     constructor(projectId: string) {
         const vertex = new VertexAI({ project: projectId, location: 'us-central1' });
 
-        this.model = vertex.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+        // Define tools for function calling (Safety 2.0)
+        this.safetyTools = [{
+            functionDeclarations: [VERIFY_SAFE_SUPPORT_TOOL]
+        }];
+
+        this.model = vertex.getGenerativeModel({
+            model: 'gemini-2.0-flash-exp',
+            tools: this.safetyTools
+        });
     }
 
     async generateReply(
@@ -27,13 +39,33 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
         });
 
         const contextPrompt = `
+        ${SYSTEM_PROMPTS.IDENTITY}
+        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+
         CONTEXT:
         Vehicle: ${vehicleContext}
         Current Diagnosis: ${diagnosticContext ? JSON.stringify(diagnosticContext) : 'None'}
+        
+        SAFETY TRIGGERS: If the user mentions any of: ${SAFETY_PROMPTS.TRIGGER_PHRASES.join(', ')},
+        you MUST use the verifySafeSupport tool to request visual verification before proceeding.
         `;
 
         const result = await chat.sendMessage(contextPrompt);
-        const text = result.response.candidates?.[0].content.parts[0].text;
+
+        // Check if the model wants to call a function (Safety 2.0)
+        const response = result.response;
+        const candidate = response.candidates?.[0];
+
+        if (candidate?.content?.parts?.length && candidate.content.parts[0].functionCall) {
+            const functionCall = candidate.content.parts[0].functionCall;
+
+            if (functionCall.name === 'verifySafeSupport') {
+                // Return a safety verification request message
+                return `🛡️ **Safety Verification Required**\n\n${SAFETY_PROMPTS.RED_ZONE_WARNING}`;
+            }
+        }
+
+        const text = candidate?.content.parts[0].text;
         return text || "I didn't catch that.";
     }
 
@@ -42,7 +74,15 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
         const buffer = this.float32To16BitPCM(audioData);
         const base64Audio = Buffer.from(buffer).toString('base64');
 
-        const prompt = VOICE_PROMPTS.COMMAND_ANALYSIS(vehicleContext);
+        const prompt = `
+        ${SYSTEM_PROMPTS.IDENTITY}
+        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        
+        SAFETY TRIGGERS: If the user's speech mentions any of: ${SAFETY_PROMPTS.TRIGGER_PHRASES.join(', ')},
+        you MUST use the verifySafeSupport tool to request visual verification.
+        
+        ${VOICE_PROMPTS.COMMAND_ANALYSIS(vehicleContext)}
+        `;
 
         const result = await this.model.generateContent({
             contents: [{
@@ -54,7 +94,18 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
             }]
         });
 
-        const text = result.response.candidates?.[0].content.parts[0].text;
+        // Check for function call in voice response too
+        const candidate = result.response.candidates?.[0];
+
+        if (candidate?.content?.parts?.length && candidate.content.parts[0].functionCall) {
+            const functionCall = candidate.content.parts[0].functionCall;
+
+            if (functionCall.name === 'verifySafeSupport') {
+                return `🛡️ **Safety Verification Required**\n\n${SAFETY_PROMPTS.RED_ZONE_WARNING}`;
+            }
+        }
+
+        const text = candidate?.content.parts[0].text;
         return text || "I couldn't hear you clearly.";
     }
 

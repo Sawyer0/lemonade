@@ -9,4 +9,5 @@ export interface ISessionRepository {
     flagSafetyStop(sessionId: string, reason: string): Promise<void>;
     findById(id: string): Promise<DiagnosticSession | null>;
     updateVideo(sessionId: string, videoUrl: string): Promise<void>;
+    findByVehicleId(vehicleId: string): Promise<DiagnosticSession[]>;
 }

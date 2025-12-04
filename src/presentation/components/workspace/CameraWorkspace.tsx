@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DiagnosticSession } from '@/core/types/models';
 import { useDirectUpload } from '@/presentation/hooks/useDirectUpload';
 import { useVoiceCommand } from '@/presentation/hooks/useVoiceCommand';
+import { useTTS } from '@/presentation/hooks/useTTS';
 import { useToast } from '@/presentation/components/ui/Toast';
 import { SafetyOverlay } from './SafetyOverlay';
 import { SessionStatusHeader } from './SessionStatusHeader';
@@ -17,11 +18,38 @@ interface CameraWorkspaceProps {
 
 export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps) {
     const [input, setInput] = useState('');
+    const [voiceMode, setVoiceMode] = useState(false);
     const { uploadFile, uploading, progress } = useDirectUpload();
     const { processAudio, isProcessing: isProcessingAudio } = useVoiceCommand();
     const { showToast } = useToast();
+    const { speak, stop, isSpeaking } = useTTS();
+    const lastSpokenMessageRef = useRef<string | null>(null);
 
     const isSafetyStop = !!session.aiAnalysis?.safety_alert;
+
+    // Auto-speak AI messages when in Voice Mode
+    useEffect(() => {
+        if (!voiceMode || session.messages.length === 0) return;
+
+        // Find the latest AI message
+        const aiMessages = session.messages.filter(m => m.role === 'assistant');
+        if (aiMessages.length === 0) return;
+
+        const latestAiMessage = aiMessages[aiMessages.length - 1];
+
+        // Only speak if it's a new message we haven't spoken yet
+        if (latestAiMessage.content !== lastSpokenMessageRef.current) {
+            lastSpokenMessageRef.current = latestAiMessage.content;
+            speak(latestAiMessage.content);
+        }
+    }, [session.messages, voiceMode, speak]);
+
+    // Stop speaking when user starts talking (barge-in)
+    useEffect(() => {
+        if (isProcessingAudio && isSpeaking) {
+            stop();
+        }
+    }, [isProcessingAudio, isSpeaking, stop]);
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -55,8 +83,11 @@ export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps
                 {session.videoUrl ? (
                     <video
                         src={session.videoUrl}
-                        className="w-full h-full object-cover opacity-50"
-                        controls
+                        className="w-full h-full object-cover"
+                        controls={false}
+                        autoPlay
+                        loop
+                        muted
                         playsInline
                     />
                 ) : (
@@ -65,6 +96,9 @@ export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps
                     </div>
                 )}
             </div>
+
+            {/* Gradient Overlay for Text Readability */}
+            <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none" />
 
             {/* LAYER 2: SAFETY OVERLAY (Red Zone) */}
             <SafetyOverlay

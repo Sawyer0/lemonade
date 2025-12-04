@@ -10,8 +10,8 @@ import { ILogger } from "@/core/interfaces/ILogger";
 import { IDiagnosticService } from "@/core/interfaces/IDiagnosticService";
 
 // Implementations (Infrastructure)
-import { VehicleFirestoreRepository } from "../repositories/VehicleFirestoreRepository";
-import { SessionFirestoreRepository } from "../repositories/SessionFirestoreRepository";
+import { VehicleAdminRepository } from "../repositories/VehicleAdminRepository";
+import { SessionAdminRepository } from "../repositories/SessionAdminRepository";
 import { GeminiProAdapter } from "../ai/GeminiProAdapter";
 import { GeminiFlashAdapter } from "../ai/GeminiFlashAdapter";
 import { Logger } from "../logging/Logger";
@@ -25,11 +25,11 @@ const container = new Container();
 
 // --- 1. Bind Repositories (Data Layer) ---
 container.bind<IVehicleRepository>(TYPES.VehicleRepo)
-    .to(VehicleFirestoreRepository)
+    .to(VehicleAdminRepository)
     .inSingletonScope();
 
 container.bind<ISessionRepository>(TYPES.SessionRepo)
-    .to(SessionFirestoreRepository)
+    .to(SessionAdminRepository)
     .inSingletonScope();
 
 // --- 2. Bind AI Adapters (The "Brain") ---

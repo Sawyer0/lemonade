@@ -4,33 +4,77 @@ import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { VehicleCard } from '@/presentation/components/garage/VehicleCard';
 import { AddVehicleModal } from '@/presentation/components/garage/AddVehicleModal';
+import { UpgradeModal } from '@/presentation/components/modals/UpgradeModal';
 import { Vehicle } from '@/core/types/models';
 import { useAuth } from '@/presentation/context/AuthContext';
 import { auth } from '@/infrastructure/firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/infrastructure/firebase/config';
+import { Crown, Zap } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function GaragePage() {
     const [isAdding, setIsAdding] = useState(false);
+    const [showUpgrade, setShowUpgrade] = useState(false);
+    const [userTier, setUserTier] = useState<'free' | 'pro'>('free');
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
 
     // 1. Auth Guard (Client-Side)
-    // We still need this effect for redirection, as we are using client-side auth.
     useEffect(() => {
         if (!authLoading && !user) {
             router.push('/');
         }
     }, [user, authLoading, router]);
 
-    // 2. Data Fetching (Replaces useEffect)
-    // Only fetch when user.uid is available (conditional fetching)
+    // 2. Fetch user tier from Firestore
+    useEffect(() => {
+        if (user) {
+            const fetchTier = async () => {
+                const userDoc = await getDoc(doc(db, 'users', user.uid));
+                if (userDoc.exists()) {
+                    setUserTier(userDoc.data().tier === 'pro' ? 'pro' : 'free');
+                }
+            };
+            fetchTier();
+        }
+    }, [user]);
+
+    // 3. Data Fetching
     const { data, error, isLoading, mutate } = useSWR(
         user ? `/api/vehicles?userId=${user.uid}` : null,
         fetcher
     );
 
     const vehicles: Vehicle[] = data?.data || [];
+
+    const [portalLoading, setPortalLoading] = useState(false);
+
+    const handleManageSubscription = async () => {
+        try {
+            setPortalLoading(true);
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) return;
+
+            const res = await fetch('/api/stripe/portal', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) throw new Error('Failed to create portal session');
+
+            const { url } = await res.json();
+            window.location.href = url;
+        } catch (error) {
+            console.error('Portal Error:', error);
+            alert('Failed to open subscription management');
+        } finally {
+            setPortalLoading(false);
+        }
+    };
 
     if (authLoading || (isLoading && user)) {
         return (
@@ -40,7 +84,6 @@ export default function GaragePage() {
         );
     }
 
-    // If not loading and no user, we render nothing (waiting for redirect)
     if (!user) return null;
 
     return (
@@ -49,10 +92,39 @@ export default function GaragePage() {
             {/* HEADER */}
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-3xl font-black tracking-tighter">MY GARAGE</h1>
+                    <div className="flex items-center gap-3 mb-1">
+                        <h1 className="text-3xl font-black tracking-tighter">MY GARAGE</h1>
+                        {userTier === 'pro' ? (
+                            <span className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-full text-xs font-bold text-yellow-400">
+                                <Crown className="w-3 h-3" />
+                                PRO
+                            </span>
+                        ) : (
+                            <span className="px-3 py-1 bg-zinc-800 border border-zinc-700 rounded-full text-xs font-bold text-zinc-400">
+                                FREE
+                            </span>
+                        )}
+                    </div>
                     <p className="text-zinc-500 text-sm font-mono">MASTER TECH ACCESS GRANTED</p>
                 </div>
                 <div className="flex gap-2">
+                    {userTier === 'pro' ? (
+                        <button
+                            onClick={handleManageSubscription}
+                            disabled={portalLoading}
+                            className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-bold px-4 py-2 rounded-full border border-zinc-800 disabled:opacity-50"
+                        >
+                            {portalLoading ? 'LOADING...' : 'MANAGE SUBSCRIPTION'}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setShowUpgrade(true)}
+                            className="flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-xs font-bold px-4 py-2 rounded-full hover:from-yellow-400 hover:to-orange-400"
+                        >
+                            <Zap className="w-3 h-3" />
+                            UPGRADE TO PRO
+                        </button>
+                    )}
                     <button
                         onClick={() => auth.signOut()}
                         className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-bold px-4 py-2 rounded-full border border-zinc-800"
@@ -88,11 +160,16 @@ export default function GaragePage() {
                 </button>
             </div>
 
-            {/* MODAL */}
+            {/* MODALS */}
             {isAdding && <AddVehicleModal onClose={() => {
                 setIsAdding(false);
                 mutate(); // Re-fetch data automatically
             }} />}
+
+            <UpgradeModal
+                isOpen={showUpgrade}
+                onClose={() => setShowUpgrade(false)}
+            />
         </div>
     );
 }

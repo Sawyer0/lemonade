@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
   // 1. Protect Sensitive Endpoints
   // We protect /api/analysis (AI triggers) and /api/chat (AI chat)
   // We also protect /api/vehicles (User data)
-  const protectedPaths = ['/api/analysis', '/api/chat', '/api/vehicles'];
+  const protectedPaths = ['/api/analysis', '/api/chat', '/api/vehicles', '/api/upload', '/api/stripe/portal'];
 
   if (protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
 
@@ -63,13 +63,23 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: Invalid Token' }, { status: 401 });
     }
 
-    // (Optional) RBAC: Check for custom claims like 'stripe_role' here
-    // if (payload.stripe_role !== 'pro') ...
+    // 2. Pro Tier Gate for Upload Endpoint
+    // Free users cannot upload videos - they must upgrade to Pro
+    if (request.nextUrl.pathname.startsWith('/api/upload')) {
+      const userTier = payload.stripe_role as string | undefined;
+      if (userTier !== 'pro') {
+        return NextResponse.json(
+          { error: 'Upgrade Required', code: 'PRO_REQUIRED' },
+          { status: 403 }
+        );
+      }
+    }
 
     // Success! Pass through.
     // We can also set headers here to pass user info to the route handler if needed
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', payload.sub!);
+    requestHeaders.set('x-user-tier', (payload.stripe_role as string) || 'free');
 
     return NextResponse.next({
       request: {

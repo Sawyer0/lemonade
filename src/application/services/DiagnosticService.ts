@@ -1,4 +1,5 @@
 import { injectable, inject } from 'inversify';
+import { v4 as uuidv4 } from 'uuid';
 import { TYPES } from '@/infrastructure/di/types';
 import type {
     IVideoDiagnosticAI,
@@ -8,6 +9,7 @@ import type { ISessionRepository } from '@/core/interfaces/ISessionRepository';
 import type { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
 import type { IDiagnosticService } from '@/core/interfaces/IDiagnosticService';
 import type { ILogger } from '@/core/interfaces/ILogger';
+import { DiagnosticSession } from '@/core/types/models';
 
 @injectable()
 export class DiagnosticService implements IDiagnosticService {
@@ -96,5 +98,25 @@ export class DiagnosticService implements IDiagnosticService {
         await this.sessionRepo.addMessage(sessionId, 'assistant', reply);
 
         return reply;
+    }
+    async startSession(vehicleId: string): Promise<string> {
+        const vehicle = await this.vehicleRepo.findById(vehicleId);
+        if (!vehicle) throw new Error("Vehicle not found");
+
+        const newSession: DiagnosticSession = {
+            id: uuidv4(),
+            vehicleId: vehicle.id,
+            status: 'active',
+            complaint: 'New Session',
+            obdCodes: [],
+            messages: [],
+            updatedAt: new Date(),
+            startedAt: new Date(),
+            aiAnalysis: null,
+            videoUrl: undefined
+        };
+
+        await this.sessionRepo.create(newSession);
+        return newSession.id;
     }
 }

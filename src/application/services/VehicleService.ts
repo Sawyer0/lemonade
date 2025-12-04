@@ -1,7 +1,8 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
 import type { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
-import { Vehicle } from '@/core/types/models';
+import type { ISessionRepository } from '@/core/interfaces/ISessionRepository';
+import { Vehicle, DiagnosticSession } from '@/core/types/models';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { ILogger } from '@/core/interfaces/ILogger';
@@ -10,6 +11,7 @@ import type { ILogger } from '@/core/interfaces/ILogger';
 export class VehicleService {
     constructor(
         @inject(TYPES.VehicleRepo) private vehicleRepo: IVehicleRepository,
+        @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
         @inject(TYPES.Logger) private logger: ILogger
     ) { }
 
@@ -73,5 +75,8 @@ export class VehicleService {
             // Fallback for MVP if API fails, but still structured
             throw new Error("Could not verify vehicle identity. Please try again.");
         }
+    }
+    async getHistory(vehicleId: string): Promise<DiagnosticSession[]> {
+        return this.sessionRepo.findByVehicleId(vehicleId);
     }
 }

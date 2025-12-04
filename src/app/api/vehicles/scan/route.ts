@@ -26,10 +26,11 @@ export async function POST(req: Request) {
 
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid VIN format' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid VIN format', details: error.issues }, { status: 400 });
     }
     const logger = container.get<ILogger>(TYPES.Logger);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to decode vehicle', error);
-    return NextResponse.json({ error: 'Failed to decode vehicle' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to decode vehicle', details: errorMessage }, { status: 500 });
   }
 }

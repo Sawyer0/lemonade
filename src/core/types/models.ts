@@ -54,6 +54,7 @@ export const DiagnosticSessionSchema = z.object({
     })),
 
     updatedAt: z.date(),
+    startedAt: z.date(),
 });
 
 export type DiagnosticSession = z.infer<typeof DiagnosticSessionSchema>;

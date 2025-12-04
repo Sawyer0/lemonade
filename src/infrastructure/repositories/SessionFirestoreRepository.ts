@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import { db } from '@/infrastructure/firebase/config';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, query, where, orderBy, getDocs, collection } from 'firebase/firestore';
 import { ISessionRepository } from '@/core/interfaces/ISessionRepository';
 import { DiagnosticSession, AIAnalysis } from '@/core/types/models';
 
@@ -51,5 +51,15 @@ export class SessionFirestoreRepository implements ISessionRepository {
 
     async updateVideo(sessionId: string, videoUrl: string): Promise<void> {
         await updateDoc(doc(db, 'sessions', sessionId), { videoUrl });
+    }
+
+    async findByVehicleId(vehicleId: string): Promise<DiagnosticSession[]> {
+        const q = query(
+            collection(db, 'sessions'),
+            where('vehicleId', '==', vehicleId),
+            orderBy('startedAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => doc.data() as DiagnosticSession);
     }
 }
