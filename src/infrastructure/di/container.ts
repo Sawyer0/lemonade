@@ -6,16 +6,20 @@ import { TYPES } from "./types";
 import { IVehicleRepository } from "@/core/interfaces/IVehicleRepository";
 import { ISessionRepository } from "@/core/interfaces/ISessionRepository";
 import { IVideoDiagnosticAI, IChatAssistantAI } from "@/core/interfaces/IAIService";
+import { ILogger } from "@/core/interfaces/ILogger";
+import { IDiagnosticService } from "@/core/interfaces/IDiagnosticService";
 
 // Implementations (Infrastructure)
 import { VehicleFirestoreRepository } from "../repositories/VehicleFirestoreRepository";
 import { SessionFirestoreRepository } from "../repositories/SessionFirestoreRepository";
 import { GeminiProAdapter } from "../ai/GeminiProAdapter";
 import { GeminiFlashAdapter } from "../ai/GeminiFlashAdapter";
+import { Logger } from "../logging/Logger";
 
-// Services (Application) - We will bind these as we create them
-// import { DiagnosticService } from '@/application/services/DiagnosticService';
-// import { VehicleService } from '@/application/services/VehicleService';
+// Services (Application)
+import { VehicleService } from "@/application/services/VehicleService";
+import { DiagnosticService } from "@/application/services/DiagnosticService";
+import { StorageService } from "@/infrastructure/storage/StorageService";
 
 const container = new Container();
 
@@ -38,22 +42,19 @@ container.bind<IChatAssistantAI>(TYPES.ChatAI).toDynamicValue(() => {
 }).inSingletonScope();
 
 // --- 3. Bind Services (Application) ---
-import { VehicleService } from "@/application/services/VehicleService";
-
 container.bind<VehicleService>(TYPES.VehicleService)
     .to(VehicleService)
     .inSingletonScope();
 
-import { DiagnosticService } from "@/application/services/DiagnosticService";
-
-container.bind<DiagnosticService>(TYPES.DiagnosticService)
+container.bind<IDiagnosticService>(TYPES.DiagnosticService)
     .to(DiagnosticService)
     .inSingletonScope();
-
-import { StorageService } from "@/infrastructure/storage/StorageService";
 
 container.bind<StorageService>(TYPES.StorageService).toDynamicValue(() => {
     return new StorageService(process.env.GCLOUD_PROJECT!, process.env.GCLOUD_MEDIA_BUCKET!);
 }).inSingletonScope();
+
+// --- 4. Bind Infrastructure Services ---
+container.bind<ILogger>(TYPES.Logger).to(Logger).inSingletonScope();
 
 export { container };

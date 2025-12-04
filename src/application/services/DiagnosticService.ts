@@ -6,14 +6,17 @@ import type {
 } from '@/core/interfaces/IAIService';
 import type { ISessionRepository } from '@/core/interfaces/ISessionRepository';
 import type { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
+import type { IDiagnosticService } from '@/core/interfaces/IDiagnosticService';
+import type { ILogger } from '@/core/interfaces/ILogger';
 
 @injectable()
-export class DiagnosticService {
+export class DiagnosticService implements IDiagnosticService {
     constructor(
         @inject(TYPES.VideoAI) private videoAI: IVideoDiagnosticAI, // Gemini 3 Pro
         @inject(TYPES.ChatAI) private chatAI: IChatAssistantAI,     // Gemini Flash
         @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
-        @inject(TYPES.VehicleRepo) private vehicleRepo: IVehicleRepository
+        @inject(TYPES.VehicleRepo) private vehicleRepo: IVehicleRepository,
+        @inject(TYPES.Logger) private logger: ILogger
     ) { }
 
     async processVideoUpload(sessionId: string, videoUrl: string) {
@@ -28,6 +31,8 @@ export class DiagnosticService {
 
         // 2. Update Status
         await this.sessionRepo.updateStatus(sessionId, 'analyzing');
+        await this.sessionRepo.updateVideo(sessionId, videoUrl);
+        this.logger.info('Video upload processed', { sessionId, videoUrl });
 
         try {
             // 3. Call Gemini 3 Pro
@@ -42,7 +47,7 @@ export class DiagnosticService {
             await this.sessionRepo.updateAnalysis(sessionId, analysis);
 
         } catch (error) {
-            console.error(error);
+            this.logger.error('Video processing failed', error, { sessionId });
             await this.sessionRepo.updateStatus(sessionId, 'active');
         }
     }
@@ -69,6 +74,25 @@ export class DiagnosticService {
 
         // 4. Save Interaction
         await this.sessionRepo.addMessage(sessionId, 'user', userMessage);
+        await this.sessionRepo.addMessage(sessionId, 'assistant', reply);
+
+        return reply;
+    }
+
+    async processVoiceCommand(sessionId: string, audioData: Float32Array): Promise<string> {
+        // 1. Load Session & Vehicle
+        const session = await this.sessionRepo.findById(sessionId);
+        if (!session) throw new Error("Session not found");
+
+        const vehicle = await this.vehicleRepo.findById(session.vehicleId);
+        const vehicleContext = `${vehicle?.specs.year} ${vehicle?.specs.make} ${vehicle?.specs.model}`;
+
+        // 2. Process Audio via Gemini Flash
+        const reply = await this.chatAI.processAudioCommand(audioData, vehicleContext);
+
+        // 3. Save Interaction
+        // We log a generic "Voice Command" for the user side since we don't have STT here.
+        await this.sessionRepo.addMessage(sessionId, 'user', '🎤 [Voice Command]');
         await this.sessionRepo.addMessage(sessionId, 'assistant', reply);
 
         return reply;

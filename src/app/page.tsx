@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/infrastructure/firebase/config';
 import { useAuth } from '@/presentation/context/AuthContext';
+import { useToast } from '@/presentation/components/ui/Toast';
 
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -21,7 +23,7 @@ export default function Home() {
       await signInWithPopup(auth, provider);
       // Redirect handled by useEffect
     } catch (error) {
-      console.error("Login failed", error);
+      showToast('Login failed. Please try again.', 'error');
     }
   };
 

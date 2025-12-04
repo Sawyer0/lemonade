@@ -11,4 +11,5 @@ export const TYPES = {
     DiagnosticService: Symbol.for('DiagnosticService'),
     VehicleService: Symbol.for('VehicleService'),
     StorageService: Symbol.for('StorageService'),
+    Logger: Symbol.for('Logger'),
 };

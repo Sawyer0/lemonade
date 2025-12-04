@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Logger } from '@/infrastructure/logging/Logger';
 
 export function useDirectUpload() {
     const [uploading, setUploading] = useState(false);
@@ -46,7 +47,8 @@ export function useDirectUpload() {
             return publicUrl;
 
         } catch (error) {
-            console.error(error);
+            const logger = new Logger();
+            logger.error('Upload failed', error);
             setUploading(false);
             throw error;
         }

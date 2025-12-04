@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { DiagnosticService } from '@/application/services/DiagnosticService';
+import { ILogger } from '@/core/interfaces/ILogger';
 
 const ChatRequestSchema = z.object({
   sessionId: z.string().uuid(),
@@ -17,13 +18,14 @@ export async function POST(req: Request) {
     const diagnosticService = container.get<DiagnosticService>(TYPES.DiagnosticService);
     const reply = await diagnosticService.handleChatInteraction(sessionId, message);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       role: 'assistant',
-      content: reply 
+      content: reply
     });
 
   } catch (error) {
-    console.error(error);
+    const logger = container.get<ILogger>(TYPES.Logger);
+    logger.error('AI Service Unavailable', error);
     return NextResponse.json({ error: 'AI Service Unavailable' }, { status: 503 });
   }
 }

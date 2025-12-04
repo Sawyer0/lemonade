@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { StorageService } from '@/infrastructure/storage/StorageService';
+import { ILogger } from '@/core/interfaces/ILogger';
 
 const SignRequestSchema = z.object({
   contentType: z.enum(['video/mp4', 'image/jpeg', 'image/png']),
@@ -25,7 +26,8 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    console.error(error);
+    const logger = container.get<ILogger>(TYPES.Logger);
+    logger.error('Authorization Failed', error);
     return NextResponse.json({ error: 'Authorization Failed' }, { status: 403 });
   }
 }

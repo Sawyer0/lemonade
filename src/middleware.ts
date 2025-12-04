@@ -10,9 +10,23 @@ const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 // Fetch Google's Public Keys (Cached automatically by jose)
 const JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
 
+// Helper for structured logging in Edge Runtime
+function logError(message: string, error?: unknown) {
+  console.error(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: 'ERROR',
+    message,
+    error: error instanceof Error ? {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    } : error
+  }));
+}
+
 async function verifyFirebaseToken(token: string) {
   if (!FIREBASE_PROJECT_ID) {
-    console.error("NEXT_PUBLIC_FIREBASE_PROJECT_ID is not defined");
+    logError("NEXT_PUBLIC_FIREBASE_PROJECT_ID is not defined");
     return null;
   }
 
@@ -24,7 +38,7 @@ async function verifyFirebaseToken(token: string) {
     });
     return payload;
   } catch (error) {
-    console.error("Token Verification Failed:", error);
+    logError("Token Verification Failed", error);
     return null;
   }
 }
@@ -34,9 +48,9 @@ export async function middleware(request: NextRequest) {
   // We protect /api/analysis (AI triggers) and /api/chat (AI chat)
   // We also protect /api/vehicles (User data)
   const protectedPaths = ['/api/analysis', '/api/chat', '/api/vehicles'];
-  
+
   if (protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
-    
+
     const authHeader = request.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized: Missing Token' }, { status: 401 });
@@ -56,7 +70,7 @@ export async function middleware(request: NextRequest) {
     // We can also set headers here to pass user info to the route handler if needed
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', payload.sub!);
-    
+
     return NextResponse.next({
       request: {
         headers: requestHeaders,

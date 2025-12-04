@@ -12,4 +12,9 @@ export interface IChatAssistantAI {
         vehicleContext: string,
         diagnosticContext: AIAnalysis | null
     ): Promise<string>;
+
+    processAudioCommand(
+        audioData: Float32Array,
+        vehicleContext: string
+    ): Promise<string>;
 }

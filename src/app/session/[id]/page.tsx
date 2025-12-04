@@ -2,10 +2,12 @@
 import { use, useState } from 'react';
 import { useLiveSession } from '@/presentation/hooks/useLiveSession';
 import { CameraWorkspace } from '@/presentation/components/workspace/CameraWorkspace';
+import { useToast } from '@/presentation/components/ui/Toast';
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const { session, loading } = useLiveSession(id);
+    const { showToast } = useToast();
 
     const handleSendMessage = async (message: string) => {
         if (!session) return;
@@ -16,7 +18,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 body: JSON.stringify({ sessionId: session.id, message })
             });
         } catch (err) {
-            console.error("Failed to send message", err);
+            showToast('Failed to send message', 'error');
         }
     };
 

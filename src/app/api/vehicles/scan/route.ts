@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { VehicleService } from '@/application/services/VehicleService';
+import { ILogger } from '@/core/interfaces/ILogger';
 
 // Input DTO
 const ScanRequestSchema = z.object({
@@ -27,7 +28,8 @@ export async function POST(req: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid VIN format' }, { status: 400 });
     }
-    console.error(error);
+    const logger = container.get<ILogger>(TYPES.Logger);
+    logger.error('Failed to decode vehicle', error);
     return NextResponse.json({ error: 'Failed to decode vehicle' }, { status: 500 });
   }
 }

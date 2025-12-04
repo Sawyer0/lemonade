@@ -48,4 +48,8 @@ export class SessionFirestoreRepository implements ISessionRepository {
             'aiAnalysis.diagnosis': `SAFETY STOP: ${reason}`
         });
     }
+
+    async updateVideo(sessionId: string, videoUrl: string): Promise<void> {
+        await updateDoc(doc(db, 'sessions', sessionId), { videoUrl });
+    }
 }

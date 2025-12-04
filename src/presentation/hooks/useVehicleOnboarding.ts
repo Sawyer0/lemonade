@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Vehicle } from '@/core/types/models';
+import { Logger } from '@/infrastructure/logging/Logger';
 
 export function useVehicleOnboarding() {
     const [status, setStatus] = useState<'idle' | 'scanning' | 'processing' | 'success' | 'error'>('idle');
@@ -23,7 +24,8 @@ export function useVehicleOnboarding() {
             return data.data;
 
         } catch (err) {
-            console.error(err);
+            const logger = new Logger();
+            logger.error('Failed to decode VIN', err);
             setStatus('error');
         }
     };

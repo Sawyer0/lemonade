@@ -4,10 +4,13 @@ import type { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
 import { Vehicle } from '@/core/types/models';
 import { v4 as uuidv4 } from 'uuid';
 
+import type { ILogger } from '@/core/interfaces/ILogger';
+
 @injectable()
 export class VehicleService {
     constructor(
-        @inject(TYPES.VehicleRepo) private vehicleRepo: IVehicleRepository
+        @inject(TYPES.VehicleRepo) private vehicleRepo: IVehicleRepository,
+        @inject(TYPES.Logger) private logger: ILogger
     ) { }
 
     async onboardVehicle(vin: string, userId: string): Promise<Vehicle> {
@@ -66,7 +69,7 @@ export class VehicleService {
                 trim: trim !== "Unknown" ? trim : undefined,
             };
         } catch (error) {
-            console.error("NHTSA API Error:", error);
+            this.logger.error("NHTSA API Error", error, { vin });
             // Fallback for MVP if API fails, but still structured
             throw new Error("Could not verify vehicle identity. Please try again.");
         }
