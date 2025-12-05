@@ -5,8 +5,8 @@ export const TYPES = {
     VehicleInfoProvider: Symbol.for('VehicleInfoProvider'),
 
     // --- AI Adapters ---
-    VideoAI: Symbol.for('VideoDiagnosticAI'), // Maps to Gemini 3 Pro
-    ChatAI: Symbol.for('ChatAssistantAI'),    // Maps to Gemini Flash
+    VideoAI: Symbol.for('VideoDiagnosticAI'), // Maps to Gemini 2.0 Flash
+    ChatAI: Symbol.for('ChatAssistantAI'),    // Maps to Gemini 2.0 Flash
 
     // --- Application (Logic) ---
     DiagnosticService: Symbol.for('DiagnosticService'),

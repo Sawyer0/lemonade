@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { StorageService } from '@/infrastructure/storage/StorageService';
-import { ILogger } from '@/core/interfaces/ILogger';
-
-const SignRequestSchema = z.object({
-  contentType: z.enum(['video/mp4', 'image/jpeg', 'image/png']),
-  sessionId: z.string().uuid(),
-});
+import { SignRequestSchema } from '@/application/dtos';
+import { validateRequest, createErrorResponse } from '@/application/utils/validateRequest';
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { contentType, sessionId } = SignRequestSchema.parse(body);
+    const { contentType, sessionId } = await validateRequest(req, SignRequestSchema);
 
     const storageService = container.get<StorageService>(TYPES.StorageService);
     const filename = `sessions/${sessionId}/${Date.now()}.${contentType.split('/')[1]}`;
@@ -26,8 +20,6 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    const logger = container.get<ILogger>(TYPES.Logger);
-    logger.error('Authorization Failed', error);
-    return NextResponse.json({ error: 'Authorization Failed' }, { status: 403 });
+    return createErrorResponse(error);
   }
 }

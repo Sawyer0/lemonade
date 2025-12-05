@@ -1,20 +1,14 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { VehicleService } from '@/application/services/VehicleService';
 import { ILogger } from '@/core/interfaces/ILogger';
-
-// Input DTO
-const ScanRequestSchema = z.object({
-  vin: z.string().length(17),
-  userId: z.string(),
-});
+import { VehicleScanRequestSchema } from '@/application/dtos';
+import { validateRequest, createErrorResponse } from '@/application/utils/validateRequest';
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { vin, userId } = ScanRequestSchema.parse(body);
+    const { vin, userId } = await validateRequest(req, VehicleScanRequestSchema);
 
     const vehicleService = container.get<VehicleService>(TYPES.VehicleService);
     const vehicle = await vehicleService.onboardVehicle(vin, userId);
@@ -25,12 +19,6 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid VIN format', details: error.issues }, { status: 400 });
-    }
-    const logger = container.get<ILogger>(TYPES.Logger);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to decode vehicle', error);
-    return NextResponse.json({ error: 'Failed to decode vehicle', details: errorMessage }, { status: 500 });
+    return createErrorResponse(error);
   }
 }

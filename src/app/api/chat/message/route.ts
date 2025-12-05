@@ -1,14 +1,9 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { DiagnosticService } from '@/application/services/DiagnosticService';
 import { ILogger } from '@/core/interfaces/ILogger';
-
-const ChatRequestSchema = z.object({
-  sessionId: z.string().uuid(),
-  message: z.string().min(1).max(500),
-});
+import { ChatRequestSchema } from '@/application/dtos';
 
 export async function POST(req: Request) {
   try {
