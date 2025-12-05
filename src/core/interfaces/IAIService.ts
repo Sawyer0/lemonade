@@ -9,6 +9,7 @@ export interface IVideoDiagnosticAI {
 export interface IChatAssistantAI {
     generateReply(
         history: { role: string; content: string }[],
+        message: string,
         vehicleContext: string,
         diagnosticContext: AIAnalysis | null
     ): Promise<string>;

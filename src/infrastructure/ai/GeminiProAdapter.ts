@@ -23,7 +23,7 @@ export class GeminiProAdapter implements IVideoDiagnosticAI {
         });
 
         this.model = vertex.getGenerativeModel({
-            model: 'gemini-2.0-flash-thinking-exp-1219',
+            model: 'gemini-2.0-flash-001',
             generationConfig: { responseMimeType: 'application/json' }
         });
     }

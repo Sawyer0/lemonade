@@ -10,9 +10,15 @@ interface VoiceInputProps {
 export function VoiceInput({ onAudioDetected, isProcessing }: VoiceInputProps) {
     const [status, setStatus] = useState<'idle' | 'listening' | 'processing'>('idle');
     const logger = useMemo(() => new Logger(), []);
+
     const vad = useMicVAD({
         startOnLoad: true,
-        onSpeechEnd: (audio) => {
+        workletURL: "/vad/vad.worklet.bundle.min.js",
+        modelURL: "/vad/silero_vad.onnx",
+        ortConfig: (ort: any) => {
+            ort.env.wasm.wasmPaths = "/vad/";
+        },
+        onSpeechEnd: (audio: Float32Array) => {
             logger.info('Speech detected', { audioLength: audio.length });
             setStatus('processing');
             onAudioDetected(audio);
@@ -23,7 +29,7 @@ export function VoiceInput({ onAudioDetected, isProcessing }: VoiceInputProps) {
         onVADMisfire: () => {
             setStatus('idle');
         }
-    });
+    } as any);
 
     // Sync internal status with prop
     useEffect(() => {

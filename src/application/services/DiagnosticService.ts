@@ -70,6 +70,7 @@ export class DiagnosticService implements IDiagnosticService {
         // 3. Get Answer
         const reply = await this.chatAI.generateReply(
             session.messages,
+            userMessage,
             vehicleContext,
             session.aiAnalysis
         );
@@ -112,8 +113,7 @@ export class DiagnosticService implements IDiagnosticService {
             messages: [],
             updatedAt: new Date(),
             startedAt: new Date(),
-            aiAnalysis: null,
-            videoUrl: undefined
+            aiAnalysis: null
         };
 
         await this.sessionRepo.create(newSession);

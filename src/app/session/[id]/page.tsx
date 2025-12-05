@@ -3,6 +3,7 @@ import { use } from 'react';
 import { useLiveSession } from '@/presentation/hooks/useLiveSession';
 import { CameraWorkspace } from '@/presentation/components/workspace/CameraWorkspace';
 import { useToast } from '@/presentation/components/ui/Toast';
+import { auth } from '@/infrastructure/firebase/config';
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -12,9 +13,13 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     const handleSendMessage = async (message: string) => {
         if (!session) return;
         try {
+            const token = await auth.currentUser?.getIdToken();
             await fetch('/api/chat/message', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ sessionId: session.id, message })
             });
         } catch {

@@ -19,8 +19,10 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
             throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is missing');
         }
         console.log('DEBUG: GeminiFlashAdapter Key present, length:', key.length);
+        const credentials = JSON.parse(key);
+        console.log('DEBUG: Service Account Email:', credentials.client_email);
 
-        const authOptions = { credentials: JSON.parse(key) };
+        const authOptions = { credentials };
 
         const vertex = new VertexAI({
             project: projectId,
@@ -34,13 +36,14 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
         }];
 
         this.model = vertex.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-2.0-flash-001',
             tools: this.safetyTools
         });
     }
 
     async generateReply(
         history: { role: string; content: string }[],
+        message: string,
         vehicleContext: string,
         diagnosticContext: AIAnalysis | null
     ): Promise<string> {
@@ -63,7 +66,14 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
         you MUST use the verifySafeSupport tool to request visual verification before proceeding.
         `;
 
-        const result = await chat.sendMessage(contextPrompt);
+        const fullPrompt = `
+        ${contextPrompt}
+
+        USER MESSAGE:
+        ${message}
+        `;
+
+        const result = await chat.sendMessage(fullPrompt);
 
         // Check if the model wants to call a function (Safety 2.0)
         const response = result.response;

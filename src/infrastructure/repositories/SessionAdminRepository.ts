@@ -11,11 +11,31 @@ export class SessionAdminRepository implements ISessionRepository {
         await adminDb.collection('sessions').doc(session.id).set(session);
     }
 
+    private convertTimestamps(data: any): any {
+        if (!data) return data;
+        const converted = { ...data };
+        if (converted.updatedAt && typeof converted.updatedAt.toDate === 'function') {
+            converted.updatedAt = converted.updatedAt.toDate();
+        }
+        if (converted.startedAt && typeof converted.startedAt.toDate === 'function') {
+            converted.startedAt = converted.startedAt.toDate();
+        }
+        if (converted.messages && Array.isArray(converted.messages)) {
+            converted.messages = converted.messages.map((msg: any) => ({
+                ...msg,
+                timestamp: msg.timestamp && typeof msg.timestamp.toDate === 'function'
+                    ? msg.timestamp.toDate()
+                    : msg.timestamp
+            }));
+        }
+        return converted;
+    }
+
     async findById(id: string): Promise<DiagnosticSession | null> {
         const snap = await adminDb.collection('sessions').doc(id).get();
         if (!snap.exists) return null;
 
-        const data = snap.data();
+        const data = this.convertTimestamps(snap.data());
         const result = DiagnosticSessionSchema.safeParse(data);
 
         if (!result.success) {
@@ -95,6 +115,10 @@ export class SessionAdminRepository implements ISessionRepository {
     }
 
     async findByVehicleId(vehicleId: string): Promise<DiagnosticSession[]> {
+        if (!vehicleId) {
+            console.warn('SessionAdminRepository.findByVehicleId called with empty vehicleId');
+            return [];
+        }
         const snapshot = await adminDb.collection('sessions')
             .where('vehicleId', '==', vehicleId)
             .orderBy('startedAt', 'desc')
@@ -102,7 +126,8 @@ export class SessionAdminRepository implements ISessionRepository {
 
         return snapshot.docs
             .map(doc => {
-                const result = DiagnosticSessionSchema.safeParse(doc.data());
+                const data = this.convertTimestamps(doc.data());
+                const result = DiagnosticSessionSchema.safeParse(data);
                 if (!result.success) {
                     console.error(`Session validation failed for ${doc.id}:`, result.error);
                     return null;

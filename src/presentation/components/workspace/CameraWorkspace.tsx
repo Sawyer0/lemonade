@@ -118,7 +118,12 @@ export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps
                 />
 
                 {/* Chat Stream */}
-                <ChatStream messages={session.messages} />
+                <div className="flex-1 min-h-0 pointer-events-auto flex flex-col relative z-40">
+                    <ChatStream
+                        messages={session.messages}
+                        isVideoMode={!!session.videoUrl}
+                    />
+                </div>
 
                 {/* Controls */}
                 <div className="pointer-events-auto pb-6">
