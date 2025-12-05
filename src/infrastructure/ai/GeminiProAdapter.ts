@@ -4,6 +4,7 @@ import { IVideoDiagnosticAI } from '@/core/interfaces/IAIService';
 import { AIAnalysis, AIAnalysisSchema } from '@/core/entities/DiagnosticSession';
 import { VIDEO_PROMPTS } from '@/core/prompts/video';
 import { SYSTEM_PROMPTS } from '@/core/prompts/system';
+import { CONFIG } from '@/infrastructure/config';
 
 @injectable()
 export class GeminiProAdapter implements IVideoDiagnosticAI {
@@ -23,7 +24,7 @@ export class GeminiProAdapter implements IVideoDiagnosticAI {
         });
 
         this.model = vertex.getGenerativeModel({
-            model: 'gemini-2.0-flash-001',
+            model: CONFIG.AI_MODELS.PRIMARY,
             generationConfig: { responseMimeType: 'application/json' }
         });
     }

@@ -127,7 +127,7 @@ export const analyzeVideo = onObjectFinalized({
   const sessionId = filePath.split('/')[1];
 
   // 1. Initialize Gemini Multimodal
-  const model = vertex.getGenerativeModel({ model: 'gemini-1.5-pro' });
+  const model = vertex.getGenerativeModel({ model: 'gemini-2.5-flash' });
   
   // 2. Generate Diagnosis (The "Heavy" work)
   const result = await model.generateContent([
@@ -263,7 +263,7 @@ Instead, we should treat media like a "Translation" task. We translate the Video
 
 1.  **Ingest**: User records a video of the engine rattling.
 2.  **Store**: Save the raw .mp4 or .wav to Google Cloud Storage (Cheap).
-3.  **Translate (The Key Step)**: Immediately send that file to Gemini 3 Pro with a specific prompt: "Describe the mechanical sounds and visual defects in this video with technical precision."
+3.  **Translate (The Key Step)**: Immediately send that file to Gemini 2.5 Flash with a specific prompt: "Describe the mechanical sounds and visual defects in this video with technical precision."
 4.  **Save the "Transcript"**: Store that text description in your Firestore database.
 
 ## The Updated Session Schema
@@ -315,7 +315,7 @@ export async function POST(req) {
   
   // 1. Send the Cloud Storage URL directly to Gemini
   const result = await streamText({
-    model: google('gemini-1.5-pro'),
+    model: google('gemini-2.5-flash'),
     messages: [
       {
         role: 'user',
@@ -598,7 +598,7 @@ This keeps our web server light, fast, and cheap, while Google's massive storage
 | **The Storefront** | Cloud Run | Hosts our Next.js app. Scales to zero when empty; scales up instantly when busy. |
 | **The Vault** | Cloud Storage | Stores the videos and PDFs. Uses "Signed URLs" for direct access. |
 | **The Ledger** | Firestore | Stores user profiles, chat history, and vehicle "Projects." Real-time updates. |
-| **The Brain** | Vertex AI | Runs Gemini 3 Pro. Accesses the "Vault" directly to see videos. |
+| **The Brain** | Vertex AI | Runs Gemini 2.5 Flash. Accesses the "Vault" directly to see videos. |
 
 # Part 2: Monetization Logic (The Fuel System)
 
@@ -611,11 +611,11 @@ In our Firestore database, every user document will have a simple field: `tier: 
 Based on our design, the high-cost items are the Video Analysis (Multimodal AI) and the Deep Research (Search Grounding).
 
 *   **Free Tier**:
-    *   Text Chat (Gemini Flash - Cheap).
+    *   Text Chat (Gemini 2.5 Flash - Cheap).
     *   Standard OBD2 Code Lookup (Static Data).
     *   1 Vehicle Profile/ PDF Manual Storage.
 *   **Pro Tier ($20/mo)**:
-    *   Live Video Assistance (Gemini Pro Vision - Premium).
+    *   Live Video Assistance (Gemini 2.5 Flash with Extended Thinking Budget - Premium).
     *   Deep Research Agent (Web Grounding).
     *   Unlimited Vehicle Profiles.
     *   PDF Manual Storage (Vector Search).
@@ -721,8 +721,8 @@ exports.analyzeMechanicVideo = onObjectFinalized({ cpu: 2 }, async (event) => {
   const sessionId = filePath.split('/')[3]; 
   const gcsUri = `gs://${fileBucket}/${filePath}`;
 
-  // 2. Call Gemini 3 Pro (The Brain)
-  const model = vertex.getGenerativeModel({ model: 'gemini-1.5-pro' });
+  // 2. Call Gemini 2.5 Flash (The Brain)
+  const model = vertex.getGenerativeModel({ model: 'gemini-2.5-flash' });
   const result = await model.generateContent([
     "Analyze this engine video. Identify sounds and visible parts.",
     { fileData: { fileUri: gcsUri, mimeType: event.data.contentType } }
@@ -863,7 +863,7 @@ Instead of asking the user to type a 17-character VIN (which everyone hates), we
 
 **The Technology:**
 *   **Client-Side**: `react-barcode-scanner` (or `react-native-camera` if mobile). It looks for a standard Code 39 or Data Matrix barcode (found on the door jamb).
-*   **Fallback**: If the scan fails (glare/dirt), offer a "Photo Upload" option. Send the photo to Gemini Flash.
+*   **Fallback**: If the scan fails (glare/dirt), offer a "Photo Upload" option. Send the photo to Gemini 2.5 Flash.
 *   **Prompt**: "Extract the VIN from this image. Return only the 17-character string."
 
 ## 2. The "Identity Verification" (NHTSA Lookup) 🏛️

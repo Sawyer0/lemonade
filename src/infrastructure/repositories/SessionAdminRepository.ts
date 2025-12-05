@@ -11,20 +11,20 @@ export class SessionAdminRepository implements ISessionRepository {
         await adminDb.collection('sessions').doc(session.id).set(session);
     }
 
-    private convertTimestamps(data: any): any {
+    private convertTimestamps(data: Record<string, unknown>): Record<string, unknown> {
         if (!data) return data;
         const converted = { ...data };
-        if (converted.updatedAt && typeof converted.updatedAt.toDate === 'function') {
-            converted.updatedAt = converted.updatedAt.toDate();
+        if (converted.updatedAt && typeof (converted.updatedAt as Record<string, unknown>).toDate === 'function') {
+            converted.updatedAt = ((converted.updatedAt as Record<string, unknown>).toDate as () => Date)();
         }
-        if (converted.startedAt && typeof converted.startedAt.toDate === 'function') {
-            converted.startedAt = converted.startedAt.toDate();
+        if (converted.startedAt && typeof (converted.startedAt as Record<string, unknown>).toDate === 'function') {
+            converted.startedAt = ((converted.startedAt as Record<string, unknown>).toDate as () => Date)();
         }
         if (converted.messages && Array.isArray(converted.messages)) {
-            converted.messages = converted.messages.map((msg: any) => ({
+            converted.messages = converted.messages.map((msg: Record<string, unknown>) => ({
                 ...msg,
-                timestamp: msg.timestamp && typeof msg.timestamp.toDate === 'function'
-                    ? msg.timestamp.toDate()
+                timestamp: msg.timestamp && typeof (msg.timestamp as Record<string, unknown>).toDate === 'function'
+                    ? ((msg.timestamp as Record<string, unknown>).toDate as () => Date)()
                     : msg.timestamp
             }));
         }

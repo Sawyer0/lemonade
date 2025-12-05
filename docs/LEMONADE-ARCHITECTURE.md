@@ -1,4 +1,4 @@
-To achieve a modular architecture that adheres to SOLID principles while leveraging Gemini 3 Pro (for heavy multimodal analysis) and Gemini Flash (for fast chat), we need to decouple our business logic from the framework (Next.js) and the infrastructure (Firestore/Vertex AI).
+To achieve a modular architecture that adheres to SOLID principles while leveraging Gemini 2.5 Flash (with thinking budget for deep reasoning and fast chat), we need to decouple our business logic from the framework (Next.js) and the infrastructure (Firestore/Vertex AI).
 
 Here is the technical stack and modular file architecture designed for scalability and maintainability.
 
@@ -9,8 +9,7 @@ Here is the technical stack and modular file architecture designed for scalabili
 *   **Dependency Injection**: InversifyJS. This is critical for DI (Dependency Inversion) so our business logic depends on interfaces, not Google SDKs.
 *   **Database**: Firestore. Accessed via Repository Pattern.
 *   **AI Orchestration**: Google Vertex AI SDK.
-    *   **Gemini 3 Pro**: Used in the DeepAnalysisService.
-    *   **Gemini Flash**: Used in the LiveChatService.
+    *   **Gemini 2.5 Flash**: Used for both video analysis and real-time chat with configurable thinking budget.
 *   **Validation**: Zod. For validating data entering our entities (Open/Closed principle enforcement at the boundary).
 *   **State Management**: Zustand. Separating UI state from business state.
 
@@ -49,46 +48,49 @@ Here is how we apply SOLID to our specific "Master Tech" requirements.
 
 ## A. Dependency Inversion Principle (DIP)
 
-**Goal**: The high-level DiagnosticService should not know we are using Gemini or Firestore. It should only know about `IAIService` and `ISessionRepository`.
+**Goal**: The high-level DiagnosticService should not know we are using Gemini or Firestore. It should only know about `IVideoDiagnosticAI` and `ISessionRepository`.
 
 `/src/core/interfaces/IAIService.ts`
 
 ```typescript
 // Interface Segregation Principle (ISP): Split large interfaces into specific roles
-export interface IVideoAnalyzer {
-  analyzeVideo(videoUrl: string): Promise<AnalysisResult>;
+export interface IVideoDiagnosticAI {
+  analyzeMechanicalVideo(videoUrl: string, vehicleContext: string): Promise<AIAnalysis>;
 }
 
-export interface IChatAssistant {
-  generateResponse(history: Message[], context: string): Promise<string>;
+export interface IChatAssistantAI {
+  generateReply(history: Message[], vehicleContext: string, diagnosticContext: AIAnalysis | null): Promise<string>;
 }
 
 // The Domain Entity
-export type AnalysisResult = {
+export type AIAnalysis = {
   diagnosis: string;
-  severity: 'low' | 'medium' | 'high' | 'danger';
-  codes: string[];
+  visual_evidence: string[];
+  acoustic_evidence: string[];
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  suggested_actions: string[];
+  safety_alert: boolean;
 };
 ```
 
 ## B. Open/Closed Principle (OCP)
 
-**Goal**: We can swap Gemini 1.5 for Gemini 3 Pro without changing the business logic, just the configuration.
+**Goal**: We can swap Gemini 2.5 Flash for a newer model without changing the business logic, just the configuration.
 
-`/src/infrastructure/ai/Gemini3ProAdapter.ts`
+`/src/infrastructure/ai/GeminiProAdapter.ts`
 
 ```typescript
-import { IVideoAnalyzer, AnalysisResult } from '@/core/interfaces/IAIService';
+import { IVideoDiagnosticAI, AnalysisResult } from '@/core/interfaces/IAIService';
 import { VertexAI } from '@google-cloud/vertexai';
 
 // Implements the contract defined in Core
-export class Gemini3ProAdapter implements IVideoAnalyzer {
+export class GeminiProAdapter implements IVideoDiagnosticAI {
   private model;
 
-  constructor() {
-    const vertex = new VertexAI({ project: process.env.GCLOUD_PROJECT });
-    // Explicitly using Gemini 3 Pro as requested
-    this.model = vertex.getGenerativeModel({ model: 'gemini-3.0-pro-vision' });
+  constructor(projectId: string) {
+    const vertex = new VertexAI({ project: projectId });
+    // Using Gemini 2.5 Flash with thinking budget for deep analysis
+    this.model = vertex.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
   async analyzeVideo(videoUrl: string): Promise<AnalysisResult> {

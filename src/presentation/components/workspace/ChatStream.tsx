@@ -1,16 +1,33 @@
 import { useRef, useEffect, useState } from 'react';
 import { ScrollArea } from '@/presentation/components/ui/ScrollArea';
 import { clsx } from 'clsx';
+import { CameraView } from '@/presentation/components/camera/CameraView';
 
-interface ChatMessage {
-    role: 'user' | 'assistant' | 'system';
-    content: string;
+interface ToolInvocation {
+    toolName: string;
+    toolCallId: string;
+    state: 'call' | 'result';
+    result?: Record<string, unknown>;
 }
 
-export function ChatStream({ messages, isVideoMode }: { messages: ChatMessage[], isVideoMode: boolean }) {
+interface Message {
+    id: string;
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    toolInvocations?: ToolInvocation[];
+}
+
+interface ChatStreamProps {
+    messages: Message[];
+    isVideoMode: boolean;
+    onImageCapture: (file: File) => Promise<void>;
+}
+
+export function ChatStream({ messages, isVideoMode, onImageCapture }: ChatStreamProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+    const [closedToolIds, setClosedToolIds] = useState<Set<string>>(new Set());
 
     // Check if user is near bottom before update
     useEffect(() => {
@@ -37,6 +54,14 @@ export function ChatStream({ messages, isVideoMode }: { messages: ChatMessage[],
         }
     }, [messages, shouldAutoScroll]);
 
+    const handleCloseTool = (toolCallId: string) => {
+        setClosedToolIds(prev => {
+            const next = new Set(prev);
+            next.add(toolCallId);
+            return next;
+        });
+    };
+
     return (
         <ScrollArea
             ref={scrollAreaRef}
@@ -44,8 +69,8 @@ export function ChatStream({ messages, isVideoMode }: { messages: ChatMessage[],
                 "flex-1 h-full p-4 space-y-4 pointer-events-auto min-h-0",
                 !isVideoMode && "bg-zinc-950/50 rounded-xl border border-white/5"
             )}>
-            {messages.map((msg, idx) => (
-                <div key={idx} className={clsx("flex", msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+            {messages.map((msg) => (
+                <div key={msg.id} className={clsx("flex", msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                     <div className={clsx(
                         "max-w-[80%] p-4 rounded-2xl border pointer-events-auto",
                         // User Message
@@ -57,7 +82,48 @@ export function ChatStream({ messages, isVideoMode }: { messages: ChatMessage[],
                             ? "bg-zinc-900/60 backdrop-blur-md border-white/10 text-zinc-200"
                             : "bg-zinc-800 text-zinc-200 border-transparent")
                     )}>
-                        <p className="text-sm">{msg.content}</p>
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+
+                        {/* Tool Invocations */}
+                        {msg.toolInvocations?.map((toolInvocation) => {
+                            const { toolName, toolCallId, state, result } = toolInvocation;
+
+                            if (state === 'result') {
+                                if (toolName === 'open_camera') {
+                                    const resultData = result as Record<string, unknown> | undefined;
+                                    const isClosed = closedToolIds.has(toolCallId);
+
+                                    if (isClosed) {
+                                        return (
+                                            <div key={toolCallId} className="mt-2 p-2 bg-black/50 rounded-lg border border-white/10">
+                                                <div className="flex items-center gap-2 text-zinc-400 text-sm font-mono">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    <span>Image Captured / Camera Closed</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div key={toolCallId} className="mt-4">
+                                            <CameraView
+                                                onCapture={async (file) => {
+                                                    await onImageCapture(file);
+                                                    handleCloseTool(toolCallId);
+                                                }}
+                                                onClose={() => handleCloseTool(toolCallId)}
+                                            />
+                                            <div className="mt-2 text-xs text-zinc-400 font-mono">
+                                                Reason: {resultData?.reason as string}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                            }
+                            return null;
+                        })}
                     </div>
                 </div>
             ))}

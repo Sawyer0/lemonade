@@ -10,6 +10,9 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     const { session, loading } = useLiveSession(id);
     const { showToast } = useToast();
 
+    // Message sending is handled by CameraWorkspace component via useChat hook
+    // This function is kept for reference but not used directly
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const handleSendMessage = async (message: string) => {
         if (!session) return;
         try {
@@ -46,7 +49,6 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     return (
         <CameraWorkspace
             session={session}
-            onSendMessage={handleSendMessage}
         />
     );
 }

@@ -4,7 +4,6 @@ import { MemorySessionRepository } from '@/infrastructure/repositories/__mocks__
 import { IVideoDiagnosticAI, IChatAssistantAI } from '@/core/interfaces/IAIService';
 import { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
 import { ILogger } from '@/core/interfaces/ILogger';
-import { DiagnosticSession } from '@/core/types/models';
 
 // Mock AI Adapters
 const mockVideoAI: IVideoDiagnosticAI = {

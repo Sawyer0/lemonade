@@ -11,7 +11,11 @@ export async function POST(req: Request) {
     const { vin, userId } = await validateRequest(req, VehicleScanRequestSchema);
 
     const vehicleService = container.get<VehicleService>(TYPES.VehicleService);
+    const logger = container.get<ILogger>(TYPES.Logger);
+    
+    logger.info('Vehicle scan initiated', { vin: vin.slice(-4), userId });
     const vehicle = await vehicleService.onboardVehicle(vin, userId);
+    logger.info('Vehicle onboarded successfully', { vehicleId: vehicle.id });
 
     return NextResponse.json({
       success: true,

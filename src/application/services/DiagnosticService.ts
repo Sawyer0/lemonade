@@ -10,6 +10,7 @@ import type { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
 import type { IDiagnosticService } from '@/core/interfaces/IDiagnosticService';
 import type { ILogger } from '@/core/interfaces/ILogger';
 import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
+import { Vehicle } from '@/core/entities/Vehicle';
 
 @injectable()
 export class DiagnosticService implements IDiagnosticService {
@@ -119,5 +120,17 @@ export class DiagnosticService implements IDiagnosticService {
 
         await this.sessionRepo.create(newSession);
         return newSession.id;
+    }
+    async getSessionContext(sessionId: string): Promise<{ session: DiagnosticSession; vehicle: Vehicle }> {
+        const session = await this.sessionRepo.findById(sessionId);
+        if (!session) throw new Error("Session not found");
+
+        const vehicle = await this.vehicleRepo.findById(session.vehicleId);
+        if (!vehicle) throw new Error("Vehicle not found");
+
+        return { session, vehicle };
+    }
+    async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: string): Promise<void> {
+        await this.sessionRepo.addMessage(sessionId, role, content);
     }
 }

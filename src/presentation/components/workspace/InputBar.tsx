@@ -2,8 +2,8 @@ import React, { useRef } from 'react';
 
 interface InputBarProps {
     input: string;
-    setInput: (val: string) => void;
-    onSendMessage: (msg: string) => void;
+    setInput: (value: string) => void;
+    onSendMessage: (message: string) => void;
     onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     uploading: boolean;
     progress: number;
@@ -11,6 +11,11 @@ interface InputBarProps {
 
 export function InputBar({ input, setInput, onSendMessage, onUpload, uploading, progress }: InputBarProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSendMessage(input);
+    };
 
     return (
         <div className="flex gap-2">
@@ -35,7 +40,7 @@ export function InputBar({ input, setInput, onSendMessage, onUpload, uploading, 
 
             <form
                 className="flex-1 flex gap-2"
-                onSubmit={(e) => { e.preventDefault(); onSendMessage(input); setInput(''); }}
+                onSubmit={handleSubmit}
             >
                 <input
                     type="text"

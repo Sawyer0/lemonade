@@ -10,13 +10,41 @@ import { SessionStatusHeader } from './SessionStatusHeader';
 import { ChatStream } from './ChatStream';
 import { AnalysisCard } from './AnalysisCard';
 import { InputBar } from './InputBar';
+import { useChat } from '@ai-sdk/react';
+
+// Define Message interface locally since import from 'ai' is failing
+interface ToolInvocation {
+    toolName: string;
+    toolCallId: string;
+    state: 'call' | 'result';
+    result?: Record<string, unknown>;
+}
+
+interface Message {
+    id: string;
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    toolInvocations?: ToolInvocation[];
+}
 
 interface CameraWorkspaceProps {
     session: DiagnosticSession;
-    onSendMessage: (msg: string) => void;
 }
 
-export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps) {
+export function CameraWorkspace({ session }: CameraWorkspaceProps) {
+    // useChat v5: Input state is managed manually.
+    // We use sendMessage to trigger the AI.
+    const { messages, sendMessage, status } = useChat({
+        api: '/api/chat',
+        body: { sessionId: session.id },
+        initialMessages: session.messages.map((m: Record<string, unknown>) => ({
+            id: (m.timestamp as Date).toString(),
+            role: m.role as 'user' | 'assistant' | 'system',
+            content: m.content as string
+        }))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
     const [input, setInput] = useState('');
     const [voiceMode] = useState(false);
     const { uploadFile, uploading, progress } = useDirectUpload();
@@ -24,25 +52,29 @@ export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps
     const { showToast } = useToast();
     const { speak, stop, isSpeaking } = useTTS();
     const lastSpokenMessageRef = useRef<string | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _chatStatus = status;
 
     const isSafetyStop = !!session.aiAnalysis?.safety_alert;
 
     // Auto-speak AI messages when in Voice Mode
     useEffect(() => {
-        if (!voiceMode || session.messages.length === 0) return;
+        if (!voiceMode || messages.length === 0) return;
 
         // Find the latest AI message
-        const aiMessages = session.messages.filter(m => m.role === 'assistant');
+        const aiMessages = messages.filter(m => m.role === 'assistant');
         if (aiMessages.length === 0) return;
 
         const latestAiMessage = aiMessages[aiMessages.length - 1];
 
         // Only speak if it's a new message we haven't spoken yet
-        if (latestAiMessage.content !== lastSpokenMessageRef.current) {
-            lastSpokenMessageRef.current = latestAiMessage.content;
-            speak(latestAiMessage.content);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const content = (latestAiMessage as any).content;
+        if (content && content !== lastSpokenMessageRef.current) {
+            lastSpokenMessageRef.current = content;
+            speak(content);
         }
-    }, [session.messages, voiceMode, speak]);
+    }, [messages, voiceMode, speak]);
 
     // Stop speaking when user starts talking (barge-in)
     useEffect(() => {
@@ -73,6 +105,37 @@ export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps
         // The backend (DiagnosticService) adds the message to the session history.
         // The useLiveSession hook (parent) will automatically update the UI 
         // when the Firestore document changes.
+    };
+
+    const handleSendMessage = async (content: string) => {
+        if (!content.trim()) return;
+
+        // Send user message to chat
+        // Using sendMessage which is available in UseChatHelpers
+        await sendMessage({
+            role: 'user',
+            content
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any);
+        setInput('');
+    };
+
+    const handleImageCapture = async (file: File) => {
+        try {
+            const publicUrl = await uploadFile(file, session.id);
+
+            // Send the image URL to the AI
+            await sendMessage({
+                role: 'user',
+                content: `[IMAGE UPLOADED] I have captured an image of the part: ${publicUrl}`
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } as any);
+
+            showToast('Image captured and sent!', 'success');
+        } catch (error) {
+            console.error('Failed to handle image capture:', error);
+            showToast('Failed to send image.', 'error');
+        }
     };
 
     return (
@@ -120,8 +183,9 @@ export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps
                 {/* Chat Stream */}
                 <div className="flex-1 min-h-0 pointer-events-auto flex flex-col relative z-40">
                     <ChatStream
-                        messages={session.messages}
+                        messages={messages as unknown as Message[]}
                         isVideoMode={!!session.videoUrl}
+                        onImageCapture={handleImageCapture}
                     />
                 </div>
 
@@ -135,7 +199,7 @@ export function CameraWorkspace({ session, onSendMessage }: CameraWorkspaceProps
                     <InputBar
                         input={input}
                         setInput={setInput}
-                        onSendMessage={onSendMessage}
+                        onSendMessage={handleSendMessage}
                         onUpload={handleUpload}
                         uploading={uploading}
                         progress={progress}

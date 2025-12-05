@@ -14,7 +14,7 @@ This document serves as the **Source of Truth** for any AI agent working on the 
 - **Database**: Firebase Firestore (NoSQL)
 - **Auth**: Firebase Authentication (Google Provider)
 - **Storage**: Google Cloud Storage (Direct Uploads via Signed URLs)
-- **AI**: Google Vertex AI (Gemini 3 Pro for Video, Flash for Chat)
+- **AI**: Google Vertex AI (Gemini 2.5 Flash with Thinking Budget for Video Analysis and Chat)
 - **State/Fetching**: **SWR** (Stale-While-Revalidate) - *Do not use useEffect for fetching.*
 - **Dependency Injection**: **InversifyJS**
 

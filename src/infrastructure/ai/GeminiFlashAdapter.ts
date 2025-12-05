@@ -6,6 +6,7 @@ import { VOICE_PROMPTS } from '@/core/prompts/voice';
 import { SYSTEM_PROMPTS } from '@/core/prompts/system';
 import { SAFETY_PROMPTS } from '@/core/prompts/safety';
 import { VERIFY_SAFE_SUPPORT_TOOL } from '@/core/tools/verifySafeSupport';
+import { CONFIG } from '@/infrastructure/config';
 
 @injectable()
 export class GeminiFlashAdapter implements IChatAssistantAI {
@@ -36,7 +37,7 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
         }];
 
         this.model = vertex.getGenerativeModel({
-            model: 'gemini-2.0-flash-001',
+            model: CONFIG.AI_MODELS.PRIMARY,
             tools: this.safetyTools
         });
     }

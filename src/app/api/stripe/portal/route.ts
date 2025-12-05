@@ -9,7 +9,7 @@ const getStripe = () => {
         throw new Error('STRIPE_SECRET_KEY is missing');
     }
     return new Stripe(key, {
-        apiVersion: '2024-11-20.acacia' as any, // Align with functions
+        apiVersion: '2024-11-20.acacia' as unknown as Stripe.LatestApiVersion,
     });
 };
 
