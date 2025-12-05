@@ -11,19 +11,14 @@ export function VoiceInput({ onAudioDetected, isProcessing }: VoiceInputProps) {
     const [status, setStatus] = useState<'idle' | 'listening' | 'processing'>('idle');
     const logger = useMemo(() => new Logger(), []);
 
-    interface OrtConfig {
-        env: {
-            wasm: {
-                wasmPaths: string;
-            };
-        };
-    }
+
 
     const vad = useMicVAD({
         startOnLoad: true,
         workletURL: "/vad/vad.worklet.bundle.min.js",
         modelURL: "/vad/silero_vad.onnx",
-        ortConfig: (ort: OrtConfig) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ortConfig: (ort: any) => {
             ort.env.wasm.wasmPaths = "/vad/";
         },
         onSpeechEnd: (audio: Float32Array) => {
@@ -37,7 +32,8 @@ export function VoiceInput({ onAudioDetected, isProcessing }: VoiceInputProps) {
         onVADMisfire: () => {
             setStatus('idle');
         }
-    });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
 
     // Sync internal status with prop
     useEffect(() => {

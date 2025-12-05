@@ -7,13 +7,19 @@ import type {
 } from '@/core/interfaces/IAIService';
 import type { ISessionRepository } from '@/core/interfaces/ISessionRepository';
 import type { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
-import type { IDiagnosticService } from '@/core/interfaces/IDiagnosticService';
+
+
+import type { IChatService } from '@/core/interfaces/IChatService';
+import type { IVideoAnalysisService } from '@/core/interfaces/IVideoAnalysisService';
+import type { ISessionService } from '@/core/interfaces/ISessionService';
+import type { IVoiceService } from '@/core/interfaces/IVoiceService';
+
 import type { ILogger } from '@/core/interfaces/ILogger';
 import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
 import { Vehicle } from '@/core/entities/Vehicle';
 
 @injectable()
-export class DiagnosticService implements IDiagnosticService {
+export class DiagnosticService implements IChatService, IVideoAnalysisService, ISessionService, IVoiceService {
     constructor(
         @inject(TYPES.VideoAI) private videoAI: IVideoDiagnosticAI, // Gemini 3 Pro
         @inject(TYPES.ChatAI) private chatAI: IChatAssistantAI,     // Gemini Flash
@@ -84,22 +90,27 @@ export class DiagnosticService implements IDiagnosticService {
     }
 
     async processVoiceCommand(sessionId: string, audioData: Float32Array): Promise<string> {
-        // 1. Load Session & Vehicle
-        const session = await this.sessionRepo.findById(sessionId);
-        if (!session) throw new Error("Session not found");
+        try {
+            // 1. Load Session & Vehicle
+            const session = await this.sessionRepo.findById(sessionId);
+            if (!session) throw new Error("Session not found");
 
-        const vehicle = await this.vehicleRepo.findById(session.vehicleId);
-        const vehicleContext = `${vehicle?.specs.year} ${vehicle?.specs.make} ${vehicle?.specs.model}`;
+            const vehicle = await this.vehicleRepo.findById(session.vehicleId);
+            const vehicleContext = `${vehicle?.specs.year} ${vehicle?.specs.make} ${vehicle?.specs.model}`;
 
-        // 2. Process Audio via Gemini Flash
-        const reply = await this.chatAI.processAudioCommand(audioData, vehicleContext);
+            // 2. Process Audio via Gemini 3 Pro (Voice Adapter)
+            const reply = await this.chatAI.processAudioCommand(audioData, vehicleContext);
 
-        // 3. Save Interaction
-        // We log a generic "Voice Command" for the user side since we don't have STT here.
-        await this.sessionRepo.addMessage(sessionId, 'user', '🎤 [Voice Command]');
-        await this.sessionRepo.addMessage(sessionId, 'assistant', reply);
+            // 3. Save Interaction
+            // Note: Audio is processed natively by the multimodal AI. We log a placeholder since the transcript is handled internally.
+            await this.sessionRepo.addMessage(sessionId, 'user', '🎤 [Voice Command]');
+            await this.sessionRepo.addMessage(sessionId, 'assistant', reply);
 
-        return reply;
+            return reply;
+        } catch (error) {
+            this.logger.error("Failed to process voice command", error, { sessionId });
+            return "I'm having trouble with the voice connection right now. Please try again or type your message.";
+        }
     }
     async startSession(vehicleId: string): Promise<string> {
         const vehicle = await this.vehicleRepo.findById(vehicleId);
@@ -115,7 +126,8 @@ export class DiagnosticService implements IDiagnosticService {
             messages: [],
             updatedAt: new Date(),
             startedAt: new Date(),
-            aiAnalysis: null
+            aiAnalysis: null,
+            safety_stop: false // Initialize safety stop status
         };
 
         await this.sessionRepo.create(newSession);
@@ -130,7 +142,7 @@ export class DiagnosticService implements IDiagnosticService {
 
         return { session, vehicle };
     }
-    async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: string): Promise<void> {
+    async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: unknown): Promise<void> {
         await this.sessionRepo.addMessage(sessionId, role, content);
     }
 }

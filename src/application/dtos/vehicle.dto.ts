@@ -15,3 +15,11 @@ export const VehicleListResponseSchema = z.object({
 });
 
 export type VehicleListResponseDTO = z.infer<typeof VehicleListResponseSchema>;
+
+// --- Vehicle Scan Response ---
+export const VehicleScanResponseSchema = z.object({
+    sessionId: z.string().uuid(),
+    message: z.string(),
+});
+
+export type VehicleScanResponseDTO = z.infer<typeof VehicleScanResponseSchema>;

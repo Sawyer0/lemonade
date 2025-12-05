@@ -2,25 +2,32 @@ import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { DiagnosticService } from '@/application/services/DiagnosticService';
-import { ILogger } from '@/core/interfaces/ILogger';
-import { ChatRequestSchema } from '@/application/dtos';
+import { ChatRequestSchema, ChatResponseSchema } from '@/application/dtos';
+import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { sessionId, message } = ChatRequestSchema.parse(body);
+    const { sessionId, messages } = await validateRequest(req, ChatRequestSchema);
+
+    // Extract the last message content to pass to the service
+    // Assuming the user wants to process the latest input
+    const lastMessage = messages[messages.length - 1];
+    const messageContent = lastMessage?.content || '';
 
     const diagnosticService = container.get<DiagnosticService>(TYPES.DiagnosticService);
-    const reply = await diagnosticService.handleChatInteraction(sessionId, message);
 
-    return NextResponse.json({
-      role: 'assistant',
+    const reply = await diagnosticService.handleChatInteraction(sessionId, messageContent);
+
+    const responseData = {
+      role: 'assistant' as const,
       content: reply
-    });
+    };
+
+    const validatedResponse = validateResponse(responseData, ChatResponseSchema);
+
+    return NextResponse.json(validatedResponse);
 
   } catch (error) {
-    const logger = container.get<ILogger>(TYPES.Logger);
-    logger.error('AI Service Unavailable', error);
-    return NextResponse.json({ error: 'AI Service Unavailable' }, { status: 503 });
+    return createErrorResponse(error);
   }
 }

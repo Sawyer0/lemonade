@@ -17,13 +17,31 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
-    const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
-        const id = Math.random().toString(36).substring(2, 9);
-        setToasts((prev) => [...prev, { id, message, type }]);
-        setTimeout(() => {
-            setToasts((prev) => prev.filter((t) => t.id !== id));
-        }, 3000);
-    }, []);
+    import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+
+    export function ToastProvider({ children }: { children: React.ReactNode }) {
+        const [toasts, setToasts] = useState<Toast[]>([]);
+        const timeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+        const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
+            const id = Math.random().toString(36).substring(2, 9);
+            setToasts((prev) => [...prev, { id, message, type }]);
+            const timeout = setTimeout(() => {
+                setToasts((prev) => prev.filter((t) => t.id !== id));
+                timeoutsRef.current.delete(id);
+            }, 3000);
+            timeoutsRef.current.set(id, timeout);
+        }, []);
+
+        useEffect(() => {
+            return () => {
+                timeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+                timeoutsRef.current.clear();
+            };
+        }, []);
+
+        // ... rest of component
+    }
 
     return (
         <ToastContext.Provider value={{ showToast }}>

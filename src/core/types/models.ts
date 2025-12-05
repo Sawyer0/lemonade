@@ -7,8 +7,8 @@ export const AIAnalysisSchema = z.object({
     visual_evidence: z.array(z.string()), // "Smoke from valve cover"
     acoustic_evidence: z.array(z.string()), // "Rhythmic clicking at 4Hz"
     severity: z.enum(['low', 'medium', 'high', 'critical']),
+    safety_alert: z.boolean().default(false),
     suggested_actions: z.array(z.string()),
-    safety_alert: z.boolean().default(false), // The "Safety Stop" trigger
 });
 
 export type AIAnalysis = z.infer<typeof AIAnalysisSchema>;
@@ -34,6 +34,14 @@ export const VehicleSchema = z.object({
 
 export type Vehicle = z.infer<typeof VehicleSchema>;
 
+export const MessagePartSchema = z.object({
+    type: z.enum(['text', 'image', 'audio', 'tool_result']),
+    text: z.string().optional(),
+    data: z.unknown().optional(),
+});
+
+export type MessagePart = z.infer<typeof MessagePartSchema>;
+
 export const DiagnosticSessionSchema = z.object({
     id: z.string().uuid(),
     vehicleId: z.string(),
@@ -49,13 +57,23 @@ export const DiagnosticSessionSchema = z.object({
     aiAnalysis: AIAnalysisSchema.nullable(), // The "Translation"
 
     messages: z.array(z.object({
-        role: z.enum(['user', 'assistant', 'system']),
-        content: z.string(),
+        role: z.enum(['user', 'assistant', 'system', 'tool']),
+        // Content can be a string or array of message parts
+        content: z.union([
+            z.string(),
+            z.array(MessagePartSchema)
+        ]),
         timestamp: z.date()
     })),
+
+    // Safety intervention tracking (set by SafetyMonitor or Cloud Functions)
+    safety_stop: z.boolean().default(false),
+    safety_reason: z.string().optional(),
 
     updatedAt: z.date(),
     startedAt: z.date(),
 });
 
 export type DiagnosticSession = z.infer<typeof DiagnosticSessionSchema>;
+
+

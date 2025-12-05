@@ -7,7 +7,7 @@ import { Vehicle } from '@/core/entities/Vehicle';
 export class VehicleAdminRepository implements IVehicleRepository {
     async findById(id: string): Promise<Vehicle | null> {
         const snap = await adminDb.collection('vehicles').doc(id).get();
-        return snap.exists ? (snap.data() as Vehicle) : null;
+        return snap.exists ? this.mapToVehicle(snap.data()!) : null;
     }
 
     async create(vehicle: Vehicle): Promise<void> {
@@ -21,6 +21,16 @@ export class VehicleAdminRepository implements IVehicleRepository {
             .where('userId', '==', userId)
             .get();
 
-        return snapshot.docs.map(doc => doc.data() as Vehicle);
+        return snapshot.docs.map(doc => this.mapToVehicle(doc.data()));
+    }
+
+    // Use unknown for the input to be safe, but usually it's DocumentData
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private mapToVehicle(data: any): Vehicle {
+        return {
+            ...data,
+            // Convert Firestore Timestamp to Date if necessary
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now())
+        } as Vehicle;
     }
 }

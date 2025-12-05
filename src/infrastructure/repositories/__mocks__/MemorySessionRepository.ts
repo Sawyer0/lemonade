@@ -50,21 +50,9 @@ export class MemorySessionRepository implements ISessionRepository {
     async flagSafetyStop(sessionId: string, reason: string): Promise<void> {
         const session = this.sessions.get(sessionId);
         if (session) {
-            if (!session.aiAnalysis) {
-                // Initialize if null, though usually analysis comes first. 
-                // But for safety stop, we might need a placeholder.
-                session.aiAnalysis = {
-                    diagnosis: `SAFETY STOP: ${reason}`,
-                    visual_evidence: [],
-                    acoustic_evidence: [],
-                    severity: 'critical',
-                    suggested_actions: [],
-                    safety_alert: true
-                };
-            } else {
-                session.aiAnalysis.safety_alert = true;
-                session.aiAnalysis.diagnosis = `SAFETY STOP: ${reason}`;
-            }
+            session.safety_stop = true;
+            session.safety_reason = reason;
+            session.updatedAt = new Date();
             this.sessions.set(sessionId, session);
         }
     }

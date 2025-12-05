@@ -29,6 +29,61 @@ export async function validateRequest<T>(
 }
 
 /**
+ * Validates query parameters from a URL against a Zod schema.
+ */
+export function validateQueryParams<T>(
+    request: Request,
+    schema: ZodSchema<T>
+): T {
+    try {
+        const { searchParams } = new URL(request.url);
+        const params: Record<string, string> = {};
+        searchParams.forEach((value, key) => {
+            params[key] = value;
+        });
+        return schema.parse(params);
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            throw new AppError(
+                ErrorCode.INVALID_INPUT,
+                `Query validation failed: ${error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ')}`,
+                400
+            );
+        }
+        throw error;
+    }
+}
+
+/**
+ * Validates a response object against a Zod schema before sending it to the client.
+ * Ensures API contract consistency and catches data type mismatches early.
+ */
+export function validateResponse<T>(
+    data: unknown,
+    schema: ZodSchema<T>
+): T {
+    try {
+        return schema.parse(data);
+    } catch (error) {
+        const logger = container.get<ILogger>(TYPES.Logger);
+
+        if (error instanceof z.ZodError) {
+            const message = `Response validation failed: ${error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`;
+            logger.error(message, error, {
+                dataType: typeof data,
+                failedPaths: error.issues.map(i => i.path.join('.'))
+            });
+            throw new AppError(
+                ErrorCode.INTERNAL_SERVER_ERROR,
+                'Failed to serialize response. Check server logs.',
+                500
+            );
+        }
+        throw error;
+    }
+}
+
+/**
  * Creates a standardized error response for API routes.
  * Logs the error using the ILogger service.
  */

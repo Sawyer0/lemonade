@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { adminDb } from '@/infrastructure/firebase/admin';
+import { container } from '@/infrastructure/di/container';
+import { TYPES } from '@/infrastructure/di/types';
+import { ILogger } from '@/core/interfaces/ILogger';
+import { createErrorResponse } from '@/application/utils/validateRequest';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 const getStripe = () => {
     const key = process.env.STRIPE_SECRET_KEY;
     if (!key) {
-        console.error('STRIPE_SECRET_KEY is missing');
-        throw new Error('STRIPE_SECRET_KEY is missing');
+        throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'STRIPE_SECRET_KEY is missing');
     }
     return new Stripe(key, {
         apiVersion: '2024-11-20.acacia' as unknown as Stripe.LatestApiVersion,
@@ -18,7 +23,7 @@ export async function POST(req: Request) {
         // 1. Get User ID from Middleware Header
         const userId = req.headers.get('x-user-id');
         if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            throw new AppError(ErrorCode.UNAUTHORIZED, 'Unauthorized', 401);
         }
 
         // 2. Get User from Firestore to find Stripe Customer ID
@@ -26,7 +31,7 @@ export async function POST(req: Request) {
         const userData = userDoc.data();
 
         if (!userData || !userData.stripeCustomerId) {
-            return NextResponse.json({ error: 'No subscription found' }, { status: 404 });
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'No subscription found', 404);
         }
 
         // 3. Create Portal Session
@@ -39,7 +44,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ url: session.url });
 
     } catch (error) {
-        console.error('Stripe Portal Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        const logger = container.get<ILogger>(TYPES.Logger);
+        logger.error('Stripe Portal Error', error);
+
+        return createErrorResponse(error);
     }
 }

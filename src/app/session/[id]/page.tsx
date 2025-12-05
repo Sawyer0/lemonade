@@ -1,22 +1,36 @@
 'use client';
-import { use } from 'react';
+import { use, useState, useEffect } from 'react';
 import { useLiveSession } from '@/presentation/hooks/useLiveSession';
 import { CameraWorkspace } from '@/presentation/components/workspace/CameraWorkspace';
-import { useToast } from '@/presentation/components/ui/Toast';
+import { useToast, useAuth } from '@/presentation/context';
 import { auth } from '@/infrastructure/firebase/config';
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    const { session, loading } = useLiveSession(id);
+    const { session, loading: sessionLoading } = useLiveSession(id);
     const { showToast } = useToast();
+    const { user, loading: authLoading } = useAuth();
+    const [token, setToken] = useState<string | null>(null);
 
+    useEffect(() => {
+        if (user) {
+            user.getIdToken()
+                .then(setToken)
+                .catch((error) => {
+                    console.error('Failed to get ID token:', error);
+                    setToken(null);
+                });
+        } else {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setToken(null);
+        }
+    }, [user]);
     // Message sending is handled by CameraWorkspace component via useChat hook
     // This function is kept for reference but not used directly
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const handleSendMessage = async (message: string) => {
-        if (!session) return;
+        if (!session || !token) return;
         try {
-            const token = await auth.currentUser?.getIdToken();
             await fetch('/api/chat/message', {
                 method: 'POST',
                 headers: {
@@ -30,10 +44,13 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         }
     };
 
-    if (loading) {
+    if (sessionLoading || authLoading || !token) {
         return (
             <div className="h-screen w-full bg-black flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                    <p className="text-zinc-500">Initializing secure session...</p>
+                </div>
             </div>
         );
     }
@@ -49,6 +66,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     return (
         <CameraWorkspace
             session={session}
+            token={token}
         />
     );
 }

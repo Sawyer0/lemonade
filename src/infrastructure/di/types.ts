@@ -8,9 +8,21 @@ export const TYPES = {
     VideoAI: Symbol.for('VideoDiagnosticAI'), // Maps to Gemini 2.0 Flash
     ChatAI: Symbol.for('ChatAssistantAI'),    // Maps to Gemini 2.0 Flash
 
-    // --- Application (Logic) ---
+    // --- Application Services (Focused) ---
+    SessionService: Symbol.for('SessionService'),
+    ChatService: Symbol.for('ChatService'),
+    VideoAnalysisService: Symbol.for('VideoAnalysisService'),
+    VoiceService: Symbol.for('VoiceService'),
+    SafetyMonitor: Symbol.for('SafetyMonitor'),
+    ContextCacheService: Symbol.for('ContextCacheService'),
+
+    // --- Application Services (Legacy/Composite) ---
+    /** @deprecated Use focused service symbols instead */
     DiagnosticService: Symbol.for('DiagnosticService'),
     VehicleService: Symbol.for('VehicleService'),
     StorageService: Symbol.for('StorageService'),
+
+    // --- Infrastructure Services ---
     Logger: Symbol.for('Logger'),
+    AuthService: Symbol.for('AuthService'),
 };

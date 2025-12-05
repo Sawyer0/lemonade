@@ -1,10 +1,17 @@
-import { DiagnosticSession } from '../entities/DiagnosticSession';
-import { Vehicle } from '../entities/Vehicle';
+// Re-export focused interfaces for backward compatibility
+// New code should import from specific interface files
+export type { IChatService } from './IChatService';
+export type { IVideoAnalysisService } from './IVideoAnalysisService';
+export type { ISessionService } from './ISessionService';
+export type { IVoiceService } from './IVoiceService';
 
-export interface IDiagnosticService {
-    processVideoUpload(sessionId: string, videoUrl: string): Promise<void>;
-    handleChatInteraction(sessionId: string, userMessage: string): Promise<string>;
-    processVoiceCommand(sessionId: string, audioData: Float32Array): Promise<string>;
-    getSessionContext(sessionId: string): Promise<{ session: DiagnosticSession; vehicle: Vehicle }>;
-    addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: string): Promise<void>;
-}
+import type { IChatService } from './IChatService';
+import type { IVideoAnalysisService } from './IVideoAnalysisService';
+import type { ISessionService } from './ISessionService';
+import type { IVoiceService } from './IVoiceService';
+
+/**
+ * @deprecated Use focused interfaces instead: IChatService, IVideoAnalysisService, ISessionService, IVoiceService
+ * This composite interface is kept for backward compatibility during migration.
+ */
+export interface IDiagnosticService extends IChatService, IVideoAnalysisService, ISessionService, IVoiceService {}

@@ -44,8 +44,8 @@ export class SessionFirestoreRepository implements ISessionRepository {
 
     async flagSafetyStop(sessionId: string, reason: string): Promise<void> {
         await updateDoc(doc(db, 'sessions', sessionId), {
-            'aiAnalysis.safety_alert': true,
-            'aiAnalysis.diagnosis': `SAFETY STOP: ${reason}`
+            safety_stop: true,
+            safety_reason: reason
         });
     }
 

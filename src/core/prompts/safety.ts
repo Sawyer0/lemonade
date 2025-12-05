@@ -1,14 +1,6 @@
-/**
- * Safety Prompts Module
- * 
- * Contains prompts for the Safety 2.0 Visual Verification system.
- * These prompts guide the AI in actively verifying dangerous situations.
- */
-
 export const SAFETY_PROMPTS = {
     /**
-     * Used when the AI detects a potentially dangerous situation
-     * and needs to verify safety equipment/conditions.
+     * @deprecated Used for reference only. Actual verification logic uses SafetyMonitor with controlled schema.
      */
     VERIFY_SUPPORT: `You are performing a CRITICAL SAFETY CHECK. Analyze the current camera frame to verify:
 
@@ -29,42 +21,31 @@ If you ONLY see a hydraulic jack with NO jack stands, "safe" MUST be false.
 If you cannot clearly see support equipment, ask for a clearer view.`,
 
     /**
-     * Phrases that trigger safety verification
+     * @deprecated Triggers are now handled semantically by SafetyMonitor intent analysis.
      */
-    TRIGGER_PHRASES: [
-        "going under the car",
-        "crawling under",
-        "getting under",
-        "underneath the vehicle",
-        "under the engine",
-        "jacking up",
-        "lifting the car"
-    ],
+    // TRIGGER_PHRASES removed in favor of semantic intent analysis
 
     /**
      * Red Zone warning for when verification fails
      */
-    RED_ZONE_WARNING: `🚨 SAFETY ALERT: I cannot verify proper jack stand support.
-
-NEVER work under a vehicle supported only by a hydraulic jack. Hydraulic jacks can fail without warning.
-
-Before proceeding:
-1. Place jack stands on solid, level ground
-2. Lower the vehicle onto the jack stands
-3. Verify stability by gently pushing the vehicle
-4. Keep the hydraulic jack in place as a backup
-
-Show me your jack stands and I'll verify before you continue.`,
+    RED_ZONE_WARNING: `🛡️ **SAFETY STOP: Jack Stands Required.**
+    
+    Hydraulic jacks can fail suddenly. Do not go under the vehicle yet.
+    
+    **PROCEDURE:**
+    1. Place jack stands on solid ground.
+    2. Lower vehicle onto stands.
+    3. Verify stability.
+    
+    Please show me the stands so we can proceed safely.`,
 
     /**
      * Success message when verification passes
      */
-    VERIFICATION_PASSED: `✅ I can see proper jack stand support. 
-
-The vehicle appears safely secured. Remember:
-- Never exceed the rated capacity
-- Keep limbs clear of pinch points
-- Have someone nearby when possible
-
-You're clear to proceed. I'm here if you need guidance.`
+    VERIFICATION_PASSED: `✅ **Support Verified.**
+    
+    Vehicle is on stands and stable.
+    - Recall: Keep backup jack in place if possible.
+    
+    Clear to proceed.`
 };

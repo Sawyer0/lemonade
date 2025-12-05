@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { StorageService } from '@/infrastructure/storage/StorageService';
-import { SignRequestSchema } from '@/application/dtos';
-import { validateRequest, createErrorResponse } from '@/application/utils/validateRequest';
+import { SignRequestSchema, SignResponseSchema } from '@/application/dtos';
+import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
 
 export async function POST(req: Request) {
   try {
@@ -14,10 +14,14 @@ export async function POST(req: Request) {
 
     const { uploadUrl, publicUrl } = await storageService.generateSignedUrl(filename, contentType);
 
-    return NextResponse.json({
+    const responseData = {
       uploadUrl,
       publicUrl
-    });
+    };
+
+    const validatedResponse = validateResponse(responseData, SignResponseSchema);
+
+    return NextResponse.json(validatedResponse);
 
   } catch (error) {
     return createErrorResponse(error);

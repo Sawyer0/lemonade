@@ -26,18 +26,37 @@ export function useLiveSession(sessionId: string): LiveSessionState {
             if (docSnap.exists()) {
                 const data = docSnap.data();
 
+                // Helper to convert Firestore Timestamps to Dates
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const convertTimestamps = (obj: any): any => {
+                    if (!obj) return obj;
+                    if (typeof obj.toDate === 'function') return obj.toDate();
+                    if (Array.isArray(obj)) return obj.map(convertTimestamps);
+                    if (typeof obj === 'object') {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const result: any = {};
+                        for (const key in obj) {
+                            result[key] = convertTimestamps(obj[key]);
+                        }
+                        return result;
+                    }
+                    return obj;
+                };
+
+                const sessionData = convertTimestamps(data);
+
                 // Update session data
-                setSession(data as DiagnosticSession);
+                setSession(sessionData as DiagnosticSession);
 
                 // Track status from Cloud Function
-                if (data.status) {
-                    setStatus(data.status as LiveSessionState['status']);
+                if (sessionData.status) {
+                    setStatus(sessionData.status as LiveSessionState['status']);
                 }
 
                 // IMMEDIATE SAFETY INTERVENTION
                 // If the Cloud Function flags danger, we override the UI immediately.
-                if (data.safety_stop && data.safety_reason) {
-                    setSafetyAlert(data.safety_reason);
+                if (sessionData.safety_stop && sessionData.safety_reason) {
+                    setSafetyAlert(sessionData.safety_reason);
                 }
             }
             setLoading(false);

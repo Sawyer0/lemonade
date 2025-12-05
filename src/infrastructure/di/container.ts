@@ -1,3 +1,4 @@
+import "server-only";
 import "reflect-metadata";
 import { Container } from "inversify";
 import { TYPES } from "./types";
@@ -7,8 +8,15 @@ import { IVehicleRepository } from "@/core/interfaces/IVehicleRepository";
 import { ISessionRepository } from "@/core/interfaces/ISessionRepository";
 import { IVideoDiagnosticAI, IChatAssistantAI } from "@/core/interfaces/IAIService";
 import { ILogger } from "@/core/interfaces/ILogger";
-import { IDiagnosticService } from "@/core/interfaces/IDiagnosticService";
 import { IVehicleInfoProvider } from "@/core/interfaces/IVehicleInfoProvider";
+import { IAuthService } from "@/core/interfaces/IAuthService";
+
+// Focused Service Interfaces
+import { ISessionService } from "@/core/interfaces/ISessionService";
+import { IChatService } from "@/core/interfaces/IChatService";
+import { IVideoAnalysisService } from "@/core/interfaces/IVideoAnalysisService";
+import { IVoiceService } from "@/core/interfaces/IVoiceService";
+
 
 // Implementations (Infrastructure)
 import { VehicleAdminRepository } from "../repositories/VehicleAdminRepository";
@@ -17,6 +25,7 @@ import { NHTSAVehicleInfoProvider } from "../external/NHTSAVehicleInfoProvider";
 import { GeminiProAdapter } from "../ai/GeminiProAdapter";
 import { GeminiFlashAdapter } from "../ai/GeminiFlashAdapter";
 import { Logger } from "../logging/Logger";
+import { AuthService } from "../auth/AuthService";
 
 // Services (Application)
 import { VehicleService } from "@/application/services/VehicleService";
@@ -47,20 +56,48 @@ container.bind<IChatAssistantAI>(TYPES.ChatAI).toDynamicValue(() => {
     return new GeminiFlashAdapter(process.env.GCLOUD_PROJECT!);
 }).inSingletonScope();
 
-// --- 3. Bind Services (Application) ---
+// --- 3. Bind Application Services ---
 container.bind<VehicleService>(TYPES.VehicleService)
     .to(VehicleService)
     .inSingletonScope();
 
-container.bind<IDiagnosticService>(TYPES.DiagnosticService)
+// DiagnosticService implements all focused interfaces
+container.bind<DiagnosticService>(TYPES.DiagnosticService)
     .to(DiagnosticService)
+    .inSingletonScope();
+
+// Bind focused interfaces to the same DiagnosticService instance
+// This allows gradual migration to focused interfaces
+container.bind<ISessionService>(TYPES.SessionService)
+    .toDynamicValue(() => container.get<DiagnosticService>(TYPES.DiagnosticService))
+    .inSingletonScope();
+
+container.bind<IChatService>(TYPES.ChatService)
+    .toDynamicValue(() => container.get<DiagnosticService>(TYPES.DiagnosticService))
+    .inSingletonScope();
+
+container.bind<IVideoAnalysisService>(TYPES.VideoAnalysisService)
+    .toDynamicValue(() => container.get<DiagnosticService>(TYPES.DiagnosticService))
+    .inSingletonScope();
+
+container.bind<IVoiceService>(TYPES.VoiceService)
+    .toDynamicValue(() => container.get<DiagnosticService>(TYPES.DiagnosticService))
     .inSingletonScope();
 
 container.bind<StorageService>(TYPES.StorageService).toDynamicValue(() => {
     return new StorageService(process.env.GCLOUD_PROJECT!, process.env.GCLOUD_MEDIA_BUCKET!);
 }).inSingletonScope();
 
+import { ISafetyMonitor } from "@/core/interfaces/ISafetyMonitor";
+import { SafetyMonitor } from "@/application/services/SafetyMonitor";
+container.bind<ISafetyMonitor>(TYPES.SafetyMonitor).to(SafetyMonitor).inSingletonScope();
+
+import { IContextCacheService } from "@/core/interfaces/IContextCacheService";
+import { ContextCacheService } from "@/infrastructure/ai/ContextCacheService";
+container.bind<IContextCacheService>(TYPES.ContextCacheService).to(ContextCacheService).inSingletonScope();
+
 // --- 4. Bind Infrastructure Services ---
 container.bind<ILogger>(TYPES.Logger).to(Logger).inSingletonScope();
+container.bind<IAuthService>(TYPES.AuthService).to(AuthService).inSingletonScope();
 
 export { container };

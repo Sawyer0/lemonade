@@ -14,9 +14,14 @@ export function InputBar({ input, setInput, onSendMessage, onUpload, uploading, 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSendMessage(input);
+        if (!input.trim()) return;
+        onSendMessage(input)
+            .then(() => setInput(''))
+            .catch((error) => {
+                // Handle error (show toast, etc.) but keep input
+                console.error('Failed to send message:', error);
+            });
     };
-
     return (
         <div className="flex gap-2">
             <button

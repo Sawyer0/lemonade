@@ -3,8 +3,8 @@ import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { DiagnosticService } from '@/application/services/DiagnosticService';
 import { ILogger } from '@/core/interfaces/ILogger';
-import { AnalysisTriggerRequestSchema } from '@/application/dtos';
-import { validateRequest, createErrorResponse } from '@/application/utils/validateRequest';
+import { AnalysisTriggerRequestSchema, AnalysisTriggerResponseSchema } from '@/application/dtos';
+import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
 
 export async function POST(req: Request) {
     try {
@@ -18,10 +18,14 @@ export async function POST(req: Request) {
             logger.error(`[Background Job Failed] Session: ${sessionId}`, err);
         });
 
-        return NextResponse.json({
-            status: 'processing_started',
+        const responseData = {
+            status: 'processing_started' as const,
             message: 'The Master Tech is analyzing your video.'
-        });
+        };
+
+        const validatedResponse = validateResponse(responseData, AnalysisTriggerResponseSchema);
+
+        return NextResponse.json(validatedResponse);
     } catch (error) {
         return createErrorResponse(error);
     }

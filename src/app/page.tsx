@@ -3,8 +3,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/infrastructure/firebase/config';
-import { useAuth } from '@/presentation/context/AuthContext';
-import { useToast } from '@/presentation/components/ui/Toast';
+import { useAuth, useToast } from '@/presentation/context';
 
 export default function Home() {
   const { user, loading } = useAuth();

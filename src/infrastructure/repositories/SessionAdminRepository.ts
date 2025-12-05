@@ -28,6 +28,12 @@ export class SessionAdminRepository implements ISessionRepository {
                     : msg.timestamp
             }));
         }
+
+        // Backfill missing userId for legacy/broken sessions to prevent Zod validation errors
+        if (!converted.userId) {
+            converted.userId = 'unknown';
+        }
+
         return converted;
     }
 
@@ -35,7 +41,7 @@ export class SessionAdminRepository implements ISessionRepository {
         const snap = await adminDb.collection('sessions').doc(id).get();
         if (!snap.exists) return null;
 
-        const data = this.convertTimestamps(snap.data());
+        const data = this.convertTimestamps(snap.data() as Record<string, unknown>);
         const result = DiagnosticSessionSchema.safeParse(data);
 
         if (!result.success) {
@@ -54,7 +60,7 @@ export class SessionAdminRepository implements ISessionRepository {
         });
     }
 
-    async addMessage(sessionId: string, role: 'user' | 'assistant', content: string): Promise<void> {
+    async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: unknown): Promise<void> {
         await adminDb.collection('sessions').doc(sessionId).update({
             messages: FieldValue.arrayUnion({
                 role,
@@ -74,39 +80,10 @@ export class SessionAdminRepository implements ISessionRepository {
     }
 
     async flagSafetyStop(sessionId: string, reason: string): Promise<void> {
-        const ref = adminDb.collection('sessions').doc(sessionId);
-
-        await adminDb.runTransaction(async (t) => {
-            const doc = await t.get(ref);
-            if (!doc.exists) return;
-
-            const validationResult = DiagnosticSessionSchema.safeParse(doc.data());
-            if (!validationResult.success) {
-                console.error(`Session validation failed for ${sessionId}:`, validationResult.error);
-                throw new Error(`Cannot flag safety stop: session data is invalid`);
-            }
-
-            const data = validationResult.data;
-            const currentAnalysis = data.aiAnalysis || {
-                diagnosis: 'Safety Stop Triggered',
-                visual_evidence: [],
-                acoustic_evidence: [],
-                severity: 'critical',
-                suggested_actions: [],
-                safety_alert: false
-            };
-
-            const updatedAnalysis: AIAnalysis = {
-                ...currentAnalysis,
-                safety_alert: true,
-                // We do NOT overwrite diagnosis here, preserving it.
-                // But we might want to ensure the reason is captured.
-                suggested_actions: [`SAFETY STOP: ${reason}`, ...currentAnalysis.suggested_actions]
-            };
-            t.update(ref, {
-                aiAnalysis: updatedAnalysis,
-                updatedAt: new Date()
-            });
+        await adminDb.collection('sessions').doc(sessionId).update({
+            safety_stop: true,
+            safety_reason: reason,
+            updatedAt: new Date()
         });
     }
 

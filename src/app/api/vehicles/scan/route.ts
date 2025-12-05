@@ -4,7 +4,8 @@ import { TYPES } from '@/infrastructure/di/types';
 import { VehicleService } from '@/application/services/VehicleService';
 import { ILogger } from '@/core/interfaces/ILogger';
 import { VehicleScanRequestSchema } from '@/application/dtos';
-import { validateRequest, createErrorResponse } from '@/application/utils/validateRequest';
+import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
+import { VehicleScanResponseSchema } from '@/application/dtos/vehicle.dto';
 
 export async function POST(req: Request) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
 
     const vehicleService = container.get<VehicleService>(TYPES.VehicleService);
     const logger = container.get<ILogger>(TYPES.Logger);
-    
+
     logger.info('Vehicle scan initiated', { vin: vin.slice(-4), userId });
     const vehicle = await vehicleService.onboardVehicle(vin, userId);
     logger.info('Vehicle onboarded successfully', { vehicleId: vehicle.id });

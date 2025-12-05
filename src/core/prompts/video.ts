@@ -1,6 +1,5 @@
 export const VIDEO_PROMPTS = {
-    ANALYSIS: (vehicleContext: string) => `
-    You are a Senior Master Technician. 
+  ANALYSIS: (vehicleContext: string) => `
     Analyze this video of a ${vehicleContext}.
     
     Output JSON matching this schema:

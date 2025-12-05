@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
-import { IDiagnosticService } from '@/core/interfaces/IDiagnosticService';
-import { VoiceRequestSchema } from '@/application/dtos';
-import { validateRequest, createErrorResponse } from '@/application/utils/validateRequest';
+import { IVoiceService } from '@/core/interfaces/IVoiceService';
+import { VoiceRequestSchema, VoiceResponseSchema } from '@/application/dtos';
+import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
 
 export async function POST(req: NextRequest) {
     try {
@@ -12,10 +12,13 @@ export async function POST(req: NextRequest) {
         // Rehydrate Float32Array from JSON object/array
         const float32Array = new Float32Array(Object.values(audioData));
 
-        const diagnosticService = container.get<IDiagnosticService>(TYPES.DiagnosticService);
-        const response = await diagnosticService.processVoiceCommand(sessionId, float32Array);
+        const voiceService = container.get<IVoiceService>(TYPES.VoiceService);
+        const response = await voiceService.processVoiceCommand(sessionId, float32Array);
 
-        return NextResponse.json({ response });
+        const responseData = { response };
+        const validatedResponse = validateResponse(responseData, VoiceResponseSchema);
+
+        return NextResponse.json(validatedResponse);
 
     } catch (error) {
         return createErrorResponse(error);

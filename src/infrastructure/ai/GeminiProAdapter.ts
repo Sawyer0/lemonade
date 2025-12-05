@@ -1,10 +1,12 @@
 import { injectable } from 'inversify';
 import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
 import { IVideoDiagnosticAI } from '@/core/interfaces/IAIService';
+import { VIDEO_ANALYSIS_RAW_SCHEMA } from '@/core/types/video';
 import { AIAnalysis, AIAnalysisSchema } from '@/core/entities/DiagnosticSession';
 import { VIDEO_PROMPTS } from '@/core/prompts/video';
 import { SYSTEM_PROMPTS } from '@/core/prompts/system';
 import { CONFIG } from '@/infrastructure/config';
+import { traceAiCall } from '@/infrastructure/observability/langsmithTracer';
 
 @injectable()
 export class GeminiProAdapter implements IVideoDiagnosticAI {
@@ -25,7 +27,11 @@ export class GeminiProAdapter implements IVideoDiagnosticAI {
 
         this.model = vertex.getGenerativeModel({
             model: CONFIG.AI_MODELS.PRIMARY,
-            generationConfig: { responseMimeType: 'application/json' }
+            generationConfig: {
+                responseMimeType: 'application/json',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                responseSchema: VIDEO_ANALYSIS_RAW_SCHEMA as any
+            }
         });
     }
 
@@ -37,19 +43,26 @@ export class GeminiProAdapter implements IVideoDiagnosticAI {
         ${VIDEO_PROMPTS.ANALYSIS(vehicleContext)}
         `;
 
-        const result = await this.model.generateContent({
-            contents: [{
-                role: 'user',
-                parts: [
-                    { text: prompt },
-                    { fileData: { fileUri: videoUrl, mimeType: 'video/mp4' } }
-                ]
-            }]
+        const result = await traceAiCall({
+            name: 'video_diagnostic',
+            inputs: {
+                videoUrl,
+                vehicleContext,
+            },
+            exec: () => this.model.generateContent({
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                        { fileData: { fileUri: videoUrl, mimeType: 'video/mp4' } }
+                    ]
+                }]
+            }),
         });
 
-        const rawText = result.response.candidates?.[0].content.parts[0].text;
+        const candidate = result.response.candidates?.[0];
+        const rawText = candidate?.content?.parts?.[0]?.text;
         if (!rawText) throw new Error("AI returned empty response");
-
         return AIAnalysisSchema.parse(JSON.parse(rawText));
     }
 }

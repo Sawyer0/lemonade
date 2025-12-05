@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Camera, X, RefreshCcw, Aperture } from 'lucide-react';
-import { useToast } from '@/presentation/components/ui/Toast';
+import { X, RefreshCcw } from 'lucide-react';
+import { useToast } from '@/presentation/context';
 import { clsx } from 'clsx';
 
 interface CameraViewProps {
@@ -13,6 +13,7 @@ interface CameraViewProps {
 export function CameraView({ onCapture, onClose }: CameraViewProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [isCapturing, setIsCapturing] = useState(false);
     const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -20,8 +21,9 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
 
     const startCamera = useCallback(async () => {
         try {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+            // Stop existing tracks using ref to avoid dependency on state
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
             }
 
             const newStream = await navigator.mediaDevices.getUserMedia({
@@ -34,6 +36,8 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
             });
 
             setStream(newStream);
+            streamRef.current = newStream;
+
             if (videoRef.current) {
                 videoRef.current.srcObject = newStream;
             }
@@ -45,10 +49,12 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
     }, [facingMode, onClose, showToast]);
 
     useEffect(() => {
+
+        // eslint-disable-next-line
         startCamera();
         return () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
             }
         };
     }, [startCamera]);
@@ -61,7 +67,10 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
 
-        if (!context) return;
+        if (!context) {
+            setIsCapturing(false);
+            return;
+        }
 
         // Set canvas dimensions to match video
         canvas.width = video.videoWidth;
@@ -77,7 +86,7 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                 try {
                     await onCapture(file);
                     // Stop stream after successful capture
-                    stream?.getTracks().forEach(track => track.stop());
+                    streamRef.current?.getTracks().forEach(track => track.stop());
                 } catch (error) {
                     console.error('Capture upload failed:', error);
                     showToast('Failed to upload image.', 'error');

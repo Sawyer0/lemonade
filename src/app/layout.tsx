@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/presentation/context/AuthContext";
-import { ToastProvider } from "@/presentation/components/ui/Toast";
+import { AuthProvider, ToastProvider } from "@/presentation/context";
 import { OfflineBanner } from "@/presentation/components/ui/OfflineBanner";
 
 const geistSans = Geist({

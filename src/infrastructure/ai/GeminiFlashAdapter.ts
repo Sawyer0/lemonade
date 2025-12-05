@@ -7,6 +7,7 @@ import { SYSTEM_PROMPTS } from '@/core/prompts/system';
 import { SAFETY_PROMPTS } from '@/core/prompts/safety';
 import { VERIFY_SAFE_SUPPORT_TOOL } from '@/core/tools/verifySafeSupport';
 import { CONFIG } from '@/infrastructure/config';
+import { traceAiCall } from '@/infrastructure/observability/langsmithTracer';
 
 @injectable()
 export class GeminiFlashAdapter implements IChatAssistantAI {
@@ -43,16 +44,40 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
     }
 
     async generateReply(
-        history: { role: string; content: string }[],
+        history: { role: string; content?: unknown }[],
         message: string,
         vehicleContext: string,
         diagnosticContext: AIAnalysis | null
     ): Promise<string> {
         const chat = this.model.startChat({
-            history: history.map(msg => ({
-                role: msg.role === 'assistant' ? 'model' : 'user',
-                parts: [{ text: msg.content }]
-            }))
+            history: history.map(msg => {
+                let text = '';
+                try {
+                    if (typeof msg.content === 'string') {
+                        text = msg.content;
+                    } else if (Array.isArray(msg.content)) {
+                        text = msg.content
+                            .filter((p: unknown) => p && typeof p === 'object' && 'type' in p && (p as { type: string }).type === 'text' && 'text' in p && typeof (p as { text: string }).text === 'string')
+                            .map((p: unknown) => (p as { text: string }).text)
+                            .join('\n');
+                        if (!text) {
+                            // Fallback if no text parts found
+                            text = JSON.stringify(msg.content);
+                        }
+                    } else if (msg.content !== null && msg.content !== undefined) {
+                        text = JSON.stringify(msg.content);
+                    } else {
+                        text = '';
+                    }
+                } catch (error) {
+                    console.error('Failed to serialize message content:', error);
+                    text = '[Content could not be displayed]';
+                }
+                return {
+                    role: msg.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text }]
+                };
+            })
         });
 
         const contextPrompt = `
@@ -63,8 +88,9 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
         Vehicle: ${vehicleContext}
         Current Diagnosis: ${diagnosticContext ? JSON.stringify(diagnosticContext) : 'None'}
         
-        SAFETY TRIGGERS: If the user mentions any of: ${SAFETY_PROMPTS.TRIGGER_PHRASES.join(', ')},
-        you MUST use the verifySafeSupport tool to request visual verification before proceeding.
+        SAFETY INSTRUCTION: You are a Master Technician. You must protect the user.
+        If the user indicates intent to go UNDER the vehicle or perform dangerous work,
+        you MUST use the verifySafeSupport tool to request visual verification.
         `;
 
         const fullPrompt = `
@@ -74,7 +100,14 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
         ${message}
         `;
 
-        const result = await chat.sendMessage(fullPrompt);
+        const result = await traceAiCall({
+            name: 'chat_reply',
+            inputs: {
+                vehicleContext,
+                hasDiagnosticContext: !!diagnosticContext,
+            },
+            exec: () => chat.sendMessage(fullPrompt),
+        });
 
         // Check if the model wants to call a function (Safety 2.0)
         const response = result.response;
@@ -94,43 +127,56 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
     }
 
     async processAudioCommand(audioData: Float32Array, vehicleContext: string): Promise<string> {
-        // 1. Convert Float32Array to Base64 PCM (16-bit linear PCM)
-        const buffer = this.float32To16BitPCM(audioData);
-        const base64Audio = Buffer.from(buffer).toString('base64');
+        try {
+            // 1. Convert Float32Array to Base64 PCM (16-bit linear PCM)
+            const buffer = this.float32To16BitPCM(audioData);
+            const base64Audio = Buffer.from(buffer).toString('base64');
 
-        const prompt = `
-        ${SYSTEM_PROMPTS.IDENTITY}
-        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
-        
-        SAFETY TRIGGERS: If the user's speech mentions any of: ${SAFETY_PROMPTS.TRIGGER_PHRASES.join(', ')},
-        you MUST use the verifySafeSupport tool to request visual verification.
-        
-        ${VOICE_PROMPTS.COMMAND_ANALYSIS(vehicleContext)}
-        `;
+            const prompt = `
+            ${SYSTEM_PROMPTS.IDENTITY}
+            ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+            
+            SAFETY INSTRUCTION: You are a Master Technician. You must protect the user.
+            If the user indicates intent to go UNDER the vehicle or perform dangerous work,
+            you MUST use the verifySafeSupport tool to request visual verification.
+            
+            ${VOICE_PROMPTS.COMMAND_ANALYSIS(vehicleContext)}
+            `;
 
-        const result = await this.model.generateContent({
-            contents: [{
-                role: 'user',
-                parts: [
-                    { text: prompt },
-                    { inlineData: { mimeType: 'audio/wav', data: base64Audio } }
-                ]
-            }]
-        });
+            const result = await traceAiCall({
+                name: 'voice_command',
+                inputs: {
+                    vehicleContext,
+                    hasAudio: true,
+                },
+                exec: () => this.model.generateContent({
+                    contents: [{
+                        role: 'user',
+                        parts: [
+                            { text: prompt },
+                            { inlineData: { mimeType: 'audio/wav', data: base64Audio } }
+                        ]
+                    }]
+                }),
+            });
 
-        // Check for function call in voice response too
-        const candidate = result.response.candidates?.[0];
+            // Check for function call in voice response too
+            const candidate = result.response.candidates?.[0];
 
-        if (candidate?.content?.parts?.length && candidate.content.parts[0].functionCall) {
-            const functionCall = candidate.content.parts[0].functionCall;
+            if (candidate?.content?.parts?.length && candidate.content.parts[0].functionCall) {
+                const functionCall = candidate.content.parts[0].functionCall;
 
-            if (functionCall.name === 'verifySafeSupport') {
-                return `🛡️ **Safety Verification Required**\n\n${SAFETY_PROMPTS.RED_ZONE_WARNING}`;
+                if (functionCall.name === 'verifySafeSupport') {
+                    return `🛡️ **Safety Verification Required**\n\n${SAFETY_PROMPTS.RED_ZONE_WARNING}`;
+                }
             }
-        }
 
-        const text = candidate?.content.parts[0].text;
-        return text || "I couldn't hear you clearly.";
+            const text = candidate?.content.parts[0].text;
+            return text || "I heard something, but I couldn't quite understand. Could you say that again?";
+        } catch (error) {
+            console.error('Voice Command Error:', error);
+            return "I had trouble processing that audio. Please try speaking again.";
+        }
     }
 
     private float32To16BitPCM(float32Arr: Float32Array): ArrayBuffer {

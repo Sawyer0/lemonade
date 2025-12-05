@@ -2,16 +2,20 @@ import { z } from 'zod';
 
 // --- Chat Request ---
 export const ChatRequestSchema = z.object({
+    messages: z.array(z.object({
+        role: z.enum(['user', 'assistant', 'system', 'tool']),
+        content: z.any(),
+    })),
     sessionId: z.string().uuid(),
-    message: z.string().min(1).max(500),
 });
 
 export type ChatRequestDTO = z.infer<typeof ChatRequestSchema>;
 
 // --- Chat Response ---
+// Used for non-streaming responses or validation
 export const ChatResponseSchema = z.object({
-    role: z.literal('assistant'),
-    content: z.string(),
+    role: z.enum(['user', 'assistant', 'system', 'tool']),
+    content: z.any(),
 });
 
 export type ChatResponseDTO = z.infer<typeof ChatResponseSchema>;

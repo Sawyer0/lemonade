@@ -8,7 +8,7 @@ export interface IVideoDiagnosticAI {
 // Interface 2: The Fast Chatter (Gemini Flash)
 export interface IChatAssistantAI {
     generateReply(
-        history: { role: string; content: string }[],
+        history: { role: string; content?: unknown }[],
         message: string,
         vehicleContext: string,
         diagnosticContext: AIAnalysis | null

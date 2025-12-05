@@ -4,46 +4,60 @@ import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
 import { useDirectUpload } from '@/presentation/hooks/useDirectUpload';
 import { useVoiceCommand } from '@/presentation/hooks/useVoiceCommand';
 import { useTTS } from '@/presentation/hooks/useTTS';
-import { useToast } from '@/presentation/components/ui/Toast';
+import { useToast } from '@/presentation/context';
+import { useChat } from '@ai-sdk/react';
+import { CONFIG } from '@/infrastructure/config';
+
 import { SafetyOverlay } from './SafetyOverlay';
 import { SessionStatusHeader } from './SessionStatusHeader';
 import { ChatStream } from './ChatStream';
 import { AnalysisCard } from './AnalysisCard';
 import { InputBar } from './InputBar';
-import { useChat } from '@ai-sdk/react';
-
-// Define Message interface locally since import from 'ai' is failing
-interface ToolInvocation {
-    toolName: string;
-    toolCallId: string;
-    state: 'call' | 'result';
-    result?: Record<string, unknown>;
-}
-
-interface Message {
-    id: string;
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-    toolInvocations?: ToolInvocation[];
-}
+import { VideoViewport } from './VideoViewport';
+import { useWorkspaceActions, Message } from './useWorkspaceActions';
 
 interface CameraWorkspaceProps {
     session: DiagnosticSession;
+    token: string;
 }
 
-export function CameraWorkspace({ session }: CameraWorkspaceProps) {
+export function CameraWorkspace({ session, token }: CameraWorkspaceProps) {
+
     // useChat v5: Input state is managed manually.
-    // We use sendMessage to trigger the AI.
-    const { messages, sendMessage, status } = useChat({
-        api: '/api/chat',
+    const chatResult = useChat({
+        api: CONFIG.API.ROUTES.CHAT,
         body: { sessionId: session.id },
-        initialMessages: session.messages.map((m: Record<string, unknown>) => ({
-            id: (m.timestamp as Date).toString(),
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        messages: session.messages.map((m: Record<string, unknown>, index: number) => ({
+            id: `${(m.timestamp as Date).getTime()}-${index}`,
             role: m.role as 'user' | 'assistant' | 'system',
-            content: m.content as string
-        }))
+            content: m.content
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        })) as any
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chatHelpers = chatResult as any;
+    const { messages, setMessages } = chatHelpers;
+
+    // Fallback: Manually set messages if useChat didn't initialize correctly
+    // Sync: Keep chat state in sync with Firestore (Real-time Fallback)
+    useEffect(() => {
+        if (!session.messages) return;
+        // Only update if we are "behind" the server state
+        if (session.messages.length > messages.length) {
+            const convertedMessages = session.messages.map((m: Record<string, unknown>, index: number) => ({
+                id: `${(m.timestamp as Date).getTime()}-${index}`,
+                role: m.role as 'user' | 'assistant' | 'system',
+                content: m.content
+            }));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setMessages(convertedMessages as any);
+        }
+    }, [session.messages, messages.length, setMessages]);
 
     const [input, setInput] = useState('');
     const [voiceMode] = useState(false);
@@ -52,22 +66,26 @@ export function CameraWorkspace({ session }: CameraWorkspaceProps) {
     const { showToast } = useToast();
     const { speak, stop, isSpeaking } = useTTS();
     const lastSpokenMessageRef = useRef<string | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _chatStatus = status;
 
     const isSafetyStop = !!session.aiAnalysis?.safety_alert;
 
+    // Extract Actions
+    const { handleUpload, handleSendMessage, handleImageCapture } = useWorkspaceActions({
+        sessionId: session.id,
+        token,
+        uploadFile,
+        chatHelpers,
+        setInput,
+        showToast
+    });
+
     // Auto-speak AI messages when in Voice Mode
     useEffect(() => {
-        if (!voiceMode || messages.length === 0) return;
-
-        // Find the latest AI message
-        const aiMessages = messages.filter(m => m.role === 'assistant');
+        if (!voiceMode || !messages || messages.length === 0) return;
+        const aiMessages = (messages as Message[]).filter((m: Message) => m.role === 'assistant');
         if (aiMessages.length === 0) return;
 
         const latestAiMessage = aiMessages[aiMessages.length - 1];
-
-        // Only speak if it's a new message we haven't spoken yet
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const content = (latestAiMessage as any).content;
         if (content && content !== lastSpokenMessageRef.current) {
@@ -83,82 +101,14 @@ export function CameraWorkspace({ session }: CameraWorkspaceProps) {
         }
     }, [isProcessingAudio, isSpeaking, stop]);
 
-    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files?.[0]) {
-            const file = e.target.files[0];
-            try {
-                const publicUrl = await uploadFile(file, session.id);
-                // Trigger analysis via API (Fire and Forget)
-                await fetch('/api/analysis/trigger', {
-                    method: 'POST',
-                    body: JSON.stringify({ sessionId: session.id, publicUrl })
-                });
-                showToast('Video uploaded successfully', 'success');
-            } catch {
-                showToast('Upload failed. Please try again.', 'error');
-            }
-        }
-    };
-
     const handleAudioDetected = async (audioData: Float32Array) => {
         await processAudio(audioData, session.id);
-        // The backend (DiagnosticService) adds the message to the session history.
-        // The useLiveSession hook (parent) will automatically update the UI 
-        // when the Firestore document changes.
-    };
-
-    const handleSendMessage = async (content: string) => {
-        if (!content.trim()) return;
-
-        // Send user message to chat
-        // Using sendMessage which is available in UseChatHelpers
-        await sendMessage({
-            role: 'user',
-            content
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any);
-        setInput('');
-    };
-
-    const handleImageCapture = async (file: File) => {
-        try {
-            const publicUrl = await uploadFile(file, session.id);
-
-            // Send the image URL to the AI
-            await sendMessage({
-                role: 'user',
-                content: `[IMAGE UPLOADED] I have captured an image of the part: ${publicUrl}`
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any);
-
-            showToast('Image captured and sent!', 'success');
-        } catch (error) {
-            console.error('Failed to handle image capture:', error);
-            showToast('Failed to send image.', 'error');
-        }
     };
 
     return (
         <div className="relative h-screen w-full bg-black overflow-hidden flex flex-col">
-
             {/* LAYER 1: VIEWPORT (Video/Camera) */}
-            <div className="absolute inset-0 z-0">
-                {session.videoUrl ? (
-                    <video
-                        src={session.videoUrl}
-                        className="w-full h-full object-cover"
-                        controls={false}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                    />
-                ) : (
-                    <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
-                        <p className="text-zinc-500 font-mono">WAITING FOR VIDEO FEED...</p>
-                    </div>
-                )}
-            </div>
+            <VideoViewport videoUrl={session.videoUrl} />
 
             {/* Gradient Overlay for Text Readability */}
             <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none" />
@@ -205,7 +155,6 @@ export function CameraWorkspace({ session }: CameraWorkspaceProps) {
                         progress={progress}
                     />
                 </div>
-
             </div>
         </div>
     );
