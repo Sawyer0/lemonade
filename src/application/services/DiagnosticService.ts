@@ -107,6 +107,7 @@ export class DiagnosticService implements IDiagnosticService {
         const newSession: DiagnosticSession = {
             id: uuidv4(),
             vehicleId: vehicle.id,
+            userId: vehicle.userId,
             status: 'active',
             complaint: 'New Session',
             obdCodes: [],

@@ -18,6 +18,7 @@ export type AIAnalysis = z.infer<typeof AIAnalysisSchema>;
 export const DiagnosticSessionSchema = z.object({
     id: z.string().uuid(),
     vehicleId: z.string(),
+    userId: z.string(),
     status: z.enum(['active', 'analyzing', 'waiting_user', 'completed']),
 
     // The "Medical Chart"
