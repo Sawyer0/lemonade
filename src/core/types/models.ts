@@ -35,9 +35,16 @@ export const VehicleSchema = z.object({
 export type Vehicle = z.infer<typeof VehicleSchema>;
 
 export const MessagePartSchema = z.object({
-    type: z.enum(['text', 'image', 'audio', 'tool_result']),
+    type: z.enum(['text', 'image', 'audio', 'tool_result', 'tool-result', 'tool-call']),
     text: z.string().optional(),
+    image: z.string().optional(),
     data: z.unknown().optional(),
+    // Tool fields
+    toolCallId: z.string().optional(),
+    toolName: z.string().optional(),
+    args: z.unknown().optional(),
+    result: z.unknown().optional(),
+    isError: z.boolean().optional(),
 });
 
 export type MessagePart = z.infer<typeof MessagePartSchema>;

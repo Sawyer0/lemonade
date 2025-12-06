@@ -3,6 +3,8 @@ import { adminDb } from '@/infrastructure/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { ISessionRepository } from '@/core/interfaces/ISessionRepository';
 import { DiagnosticSession, AIAnalysis, DiagnosticSessionSchema } from '@/core/entities/DiagnosticSession';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class SessionAdminRepository implements ISessionRepository {
@@ -46,7 +48,7 @@ export class SessionAdminRepository implements ISessionRepository {
 
         if (!result.success) {
             console.error(`Session validation failed for ${id}:`, result.error);
-            throw new Error(`Session data validation failed for ${id}: ${result.error.message}`);
+            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Session data validation failed for ${id}: ${result.error.message}`);
         }
 
         return result.data;
@@ -64,7 +66,8 @@ export class SessionAdminRepository implements ISessionRepository {
         await adminDb.collection('sessions').doc(sessionId).update({
             messages: FieldValue.arrayUnion({
                 role,
-                content,
+                // Sanitize content to remove undefined values which Firestore rejects
+                content: JSON.parse(JSON.stringify(content)),
                 timestamp: new Date()
             }),
             updatedAt: new Date()

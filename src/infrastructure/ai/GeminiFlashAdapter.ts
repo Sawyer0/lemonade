@@ -8,6 +8,8 @@ import { SAFETY_PROMPTS } from '@/core/prompts/safety';
 import { VERIFY_SAFE_SUPPORT_TOOL } from '@/core/tools/verifySafeSupport';
 import { CONFIG } from '@/infrastructure/config';
 import { traceAiCall } from '@/infrastructure/observability/langsmithTracer';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class GeminiFlashAdapter implements IChatAssistantAI {
@@ -18,7 +20,7 @@ export class GeminiFlashAdapter implements IChatAssistantAI {
         const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
         if (!key) {
             console.error('CRITICAL: FIREBASE_SERVICE_ACCOUNT_KEY is missing in GeminiFlashAdapter');
-            throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is missing');
+            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'FIREBASE_SERVICE_ACCOUNT_KEY is missing');
         }
         console.log('DEBUG: GeminiFlashAdapter Key present, length:', key.length);
         const credentials = JSON.parse(key);

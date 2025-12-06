@@ -87,6 +87,7 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                     await onCapture(file);
                     // Stop stream after successful capture
                     streamRef.current?.getTracks().forEach(track => track.stop());
+                    setIsCapturing(false);
                 } catch (error) {
                     console.error('Capture upload failed:', error);
                     showToast('Failed to upload image.', 'error');

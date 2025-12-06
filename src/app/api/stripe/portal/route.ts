@@ -44,9 +44,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ url: session.url });
 
     } catch (error) {
-        const logger = container.get<ILogger>(TYPES.Logger);
-        logger.error('Stripe Portal Error', error);
-
         return createErrorResponse(error);
     }
 }

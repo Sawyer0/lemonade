@@ -8,7 +8,7 @@ export interface IAuthService {
     /**
      * Get the current authenticated user.
      */
-    getUser(): Promise<User | null>;
+    getUser(): User | null;
 
     /**
      * Subscribe to authentication state changes.
@@ -20,5 +20,5 @@ export interface IAuthService {
     /**
      * Check if authentication is currently loading.
      */
-    isLoading(): Promise<boolean>;
+    isLoading(): boolean;
 }

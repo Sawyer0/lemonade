@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { Logger } from '@/infrastructure/logging/Logger';
+import { auth } from '@/infrastructure/firebase/config';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 export function useDirectUpload() {
     const [uploading, setUploading] = useState(false);
@@ -10,17 +13,26 @@ export function useDirectUpload() {
         setProgress(0);
 
         try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) throw new AppError(ErrorCode.UNAUTHORIZED, "User not authenticated");
+
             // 1. Get Signed URL
             const signRes = await fetch('/api/upload/sign', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     contentType: file.type,
                     sessionId
                 }),
             });
 
-            if (!signRes.ok) throw new Error("Failed to get upload permit");
+            if (!signRes.ok) {
+                const errorText = await signRes.text().catch(() => 'No details');
+                throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Failed to get upload permit: ${signRes.status} ${signRes.statusText} - ${errorText}`);
+            }
             const { uploadUrl, publicUrl } = await signRes.json();
 
             // 2. Upload to GCS (Directly)
@@ -37,9 +49,9 @@ export function useDirectUpload() {
             await new Promise((resolve, reject) => {
                 xhr.onload = () => {
                     if (xhr.status === 200) resolve(true);
-                    else reject(new Error('Upload failed'));
+                    else reject(new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Upload failed'));
                 };
-                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.onerror = () => reject(new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Network error'));
                 xhr.send(file);
             });
 

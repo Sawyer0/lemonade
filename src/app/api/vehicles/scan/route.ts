@@ -18,10 +18,15 @@ export async function POST(req: Request) {
     const vehicle = await vehicleService.onboardVehicle(vin, userId);
     logger.info('Vehicle onboarded successfully', { vehicleId: vehicle.id });
 
-    return NextResponse.json({
+    const responseProps = {
       success: true,
       data: vehicle,
-    });
+    };
+
+    // Validate the response before sending
+    const validatedResponse = validateResponse(responseProps, VehicleScanResponseSchema);
+
+    return NextResponse.json(validatedResponse);
 
   } catch (error) {
     return createErrorResponse(error);

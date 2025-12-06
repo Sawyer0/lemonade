@@ -7,6 +7,8 @@ import { VIDEO_PROMPTS } from '@/core/prompts/video';
 import { SYSTEM_PROMPTS } from '@/core/prompts/system';
 import { CONFIG } from '@/infrastructure/config';
 import { traceAiCall } from '@/infrastructure/observability/langsmithTracer';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class GeminiProAdapter implements IVideoDiagnosticAI {
@@ -35,7 +37,7 @@ export class GeminiProAdapter implements IVideoDiagnosticAI {
         });
     }
 
-    async analyzeMechanicalVideo(videoUrl: string, vehicleContext: string): Promise<AIAnalysis> {
+    async analyzeMechanicalVideo(videoUrl: string, vehicleContext: string, mimeType: string = 'video/mp4'): Promise<AIAnalysis> {
         const prompt = `
         ${SYSTEM_PROMPTS.IDENTITY}
         ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
@@ -48,13 +50,14 @@ export class GeminiProAdapter implements IVideoDiagnosticAI {
             inputs: {
                 videoUrl,
                 vehicleContext,
+                mimeType
             },
             exec: () => this.model.generateContent({
                 contents: [{
                     role: 'user',
                     parts: [
                         { text: prompt },
-                        { fileData: { fileUri: videoUrl, mimeType: 'video/mp4' } }
+                        { fileData: { fileUri: videoUrl, mimeType: mimeType } }
                     ]
                 }]
             }),
@@ -62,7 +65,7 @@ export class GeminiProAdapter implements IVideoDiagnosticAI {
 
         const candidate = result.response.candidates?.[0];
         const rawText = candidate?.content?.parts?.[0]?.text;
-        if (!rawText) throw new Error("AI returned empty response");
+        if (!rawText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response");
         return AIAnalysisSchema.parse(JSON.parse(rawText));
     }
 }

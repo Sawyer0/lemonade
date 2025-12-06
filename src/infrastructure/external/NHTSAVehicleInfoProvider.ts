@@ -2,6 +2,8 @@ import { injectable, inject } from 'inversify';
 import { IVehicleInfoProvider, VehicleSpecs } from '@/core/interfaces/IVehicleInfoProvider';
 import { TYPES } from '@/infrastructure/di/types';
 import type { ILogger } from '@/core/interfaces/ILogger';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class NHTSAVehicleInfoProvider implements IVehicleInfoProvider {
@@ -12,7 +14,7 @@ export class NHTSAVehicleInfoProvider implements IVehicleInfoProvider {
     async getVehicleSpecs(vin: string): Promise<VehicleSpecs> {
         try {
             const response = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`);
-            if (!response.ok) throw new Error("Failed to connect to NHTSA API");
+            if (!response.ok) throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, "Failed to connect to NHTSA API");
 
             const data = await response.json();
 
@@ -48,7 +50,7 @@ export class NHTSAVehicleInfoProvider implements IVehicleInfoProvider {
         } catch (error) {
             this.logger.error("NHTSA API Error", error instanceof Error ? error : new Error(String(error)), { vin });
             // Fallback for MVP if API fails, but still structured
-            throw new Error("Could not verify vehicle identity. Please try again.");
+            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, "Could not verify vehicle identity. Please try again.");
         }
     }
 }

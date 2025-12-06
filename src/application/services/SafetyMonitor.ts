@@ -5,6 +5,8 @@ import { SafetyAssessment, SAFETY_RAW_SCHEMA } from '@/core/types/safety';
 import { ISafetyMonitor } from '@/core/interfaces/ISafetyMonitor';
 import type { ILogger } from '@/core/interfaces/ILogger';
 import { TYPES } from '@/infrastructure/di/types';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class SafetyMonitor implements ISafetyMonitor {
@@ -20,7 +22,7 @@ export class SafetyMonitor implements ISafetyMonitor {
 
         this.vertex = new VertexAI({
             project: CONFIG.GCLOUD_PROJECT,
-            location: 'us',
+            location: 'us-central1',
             googleAuthOptions: { credentials }
         });
 
@@ -75,13 +77,17 @@ export class SafetyMonitor implements ISafetyMonitor {
             }
 
             let cleanText = text.trim();
-            if (cleanText.startsWith('```')) {
-                cleanText = cleanText.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '');
-            }
+            // Remove markdown code blocks if present
+            cleanText = cleanText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '');
 
-            return JSON.parse(cleanText) as SafetyAssessment;
+            try {
+                return JSON.parse(cleanText) as SafetyAssessment;
+            } catch (e) {
+                this.logger.warn(`SafetyMonitor: Failed to parse JSON response: ${cleanText}`, { error: e });
+                throw new AppError(ErrorCode.AI_SERVICE_ERROR, "Invalid JSON response from Safety Guardrail");
+            }
         } catch (error) {
-            this.logger.error("SafetyMonitor Assessment Failed", error, { userMessage });
+            this.logger.error("SafetyMonitor Assessment Failed", error as Error, { userMessage });
             // Fail closed: block operation when safety check fails
             return {
                 safety_score: 10,

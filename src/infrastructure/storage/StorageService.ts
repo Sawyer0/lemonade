@@ -6,7 +6,22 @@ export class StorageService {
     private bucket;
 
     constructor(projectId: string, bucketName: string) {
-        const storage = new Storage({ projectId });
+        let storageOptions: any = { projectId };
+
+        // Use Service Account from Env if available (Development/Production)
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+            try {
+                const credentials = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+                storageOptions.credentials = {
+                    client_email: credentials.client_email,
+                    private_key: credentials.private_key,
+                };
+            } catch (error) {
+                console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY", error);
+            }
+        }
+
+        const storage = new Storage(storageOptions);
         this.bucket = storage.bucket(bucketName);
     }
 

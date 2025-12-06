@@ -56,24 +56,32 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: Missing Token' }, { status: 401 });
     }
 
+    if (request.nextUrl.pathname.startsWith('/api/upload')) {
+      console.log('[Middleware] Upload request intercepted:', request.nextUrl.pathname);
+    }
+
     const token = authHeader.split(' ')[1];
     const payload = await verifyFirebaseToken(token);
+
+    if (request.nextUrl.pathname.startsWith('/api/upload')) {
+      console.log('[Middleware] Token verified for upload:', !!payload);
+    }
 
     if (!payload) {
       return NextResponse.json({ error: 'Unauthorized: Invalid Token' }, { status: 401 });
     }
 
-    // 2. Pro Tier Gate for Upload Endpoint
+    // 2. Pro Tier Gate for Upload Endpoint (DISABLED FOR MVP)
     // Free users cannot upload videos - they must upgrade to Pro
-    if (request.nextUrl.pathname.startsWith('/api/upload')) {
-      const userTier = payload.stripe_role as string | undefined;
-      if (userTier !== 'pro') {
-        return NextResponse.json(
-          { error: 'Upgrade Required', code: 'PRO_REQUIRED' },
-          { status: 403 }
-        );
-      }
-    }
+    // if (request.nextUrl.pathname.startsWith('/api/upload')) {
+    //   const userTier = payload.stripe_role as string | undefined;
+    //   if (userTier !== 'pro') {
+    //     return NextResponse.json(
+    //       { error: 'Upgrade Required', code: 'PRO_REQUIRED' },
+    //       { status: 403 }
+    //     );
+    //   }
+    // }
 
     // Success! Pass through.
     // We can also set headers here to pass user info to the route handler if needed

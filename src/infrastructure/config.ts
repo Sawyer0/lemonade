@@ -7,7 +7,7 @@ export const CONFIG = {
     // AI Models
     AI_MODELS: {
         // Primary model for both chat and video analysis with thinking budget
-        PRIMARY: 'gemini-3-pro-preview',
+        PRIMARY: 'gemini-2.5-pro',
         THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
     },
 

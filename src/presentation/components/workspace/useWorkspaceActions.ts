@@ -1,5 +1,7 @@
 import { Dispatch, SetStateAction } from 'react';
 import { CONFIG } from '@/infrastructure/config';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 interface ToolInvocation {
     toolName: string;
@@ -45,7 +47,10 @@ export const useWorkspaceActions = ({
                 // Trigger analysis via API (Fire and Forget)
                 const response = await fetch(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ sessionId, publicUrl })
                 });
 
@@ -82,7 +87,7 @@ export const useWorkspaceActions = ({
                     content
                 }, requestOptions);
             } else {
-                throw new Error('sendMessage function is missing');
+                throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'sendMessage function is missing');
             }
 
         } catch (error) {
@@ -96,9 +101,11 @@ export const useWorkspaceActions = ({
     const handleImageCapture = async (file: File, toolCallId?: string) => {
         try {
             const publicUrl = await uploadFile(file, sessionId);
+            const isVideo = file.type.startsWith('video/');
+            const isAudio = file.type.startsWith('audio/');
 
             if (toolCallId) {
-                // Multimodal Function Response
+                // Multimodal Function Response (Camera tool)
                 addToolResult({
                     toolCallId,
                     result: {
@@ -120,27 +127,51 @@ export const useWorkspaceActions = ({
 
                 showToast('Image sent to AI analysis!', 'success');
             } else {
-                // Manual Capture (User initiated)
-                const requestOptions = token ? {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: { sessionId }
-                } : {
-                    body: { sessionId }
-                };
+                // File Upload (User initiated - video or audio)
+                if (isVideo || isAudio) {
+                    // Trigger backend analysis for video/audio
+                    const analysisResponse = await fetch(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            sessionId,
+                            publicUrl,
+                            fileType: isVideo ? 'video' : 'audio'
+                        })
+                    });
 
-                await sendMessage({
-                    role: 'user',
-                    content: [
-                        { type: 'text', text: 'I have captured an image of the part.' },
-                        { type: 'image', image: publicUrl }
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    ] as any
-                }, requestOptions);
-                showToast('Image captured and sent!', 'success');
+                    if (!analysisResponse.ok) {
+                        throw new AppError(ErrorCode.AI_SERVICE_ERROR, 'Failed to trigger analysis');
+                    }
+
+                    showToast('File uploaded. AI is analyzing...', 'success');
+                } else {
+                    // Regular image file
+                    const requestOptions = token ? {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        body: { sessionId }
+                    } : {
+                        body: { sessionId }
+                    };
+
+                    await sendMessage({
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: 'I have captured an image of the part.' },
+                            { type: 'image', image: publicUrl }
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ] as any
+                    }, requestOptions);
+                    showToast('Image captured and sent!', 'success');
+                }
             }
 
         } catch (error) {
-            showToast('Failed to send image.', 'error');
+            const message = error instanceof Error ? error.message : 'Failed to upload file';
+            showToast(message, 'error');
         }
     };
 

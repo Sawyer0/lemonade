@@ -37,9 +37,14 @@ export function validateQueryParams<T>(
 ): T {
     try {
         const { searchParams } = new URL(request.url);
-        const params: Record<string, string> = {};
+        const params: Record<string, string | string[]> = {};
         searchParams.forEach((value, key) => {
-            params[key] = value;
+            const existing = params[key];
+            if (existing) {
+                params[key] = Array.isArray(existing) ? [...existing, value] : [existing, value];
+            } else {
+                params[key] = value;
+            }
         });
         return schema.parse(params);
     } catch (error) {

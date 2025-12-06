@@ -8,38 +8,12 @@ import { UpgradeModal } from '@/presentation/components/modals/UpgradeModal';
 import { Vehicle } from '@/core/entities/Vehicle';
 import { useAuth } from '@/presentation/context/AuthContext';
 import { auth } from '@/infrastructure/firebase/config';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/infrastructure/firebase/config';
 import { Crown, Zap } from 'lucide-react';
 
 export default function GaragePage() {
+    const { user, loading: authLoading } = useAuth();
     const [isAdding, setIsAdding] = useState(false);
     const [showUpgrade, setShowUpgrade] = useState(false);
-    const [userTier, setUserTier] = useState<'free' | 'pro'>('free');
-    const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
-
-    // 1. Auth Guard (Client-Side)
-    useEffect(() => {
-        if (!authLoading && !user) {
-            router.push('/');
-        }
-    }, [user, authLoading, router]);
-
-    // 2. Fetch user tier from Firestore
-    useEffect(() => {
-        if (user) {
-            const fetchTier = async () => {
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                if (userDoc.exists()) {
-                    setUserTier(userDoc.data().tier === 'pro' ? 'pro' : 'free');
-                }
-            };
-            fetchTier();
-        }
-    }, [user]);
-
-    // 3. Data Fetching
     const fetcher = async (url: string) => {
         const token = await auth.currentUser?.getIdToken();
         if (!token) throw new Error('No token');
@@ -51,6 +25,16 @@ export default function GaragePage() {
         });
         return res.json();
     };
+
+    // 2. Fetch user tier via SWR (Standardized)
+    const { data: userData } = useSWR(
+        user ? '/api/users/me' : null,
+        fetcher
+    );
+
+    const userTier = userData?.data?.tier === 'pro' ? 'pro' : 'free';
+
+    // 3. Data Fetching (Vehicles)
 
     const { data, isLoading, mutate } = useSWR(
         user ? `/api/vehicles?userId=${user.uid}` : null,

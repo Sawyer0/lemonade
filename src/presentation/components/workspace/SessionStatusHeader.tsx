@@ -1,18 +1,28 @@
 import React from 'react';
 import { clsx } from 'clsx';
+import Link from 'next/link';
+import { ChevronLeft } from 'lucide-react';
 import { VoiceInput } from './VoiceInput';
 
 interface SessionStatusHeaderProps {
     sessionId: string;
+    vehicleId: string;
     status: 'active' | 'analyzing' | 'waiting_user' | 'completed' | 'error';
     onAudioDetected: (audio: Float32Array) => void;
     isProcessingAudio: boolean;
 }
 
-export function SessionStatusHeader({ sessionId, status, onAudioDetected, isProcessingAudio }: SessionStatusHeaderProps) {
+export function SessionStatusHeader({ sessionId, vehicleId, status, onAudioDetected, isProcessingAudio }: SessionStatusHeaderProps) {
     return (
         <div className="flex justify-between items-start pointer-events-auto">
             <div className="bg-black/60 backdrop-blur-md p-4 rounded-2xl border border-white/10 flex items-center gap-4">
+                <Link
+                    href={`/garage/${vehicleId}/history`}
+                    className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors text-zinc-400 hover:text-white"
+                >
+                    <ChevronLeft className="w-5 h-5" />
+                </Link>
+
                 <div>
                     <h2 className="text-white font-bold">SESSION #{sessionId.slice(0, 4)}</h2>
                     <div className="flex items-center gap-2 mt-1">

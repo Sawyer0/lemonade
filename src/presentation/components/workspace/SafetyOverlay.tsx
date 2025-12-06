@@ -4,14 +4,16 @@ import { AIAnalysis } from '@/core/entities/DiagnosticSession';
 import { Camera, ShieldAlert } from 'lucide-react';
 
 interface SafetyOverlayProps {
-    analysis: AIAnalysis | null;
+    active: boolean;
+    reason?: string;
     onAcknowledge: () => void;
     verificationPending?: boolean;
     onCaptureFrame?: () => void;
 }
 
 export function SafetyOverlay({
-    analysis,
+    active,
+    reason,
     onAcknowledge,
     verificationPending = false,
     onCaptureFrame
@@ -43,13 +45,13 @@ export function SafetyOverlay({
     }
 
     // State 2: Critical Safety Alert (Red Zone)
-    if (analysis?.safety_alert) {
+    if (active) {
         return (
             <div className="absolute inset-0 z-50 bg-red-900/90 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-pulse">
                 <div className="text-6xl mb-4">🛑</div>
                 <h1 className="text-4xl font-black text-white mb-2">SAFETY STOP TRIGGERED</h1>
                 <p className="text-xl text-red-200 font-bold max-w-md">
-                    {analysis.diagnosis}
+                    {reason || "Safety Violation Detected"}
                 </p>
                 <button
                     onClick={onAcknowledge}

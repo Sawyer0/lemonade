@@ -16,7 +16,10 @@ import type { IVoiceService } from '@/core/interfaces/IVoiceService';
 
 import type { ILogger } from '@/core/interfaces/ILogger';
 import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
+
 import { Vehicle } from '@/core/entities/Vehicle';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class DiagnosticService implements IChatService, IVideoAnalysisService, ISessionService, IVoiceService {
@@ -29,42 +32,89 @@ export class DiagnosticService implements IChatService, IVideoAnalysisService, I
     ) { }
 
     async processVideoUpload(sessionId: string, videoUrl: string) {
-        // 1. Retrieve Context
-        const session = await this.sessionRepo.findById(sessionId);
-        if (!session) throw new Error("Session not found");
-
-        const vehicle = await this.vehicleRepo.findById(session.vehicleId);
-        if (!vehicle) throw new Error("Vehicle not found");
-
-        const context = `${vehicle.specs.year} ${vehicle.specs.make} ${vehicle.specs.model} ${vehicle.specs.engine}`;
-
-        // 2. Update Status
-        await this.sessionRepo.updateStatus(sessionId, 'analyzing');
-        await this.sessionRepo.updateVideo(sessionId, videoUrl);
-        this.logger.info('Video upload processed', { sessionId, videoUrl });
+        this.logger.info('[DiagnosticService] processVideoUpload started', { sessionId, videoUrl });
 
         try {
-            // 3. Call Gemini 3 Pro
-            const analysis = await this.videoAI.analyzeMechanicalVideo(videoUrl, context);
+            // 1. Retrieve Context
+            const session = await this.sessionRepo.findById(sessionId);
+            if (!session) {
+                this.logger.error('[DiagnosticService] Session not found', { sessionId });
+                throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
+            }
 
-            // 4. Safety Enforcer
+            const vehicle = await this.vehicleRepo.findById(session.vehicleId);
+            if (!vehicle) {
+                this.logger.error('[DiagnosticService] Vehicle not found', { vehicleId: session.vehicleId });
+                throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
+            }
+
+            const context = `${vehicle.specs.year} ${vehicle.specs.make} ${vehicle.specs.model} ${vehicle.specs.engine}`;
+
+            // 2. Persist User Message (Requirements: "User sent an attachment")
+            await this.sessionRepo.addMessage(sessionId, 'user', [
+                { type: 'text', text: `[System] User uploaded a video for mechanical analysis: ${videoUrl}` }
+            ]);
+            this.logger.info('[DiagnosticService] Added user message for video', { sessionId });
+
+            // 3. Update Status
+            await this.sessionRepo.updateStatus(sessionId, 'analyzing');
+            await this.sessionRepo.updateVideo(sessionId, videoUrl);
+
+            // 4. Call Gemini 3 Pro
+            this.logger.info('[DiagnosticService] Calling VideoAI...', { sessionId });
+
+            // Convert public URL to gs:// URI for Vertex AI
+            // Input: https://storage.googleapis.com/BUCKET_NAME/PATH/TO/FILE
+            // Output: gs://BUCKET_NAME/PATH/TO/FILE
+            let videoUri = videoUrl;
+            let mimeType = 'video/mp4';
+
+            try {
+                // Infer MIME type from extension
+                const extension = videoUrl.split('.').pop()?.toLowerCase();
+                if (extension === 'mov' || extension === 'qt') {
+                    mimeType = 'video/quicktime';
+                } else if (extension === 'webm') {
+                    mimeType = 'video/webm';
+                }
+
+                if (videoUrl.includes('storage.googleapis.com')) {
+                    const urlObj = new URL(videoUrl);
+                    const pathParts = urlObj.pathname.split('/').filter(Boolean);
+                    // pathParts[0] is bucket name (if using storage.googleapis.com/BUCKET/KEY)
+                    // URL: https://storage.googleapis.com/pro-lemonade-mvp-media/sessions/...
+                    if (pathParts.length >= 2) {
+                        videoUri = `gs://${pathParts.join('/')}`;
+                        this.logger.info('[DiagnosticService] Converted URI', { original: videoUrl, converted: videoUri, mimeType });
+                    }
+                }
+            } catch (e) {
+                this.logger.warn('[DiagnosticService] Failed to parse/convert video URL, using original', { videoUrl });
+            }
+
+            const analysis = await this.videoAI.analyzeMechanicalVideo(videoUri, context, mimeType);
+            this.logger.info('[DiagnosticService] VideoAI Analysis complete', { sessionId, hasAlert: !!analysis.safety_alert });
+
+            // 5. Safety Enforcer
             if (analysis.safety_alert) {
                 await this.sessionRepo.flagSafetyStop(sessionId, "Safety Alert Triggered by AI Analysis");
             }
 
-            // 5. Save Results
+            // 6. Save Results
             await this.sessionRepo.updateAnalysis(sessionId, analysis);
+            this.logger.info('[DiagnosticService] Analysis saved', { sessionId });
 
         } catch (error) {
-            this.logger.error('Video processing failed', error, { sessionId });
+            this.logger.error('[DiagnosticService] Video processing failed', error, { sessionId });
             await this.sessionRepo.updateStatus(sessionId, 'active');
+            throw error; // Re-throw so the caller (route) sees it if awaiting, or background logger catches it
         }
     }
 
     async handleChatInteraction(sessionId: string, userMessage: string) {
         // 1. Load History
         const session = await this.sessionRepo.getHistory(sessionId);
-        if (!session) throw new Error("Session not found");
+        if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
 
         const vehicle = await this.vehicleRepo.findById(session.vehicleId);
 
@@ -93,7 +143,7 @@ export class DiagnosticService implements IChatService, IVideoAnalysisService, I
         try {
             // 1. Load Session & Vehicle
             const session = await this.sessionRepo.findById(sessionId);
-            if (!session) throw new Error("Session not found");
+            if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
 
             const vehicle = await this.vehicleRepo.findById(session.vehicleId);
             const vehicleContext = `${vehicle?.specs.year} ${vehicle?.specs.make} ${vehicle?.specs.model}`;
@@ -112,9 +162,10 @@ export class DiagnosticService implements IChatService, IVideoAnalysisService, I
             return "I'm having trouble with the voice connection right now. Please try again or type your message.";
         }
     }
+
     async startSession(vehicleId: string): Promise<string> {
         const vehicle = await this.vehicleRepo.findById(vehicleId);
-        if (!vehicle) throw new Error("Vehicle not found");
+        if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
 
         const newSession: DiagnosticSession = {
             id: uuidv4(),
@@ -133,15 +184,17 @@ export class DiagnosticService implements IChatService, IVideoAnalysisService, I
         await this.sessionRepo.create(newSession);
         return newSession.id;
     }
+
     async getSessionContext(sessionId: string): Promise<{ session: DiagnosticSession; vehicle: Vehicle }> {
         const session = await this.sessionRepo.findById(sessionId);
-        if (!session) throw new Error("Session not found");
+        if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
 
         const vehicle = await this.vehicleRepo.findById(session.vehicleId);
-        if (!vehicle) throw new Error("Vehicle not found");
+        if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
 
         return { session, vehicle };
     }
+
     async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: unknown): Promise<void> {
         await this.sessionRepo.addMessage(sessionId, role, content);
     }

@@ -18,6 +18,7 @@ export const generateSystemPrompt = (vehicle: Vehicle, session: DiagnosticSessio
     
     AVAILABLE TOOLS:
     - Camera: Request usage if you need to see a component (e.g., "Show me the serpentine belt").
-    - Google Search: Use this for specific Torque Specs, Fluid Types, or TSBs if not known.
+
+    NOTE: You have native access to Google Search. DO NOT call a "search" or "google_search" tool. If you need to search, just answer the question directly.
   `;
 };

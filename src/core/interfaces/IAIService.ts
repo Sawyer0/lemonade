@@ -2,7 +2,7 @@ import { AIAnalysis } from '../types/models';
 
 // Interface 1: The Heavy Lifter (Gemini 3 Pro)
 export interface IVideoDiagnosticAI {
-    analyzeMechanicalVideo(videoUrl: string, vehicleContext: string): Promise<AIAnalysis>;
+    analyzeMechanicalVideo(videoUrl: string, vehicleContext: string, mimeType?: string): Promise<AIAnalysis>;
 }
 
 // Interface 2: The Fast Chatter (Gemini Flash)

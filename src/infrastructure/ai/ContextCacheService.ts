@@ -5,6 +5,8 @@ import { CONFIG } from '@/infrastructure/config';
 import { IContextCacheService } from '@/core/interfaces/IContextCacheService';
 import { TYPES } from '@/infrastructure/di/types';
 import type { ILogger } from '@/core/interfaces/ILogger';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class ContextCacheService implements IContextCacheService {
@@ -22,7 +24,7 @@ export class ContextCacheService implements IContextCacheService {
             } catch (error) {
                 // Log the critical error before throwing
                 this.logger.error('Invalid FIREBASE_SERVICE_ACCOUNT_KEY', error);
-                throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_KEY: Failed to parse JSON');
+                throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Invalid FIREBASE_SERVICE_ACCOUNT_KEY: Failed to parse JSON');
             }
         }
         this.vertex = new VertexAI({
@@ -35,7 +37,7 @@ export class ContextCacheService implements IContextCacheService {
     private get cacheManager() {
         const manager = this.vertex.preview.cachedContents;
         if (!manager) {
-            throw new Error('Vertex AI CachedContents manager not available');
+            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Vertex AI CachedContents manager not available');
         }
         return manager;
     }
@@ -55,7 +57,7 @@ export class ContextCacheService implements IContextCacheService {
                 ttl, // Confirmed: 'ttl' is the correct property, takes a duration string
             });
 
-            if (!cache.name) throw new Error('Cache created but name is missing');
+            if (!cache.name) throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Cache created but name is missing');
 
             this.logger.info('Context Cache Created Successfully', { cacheName: cache.name });
             return cache.name;

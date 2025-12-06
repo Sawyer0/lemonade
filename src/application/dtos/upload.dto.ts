@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // --- Sign Request ---
 export const SignRequestSchema = z.object({
-    contentType: z.enum(['video/mp4', 'image/jpeg', 'image/png']),
+    contentType: z.enum(['video/mp4', 'video/quicktime', 'video/webm', 'image/jpeg', 'image/png']),
     sessionId: z.string().uuid(),
 });
 

@@ -23,17 +23,17 @@ export const dynamic = 'force-dynamic';
 // Initialize Vertex AI Provider with Service Account Credentials
 const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 if (!key) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is missing');
+    throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'FIREBASE_SERVICE_ACCOUNT_KEY is missing');
 }
 let credentials;
 try {
     credentials = JSON.parse(key);
 } catch (e) {
-    throw new Error(`FIREBASE_SERVICE_ACCOUNT_KEY contains invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+    throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `FIREBASE_SERVICE_ACCOUNT_KEY contains invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
 }
 const vertex = createVertex({
     project: CONFIG.GCLOUD_PROJECT,
-    location: 'us', // Multi-region for Gemini 3 Pro Preview
+    location: 'us-central1', // Multi-region for Gemini 3 Pro Preview
     googleAuthOptions: {
         credentials
     }
@@ -125,19 +125,102 @@ export async function POST(req: Request) {
         }
 
 
+        // Filter out system messages
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let filteredMessages = (messages as any[]).filter(m => m.role !== 'system');
+
+        // Sanitize messages to remove empty content, invalid tool call sequences, and poisoned history
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        filteredMessages = filteredMessages.reduce((acc: any[], msg, index, array) => {
+            const safeMsg = { ...msg };
+
+            // 0. Pre-Sanitize Content Parts for Semantic Validity
+            if (Array.isArray(safeMsg.content)) {
+                safeMsg.content = safeMsg.content.map((p: any) => {
+                    // Safe guard: p must be an object
+                    if (!p || typeof p !== 'object') return { type: 'text', text: '[Invalid Part]' };
+
+                    // Fix: DiagnosticService saves videos as type: 'image', which crashes Vertex
+                    // We convert these to text so the chat model knows context without crashing on invalid media types
+                    if (p.type === 'image' && typeof p.image === 'string') {
+                        // Check if it's actually a video URL
+                        // NOTE: Using simple string checks because Regex inside the map loop with complex objects was causing issues
+                        const url = p.image.toLowerCase();
+                        const isVideo = url.endsWith('.mp4') ||
+                            url.endsWith('.mov') ||
+                            url.endsWith('.webm') ||
+                            url.endsWith('.avi') ||
+                            url.endsWith('.mkv') ||
+                            url.includes('/video/') ||
+                            url.includes('video'); // Catch-all for blobs/types
+
+                        if (isVideo) {
+                            return { type: 'text', text: `[Context: User uploaded a video at ${p.image}]` };
+                        }
+                    }
+                    return p;
+                });
+            }
+
+            // 1. Sanitize Assistant Messages: Remove 'tool-result' parts if they wrongly appear in assistant role
+            // This fixes the "poisoned" DB state from previous bugs
+            if (safeMsg.role === 'assistant' && Array.isArray(safeMsg.content)) {
+                safeMsg.content = safeMsg.content.filter((p: any) => p.type !== 'tool-result');
+            }
+
+            // 2. Skip messages that became empty after sanitization
+            const isEmptyString = typeof safeMsg.content === 'string' && safeMsg.content.trim() === '';
+            const isEmptyArray = Array.isArray(safeMsg.content) && safeMsg.content.length === 0;
+
+            if (!safeMsg.content || isEmptyString || isEmptyArray) {
+                // If it really has no content/parts, drop it
+                return acc;
+            }
+
+            // 3. Check for dangling tool calls
+            // If this is an assistant message with tool calls...
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const hasToolCall = Array.isArray(safeMsg.content) && safeMsg.content.some((p: any) => p.type === 'tool-call');
+            if (safeMsg.role === 'assistant' && hasToolCall) {
+                // ...it MUST be followed by a tool message
+                const nextMsg = array[index + 1];
+                if (!nextMsg || nextMsg.role !== 'tool') {
+                    logger.warn('Sanitization: Dropping dangling assistant tool-call message', { index });
+                    return acc;
+                }
+            }
+
+            acc.push(safeMsg);
+            return acc;
+        }, []);
+
+        console.log('DEBUG: streamText sanitized messages. Count:', filteredMessages.length);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        console.log('DEBUG: streamText messages content:', JSON.stringify(filteredMessages.map((m: any) => {
+            if (typeof m.content === 'string') return { role: m.role, content: m.content.substring(0, 50) };
+            if (Array.isArray(m.content)) return { role: m.role, parts: m.content.map((p: any) => p.type) };
+            return { role: m.role, content: 'UNKNOWN_TYPE' };
+        }), null, 2));
+        console.log('DEBUG: System Prompt Length:', systemPrompt.length);
+
         const result = streamText({
             model: vertex(CONFIG.AI_MODELS.PRIMARY),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            messages: messages as any,
+            messages: filteredMessages,
             system: systemPrompt,
             tools: {
                 open_camera: tool({
                     description: 'Open the user camera to capture an image of the vehicle part.',
                     inputSchema: CameraToolSchema,
                 }),
-                googleSearch: vertex.tools.googleSearch({}),
+            },
+            providerOptions: {
+                googleVertex: {
+                    useSearchGrounding: true,
+                },
             },
             toolChoice: 'auto',
+            // @ts-expect-error Library type definition missing maxSteps
+            maxSteps: 10,
             // Note: validateResponse is not applicable here because we return a text stream, 
             // verifying the stream content happens via unit/integration tests or monitoring.
             onFinish: async ({ response }) => {
@@ -146,10 +229,13 @@ export async function POST(req: Request) {
                     const generatedMessages = response.messages;
                     if (generatedMessages && generatedMessages.length > 0) {
                         const lastMessage = generatedMessages[generatedMessages.length - 1];
+                        console.log('DEBUG: onFinish lastMessage:', JSON.stringify(lastMessage, null, 2));
 
                         // Save full content to persist thought signatures and parts
                         if (lastMessage.content) {
-                            await sessionService.addMessage(sessionId, 'assistant', lastMessage.content);
+                            // Use actual role from the message (assistant or tool)
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            await sessionService.addMessage(sessionId, (lastMessage as any).role || 'assistant', lastMessage.content);
                         }
                     }
                 } catch (error) {

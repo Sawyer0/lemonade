@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Vehicle } from '@/core/entities/Vehicle';
 import { Logger } from '@/infrastructure/logging/Logger';
 import { auth } from '@/infrastructure/firebase/config';
+import { AppError } from '@/core/errors/AppError';
+import { ErrorCode } from '@/core/errors/codes';
 
 export function useVehicleOnboarding() {
     const [status, setStatus] = useState<'idle' | 'scanning' | 'processing' | 'success' | 'error'>('idle');
@@ -14,7 +16,7 @@ export function useVehicleOnboarding() {
             // Get the Firebase ID token
             const token = await auth.currentUser?.getIdToken();
             if (!token) {
-                throw new Error('Not authenticated');
+                throw new AppError(ErrorCode.UNAUTHORIZED, 'Not authenticated');
             }
 
             const res = await fetch('/api/vehicles/scan', {
@@ -28,7 +30,7 @@ export function useVehicleOnboarding() {
 
             if (!res.ok) {
                 const errorData = await res.json();
-                throw new Error(errorData.details || errorData.error || 'Failed to decode VIN');
+                throw new AppError(ErrorCode.VALIDATION_ERROR, errorData.details || errorData.error || 'Failed to decode VIN');
             }
 
             const data = await res.json();

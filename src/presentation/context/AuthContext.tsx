@@ -17,12 +17,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const authService = clientContainer.get<IAuthService>(TYPES.AuthService);
-        const unsubscribe = authService.onAuthStateChange((user) => {
-            setUser(user);
+        let unsubscribe: () => void = () => { };
+
+        try {
+            const authService = clientContainer.get<IAuthService>(TYPES.AuthService);
+            unsubscribe = authService.onAuthStateChange((user) => {
+                setUser(user);
+                setLoading(false);
+            });
+        } catch (error) {
+            console.error("Failed to initialize Auth Service:", error);
             setLoading(false);
-        });
-        return () => unsubscribe();
+        }
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, []);
 
     return (

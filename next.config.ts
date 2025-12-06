@@ -6,8 +6,21 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
+      allowedOrigins: [
+        '774efe6bb84846.lhr.life',
+        'localhost:3000',
+        '*.lhr.life',
+        '*.loca.lt'
+      ],
     },
   },
+  // Explicitly allow development origins as per the error message
+  allowedDevOrigins: [
+    '774efe6bb84846.lhr.life',
+    'localhost:3000',
+    '*.lhr.life',
+    '*.loca.lt'
+  ],
   // Silence Next.js 16 Turbopack warning (next-pwa uses webpack internally)
   turbopack: {},
   images: {

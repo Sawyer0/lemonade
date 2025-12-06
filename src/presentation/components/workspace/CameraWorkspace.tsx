@@ -41,7 +41,7 @@ export function CameraWorkspace({ session, token }: CameraWorkspaceProps) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chatHelpers = chatResult as any;
-    const { messages, setMessages } = chatHelpers;
+    const { messages, setMessages, isLoading } = chatHelpers;
 
     // Fallback: Manually set messages if useChat didn't initialize correctly
     // Sync: Keep chat state in sync with Firestore (Real-time Fallback)
@@ -59,6 +59,10 @@ export function CameraWorkspace({ session, token }: CameraWorkspaceProps) {
         }
     }, [session.messages, messages.length, setMessages]);
 
+    useEffect(() => {
+        console.log('DEBUG: CameraWorkspace messages:', JSON.stringify(messages, null, 2));
+    }, [messages]);
+
     const [input, setInput] = useState('');
     const [voiceMode] = useState(false);
     const { uploadFile, uploading, progress } = useDirectUpload();
@@ -67,7 +71,7 @@ export function CameraWorkspace({ session, token }: CameraWorkspaceProps) {
     const { speak, stop, isSpeaking } = useTTS();
     const lastSpokenMessageRef = useRef<string | null>(null);
 
-    const isSafetyStop = !!session.aiAnalysis?.safety_alert;
+    const isSafetyStop = session.safety_stop; // Use top-level field
 
     // Extract Actions
     const { handleUpload, handleSendMessage, handleImageCapture } = useWorkspaceActions({
@@ -115,7 +119,8 @@ export function CameraWorkspace({ session, token }: CameraWorkspaceProps) {
 
             {/* LAYER 2: SAFETY OVERLAY (Red Zone) */}
             <SafetyOverlay
-                analysis={session.aiAnalysis}
+                active={session.safety_stop}
+                reason={session.safety_reason}
                 onAcknowledge={() => showToast('Safety Protocol Acknowledged', 'success')}
             />
 
@@ -125,17 +130,20 @@ export function CameraWorkspace({ session, token }: CameraWorkspaceProps) {
                 {/* Top Bar */}
                 <SessionStatusHeader
                     sessionId={session.id}
+                    vehicleId={session.vehicleId}
                     status={session.status}
                     onAudioDetected={handleAudioDetected}
                     isProcessingAudio={isProcessingAudio}
                 />
 
                 {/* Chat Stream */}
-                <div className="flex-1 min-h-0 pointer-events-auto flex flex-col relative z-40">
+                <div className="flex-1 min-h-0 h-full pointer-events-auto flex flex-col relative z-40 overflow-hidden">
                     <ChatStream
                         messages={messages as unknown as Message[]}
                         isVideoMode={!!session.videoUrl}
                         onImageCapture={handleImageCapture}
+                        sessionId={session.id}
+                        isLoading={isLoading}
                     />
                 </div>
 
