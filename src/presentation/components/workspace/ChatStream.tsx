@@ -17,7 +17,7 @@ interface Message {
     id: string;
     role: 'user' | 'assistant' | 'system';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    content: any;
+    content: unknown;
     toolInvocations?: ToolInvocation[];
 }
 
@@ -132,10 +132,11 @@ export function ChatStream({ messages, isVideoMode, onImageCapture, sessionId, i
 
                             <div className="text-sm">
                                 {Array.isArray(msg.content) ? (
-                                    msg.content.map((p: any, i: number) => {
-                                        if (p.type === 'text' || (p.text && !p.type)) return <span key={i} className="whitespace-pre-wrap">{p.text}</span>;
-                                        if (p.type === 'tool-call' || p.type === 'tool_call') return <ToolMessage key={i} toolName={p.toolName} state="call" isUser={msg.role === 'user'} />;
-                                        if (p.type === 'tool-result' || p.type === 'tool_result') return <ToolMessage key={i} toolName={p.toolName} state="result" isUser={msg.role === 'user'} />;
+                                    msg.content.map((p: unknown, i: number) => {
+                                        const part = p as { type?: string; text?: string; toolName?: string };
+                                        if (part.type === 'text' || (part.text && !part.type)) return <span key={i} className="whitespace-pre-wrap">{part.text}</span>;
+                                        if (part.type === 'tool-call' || part.type === 'tool_call') return <ToolMessage key={i} toolName={part.toolName!} state="call" isUser={msg.role === 'user'} />;
+                                        if (part.type === 'tool-result' || part.type === 'tool_result') return <ToolMessage key={i} toolName={part.toolName!} state="result" isUser={msg.role === 'user'} />;
                                         // Fallback for unknown parts to ensure visibility
                                         return <span key={i} className="text-xs text-zinc-500 font-mono mt-1 block">{JSON.stringify(p)}</span>;
                                     })
@@ -145,10 +146,11 @@ export function ChatStream({ messages, isVideoMode, onImageCapture, sessionId, i
                                             try {
                                                 const parsed = JSON.parse(msg.content);
                                                 if (Array.isArray(parsed)) {
-                                                    return parsed.map((p: any, i: number) => {
-                                                        if (p.type === 'text' || (p.text && !p.type)) return <span key={i} className="whitespace-pre-wrap">{p.text}</span>;
-                                                        if (p.type === 'tool-call' || p.type === 'tool_call') return <ToolMessage key={i} toolName={p.toolName} state="call" isUser={msg.role === 'user'} />;
-                                                        if (p.type === 'tool-result' || p.type === 'tool_result') return <ToolMessage key={i} toolName={p.toolName} state="result" isUser={msg.role === 'user'} />;
+                                                    return parsed.map((p: unknown, i: number) => {
+                                                        const part = p as { type?: string; text?: string; toolName?: string };
+                                                        if (part.type === 'text' || (part.text && !part.type)) return <span key={i} className="whitespace-pre-wrap">{part.text}</span>;
+                                                        if (part.type === 'tool-call' || part.type === 'tool_call') return <ToolMessage key={i} toolName={part.toolName!} state="call" isUser={msg.role === 'user'} />;
+                                                        if (part.type === 'tool-result' || part.type === 'tool_result') return <ToolMessage key={i} toolName={part.toolName!} state="result" isUser={msg.role === 'user'} />;
                                                         return <span key={i} className="text-xs text-zinc-500 font-mono mt-1 block">{JSON.stringify(p)}</span>;
                                                     });
                                                 }

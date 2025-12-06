@@ -9,10 +9,15 @@ export async function POST(req: Request) {
   try {
     console.log('[Upload/Sign] Request received');
     const { contentType, sessionId } = await validateRequest(req, SignRequestSchema);
-    console.log(`[Upload/Sign] Validated request for sessionId: ${sessionId}, type: ${contentType}`);
+    console.log(`[Upload/Sign] Validated request for type: ${contentType}`);
 
     const storageService = container.get<StorageService>(TYPES.StorageService);
-    const filename = `sessions/${sessionId}/${Date.now()}.${contentType.split('/')[1]}`;
+    
+    // Normalize extension to avoid Vertex AI issues with .quicktime
+    let extension = contentType.split('/')[1];
+    if (extension === 'quicktime') extension = 'mov';
+    
+    const filename = `sessions/${sessionId}/${Date.now()}.${extension}`;
 
     console.log('[Upload/Sign] Generating signed URL...');
     const { uploadUrl, publicUrl } = await storageService.generateSignedUrl(filename, contentType);

@@ -9,4 +9,5 @@ export interface ISessionService {
     startSession(vehicleId: string): Promise<string>;
     getSessionContext(sessionId: string): Promise<{ session: DiagnosticSession; vehicle: Vehicle }>;
     addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: unknown): Promise<void>;
+    deleteSession(sessionId: string, userId: string): Promise<void>;
 }

@@ -72,28 +72,56 @@ export class DiagnosticService implements IChatService, IVideoAnalysisService, I
             try {
                 // Infer MIME type from extension
                 const extension = videoUrl.split('.').pop()?.toLowerCase();
-                if (extension === 'mov' || extension === 'qt') {
-                    mimeType = 'video/quicktime';
+                if (extension === 'mov' || extension === 'qt' || extension === 'quicktime') {
+                    mimeType = 'video/mp4'; // Lie to API: Force mp4 for compatibility
                 } else if (extension === 'webm') {
                     mimeType = 'video/webm';
+                } else if (extension === 'avi') {
+                    mimeType = 'video/avi';
                 }
 
                 if (videoUrl.includes('storage.googleapis.com')) {
                     const urlObj = new URL(videoUrl);
                     const pathParts = urlObj.pathname.split('/').filter(Boolean);
-                    // pathParts[0] is bucket name (if using storage.googleapis.com/BUCKET/KEY)
-                    // URL: https://storage.googleapis.com/pro-lemonade-mvp-media/sessions/...
                     if (pathParts.length >= 2) {
                         videoUri = `gs://${pathParts.join('/')}`;
-                        this.logger.info('[DiagnosticService] Converted URI', { original: videoUrl, converted: videoUri, mimeType });
+                        this.logger.info('Converted storage URL to GCS URI', {
+                            original: videoUrl,
+                            gcsUri: videoUri,
+                            mimeType
+                        });
                     }
+                } else if (videoUrl.startsWith('http')) {
+                    this.logger.info('Using direct video URL', { videoUrl, mimeType });
+                } else if (videoUrl.startsWith('gs://')) {
+                    this.logger.info('Using GCS URI directly', { videoUrl, mimeType });
+                } else {
+                    this.logger.warn('Unrecognized video URL format', { videoUrl });
                 }
             } catch (e) {
-                this.logger.warn('[DiagnosticService] Failed to parse/convert video URL, using original', { videoUrl });
+                this.logger.error('Error processing video URL', { error: e, videoUrl });
+                throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid video URL format');
             }
+
+            // Log the final values being sent to the AI
+            this.logger.info('Sending video for analysis', {
+                videoUri,
+                mimeType,
+                isGcs: videoUri.startsWith('gs://')
+            });
 
             const analysis = await this.videoAI.analyzeMechanicalVideo(videoUri, context, mimeType);
             this.logger.info('[DiagnosticService] VideoAI Analysis complete', { sessionId, hasAlert: !!analysis.safety_alert });
+
+            // Post analysis summary to chat
+            const summaryMessage = `I've analyzed the video.
+**Diagnosis:** ${analysis.diagnosis}
+**Severity:** ${analysis.severity.toUpperCase()}
+${analysis.suggested_actions.length > 0 ? '**Suggested Actions:**\n- ' + analysis.suggested_actions.join('\n- ') : ''}`;
+
+            await this.sessionRepo.addMessage(sessionId, 'assistant', [
+                { type: 'text', text: summaryMessage }
+            ]);
 
             // 5. Safety Enforcer
             if (analysis.safety_alert) {
@@ -197,5 +225,20 @@ export class DiagnosticService implements IChatService, IVideoAnalysisService, I
 
     async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: unknown): Promise<void> {
         await this.sessionRepo.addMessage(sessionId, role, content);
+    }
+
+    async deleteSession(sessionId: string, userId: string): Promise<void> {
+        const session = await this.sessionRepo.findById(sessionId);
+        if (!session) {
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Session not found', 404);
+        }
+
+        if (session.userId !== userId) {
+            this.logger.warn('[DiagnosticService] deleteSession forbidden', { sessionId, userId, ownerId: session.userId });
+            throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to delete this session', 403);
+        }
+
+        await this.sessionRepo.delete(sessionId);
+        this.logger.info('[DiagnosticService] Session deleted', { sessionId, userId });
     }
 }

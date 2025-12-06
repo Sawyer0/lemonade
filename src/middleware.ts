@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
   // 1. Protect Sensitive Endpoints
   // We protect /api/analysis (AI triggers) and /api/chat (AI chat)
   // We also protect /api/vehicles (User data)
-  const protectedPaths = ['/api/analysis', '/api/chat', '/api/vehicles', '/api/upload', '/api/stripe/portal'];
+  const protectedPaths = ['/api/analysis', '/api/chat', '/api/vehicles', '/api/upload', '/api/stripe/portal', '/api/sessions'];
 
   if (protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
 

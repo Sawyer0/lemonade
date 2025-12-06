@@ -10,12 +10,14 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.lemonade.mvp",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to your camera to scan items for analysis.",
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice commands."
       }
     },
     "android": {
+      "package": "com.lemonade.mvp",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -48,7 +50,8 @@
           }
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "@livekit/react-native"
     ],
     "experiments": {
       "typedRoutes": true,

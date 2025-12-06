@@ -18,8 +18,8 @@ export type VehicleListResponseDTO = z.infer<typeof VehicleListResponseSchema>;
 
 // --- Vehicle Scan Response ---
 export const VehicleScanResponseSchema = z.object({
-    sessionId: z.string().uuid(),
-    message: z.string(),
+    success: z.boolean(),
+    data: VehicleSchema,
 });
 
 export type VehicleScanResponseDTO = z.infer<typeof VehicleScanResponseSchema>;

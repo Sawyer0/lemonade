@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@livekit/react-native": "^2.9.5",
+    "@livekit/react-native-webrtc": "^137.0.2",
     "@react-native-google-signin/google-signin": "^16.0.0",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",

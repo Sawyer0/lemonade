@@ -157,15 +157,19 @@ export const useWorkspaceActions = ({
                         body: { sessionId }
                     };
 
-                    await sendMessage({
-                        role: 'user',
-                        content: [
-                            { type: 'text', text: 'I have captured an image of the part.' },
-                            { type: 'image', image: publicUrl }
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        ] as any
-                    }, requestOptions);
-                    showToast('Image captured and sent!', 'success');
+                    if (typeof sendMessage === 'function') {
+                        await sendMessage({
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: 'I have captured an image of the part.' },
+                                { type: 'image', image: publicUrl }
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            ] as any
+                        }, requestOptions);
+                        showToast('Image captured and sent!', 'success');
+                    } else {
+                        throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'sendMessage function is missing');
+                    }
                 }
             }
 

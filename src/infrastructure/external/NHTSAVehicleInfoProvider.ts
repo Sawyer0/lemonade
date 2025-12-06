@@ -49,7 +49,10 @@ export class NHTSAVehicleInfoProvider implements IVehicleInfoProvider {
             };
         } catch (error) {
             this.logger.error("NHTSA API Error", error instanceof Error ? error : new Error(String(error)), { vin });
-            // Fallback for MVP if API fails, but still structured
+            // Re-throw AppError as-is, wrap others
+            if (error instanceof AppError) {
+                throw error;
+            }
             throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, "Could not verify vehicle identity. Please try again.");
         }
     }

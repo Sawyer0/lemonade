@@ -187,3 +187,54 @@ Before committing any feature that modifies session state:
 
 ---
 ## Build it like a Master Tech would: Precise, Clean, and Safe.
+
+## 8. LiveKit Agents Best Practices
+**Version v1.0+ Compliance Rules**
+
+### Agent Architecture
+*   **Deprecation Warning**: `MultimodalAgent` is **DEPRECATED** and removed in v1.0+. attempts to import it will fail.
+*   **Unified Agent**: Use `voice.AgentSession` for ALL agent types (Voice, Video, Multimodal). It automatically adapts to the capabilities of the model provided.
+*   **Model Access**: For Google Gemini Realtime, access the model via `google.beta.realtime.RealtimeModel` (plugin namespace subject to change).
+
+### Critical Implementation Details
+1.  **Worker Loop Protection**: When using `cli.runApp` in a file that might be imported by the worker path, **YOU MUST** guard the execution to prevent infinite recursion/timeouts.
+    ```typescript
+    // ✅ GOOD: Guarded Execution
+    import { pathToFileURL } from 'url';
+    
+    if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+        cli.runApp(...)
+    }
+    ```
+2.  **Session Start**: Do not look for `agent.start()`. The correct API is `agentSession.start(ctx.room)`.
+
+### Example (Gemini Realtime)
+```typescript
+const model = new google.beta.realtime.RealtimeModel({ ... });
+const session = new voice.AgentSession({ llm: model });
+await session.start(ctx.room);
+// ... existing code ...
+await session.start(ctx.room);
+```
+
+## 9. Mobile Web Debugging Rules
+Testing the mobile web app (`EXPO_PUBLIC_PLATFORM=web`) on a real device requires strict network configuration to avoid SSL and Mixed Content errors.
+
+### Tunneling Strategy
+1.  **Frontend**: MUST run with `npx expo start --web --tunnel`.
+    *   This provides a public HTTPS URL (e.g., `https://xxxx.exp.direct`).
+2.  **Backend**: MUST be tunneled via Ngrok (`npx ngrok http 3000`).
+    *   This provides a public HTTPS URL (e.g., `https://xxxx.ngrok-free.app`).
+    *   Update `mobile/.env` `EXPO_PUBLIC_API_URL` to this Ngrok URL.
+
+### Bypass Security Warnings
+Ngrok blocks programmatic API requests (like `fetch()`) with an HTML warning page.
+*   **Fix**: All API Clients fetching from the Ngrok backend MUST include the header:
+    ```javascript
+    headers: { 'ngrok-skip-browser-warning': 'true' }
+    ```
+*   **Server Handling**: The Backend API (`src/app/api/...`) MUST explicitly allow this header in CORS:
+    ```typescript
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, ngrok-skip-browser-warning'
+    ```
+    And MUST export an `OPTIONS` handler to satisfy preflight checks.

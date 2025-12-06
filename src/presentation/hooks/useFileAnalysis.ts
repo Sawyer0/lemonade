@@ -1,4 +1,4 @@
-import useSWR from 'swr';
+import { auth } from '@/infrastructure/firebase/config';
 import { useToast } from '@/presentation/context';
 import { AppError } from '@/core/errors/AppError';
 import { ErrorCode } from '@/core/errors/codes';
@@ -23,9 +23,13 @@ export function useFileAnalysis({ sessionId }: UseFileAnalysisOptions) {
 	const uploadFile = async (file: File): Promise<void> => {
 		try {
 			// Step 1: Get signed URL for direct GCS upload
+			const token = await auth.currentUser?.getIdToken();
+			const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+			if (token) headers['Authorization'] = `Bearer ${token}`;
+
 			const signResponse = await fetch('/api/upload/sign', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers,
 				body: JSON.stringify({
 					filename: `${sessionId}/${file.name}`,
 					contentType: file.type,

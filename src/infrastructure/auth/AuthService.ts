@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import type { User } from 'firebase/auth';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from '@/infrastructure/firebase/config';
 import type { IAuthService } from '@/core/interfaces/IAuthService';
 
@@ -27,5 +27,10 @@ export class AuthService implements IAuthService {
 
     async isLoading(): Promise<boolean> {
         return this.isLoadingState;
+    }
+
+    async signInWithGoogleIdToken(token: string): Promise<void> {
+        const credential = GoogleAuthProvider.credential(token);
+        await signInWithCredential(auth, credential);
     }
 }

@@ -82,6 +82,10 @@ export class SessionAdminRepository implements ISessionRepository {
         await adminDb.collection('sessions').doc(sessionId).update({ status });
     }
 
+    async delete(sessionId: string): Promise<void> {
+        await adminDb.collection('sessions').doc(sessionId).delete();
+    }
+
     async flagSafetyStop(sessionId: string, reason: string): Promise<void> {
         await adminDb.collection('sessions').doc(sessionId).update({
             safety_stop: true,

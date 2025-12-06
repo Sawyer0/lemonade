@@ -8,6 +8,8 @@ export const CONFIG = {
     AI_MODELS: {
         // Primary model for both chat and video analysis with thinking budget
         PRIMARY: 'gemini-2.5-pro',
+        // Video requires a vision-capable model; Gemini 2.5 Pro does not support video
+        VIDEO_PRIMARY: 'gemini-2.5-pro',
         THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
     },
 

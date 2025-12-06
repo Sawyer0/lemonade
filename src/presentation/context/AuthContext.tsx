@@ -10,6 +10,12 @@ interface AuthContextType {
     loading: boolean;
 }
 
+declare global {
+    interface Window {
+        handleNativeGoogleLogin?: (token: string) => void;
+    }
+}
+
 const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -19,16 +25,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         let unsubscribe: () => void = () => { };
 
-        try {
-            const authService = clientContainer.get<IAuthService>(TYPES.AuthService);
-            unsubscribe = authService.onAuthStateChange((user) => {
-                setUser(user);
+        const initAuth = async () => {
+             try {
+                const authService = clientContainer.get<IAuthService>(TYPES.AuthService);
+                unsubscribe = authService.onAuthStateChange((user) => {
+                    setUser(user);
+                    setLoading(false);
+                });
+    
+                // Bridge Handler for React Native Google Sign-In
+                // The mobile app injects: window.handleNativeGoogleLogin(idToken)
+                window.handleNativeGoogleLogin = async (token: string) => {
+                    try {
+                        // console.log("Received Native Google Token"); // kept minimal for prod
+                        await authService.signInWithGoogleIdToken(token);
+                    } catch (error) {
+                        console.error("Native Bridge Sign-In Failed:", error);
+                    }
+                };
+            } catch (error) {
+                console.error("Failed to initialize Auth Service:", error);
                 setLoading(false);
-            });
-        } catch (error) {
-            console.error("Failed to initialize Auth Service:", error);
-            setLoading(false);
-        }
+            }
+        };
+
+        initAuth();
 
         return () => {
             if (unsubscribe) unsubscribe();

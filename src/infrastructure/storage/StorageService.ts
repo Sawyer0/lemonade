@@ -6,7 +6,7 @@ export class StorageService {
     private bucket;
 
     constructor(projectId: string, bucketName: string) {
-        let storageOptions: any = { projectId };
+        const storageOptions: { projectId: string; credentials?: { client_email: string; private_key: string } } = { projectId };
 
         // Use Service Account from Env if available (Development/Production)
         if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {

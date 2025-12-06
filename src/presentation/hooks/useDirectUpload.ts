@@ -48,10 +48,18 @@ export function useDirectUpload() {
 
             await new Promise((resolve, reject) => {
                 xhr.onload = () => {
-                    if (xhr.status === 200) resolve(true);
-                    else reject(new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Upload failed'));
+                    if (xhr.status === 200) {
+                        console.log('[useDirectUpload] Upload success', xhr.status);
+                        resolve(true);
+                    } else {
+                        console.error('[useDirectUpload] XHR Failed', { status: xhr.status, response: xhr.response });
+                        reject(new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Upload failed with status ${xhr.status}`));
+                    }
                 };
-                xhr.onerror = () => reject(new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Network error'));
+                xhr.onerror = () => {
+                    console.error('[useDirectUpload] Network Error (CORS?)', { status: xhr.status, readyState: xhr.readyState });
+                    reject(new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Network error - Check CORS/Tunnel'));
+                };
                 xhr.send(file);
             });
 

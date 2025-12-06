@@ -8,7 +8,7 @@ export interface IAuthService {
     /**
      * Get the current authenticated user.
      */
-    getUser(): User | null;
+    getUser(): Promise<User | null>;
 
     /**
      * Subscribe to authentication state changes.
@@ -20,5 +20,11 @@ export interface IAuthService {
     /**
      * Check if authentication is currently loading.
      */
-    isLoading(): boolean;
+    isLoading(): Promise<boolean>;
+
+    /**
+     * Sign in using a Google ID token (bridged from Native Mobile App).
+     * @param token - The Google ID token
+     */
+    signInWithGoogleIdToken(token: string): Promise<void>;
 }

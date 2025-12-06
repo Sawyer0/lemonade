@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import { db } from '@/infrastructure/firebase/config';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, query, where, orderBy, getDocs, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, query, where, orderBy, getDocs, collection, deleteDoc } from 'firebase/firestore';
 import { ISessionRepository } from '@/core/interfaces/ISessionRepository';
 import { DiagnosticSession, AIAnalysis } from '@/core/entities/DiagnosticSession';
 
@@ -36,6 +36,10 @@ export class SessionFirestoreRepository implements ISessionRepository {
 
     async getHistory(sessionId: string): Promise<DiagnosticSession | null> {
         return this.findById(sessionId);
+    }
+
+    async delete(sessionId: string): Promise<void> {
+        await deleteDoc(doc(db, 'sessions', sessionId));
     }
 
     async updateStatus(sessionId: string, status: DiagnosticSession['status']): Promise<void> {

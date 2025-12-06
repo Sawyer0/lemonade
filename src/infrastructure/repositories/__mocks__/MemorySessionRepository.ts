@@ -39,6 +39,10 @@ export class MemorySessionRepository implements ISessionRepository {
         return this.findById(sessionId);
     }
 
+    async delete(sessionId: string): Promise<void> {
+        this.sessions.delete(sessionId);
+    }
+
     async updateStatus(sessionId: string, status: DiagnosticSession['status']): Promise<void> {
         const session = this.sessions.get(sessionId);
         if (session) {

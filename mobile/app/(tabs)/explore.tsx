@@ -1,6 +1,8 @@
 import { Image } from 'expo-image';
+import { Link } from 'expo-router';
 import { Platform, StyleSheet } from 'react-native';
-
+// @ts-ignore
+import reactLogo from '@/assets/images/react-logo.png';
 import { Collapsible } from '@/components/ui/collapsible';
 import { ExternalLink } from '@/components/external-link';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -31,6 +33,16 @@ export default function TabTwoScreen() {
         </ThemedText>
       </ThemedView>
       <ThemedText>This app includes example code to help you get started.</ThemedText>
+      <Collapsible title="Live Mechanic Demo">
+        <ThemedText>
+          Connect to the AI Mechanic for real-time video diagnosis.
+        </ThemedText>
+        {/* @ts-ignore */}
+        {/* @ts-ignore */}
+        <Link href="/live-mechanic" asChild>
+          <ThemedText type="link" style={{ marginTop: 10 }}>Start Session</ThemedText>
+        </Link>
+      </Collapsible>
       <Collapsible title="File-based routing">
         <ThemedText>
           This app has two screens:{' '}
@@ -58,7 +70,7 @@ export default function TabTwoScreen() {
           different screen densities
         </ThemedText>
         <Image
-          source={require('@/assets/images/react-logo.png')}
+          source={reactLogo}
           style={{ width: 100, height: 100, alignSelf: 'center' }}
         />
         <ExternalLink href="https://reactnative.dev/docs/images">

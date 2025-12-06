@@ -66,7 +66,6 @@ export async function POST(req: Request) {
             } else if (Array.isArray(lastMessage.content)) {
                 latestUserContent = lastMessage.content
                     .filter((p: unknown) => p && typeof p === 'object' && 'type' in p && (p as { type: string }).type === 'text')
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     .map((p: unknown) => (p as { text: string }).text)
                     .join('\n');
             }
@@ -136,26 +135,25 @@ export async function POST(req: Request) {
 
             // 0. Pre-Sanitize Content Parts for Semantic Validity
             if (Array.isArray(safeMsg.content)) {
-                safeMsg.content = safeMsg.content.map((p: any) => {
+                safeMsg.content = safeMsg.content.map((p: unknown) => {
                     // Safe guard: p must be an object
                     if (!p || typeof p !== 'object') return { type: 'text', text: '[Invalid Part]' };
 
-                    // Fix: DiagnosticService saves videos as type: 'image', which crashes Vertex
-                    // We convert these to text so the chat model knows context without crashing on invalid media types
-                    if (p.type === 'image' && typeof p.image === 'string') {
+                    const part = p as { type: string; image?: string };
+
+                    if (part.type === 'image' && typeof part.image === 'string') {
                         // Check if it's actually a video URL
                         // NOTE: Using simple string checks because Regex inside the map loop with complex objects was causing issues
-                        const url = p.image.toLowerCase();
+                        const url = part.image.toLowerCase();
                         const isVideo = url.endsWith('.mp4') ||
                             url.endsWith('.mov') ||
                             url.endsWith('.webm') ||
                             url.endsWith('.avi') ||
                             url.endsWith('.mkv') ||
-                            url.includes('/video/') ||
-                            url.includes('video'); // Catch-all for blobs/types
+                            url.includes('/video/'); // Path segment check for video routes
 
                         if (isVideo) {
-                            return { type: 'text', text: `[Context: User uploaded a video at ${p.image}]` };
+                            return { type: 'text', text: `[Context: User uploaded a video at ${part.image}]` };
                         }
                     }
                     return p;
@@ -165,7 +163,7 @@ export async function POST(req: Request) {
             // 1. Sanitize Assistant Messages: Remove 'tool-result' parts if they wrongly appear in assistant role
             // This fixes the "poisoned" DB state from previous bugs
             if (safeMsg.role === 'assistant' && Array.isArray(safeMsg.content)) {
-                safeMsg.content = safeMsg.content.filter((p: any) => p.type !== 'tool-result');
+                safeMsg.content = safeMsg.content.filter((p: unknown) => (p as { type: string }).type !== 'tool-result');
             }
 
             // 2. Skip messages that became empty after sanitization
@@ -179,8 +177,7 @@ export async function POST(req: Request) {
 
             // 3. Check for dangling tool calls
             // If this is an assistant message with tool calls...
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const hasToolCall = Array.isArray(safeMsg.content) && safeMsg.content.some((p: any) => p.type === 'tool-call');
+            const hasToolCall = Array.isArray(safeMsg.content) && safeMsg.content.some((p: unknown) => (p as { type: string }).type === 'tool-call');
             if (safeMsg.role === 'assistant' && hasToolCall) {
                 // ...it MUST be followed by a tool message
                 const nextMsg = array[index + 1];
@@ -198,7 +195,7 @@ export async function POST(req: Request) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         console.log('DEBUG: streamText messages content:', JSON.stringify(filteredMessages.map((m: any) => {
             if (typeof m.content === 'string') return { role: m.role, content: m.content.substring(0, 50) };
-            if (Array.isArray(m.content)) return { role: m.role, parts: m.content.map((p: any) => p.type) };
+            if (Array.isArray(m.content)) return { role: m.role, parts: m.content.map((p: unknown) => (p as { type: string }).type) };
             return { role: m.role, content: 'UNKNOWN_TYPE' };
         }), null, 2));
         console.log('DEBUG: System Prompt Length:', systemPrompt.length);

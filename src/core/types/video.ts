@@ -20,13 +20,5 @@ export const VIDEO_ANALYSIS_RAW_SCHEMA = {
             description: "Next steps for the user"
         }
     },
-    required: ["safety_alert", "severity", "diagnosis", "visual_evidence", "suggested_actions"],
-    propertyOrdering: [
-        "safety_alert",
-        "severity",
-        "diagnosis",
-        "visual_evidence",
-        "acoustic_evidence",
-        "suggested_actions"
-    ]
+    required: ["safety_alert", "severity", "diagnosis", "visual_evidence", "suggested_actions"]
 };

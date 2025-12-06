@@ -3,7 +3,7 @@ import React, { useRef } from 'react';
 interface InputBarProps {
     input: string;
     setInput: (value: string) => void;
-    onSendMessage: (message: string) => void;
+    onSendMessage: (message: string) => Promise<void>;
     onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     uploading: boolean;
     progress: number;
