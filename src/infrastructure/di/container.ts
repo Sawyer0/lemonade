@@ -26,6 +26,7 @@ import { GeminiProAdapter } from "../ai/GeminiProAdapter";
 import { GeminiFlashAdapter } from "../ai/GeminiFlashAdapter";
 import { Logger } from "../logging/Logger";
 import { AuthService } from "../auth/AuthService";
+import { CONFIG } from "@/infrastructure/config";
 
 // Services (Application)
 import { VehicleService } from "@/application/services/VehicleService";
@@ -49,11 +50,11 @@ container.bind<IVehicleInfoProvider>(TYPES.VehicleInfoProvider)
 
 // --- 2. Bind AI Adapters (The "Brain") ---
 container.bind<IVideoDiagnosticAI>(TYPES.VideoAI).toDynamicValue(() => {
-    return new GeminiProAdapter(process.env.GCLOUD_PROJECT!);
+    return new GeminiProAdapter(CONFIG.GCLOUD.PROJECT_ID);
 }).inSingletonScope();
 
 container.bind<IChatAssistantAI>(TYPES.ChatAI).toDynamicValue(() => {
-    return new GeminiFlashAdapter(process.env.GCLOUD_PROJECT!);
+    return new GeminiFlashAdapter(CONFIG.GCLOUD.PROJECT_ID);
 }).inSingletonScope();
 
 // --- 3. Bind Application Services ---
@@ -85,7 +86,7 @@ container.bind<IVoiceService>(TYPES.VoiceService)
     .inSingletonScope();
 
 container.bind<StorageService>(TYPES.StorageService).toDynamicValue(() => {
-    return new StorageService(process.env.GCLOUD_PROJECT!, process.env.GCLOUD_MEDIA_BUCKET!);
+    return new StorageService(CONFIG.GCLOUD.PROJECT_ID, CONFIG.GCLOUD.MEDIA_BUCKET);
 }).inSingletonScope();
 
 import { ISafetyMonitor } from "@/core/interfaces/ISafetyMonitor";

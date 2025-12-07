@@ -1,6 +1,5 @@
-import React from 'react';
-import HomeScreen from '../components/screens/HomeScreen';
+import NativeWebView from '@/components/NativeWebView';
 
 export default function IndexRoute() {
-    return <HomeScreen />;
+    return <NativeWebView route="/" />;
 }

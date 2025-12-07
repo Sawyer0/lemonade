@@ -23,7 +23,10 @@ export const CONFIG = {
     },
 
     // Google Cloud
-    GCLOUD_PROJECT: process.env.GCLOUD_PROJECT || 'lemonade-3c4e7',
+    GCLOUD: {
+        PROJECT_ID: process.env.GCLOUD_PROJECT || 'lemonade-3c4e7',
+        MEDIA_BUCKET: process.env.GCLOUD_MEDIA_BUCKET || 'lemonade-3c4e7.firebasestorage.app',
+    },
 
     // Observability / LangSmith
     OBSERVABILITY: {

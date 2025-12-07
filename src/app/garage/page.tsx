@@ -7,6 +7,7 @@ import { AddVehicleModal } from '@/presentation/components/garage/AddVehicleModa
 import { UpgradeModal } from '@/presentation/components/modals/UpgradeModal';
 import { Vehicle } from '@/core/entities/Vehicle';
 import { useAuth } from '@/presentation/context/AuthContext';
+import { useToast } from '@/presentation/context/ToastContext';
 import { auth } from '@/infrastructure/firebase/config';
 import { Crown, Zap } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export default function GaragePage() {
 
     const vehicles: Vehicle[] = data?.data || [];
 
+    const { showToast } = useToast();
     const [portalLoading, setPortalLoading] = useState(false);
 
     const handleManageSubscription = async () => {
@@ -63,12 +65,21 @@ export default function GaragePage() {
             const { url } = await res.json();
             window.location.href = url;
         } catch (error) {
-            console.error('Portal Error:', error);
-            alert('Failed to open subscription management');
+            // Replaced console.error/alert with structured Toast per Agent.md
+            showToast('Failed to open subscription management', 'error');
         } finally {
             setPortalLoading(false);
         }
     };
+
+    const router = useRouter(); // line 3 already imports it
+
+    // Redirect if not authenticated
+    useEffect(() => {
+        if (!authLoading && !user) {
+            router.push('/');
+        }
+    }, [user, authLoading, router]);
 
     if (authLoading || (isLoading && user)) {
         return (
@@ -78,7 +89,7 @@ export default function GaragePage() {
         );
     }
 
-    if (!user) return null;
+    if (!user) return null; // Will redirect shortly
 
     return (
         <div className="min-h-screen bg-black text-white p-6 pb-24">
@@ -120,7 +131,16 @@ export default function GaragePage() {
                         </button>
                     )}
                     <button
-                        onClick={() => auth.signOut()}
+                        onClick={async () => {
+                            // 1. Create Bridge for Native App (Standard Window PostMessage)
+                            // @ts-ignore - ReactNativeWebView is injected by the native wrapper
+                            if (window.ReactNativeWebView) {
+                                // @ts-ignore
+                                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SIGN_OUT' }));
+                            }
+                            // 2. Perform Standard Web Sign Out
+                            await auth.signOut();
+                        }}
                         className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-bold px-4 py-2 rounded-full border border-zinc-800"
                     >
                         SIGN OUT

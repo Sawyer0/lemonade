@@ -14,7 +14,7 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
     return (
         <div className="block group relative flex flex-col h-full">
             <div className={`
-        relative flex-1 w-full rounded-t-2xl overflow-hidden border-t-2 border-x-2 transition-all duration-300
+        relative h-64 w-full rounded-t-2xl overflow-hidden border-t-2 border-x-2 transition-all duration-300
         ${statusBorder} shadow-xl ${statusGlow}
       `}>
 

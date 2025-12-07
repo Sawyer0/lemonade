@@ -1,29 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-    LiveKitRoom,
-    useLocalParticipant,
-    useRemoteParticipants,
-    VideoTrack,
-    AudioSession,
-    useTracks,
-} from '@livekit/react-native';
-import { RoomEvent, Participant, Track, ParticipantEvent, VideoPresets } from 'livekit-client';
+// import {
+//     LiveKitRoom,
+//     useRemoteParticipants,
+//     VideoTrack,
+//     AudioSession,
+//     useTracks,
+// } from '@livekit/react-native';
+// import { Participant, Track, VideoPresets } from 'livekit-client';
+
+// MOCK for Expo Go
+const LiveKitRoom = ({ children }: any) => <View style={{ flex: 1, backgroundColor: '#222' }}>{children}</View>;
+const useRemoteParticipants = () => [];
+const VideoTrack = () => <View style={{ flex: 1, backgroundColor: 'black' }} />;
+const AudioSession = { startAudioSession: async () => {}, stopAudioSession: () => {} };
+const useTracks = () => [];
+const Track = { Source: { Camera: 'camera' } };
+const VideoPresets = { h720: {} };
+// Mock Participant interface if needed, or just let usage infer any
+interface Participant { audioLevel: number; }
 import { useLocalSearchParams } from 'expo-router';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withSpring
 } from 'react-native-reanimated';
+import { useLiveSession } from '../../hooks/useLiveSession';
+import { SafetyOverlay } from '../workspace/SafetyOverlay';
 
 // Determine LiveKit URL
 const LIVEKIT_URL = process.env.EXPO_PUBLIC_LIVEKIT_URL;
 
 export default function LiveMechanicScreenNative() {
     const [token, setToken] = useState("");
-    const { roomName } = useLocalSearchParams<{ roomName: string }>();
-    const effectiveRoomName = roomName || 'mechanic-' + Math.floor(Math.random() * 1000);
+    // Prefer sessionId, fallback to roomName, then random
+    const { sessionId, roomName } = useLocalSearchParams<{ sessionId: string; roomName: string }>();
+    const effectiveSessionId = sessionId || roomName || 'mechanic-' + Math.floor(Math.random() * 1000);
+
+    // Session State (Firestore)
+    const { session, safetyAlert, status: sessionStatus } = useLiveSession(effectiveSessionId);
 
     useEffect(() => {
         let mounted = true;
@@ -32,7 +48,8 @@ export default function LiveMechanicScreenNative() {
             try {
                 await AudioSession.startAudioSession();
                 const API_BASE = process.env.EXPO_PUBLIC_API_URL;
-                const endpoint = `${API_BASE}/api/livekit/token?room=${effectiveRoomName}&username=mobile-user`;
+                // Use effectiveSessionId as the room name
+                const endpoint = `${API_BASE}/api/livekit/token?room=${effectiveSessionId}&username=mobile-user`;
 
                 console.log(`Fetching token from: ${endpoint}`);
 
@@ -58,32 +75,68 @@ export default function LiveMechanicScreenNative() {
             mounted = false;
             AudioSession.stopAudioSession();
         };
-    }, [effectiveRoomName]);
+    }, [effectiveSessionId]);
+
+    const handleAcknowledgeSafety = () => {
+        // TODO: Call API to acknowledge safety risk
+        Alert.alert("Safety Acknowledged", "This would log the acknowledgement to the server.");
+    };
 
     if (!token) {
         return (
             <View style={styles.container}>
                 <ActivityIndicator size="large" color="#ffffff" />
                 <Text style={styles.text}>Connecting to Live Mechanic...</Text>
+                <Text style={styles.subText}>Session: {effectiveSessionId}</Text>
             </View>
         );
     }
 
     return (
-        <LiveKitRoom
-            serverUrl={LIVEKIT_URL}
-            token={token}
-            connect={true}
-            audio={true}
-            // Use Back Camera ('environment') and 720p resolution
-            video={{
-                facingMode: 'environment',
-                resolution: VideoPresets.h720
-            }}
-        >
-            <ImmersiveSession />
-        </LiveKitRoom>
+        <View style={{ flex: 1 }}>
+            <LiveKitRoom
+                serverUrl={LIVEKIT_URL}
+                token={token}
+                connect={true}
+                audio={true}
+                // Use Back Camera ('environment') and 720p resolution
+                video={{
+                    facingMode: 'environment',
+                    resolution: VideoPresets.h720
+                }}
+                style={{ flex: 1 }}
+            >
+                <ImmersiveSession />
+            </LiveKitRoom>
+
+            {/* Safety Overlay (Top Level) */}
+            <SafetyOverlay 
+                active={!!safetyAlert}
+                reason={safetyAlert || undefined}
+                onAcknowledge={handleAcknowledgeSafety}
+                // TODO: Implement verification flow
+                verificationPending={false} 
+            />
+            
+            {/* Session Status Indicator (Top Left) */}
+             <SafeAreaView style={styles.statusOverlay} pointerEvents="none">
+                <View style={styles.statusBadge}>
+                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(sessionStatus) }]} />
+                    <Text style={styles.statusLabel}>{sessionStatus.toUpperCase()}</Text>
+                </View>
+            </SafeAreaView>
+        </View>
     );
+}
+
+function getStatusColor(status: string) {
+    switch (status) {
+        case 'analyzing': return '#FACC15'; // Yellow
+        case 'uploading': return '#3B82F6'; // Blue
+        case 'completed': return '#22C55E'; // Green
+        case 'error': return '#EF4444'; // Red
+        default: return '#9CA3AF'; // Gray
+    }
 }
 
 function ImmersiveSession() {
@@ -176,6 +229,7 @@ function AgentVisualizer({ participant }: { participant: Participant }) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: 'black' },
     text: { color: 'white', marginTop: 10 },
+    subText: { color: '#888', marginTop: 5, fontSize: 12 },
     fullScreenVideo: {
         ...StyleSheet.absoluteFillObject,
         zIndex: 0,
@@ -215,5 +269,30 @@ const styles = StyleSheet.create({
     loadingText: {
         color: 'white',
         fontSize: 18,
+    },
+    statusOverlay: {
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        zIndex: 50,
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 8,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    statusLabel: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: 'bold',
     }
 });
