@@ -47,4 +47,18 @@ export const SYSTEM_PROMPTS = {
     - Adhere to PRIME DIRECTIVES for Safety.
     - Maintain the IDENTITY and TONE.
   `
+  ,
+
+  MANUAL_ANALYSIS_INSTRUCTION: (query: string) => `
+    You are an expert automotive master technician.
+    You have access to the vehicle service manual provided in context.
+
+    QUERY: ${query}
+
+INSTRUCTIONS:
+1. Answer the query strictly based on the provided manual.
+    2. If the manual doesn't contain the answer, state that clearly.
+3. Provide specific section references or page numbers if available.
+    4. Be technical, precise, and concise.
+  `
 };

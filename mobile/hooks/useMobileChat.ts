@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { auth } from '@/infrastructure/firebase/config';
+import { auth } from '@mobile/infrastructure/firebase/config';
 
 interface UseMobileChatResult {
     sendMessage: (text: string) => Promise<void>;

@@ -21,7 +21,9 @@ Lemonade provides accurate, safe, and instant mechanical diagnostics via video a
 | Database   | Firebase Firestore                  |
 | Auth       | Firebase Authentication (Google)    |
 | Storage    | Google Cloud Storage                |
-| AI         | Google Vertex AI (Gemini 2.5 Flash) |
+| AI         | Google Vertex AI (Gemini 2.5 Flash), Context Caching |
+| Real-Time  | LiveKit (WebRTC)                    |
+| Mobile     | React Native (Expo) + WebView Hybrid|
 | Deployment | Google Cloud Run                    |
 
 ## Prerequisites
@@ -88,6 +90,11 @@ npx vitest run
 
 # Build for production
 npm run build
+
+# Start Mobile App
+cd mobile
+npx expo start
+
 ```
 
 ## Project Structure
@@ -110,8 +117,13 @@ src/
 ├── presentation/         # UI layer
 │   ├── components/       # React components
 │   └── hooks/            # Custom hooks (useLiveSession, etc.)
-└── app/                  # Next.js App Router
-    └── api/              # API routes
+├── app/                  # Next.js App Router
+│   └── api/              # API routes
+mobile/                   # React Native Application (Expo)
+├── app/                  # File-based routing
+├── components/           # Native components
+└── infrastructure/       # Native implementations
+
 ```
 
 ## Architecture
@@ -122,8 +134,16 @@ The application follows a strict layered architecture with InversifyJS for depen
 2. **Infrastructure** → External integrations (Firebase, Vertex AI)
 3. **Application** → Business logic orchestration
 4. **Presentation** → React UI components
+5. **Mobile** → Hybrid Architecture (Native Camera + Next.js WebViews)
 
 See `docs/LEMONADE-ARCHITECTURE.md` for detailed documentation.
+
+### Hybrid Mobile Architecture
+
+The mobile app follows a "Hybrid" approach to leverage the best of both worlds:
+- **"Native" Zone (React Native)**: Critical real-time features like Camera, Microphone, and LiveKit video streams run natively for 60fps performance and raw hardware access.
+- **"WebView" Zone (Next.js)**: Complex content like PDF Manuals, Chat History, and Billing are rendered in a shared Web View, allowing rapid iteration and reusing the robust web frontend.
+- **The Bridge**: The user seamlessly toggles between "Live Mode" (Native) and "Chat Mode" (WebView).
 
 ### High-Level Architecture Diagram
 
@@ -260,6 +280,9 @@ sequenceDiagram
 - **Voice Input** with VAD (Voice Activity Detection)
 - **Safety Constitution** - AI governed by strict safety directives
 - **Live Session Sync** via Firestore real-time listeners
+- **Robust Context Caching**: Caches large Technical Service Manuals (PDFs) in Vertex AI for low-latency RAG.
+- **OBD-II Database**: Automated scraping and indexing of diagnostic codes via Firecrawl.
+- **Hybrid Mobile Experience**: Native camera performance mixed with web-based rich content.
 
 ## Deployment
 

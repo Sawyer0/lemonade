@@ -28,7 +28,7 @@ export class ContextCacheService implements IContextCacheService {
             }
         }
         this.vertex = new VertexAI({
-            project: CONFIG.GCLOUD_PROJECT,
+            project: CONFIG.GCLOUD.PROJECT_ID,
             location: 'us',
             googleAuthOptions: { credentials }
         });
@@ -42,28 +42,52 @@ export class ContextCacheService implements IContextCacheService {
         return manager;
     }
 
-    async createCache(content: string, ttlSeconds?: number): Promise<string> {
+    async createCache(parts: import('@/core/interfaces/IContextCacheService').CachePart[], ttlSeconds: number = 3600, displayName?: string): Promise<string> {
         try {
-            this.logger.info('Creating Context Cache', { ttlSeconds });
+            this.logger.info('Creating Context Cache', { ttlSeconds, partsCount: parts.length, displayName });
 
-            const ttl = ttlSeconds ? `${ttlSeconds}s` : '3600s';
-            // Auto-generate a display name since interface doesn't strictly require one
-            const displayName = `cache-${Date.now()}`;
+            const modelName = CONFIG.AI_MODELS.AGENT.BRAIN; // e.g. "gemini-1.5-pro-001"
 
-            const cache = await this.cacheManager.create({
-                model: CONFIG.AI_MODELS.PRIMARY,
-                displayName,
-                contents: [{ role: 'user', parts: [{ text: content }] }],
-                ttl, // Confirmed: 'ttl' is the correct property, takes a duration string
+            // Map our generic parts to Vertex AI parts
+            const contents = [
+                {
+                    role: 'user',
+                    parts: parts.map(p => {
+                        if (p.text) return { text: p.text };
+                        if (p.fileData) return { fileData: p.fileData };
+                        return { text: '' }; // Fallback
+                    })
+                }
+            ];
+
+            const cacheConfig: any = {
+                model: modelName,
+                contents: contents,
+                ttl: `${ttlSeconds}s`,
+            };
+
+            if (displayName) {
+                cacheConfig.displayName = displayName;
+            }
+
+            // The SDK method signature might vary slightly depending on version, 
+            // but normally it takes a CachedContent object.
+            const response = await this.cacheManager.create(cacheConfig);
+
+            this.logger.info('Context Cache Created', {
+                name: response.name,
+                displayName: response.displayName,
+                expireTime: response.expireTime
             });
 
-            if (!cache.name) throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Cache created but name is missing');
+            if (!response.name) {
+                throw new AppError(ErrorCode.AI_SERVICE_ERROR, "Failed to create cache: No resource name returned");
+            }
 
-            this.logger.info('Context Cache Created Successfully', { cacheName: cache.name });
-            return cache.name;
+            return response.name;
         } catch (error) {
-            this.logger.error('Failed to create Context Cache', error);
-            throw error;
+            this.logger.error('Failed to create context cache', error);
+            throw new AppError(ErrorCode.AI_SERVICE_ERROR, "Context caching failed");
         }
     }
 
@@ -120,6 +144,27 @@ export class ContextCacheService implements IContextCacheService {
         } catch (error) {
             this.logger.error('Failed to list Context Caches', error);
             throw error;
+        }
+    }
+
+    async findCacheByDisplayName(displayName: string): Promise<string | null> {
+        try {
+            const caches = await this.listCaches();
+            // We need to treat 'unknown' as having a displayName property
+            // Vertex AI Cache Object structure: { name: string, displayName: string, ... }
+            const match = caches.find((c: any) => c.displayName === displayName);
+
+            if (match) {
+                // Cast match to any to access properties since listCaches returns unknown[]
+                const cachedContent = match as any;
+                this.logger.info('Found existing cache by display name', { displayName, cacheName: cachedContent.name });
+                return cachedContent.name;
+            }
+
+            return null;
+        } catch (error) {
+            this.logger.error('Failed to find cache by display name', error, { displayName });
+            return null; // Return null on error to allow caller to potentially recreate
         }
     }
 }

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider, ToastProvider } from "@/presentation/context";
 import { OfflineBanner } from "@/presentation/components/ui/OfflineBanner";
+import { KonstaProvider } from "@/presentation/providers/KonstaProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,12 +18,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Master Tech",
   description: "Your AI-powered automotive diagnostic assistant",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Master Tech",
-  },
 };
 
 export const viewport: Viewport = {
@@ -31,6 +26,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
@@ -40,16 +37,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white pt-safe pb-safe`}
       >
         <AuthProvider>
           <ToastProvider>
-            <OfflineBanner />
-            {children}
+            <KonstaProvider>
+              <OfflineBanner />
+              {children}
+            </KonstaProvider>
           </ToastProvider>
         </AuthProvider>
       </body>

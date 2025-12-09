@@ -1,15 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Theme } from '@/constants/theme';
-import { MessagePart } from '@/core/types/models';
+import { router } from 'expo-router';
+import { Theme } from '@mobile/constants/theme';
+import { GlassCard } from '@mobile/components/ui/GlassCard.native';
+import { MessagePart } from '@core/types/models';
 
 interface ChatBubbleProps {
     role: 'user' | 'assistant' | 'system' | 'tool';
     content: string | MessagePart[];
+    sessionId?: string; // Added for navigation
 }
 
-export function ChatBubble({ role, content }: ChatBubbleProps) {
+export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
     const isUser = role === 'user';
 
     // Helper to render content
@@ -17,12 +20,36 @@ export function ChatBubble({ role, content }: ChatBubbleProps) {
         if (typeof content === 'string') {
             return <Text style={[styles.text, isUser ? styles.textDark : styles.textLight]}>{content}</Text>;
         }
-        // Simplify for MVP: Join text parts
-        const text = content
-            .filter(p => p.type === 'text')
-            .map(p => p.text)
-            .join('\n');
-        return <Text style={[styles.text, isUser ? styles.textDark : styles.textLight]}>{text}</Text>;
+
+        return (
+            <View>
+                {content.map((p, index) => {
+                    if (p.type === 'text') {
+                        return (
+                            <Text key={index} style={[styles.text, isUser ? styles.textDark : styles.textLight, { marginBottom: 4 }]}>
+                                {p.text}
+                            </Text>
+                        );
+                    }
+                    if (p.type === 'tool-call' && p.toolName === 'openCamera') {
+                        return (
+                            <TouchableOpacity key={index} onPress={() => router.push(`/live-mechanic?roomName=${sessionId}&sessionId=${sessionId}`)} style={{ marginTop: 8 }}>
+                                <GlassCard variant="thin" style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
+                                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: Theme.tint, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                                        <Text style={{ fontSize: 18 }}>📷</Text>
+                                    </View>
+                                    <Text style={{ color: 'white', fontWeight: 'bold' }}>Tap to Open Camera</Text>
+                                </GlassCard>
+                            </TouchableOpacity>
+                        );
+                    }
+                    if (p.type === 'tool_result' || p.type === 'tool-result') {
+                        return <Text key={index} style={[styles.text, { fontSize: 12, opacity: 0.7 }]}>[Action Completed]</Text>;
+                    }
+                    return null;
+                })}
+            </View>
+        );
     };
 
     if (isUser) {

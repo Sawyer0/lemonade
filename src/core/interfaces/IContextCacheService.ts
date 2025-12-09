@@ -1,3 +1,11 @@
+export interface CachePart {
+    text?: string;
+    fileData?: {
+        mimeType: string;
+        fileUri: string;
+    };
+}
+
 /**
  * Interface for managing Vertex AI Context Caching.
  * Allows creating, retrieving, updating, and deleting cached content to optimize token usage.
@@ -6,13 +14,13 @@ export interface IContextCacheService {
     /**
      * Creates a new cached content resource.
      * 
-     * @param content - The content to cache (system instructions, documents, etc.).
-     *                  For direct caching, content limits apply (e.g., up to 10MB or token limits).
+     * @param parts - The content parts to cache (text, PDFs, videos, etc.)
      * @param ttlSeconds - Time-to-live for the cache in seconds.
      *                     Minimum value is 60 seconds. Default is usually 60 minutes (3600s).
+     * @param displayName - Optional user-friendly name for key lookups (not unique in API, but used for finding).
      * @returns The resource name of the created cache (e.g., "projects/.../cachedContents/...").
      */
-    createCache(content: string, ttlSeconds?: number): Promise<string>;
+    createCache(parts: CachePart[], ttlSeconds?: number, displayName?: string): Promise<string>;
 
     /**
      * Retrieves metadata for an existing cache.
@@ -45,4 +53,12 @@ export interface IContextCacheService {
      * @returns A list of cache resource names or objects.
      */
     listCaches(): Promise<unknown[]>;
+
+    /**
+     * Finds a cache by its display name.
+     * 
+     * @param displayName - The display name to search for.
+     * @returns The resource name of the cache if found, otherwise null.
+     */
+    findCacheByDisplayName(displayName: string): Promise<string | null>;
 }

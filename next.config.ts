@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import withPWA from "@ducanh2912/next-pwa";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -19,8 +18,6 @@ const nextConfig: NextConfig = {
     'localhost:3000',
     '10.0.2.2'
   ],
-  // Silence Next.js 16 Turbopack warning (next-pwa uses webpack internally)
-  turbopack: {},
   images: {
     remotePatterns: [
       {
@@ -33,11 +30,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  transpilePackages: ['konsta'],
 };
 
-export default withPWA({
-  dest: "public",
-  register: true,
-  disable: process.env.NODE_ENV === "development",
-})(nextConfig);
+export default nextConfig;
 

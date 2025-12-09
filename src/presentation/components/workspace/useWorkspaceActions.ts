@@ -1,4 +1,5 @@
 import { Dispatch, SetStateAction } from 'react';
+import { ApiClient } from '@/infrastructure/api/ApiClient';
 import { CONFIG } from '@/infrastructure/config';
 import { AppError } from '@/core/errors/AppError';
 import { ErrorCode } from '@/core/errors/codes';
@@ -45,22 +46,11 @@ export const useWorkspaceActions = ({
             try {
                 const publicUrl = await uploadFile(file, sessionId);
                 // Trigger analysis via API (Fire and Forget)
-                const response = await fetch(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ sessionId, publicUrl })
+                const response = await ApiClient.post(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
+                    sessionId, publicUrl
                 });
 
-                if (!response.ok) {
-                    // Log internally or handle silent failure
-                    // Using console for debug in dev, but relying on Toast for user
-                    showToast('Analysis trigger failed', 'error');
-                } else {
-                    showToast('Video uploaded successfully', 'success');
-                }
+                showToast('Video uploaded successfully', 'success');
             } catch {
                 showToast('Upload failed. Please try again.', 'error');
             }
@@ -130,22 +120,11 @@ export const useWorkspaceActions = ({
                 // File Upload (User initiated - video or audio)
                 if (isVideo || isAudio) {
                     // Trigger backend analysis for video/audio
-                    const analysisResponse = await fetch(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                            sessionId,
-                            publicUrl,
-                            fileType: isVideo ? 'video' : 'audio'
-                        })
+                    await ApiClient.post(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
+                        sessionId,
+                        publicUrl,
+                        fileType: isVideo ? 'video' : 'audio'
                     });
-
-                    if (!analysisResponse.ok) {
-                        throw new AppError(ErrorCode.AI_SERVICE_ERROR, 'Failed to trigger analysis');
-                    }
 
                     showToast('File uploaded. AI is analyzing...', 'success');
                 } else {

@@ -1,298 +1,203 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-// import {
-//     LiveKitRoom,
-//     useRemoteParticipants,
-//     VideoTrack,
-//     AudioSession,
-//     useTracks,
-// } from '@livekit/react-native';
-// import { Participant, Track, VideoPresets } from 'livekit-client';
+import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+    LiveKitRoom,
+    useTracks,
+    VideoTrack,
+    isTrackReference,
+    useConnectionState
+} from '@livekit/react-native';
+import { Track, ConnectionState } from 'livekit-client';
+import { useLiveSession } from '@web-shared-hooks/useLiveSession';
+import { useHybridBridge } from '@mobile/hooks/useHybridBridge';
+import { Theme } from '@mobile/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { db } from '@mobile/infrastructure/firebase/config';
 
-// MOCK for Expo Go
-const LiveKitRoom = ({ children }: any) => <View style={{ flex: 1, backgroundColor: '#222' }}>{children}</View>;
-const useRemoteParticipants = () => [];
-const VideoTrack = () => <View style={{ flex: 1, backgroundColor: 'black' }} />;
-const AudioSession = { startAudioSession: async () => {}, stopAudioSession: () => {} };
-const useTracks = () => [];
-const Track = { Source: { Camera: 'camera' } };
-const VideoPresets = { h720: {} };
-// Mock Participant interface if needed, or just let usage infer any
-interface Participant { audioLevel: number; }
-import { useLocalSearchParams } from 'expo-router';
-import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring
-} from 'react-native-reanimated';
-import { useLiveSession } from '../../hooks/useLiveSession';
-import { SafetyOverlay } from '../workspace/SafetyOverlay';
+// Inner Component to Handle Room State and Tracks
+const MechanicSessionView = ({ sessionId }: { sessionId: string }) => {
+    const router = useRouter();
+    const connectionState = useConnectionState();
 
-// Determine LiveKit URL
-const LIVEKIT_URL = process.env.EXPO_PUBLIC_LIVEKIT_URL;
+    // 3. Get Video Tracks (Reactive)
+    const tracks = useTracks([Track.Source.Camera]);
 
-export default function LiveMechanicScreenNative() {
-    const [token, setToken] = useState("");
-    // Prefer sessionId, fallback to roomName, then random
-    const { sessionId, roomName } = useLocalSearchParams<{ sessionId: string; roomName: string }>();
-    const effectiveSessionId = sessionId || roomName || 'mechanic-' + Math.floor(Math.random() * 1000);
+    // Find local camera track for preview (User's view of themselves)
+    const localCameraTrack = tracks.find(tr => tr.participant.isLocal);
 
-    // Session State (Firestore)
-    const { session, safetyAlert, status: sessionStatus } = useLiveSession(effectiveSessionId);
+    // 4. Anemic Bridge Logic
+    const { session } = useLiveSession(sessionId, db);
+    const activeContent = useHybridBridge(session?.messages);
 
-    useEffect(() => {
-        let mounted = true;
-
-        const connect = async () => {
-            try {
-                await AudioSession.startAudioSession();
-                const API_BASE = process.env.EXPO_PUBLIC_API_URL;
-                // Use effectiveSessionId as the room name
-                const endpoint = `${API_BASE}/api/livekit/token?room=${effectiveSessionId}&username=mobile-user`;
-
-                console.log(`Fetching token from: ${endpoint}`);
-
-                const response = await fetch(endpoint);
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Failed to fetch token');
-                }
-
-                if (mounted && data.token) {
-                    setToken(data.token);
-                }
-            } catch (e: any) {
-                console.error("Token Fetch Error:", e);
-                Alert.alert("Connection Error", "Could not fetch LiveKit token. Ensure backend is running.");
-            }
-        };
-
-        connect();
-
-        return () => {
-            mounted = false;
-            AudioSession.stopAudioSession();
-        };
-    }, [effectiveSessionId]);
-
-    const handleAcknowledgeSafety = () => {
-        // TODO: Call API to acknowledge safety risk
-        Alert.alert("Safety Acknowledged", "This would log the acknowledgement to the server.");
-    };
-
-    if (!token) {
+    if (connectionState === ConnectionState.Connecting) {
         return (
-            <View style={styles.container}>
-                <ActivityIndicator size="large" color="#ffffff" />
-                <Text style={styles.text}>Connecting to Live Mechanic...</Text>
-                <Text style={styles.subText}>Session: {effectiveSessionId}</Text>
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Theme.tint} />
+                <Text style={styles.loadingText}>Connecting to Mechanic...</Text>
+            </View>
+        );
+    }
+
+    if (connectionState === ConnectionState.Disconnected) {
+        return (
+            <View style={styles.loadingContainer}>
+                <Text style={{ color: 'white' }}>Disconnected</Text>
+                <TouchableOpacity style={styles.buttonEnd} onPress={() => router.back()}>
+                    <Text style={{ color: 'white' }}>Close</Text>
+                </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <View style={{ flex: 1 }}>
-            <LiveKitRoom
-                serverUrl={LIVEKIT_URL}
-                token={token}
-                connect={true}
-                audio={true}
-                // Use Back Camera ('environment') and 720p resolution
-                video={{
-                    facingMode: 'environment',
-                    resolution: VideoPresets.h720
-                }}
-                style={{ flex: 1 }}
-            >
-                <ImmersiveSession />
-            </LiveKitRoom>
-
-            {/* Safety Overlay (Top Level) */}
-            <SafetyOverlay 
-                active={!!safetyAlert}
-                reason={safetyAlert || undefined}
-                onAcknowledge={handleAcknowledgeSafety}
-                // TODO: Implement verification flow
-                verificationPending={false} 
-            />
-            
-            {/* Session Status Indicator (Top Left) */}
-             <SafeAreaView style={styles.statusOverlay} pointerEvents="none">
-                <View style={styles.statusBadge}>
-                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(sessionStatus) }]} />
-                    <Text style={styles.statusLabel}>{sessionStatus.toUpperCase()}</Text>
-                </View>
-            </SafeAreaView>
-        </View>
-    );
-}
-
-function getStatusColor(status: string) {
-    switch (status) {
-        case 'analyzing': return '#FACC15'; // Yellow
-        case 'uploading': return '#3B82F6'; // Blue
-        case 'completed': return '#22C55E'; // Green
-        case 'error': return '#EF4444'; // Red
-        default: return '#9CA3AF'; // Gray
-    }
-}
-
-function ImmersiveSession() {
-    // 1. Get Participants
-    const remoteParticipants = useRemoteParticipants();
-    const agent = remoteParticipants[0]; // The AI Agent is usually the first/only remote peer
-
-    // Get all camera tracks to find local one
-    const tracks = useTracks([Track.Source.Camera]);
-    const localTrack = tracks.find(t => t.participant.isLocal);
-
-    return (
         <View style={styles.container}>
-            {/* 2. Full Screen User Camera (The "Background") */}
-            {localTrack && (
+            {/* Live Camera View (Full Screen) */}
+            {localCameraTrack && isTrackReference(localCameraTrack) ? (
                 <VideoTrack
-                    trackRef={localTrack}
                     style={styles.fullScreenVideo}
-                    mirror={false} // Disable mirroring so text is readable
+                    trackRef={localCameraTrack}
+                    objectFit="cover"
+                    mirror={false}
                 />
+            ) : (
+                <View style={styles.cameraPlaceholder}>
+                    <Text style={{ color: 'white' }}>Waiting for Camera...</Text>
+                </View>
             )}
 
-            {/* 3. The "Voice Mode" UI Overlay */}
-            <SafeAreaView style={styles.overlayContainer}>
-                <View style={styles.centerStage}>
-                    {agent ? (
-                        <>
-                            {/* Custom Audio Visualizer Hook */}
-                            <AgentVisualizer participant={agent} />
-                            <Text style={styles.statusText}>AI Mechanic is listening...</Text>
-                        </>
-                    ) : (
-                        <Text style={styles.loadingText}>Connecting to Agent...</Text>
-                    )}
+            {/* Context Aware Pill */}
+            {activeContent && (
+                <View style={styles.pillContainer}>
+                    <TouchableOpacity
+                        style={styles.pill}
+                        onPress={() => router.push(`/session/${sessionId}`)}
+                    >
+                        <Ionicons name="document-text" size={20} color="white" style={{ marginRight: 8 }} />
+                        <Text style={styles.pillText}>Shared: {activeContent.title}</Text>
+                        <Ionicons name="chevron-forward" size={16} color="white" style={{ marginLeft: 4 }} />
+                    </TouchableOpacity>
                 </View>
-            </SafeAreaView>
+            )}
+
+            {/* Controls Overlay */}
+            <View style={styles.controls}>
+                <TouchableOpacity style={styles.buttonEnd} onPress={() => router.back()}>
+                    <Ionicons name="call" size={24} color="white" />
+                </TouchableOpacity>
+            </View>
         </View>
     );
-}
+};
 
-// ------------------------------------------------------------------
-// The Custom Visualizer (Since BarVisualizer is Web-Only)
-// ------------------------------------------------------------------
-function AgentVisualizer({ participant }: { participant: Participant }) {
-    const scale = useSharedValue(1);
-    const opacity = useSharedValue(0.5);
+export default function MechanicScreenNative() {
+    const { roomName, sessionId } = useLocalSearchParams<{ roomName: string, sessionId: string }>();
+    const [token, setToken] = useState("");
 
+    // 1. Fetch Token Logic
     useEffect(() => {
-        let animationFrameId: number;
+        const fetchToken = async () => {
+            try {
+                const API_BASE = process.env.EXPO_PUBLIC_API_URL;
+                const randomId = Math.floor(Math.random() * 1000);
+                const effectiveRoom = roomName || 'mechanic-' + randomId;
+                const endpoint = `${API_BASE}/api/livekit/token?room=${effectiveRoom}&username=native-user`;
 
-        const updateVisualizer = () => {
-            // 1. Read the audio level directly (Float between 0.0 and 1.0)
-            // LiveKit updates this property automatically in the background
-            const level = participant.audioLevel;
-
-            // 2. Drive the Reanimated values directly (No React re-renders!)
-            // Map level (0-1) to a scale range (e.g., 1.0 to 1.8)
-            if (level > 0.01) {
-                scale.value = withSpring(1 + level * 0.8, { damping: 15, stiffness: 120 });
-                opacity.value = withSpring(0.5 + level * 0.5);
-            } else {
-                scale.value = withSpring(1, { damping: 20 });
-                opacity.value = withSpring(0.5);
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                if (data.token) setToken(data.token);
+            } catch (e) {
+                console.error("Token Error", e);
+                Alert.alert("Connection Failed", "Could not fetch video token.");
             }
-
-            // 3. Loop
-            animationFrameId = requestAnimationFrame(updateVisualizer);
         };
+        fetchToken();
+    }, [roomName]);
 
-        // Start the loop
-        updateVisualizer();
-
-        return () => {
-            cancelAnimationFrame(animationFrameId);
-        };
-    }, [participant]);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-        opacity: opacity.value,
-    }));
+    if (!token) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Theme.tint} />
+            </View>
+        );
+    }
 
     return (
-        <Animated.View style={[styles.orb, animatedStyle]}>
-            <View style={styles.innerOrb} />
-        </Animated.View>
+        <LiveKitRoom
+            serverUrl={process.env.EXPO_PUBLIC_LIVEKIT_URL}
+            token={token}
+            connect={true}
+            options={{
+                adaptiveStream: true,
+                dynacast: true,
+            }}
+            audio={true}
+            video={true}
+        >
+            <MechanicSessionView sessionId={sessionId} />
+        </LiveKitRoom>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: 'black' },
-    text: { color: 'white', marginTop: 10 },
-    subText: { color: '#888', marginTop: 5, fontSize: 12 },
+    container: {
+        flex: 1,
+        backgroundColor: 'black',
+    },
     fullScreenVideo: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 0,
+        flex: 1,
+        width: '100%',
+        height: '100%',
     },
-    overlayContainer: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 1,
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-    },
-    centerStage: {
-        alignItems: 'center',
-        marginBottom: 60,
-    },
-    orb: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    loadingContainer: {
+        flex: 1,
+        backgroundColor: Theme.background,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
     },
-    innerOrb: {
+    loadingText: {
+        color: Theme.text,
+        marginTop: 10,
+    },
+    cameraPlaceholder: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#1a1a1a'
+    },
+    pillContainer: {
+        position: 'absolute',
+        top: 60,
+        width: '100%',
+        alignItems: 'center',
+        zIndex: 100,
+    },
+    pill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 25,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    pillText: {
+        color: 'white',
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    controls: {
+        position: 'absolute',
+        bottom: 40,
+        alignSelf: 'center',
+    },
+    buttonEnd: {
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: 'white',
-    },
-    statusText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '600',
-        textShadowColor: 'black',
-        textShadowRadius: 5,
-    },
-    loadingText: {
-        color: 'white',
-        fontSize: 18,
-    },
-    statusOverlay: {
-        position: 'absolute',
-        top: 10,
-        left: 10,
-        zIndex: 50,
-    },
-    statusBadge: {
-        flexDirection: 'row',
+        backgroundColor: '#ff4444',
+        justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        gap: 8,
     },
-    statusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-    },
-    statusLabel: {
-        color: 'white',
-        fontSize: 12,
-        fontWeight: 'bold',
-    }
 });

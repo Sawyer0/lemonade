@@ -55,12 +55,14 @@ These are the constraints that shape our infrastructure choices.
 
 ## 3. Platform (Web vs. Mobile)
 
-**Verdict**: Progressive Web App (PWA) First.
+## 3. Platform (Web vs. Mobile)
 
-*   **The Constraint**: We want to scan VINs and record video, but we don't want to build two separate apps (iOS/Android) for the MVP.
+**Verdict**: Hybrid Native (Write Once, Wrap Anywhere).
+
+*   **The Constraint**: We need native capabilities (Bluetooth OBD2, reliable Background Audio) that PWAs struggle with on iOS, but we don't want to maintain two codebases.
 *   **The Design Choice**:
-    *   **Next.js PWA**: We will use standard HTML5 APIs (`navigator.mediaDevices`) to access the camera.
-    *   **The "Gotcha"**: As discussed, Web Bluetooth does not work on iPhones. For the MVP, we will rely on Vision (Camera) and Voice for iPhone users, and strictly support OBD2 dongles in later releases or only on Android/Desktop (via the "Bluefy" browser).
+    *   **Core UI (Next.js + Konsta UI)**: We build the entire application interface in Next.js using **Konsta UI**, which provides pixel-perfect iOS/Android semantic theming.
+    *   **Native Shell (Expo)**: We wrap the web application in a React Native (Expo) shell. This "WebView Bridge" allows our minimal native code to handle hardware permissions (Camera, BLE) while the extensive business logic lives in the shared Web layer.
 
 # The Code Implementation
 
@@ -105,47 +107,56 @@ export function useLiveSession(sessionId: string) {
 
 ## B. The Backend: Asynchronous Processing (Cloud Functions)
 
-This handles the "Write Heavy" constraint. By offloading video processing to the background, we ensure the user's phone never freezes (High Availability).
+**Crucial Decision**: We use **Firebase Cloud Functions (Gen 2)** for the actual analysis.
+*   **Why?**: Next.js API Routes (Serverless) often timeout after 10-60 seconds. A deep "System 2" analysis with Vector Search can take 2-3 minutes. Cloud Functions allow up to **60 Minutes** of processing time.
+*   **Structure**: We follow Strict Clean Architecture (Presentation -> Application -> Infra).
 
 ```typescript
-// functions/src/index.ts
+// functions/src/video.ts (The Presentation Layer)
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
-import { getFirestore } from 'firebase-admin/firestore';
-import { VertexAI } from '@google-cloud/vertexai';
+import { container } from './infrastructure/di/container';
+import { VideoAnalysisService } from './application/services/VideoAnalysisService';
 
-const db = getFirestore();
-const vertex = new VertexAI({ project: process.env.GCLOUD_PROJECT });
-
-// Trigger: Runs when a video upload completes
-export const analyzeVideo = onObjectFinalized({ 
-  cpu: 2, 
-  memory: '2GiB',
-  timeoutSeconds: 300 
-}, async (event) => {
-  
-  const filePath = event.data.name; // "sessions/sess_123/video.mp4"
-  const sessionId = filePath.split('/')[1];
-
-  // 1. Initialize Gemini Multimodal
-  const model = vertex.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  
-  // 2. Generate Diagnosis (The "Heavy" work)
-  const result = await model.generateContent([
-    "Watch this video. Identify the active leak or mechanical failure.",
-    { fileData: { fileUri: `gs://${event.data.bucket}/${filePath}`, mimeType: event.data.contentType } }
-  ]);
-
-  const diagnosis = result.response.candidates[0].content.parts[0].text;
-
-  // 3. Write Result to Firestore
-  // This write triggers the Frontend 'useLiveSession' hook instantly!
-  await db.collection('sessions').doc(sessionId).update({
-    latest_diagnosis: diagnosis,
-    status: 'analysis_complete',
-    // If Gemini detects danger, we trigger the Safety Alert
-    safety_stop: diagnosis.includes("DANGER") || diagnosis.includes("UNSAFE")
-  });
+// 1. The Trigger (Dumb)
+export const analyzeUploadedVideo = onObjectFinalized({ timeoutSeconds: 300 }, async (event) => {
+    // 2. Resolve the Application Service (Orchestrator) from DI
+    const service = container.get<VideoAnalysisService>(TYPES.VideoService);
+    
+    // 3. Hand off control (No business logic here)
+    await service.processEvent({
+        filePath: event.data.name,
+        bucket: event.data.bucket
+    });
 });
+```
+
+**The Logic (Application Layer):**
+
+```typescript
+// functions/src/application/services/VideoAnalysisService.ts
+export class VideoAnalysisService {
+    constructor(
+        @inject(TYPES.VideoAI) private videoAI: IVideoDiagnosticAI, // Infrastructure
+        @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository
+    ) {}
+
+    async processEvent(event) {
+        // 1. Build Context (Symbolic Grounding)
+        // We fetch the "Vehicle DNA" (Year/Make/Model) individually to ground the visual AI.
+        const context = await this.vehicleRepo.getSpecs(sessionId);
+
+        // 2. Call the AI (Neural Perception)
+        const analysis = await this.videoAI.analyzeVideo(event.uri, context);
+
+        // 3. Safety Check (Constitution)
+        if (analysis.safety_alert) {
+             await this.sessionRepo.triggerSafetyStop(sessionId);
+        }
+
+        // 4. Save Result
+        await this.sessionRepo.save(sessionId, analysis);
+    }
+}
 ```
 
 ## Relevant Resource
@@ -559,7 +570,14 @@ We have now built the entire "Superego" of our AI. Here is the full prompt block
 > *   **Life Safety**: If the user intends to work under the vehicle, ask: "Is this car on jack stands?" If they say yes, use the `verifySafeSupport` tool to visually confirm. If you see only a hydraulic jack, STOP them.
 > *   **Roadworthiness**: Never confirm a vehicle is "safe to drive" if there is ambiguity about brakes, steering, or tires. Default to: "Too many variables to confirm remotely."
 > *   **High Voltage Hard Stop**: Refuse all instructions on Orange High-Voltage EV cables. Refer to a specialist.
-> *   **Red Zone Gatekeeper**: For Airbags and Fuel systems, force a "Procedure Stop" to verify safety steps (e.g., battery disconnect) before giving instructions.
+> *   **Red Zone Gatekeeper**: For Airbags and Fuel systems, force a "Procedure Stop" to verify safety steps.
+
+### Layer 5: Hard Logic Verification (The Code)
+
+We do not trust the AI to enforce all safety rules. We utilize "Hard Logic" code barriers:
+
+*   **NHTSA API Check**: Before any advice is given, the system queries the NHTSA database. If an **Active Recall** exists for the component in question, the system **Force-Stops** the conversation with a generic safety message, regardless of what the AI wants to say.
+*   **Visual Grounding**: The AI must output a `visualConflictDetected: boolean` flag. If the manual says "Bolt A" but the camera sees "Bolt B", the system halts.
 
 # What's Next?
 
@@ -687,64 +705,66 @@ export function useSession(sessionId: string) {
 2.  **State 2 (Analysis Complete)**: Cloud Function writes the text analysis to DB.
 3.  **State 3 (Live Update)**: `onSnapshot` fires instantly. UI auto-updates to show: "I hear a rhythmic clicking..."
 
-# Part 2: The "Heavy Lifting" (Cloud Functions) 🏗️
+# Part 2: The "System 2" Brain (Cloud Functions) 🧠
 
-This is our backend automation. We don't want the user's phone to run the AI logic (it eats battery and kills the browser). We want Google's servers to do it.
+We have moved beyond simple "Video Analysis." We now implemented a **MechanicReasoningService** that orchestrates a **Hybrid Neuro-Symbolic** loop.
 
 **The Trigger: `storage.onFinalize`**
-We will set up a function that sleeps until a file lands in our bucket.
+We still trigger on upload, but the logic is now "Deep Tech":
 
-**The Logic Flow:**
-1.  **Wait**: Function sits idle (Cost: $0).
-2.  **Event**: User uploads `video_123.mp4` to Storage.
-3.  **Wake Up**: Google spins up a Cloud Function instance.
-4.  **Process**: Function sends video URL to Vertex AI (Gemini).
-5.  **Write**: Function saves the AI's "Diagnosis" into the Firestore document `session_123`.
+**The System 2 Logic Flow (The 4-Layer Grounding):**
+1.  **Wake Up**: Triggered by video upload.
+2.  **Node 3 (Authority)**: Check NHTSA API. *Found active recall?* -> **STOP_DANGER**.
+3.  **Node 2 (Memory)**: Vector Search `text-embedding-004`. *Found community consensus?* -> **COMMUNITY_ALERT**.
+4.  **Node 1 (Intuition)**: Call `gemini-2.5-flash` (Eyes) for visual analysis.
+5.  **Synthesis**: The `MechanicReasoningService` calls `gemini-3-pro-preview` (Brain) to weigh all 3 inputs and produce the final `NeurosymbolicState`.
 
-**The Code (Server-Side Node.js):**
+**The Code (Application Service Pattern):**
 
-```javascript
-// functions/index.js
-const { onObjectFinalized } = require('firebase-functions/v2/storage');
-const { getFirestore } = require('firebase-admin/firestore');
-const { VertexAI } = require('@google-cloud/vertexai');
+```typescript
+// functions/src/application/services/VideoAnalysisService.ts
+export class VideoAnalysisService {
+  async processEvent(event: VideoProcessingEvent) {
+    
+    // 1. Layer 1: Symbolic Grounding (Vehicle DNA)
+    const specs = await this.vehicleRepo.getSpecs(sessionId);
+    let context = `VEHICLE: ${specs.year} ${specs.make} ${specs.model}`;
 
-const db = getFirestore();
-const vertex = new VertexAI({ project: 'your-project-id' });
+    // 2. Layer 3: The Recall Trap (NHTSA)
+    const recalls = await this.nhtsaService.checkRecalls(specs.year, specs.make, specs.model);
+    if (recalls.length > 0) {
+        context += `\nCRITICAL WARNING - ACTIVE RECALLS: ${recalls.map(r => r.Summary).join(', ')}`;
+    }
 
-// This function runs AUTOMATICALLY when a file upload finishes
-exports.analyzeMechanicVideo = onObjectFinalized({ cpu: 2 }, async (event) => {
-  const fileBucket = event.data.bucket;
-  const filePath = event.data.name; // "users/123/sessions/555/video.mp4"
-  
-  // 1. Get the Session ID from the file path
-  const sessionId = filePath.split('/')[3]; 
-  const gcsUri = `gs://${fileBucket}/${filePath}`;
+    // 3. Layer 2: Collective Memory (Vector Search)
+    const docs = await this.vectorRepo.search(`${specs.model} common failures`);
+    if (docs.length > 0) {
+         context += `\nOFFICIAL SPECS: ${docs.map(d => d.content).join('\n')}`;
+    }
 
-  // 2. Call Gemini 2.5 Flash (The Brain)
-  const model = vertex.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  const result = await model.generateContent([
-    "Analyze this engine video. Identify sounds and visible parts.",
-    { fileData: { fileUri: gcsUri, mimeType: event.data.contentType } }
-  ]);
+    // 4. Layer 1 (Enriched): Neural Perception
+    const analysis = await this.videoAI.analyzeVideo(event.uri, context);
 
-  const diagnosisText = result.response.candidates[0].content.parts[0].text;
+    // 5. Layer 4: The Safety Guardrail (Post-Process Constitution)
+    // We do NOT trust the AI's self-assessment. We run an independent Safety Monitor.
+    const safetyCheck = await this.safetyMonitor.assess(analysis.diagnosis, context);
+    
+    if (safetyCheck.intervention_required) {
+        // OVERRIDE: The Guardrail caught a hallucination or dangerous advice.
+        console.warn(`[Service] Safety Intervention: ${safetyCheck.hazards_detected}`);
+        await this.sessionRepo.triggerSafetyStop(sessionId, `SAFETY STOP: ${safetyCheck.hazards_detected.join(', ')}`);
+        return; 
+    }
 
-  // 3. Write to Firestore (The Body)
-  // This write triggers the Frontend's 'onSnapshot' hook immediately!
-  await db.collection('sessions').doc(sessionId).update({
-    ai_analysis: diagnosisText,
-    media_status: 'complete',
-    updated_at: new Date()
-  });
-});
+    await this.sessionRepo.save(sessionId, analysis);
+  }
+}
 ```
 
-## Why this architecture wins for MVP 🏆
+## Why this architecture wins 🏆
 
-*   **Decoupled**: If the AI takes 10 seconds, the User's phone isn't frozen. They can keep chatting.
-*   **Robust**: If the user closes the app while the video is processing, the server finishes the job anyway. When they open the app later, the answer is there.
-*   **Scalable**: Google spins up 500 copies of this function if 500 users upload at once. We don't manage servers.
+*   **Safety First**: By checking NHTSA *before* AI generation, we prevent hallucinated repairs on recalled parts.
+*   **Collective Learning**: Successful diagnoses are vectorized and saved, making the system smarter with every user.
 
 # Next Decision Point 🚦
 

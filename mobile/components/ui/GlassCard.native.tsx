@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ViewProps } from 'react-native';
-import { Theme } from '@/constants/theme';
+import { Theme } from '@mobile/constants/theme';
 
 interface GlassCardProps extends ViewProps {
   variant?: 'default' | 'thin';

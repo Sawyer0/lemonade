@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
-import { DiagnosticService } from '@/application/services/DiagnosticService';
+import { SessionService } from '@/application/services/SessionService';
 
 export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
 
     try {
         console.log(`DEBUG: Starting session for vehicleId: ${vehicleId}`);
-        const diagnosticService = container.get<DiagnosticService>(TYPES.DiagnosticService);
-        const sessionId = await diagnosticService.startSession(vehicleId);
+        const sessionService = container.get<SessionService>(TYPES.SessionService);
+        const sessionId = await sessionService.startSession(vehicleId);
         console.log(`DEBUG: Session started with ID: ${sessionId}`);
 
         // Redirect to the session page

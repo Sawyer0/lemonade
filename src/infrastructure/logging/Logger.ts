@@ -1,38 +1,54 @@
-import { injectable } from 'inversify';
+import { injectable, inject } from 'inversify';
 import { ILogger } from '@/core/interfaces/ILogger';
+import { TYPES } from '@/infrastructure/di/types';
 
 @injectable()
 export class Logger implements ILogger {
-    private formatMessage(level: string, message: string, context?: Record<string, unknown>, error?: unknown) {
-        return JSON.stringify({
+    private isProduction = process.env.NODE_ENV === 'production';
+
+    // In a real app, you would inject a transport like Datadog or Sentry here
+    // private transport: RemoteTransport;
+
+    info(message: string, meta?: Record<string, any>): void {
+        const logEntry = {
+            level: 'INFO',
             timestamp: new Date().toISOString(),
-            level,
             message,
-            ...context,
+            ...meta
+        };
+        console.log(JSON.stringify(logEntry));
+        
+        // TODO: this.transport.send(logEntry);
+    }
+
+    error(message: string, error?: Error | unknown, meta?: Record<string, any>): void {
+        const logEntry = {
+            level: 'ERROR',
+            timestamp: new Date().toISOString(),
+            message,
             error: error instanceof Error ? {
+                name: error.name,
                 message: error.message,
-                stack: error.stack,
-                name: error.name
-            } : error
-        });
+                stack: error.stack
+            } : error,
+            ...meta
+        };
+        console.error(JSON.stringify(logEntry));
+
+        // CRITICAL: In production, errors MUST go to a remote service
+        if (this.isProduction) {
+            // this.sentry.captureException(error);
+        }
     }
 
-    info(message: string, context?: Record<string, unknown>): void {
-        console.log(this.formatMessage('INFO', message, context));
+    warn(message: string, meta?: Record<string, any>): void {
+        const logEntry = { level: 'WARN', timestamp: new Date().toISOString(), message, ...meta };
+        console.warn(JSON.stringify(logEntry));
     }
 
-    error(message: string, error?: unknown, context?: Record<string, unknown>): void {
-        console.error(this.formatMessage('ERROR', message, context, error));
-    }
-
-    warn(message: string, context?: Record<string, unknown>): void {
-        console.warn(this.formatMessage('WARN', message, context));
-    }
-
-    debug(message: string, context?: Record<string, unknown>): void {
-        // Only log debug in development or if explicitly enabled
-        if (process.env.NODE_ENV !== 'production') {
-            console.debug(this.formatMessage('DEBUG', message, context));
+    debug(message: string, meta?: Record<string, any>): void {
+        if (!this.isProduction) {
+            console.debug(JSON.stringify({ level: 'DEBUG', message, ...meta }));
         }
     }
 }

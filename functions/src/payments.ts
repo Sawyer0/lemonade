@@ -2,7 +2,7 @@ import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { stripe, getProPriceId } from './stripe';
 import { CONFIG } from './config';
-import { ErrorCode } from './errors';
+import { ErrorCode } from '@core/errors';
 
 const db = getFirestore();
 

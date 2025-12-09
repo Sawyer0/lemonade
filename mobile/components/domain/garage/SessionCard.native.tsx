@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { GlassCard } from '../../ui/GlassCard.native';
-import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
-import { Theme } from '@/constants/theme';
+import { DiagnosticSession } from '@core/entities/DiagnosticSession';
+import { Theme } from '@mobile/constants/theme';
 import { Car, Clock, AlertTriangle } from 'lucide-react-native';
 
 interface SessionCardProps {

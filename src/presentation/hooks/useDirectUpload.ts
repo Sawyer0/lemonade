@@ -4,6 +4,10 @@ import { auth } from '@/infrastructure/firebase/config';
 import { AppError } from '@/core/errors/AppError';
 import { ErrorCode } from '@/core/errors/codes';
 
+import { clientContainer } from '@/infrastructure/di/clientContainer';
+import { TYPES } from '@/infrastructure/di/types';
+import { ILogger } from '@/core/interfaces/ILogger';
+
 export function useDirectUpload() {
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -49,16 +53,20 @@ export function useDirectUpload() {
             await new Promise((resolve, reject) => {
                 xhr.onload = () => {
                     if (xhr.status === 200) {
-                        console.log('[useDirectUpload] Upload success', xhr.status);
+                        // logger.info('[useDirectUpload] Upload success', { status: xhr.status });
                         resolve(true);
                     } else {
-                        console.error('[useDirectUpload] XHR Failed', { status: xhr.status, response: xhr.response });
-                        reject(new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Upload failed with status ${xhr.status}`));
+                        const logger = clientContainer.get<ILogger>(TYPES.Logger);
+                        const uploadError = new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Upload failed with status ${xhr.status}`);
+                        logger.error('[useDirectUpload] XHR Failed', uploadError, { status: xhr.status, response: xhr.response });
+                        reject(uploadError);
                     }
                 };
                 xhr.onerror = () => {
-                    console.error('[useDirectUpload] Network Error (CORS?)', { status: xhr.status, readyState: xhr.readyState });
-                    reject(new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Network error - Check CORS/Tunnel'));
+                    const logger = clientContainer.get<ILogger>(TYPES.Logger);
+                    const networkError = new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Network error - Check CORS/Tunnel');
+                    logger.error('[useDirectUpload] Network Error (CORS?)', networkError, { status: xhr.status, readyState: xhr.readyState });
+                    reject(networkError);
                 };
                 xhr.send(file);
             });

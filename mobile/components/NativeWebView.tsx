@@ -1,26 +1,54 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { WebView } from 'react-native-webview';
 import { StyleSheet, StatusBar, View, ActivityIndicator, BackHandler } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useNativeAuth } from '../hooks/useNativeAuth';
 import { useWebViewBridge } from '../hooks/useWebViewBridge';
 import { CONFIG } from '../core/config';
+import { GlassCard } from './ui/GlassCard.native';
+
+import { useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 
 interface NativeWebViewProps {
     route?: string;
 }
+
+import { VinScanner } from './VinScanner';
+
+// ... existing imports
 
 export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
     const webviewRef = useRef<WebView>(null);
     useKeepAwake(); // Prevents screen from sleeping during video diagnostics
     const { isSigningIn, signIn, signOut, idToken } = useNativeAuth();
     const { injectedJavaScript } = useWebViewBridge(idToken);
+    const insets = useSafeAreaInsets();
+
+    // Permission Hooks
+    const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+    const [micPermission, requestMicPermission] = useMicrophonePermissions();
+
+    // Web Login State
+    const [isWebLoggedIn, setIsWebLoggedIn] = useState(false);
+
+    // Scanner State
+    const [showScanner, setShowScanner] = useState(false);
+
+    // Request Permissions on Mount
+    useEffect(() => {
+        if (!cameraPermission?.granted) requestCameraPermission();
+        if (!micPermission?.granted) requestMicPermission();
+    }, []);
 
     // Handle Android Back Button
     useEffect(() => {
         const onBackPress = () => {
+            if (showScanner) {
+                setShowScanner(false);
+                return true;
+            }
             if (webviewRef.current) {
                 webviewRef.current.goBack();
                 return true; // Prevent default behavior (exit app)
@@ -30,9 +58,9 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
 
         const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
         return () => subscription.remove();
-    }, []);
+    }, [showScanner]);
 
-    // Combine Hiding Script + Auth Bridge Script
+    // Combine Hiding Script + Auth Bridge Script + Safe Area Injection
     const hideButtonScript = `
         (function() {
             try {
@@ -41,10 +69,16 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
                 document.head.appendChild(style);
             } catch (e) { console.error('Style injection failed', e); }
         })();
-        true;
     `;
 
-    const combinedInjection = `${hideButtonScript}\n${injectedJavaScript}`;
+    const safeAreaScript = `
+        document.documentElement.style.setProperty('--safe-top', '${insets.top}px');
+        document.documentElement.style.setProperty('--safe-bottom', '${insets.bottom}px');
+        document.documentElement.style.setProperty('--safe-left', '${insets.left}px');
+        document.documentElement.style.setProperty('--safe-right', '${insets.right}px');
+    `;
+
+    const combinedInjection = `${hideButtonScript}\n${safeAreaScript}\n${injectedJavaScript}\ntrue;`;
 
     // Inject JS when token changes or WebView loads
     useEffect(() => {
@@ -56,19 +90,36 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
 
     const fullUri = `${CONFIG.API.BASE_URL}${route}`;
 
+    // Memoize the source object to prevent WebView reloads on every render
+    const webViewSource = React.useMemo(() => ({
+        uri: fullUri,
+        headers: {
+            'Bypass-Tunnel-Reminder': 'true',
+            'User-Agent': CONFIG.API.USER_AGENT
+        }
+    }), [fullUri]);
+
+    const handleVinScanned = (vin: string) => {
+        if (webviewRef.current) {
+            const script = `
+                window.postMessage(JSON.stringify({ type: 'VIN_SCANNED', vin: '${vin}' }), '*');
+                true; // required for iOS
+            `;
+            webviewRef.current.injectJavaScript(script);
+        }
+        setShowScanner(false);
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <StatusBar barStyle="dark-content" />
             <WebView
                 ref={webviewRef}
-                source={{
-                    uri: fullUri,
-                    headers: {
-                        'Bypass-Tunnel-Reminder': 'true',
-                        'User-Agent': CONFIG.API.USER_AGENT
-                    }
-                }}
-                style={styles.webview}
+                source={webViewSource}
+                style={[styles.webview, { backgroundColor: 'transparent' }]}
+                bounces={false}
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
                 javaScriptEnabled={true}
                 scrollEnabled={true}
                 scalesPageToFit={true}
@@ -89,9 +140,19 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
                     try {
                         const data = JSON.parse(event.nativeEvent.data);
                         if (data.type === 'SIGN_OUT') {
-                            // Standard Logging
-                            // console.log("Received Web Sign Out Request");
                             signOut();
+                            setIsWebLoggedIn(false);
+                        } else if (data.type === 'LOGIN_SUCCESS') {
+                            setIsWebLoggedIn(true);
+                        } else if (data.type === 'SCAN_VIN') {
+                            if (cameraPermission?.granted) {
+                                setShowScanner(true);
+                            } else {
+                                requestCameraPermission().then(res => {
+                                    if (res.granted) setShowScanner(true);
+                                    else alert('Camera permission needed to scan VIN');
+                                });
+                            }
                         }
                     } catch (e) {
                         // Non-JSON message or irrelevant
@@ -99,16 +160,26 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
                 }}
             />
 
-            <View style={styles.authBar}>
-                {!idToken && (
-                    <GoogleSigninButton
-                        size={GoogleSigninButton.Size.Wide}
-                        color={GoogleSigninButton.Color.Light}
-                        onPress={signIn}
-                        disabled={isSigningIn}
-                    />
-                )}
-            </View>
+            {/* Auth Overlay */}
+            {(!idToken && !isWebLoggedIn && !showScanner) && (
+                <View style={styles.authOverlay}>
+                    <GlassCard>
+                        <GoogleSigninButton
+                            size={GoogleSigninButton.Size.Wide}
+                            color={GoogleSigninButton.Color.Light}
+                            onPress={signIn}
+                            disabled={isSigningIn}
+                        />
+                    </GlassCard>
+                </View>
+            )}
+
+            {/* Application Modals */}
+            {showScanner && (
+                <View style={StyleSheet.absoluteFill}>
+                    <VinScanner onScan={handleVinScanned} onClose={() => setShowScanner(false)} />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -121,13 +192,7 @@ const styles = StyleSheet.create({
     webview: {
         flex: 1,
     },
-    authBar: {
-        padding: 5,
-        backgroundColor: '#f0f0f0',
-        alignItems: 'center',
-        borderTopWidth: 1,
-        borderTopColor: '#ccc',
-    },
+
     loadingContainer: {
         position: 'absolute',
         top: 0,
@@ -135,11 +200,15 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         justifyContent: 'center',
-        alignItems: 'center',
+        alignItems: 'center', // Center content
         backgroundColor: 'white'
     },
-    signOutContainer: {
-        width: '100%',
+    authOverlay: {
+        position: 'absolute',
+        bottom: 50, // Move up from bottom
+        left: 20,
+        right: 20,
         alignItems: 'center',
+        zIndex: 100,
     }
 });

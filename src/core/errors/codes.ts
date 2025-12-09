@@ -19,9 +19,15 @@ export enum ErrorCode {
     // Payment / Monetization
     PAYMENT_REQUIRED = 'PAYMENT_REQUIRED',
     SUBSCRIPTION_INACTIVE = 'SUBSCRIPTION_INACTIVE',
+    STRIPE_ERROR = 'STRIPE_ERROR', // Added
 
     // AI / Analysis
     AI_SERVICE_ERROR = 'AI_SERVICE_ERROR',
     SAFETY_VIOLATION = 'SAFETY_VIOLATION',
     VIDEO_PROCESSING_FAILED = 'VIDEO_PROCESSING_FAILED',
+    AI_EMPTY_RESPONSE = 'AI_EMPTY_RESPONSE', // Added
+    AI_PARSE_ERROR = 'AI_PARSE_ERROR', // Added
+
+    // Input/Validation specific to functions/video
+    INVALID_CONTENT_TYPE = 'INVALID_CONTENT_TYPE', // Added
 }

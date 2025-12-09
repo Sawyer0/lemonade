@@ -6,11 +6,21 @@
 export const CONFIG = {
     // AI Models
     AI_MODELS: {
-        // Primary model for both chat and video analysis with thinking budget
-        PRIMARY: 'gemini-2.5-pro',
-        // Video requires a vision-capable model; Gemini 2.5 Pro does not support video
-        VIDEO_PRIMARY: 'gemini-2.5-pro',
+        // Standard Text/Image Chat / REST Multimodal
+        TEXT_INTERFACE: 'gemini-2.5-flash',
+
+        // Agent Specific Models (Eyes & Ears Architecture)
+        AGENT: {
+            EYES: 'gemini-2.5-flash', // WebSocket / Realtime
+            BRAIN: 'gemini-3-pro-preview',         // Tools / Context / Hard Qs
+        },
+
         THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
+    },
+
+    // UI Configuration
+    UI: {
+        THEME: 'ios' as const, // Force iOS theme for consistency (avoids hydration mismatch)
     },
 
     // API Configuration

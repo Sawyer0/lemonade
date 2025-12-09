@@ -27,4 +27,33 @@ export interface IAuthService {
      * @param token - The Google ID token
      */
     signInWithGoogleIdToken(token: string): Promise<void>;
+
+    /**
+     * Sign up a new user with email and password.
+     * @param email - The user's email address.
+     * @param password - The user's password.
+     * @param username - The user's desired username.
+     */
+    signUpWithEmail(email: string, password: string, username: string): Promise<void>;
+
+    /**
+     * Sign in an existing user with email and password.
+     * @param email - The user's email address.
+     * @param password - The user's password.
+     */
+    signInWithEmail(email: string, password: string): Promise<void>;
+    /**
+     * Sign in using Google (Web Flow).
+     */
+    signInWithGoogle(): Promise<void>;
+
+    /**
+     * Sign out the current user.
+     */
+    signOut(): Promise<void>;
+
+    /**
+     * Get the current user's ID token.
+     */
+    getToken(): Promise<string | undefined>;
 }

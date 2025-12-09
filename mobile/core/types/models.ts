@@ -81,4 +81,33 @@ export const DiagnosticSessionSchema = z.object({
     startedAt: z.date(),
 });
 
+
 export type DiagnosticSession = z.infer<typeof DiagnosticSessionSchema>;
+
+
+// --- Billing ---
+export const AIUsageRecordSchema = z.object({
+    userId: z.string(),
+    inputTokens: z.number().int().min(0),
+    outputTokens: z.number().int().min(0),
+    model: z.string(),
+    timestamp: z.date(),
+    sessionId: z.string().uuid().optional(), // Link to session if applicable
+});
+
+export type AIUsageRecord = z.infer<typeof AIUsageRecordSchema>;
+
+// --- User ---
+export const UserSchema = z.object({
+    id: z.string(),
+    email: z.string().email(),
+    displayName: z.string().optional(),
+    photoUrl: z.string().url().optional(),
+    preferences: z.object({
+        autoOpenCamera: z.boolean().default(false),
+    }).default({ autoOpenCamera: false }),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+});
+
+export type User = z.infer<typeof UserSchema>;

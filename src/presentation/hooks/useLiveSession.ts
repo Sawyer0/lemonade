@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/infrastructure/firebase/config';
+import { doc, onSnapshot, Firestore } from 'firebase/firestore';
 import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
+import { convertTimestamps } from '@infrastructure/firestore/timestamps';
 
 interface LiveSessionState {
     session: DiagnosticSession | null;
@@ -10,51 +10,23 @@ interface LiveSessionState {
     safetyAlert: string | null;
 }
 
-export function useLiveSession(sessionId: string): LiveSessionState {
+export function useLiveSession(sessionId: string, db: Firestore): LiveSessionState {
     const [session, setSession] = useState<DiagnosticSession | null>(null);
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState<LiveSessionState['status']>('idle');
     const [safetyAlert, setSafetyAlert] = useState<string | null>(null);
 
-    // Real-time Listener
-    // This is one of the few places where useEffect is absolutely necessary
-    // to manage the WebSocket subscription lifecycle.
     useEffect(() => {
-        if (!sessionId) return;
+        if (!sessionId || !db) return;
 
         const unsub = onSnapshot(doc(db, 'sessions', sessionId), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-
-                // Helper to convert Firestore Timestamps to Dates
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const convertTimestamps = (obj: any): any => {
-                    if (!obj) return obj;
-                    if (typeof obj.toDate === 'function') return obj.toDate();
-                    if (Array.isArray(obj)) return obj.map(convertTimestamps);
-                    if (typeof obj === 'object') {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const result: any = {};
-                        for (const key in obj) {
-                            result[key] = convertTimestamps(obj[key]);
-                        }
-                        return result;
-                    }
-                    return obj;
-                };
-
                 const sessionData = convertTimestamps(data);
-
-                // Update session data
                 setSession(sessionData as DiagnosticSession);
-
-                // Track status from Cloud Function
                 if (sessionData.status) {
                     setStatus(sessionData.status as LiveSessionState['status']);
                 }
-
-                // IMMEDIATE SAFETY INTERVENTION
-                // If the Cloud Function flags danger, we override the UI immediately.
                 if (sessionData.safety_stop && sessionData.safety_reason) {
                     setSafetyAlert(sessionData.safety_reason);
                 }
@@ -63,7 +35,7 @@ export function useLiveSession(sessionId: string): LiveSessionState {
         });
 
         return () => unsub();
-    }, [sessionId]);
+    }, [sessionId, db]);
 
     return { session, loading, status, safetyAlert };
 }

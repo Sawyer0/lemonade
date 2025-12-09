@@ -1,8 +1,97 @@
 @import "tailwindcss";
+@import "konsta/theme.css";
 
 @layer utilities {
   .mask-image-gradient {
     mask-image: linear-gradient(to bottom, transparent, black 10%);
     -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%);
   }
+}
+
+/* 1. The "Global CSS" Kill List */
+:root {
+  /* Mimic Native Fonts perfectly */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+html, body {
+  /* Prevent "Overscroll Bounce" */
+  overscroll-behavior: none;
+  
+  /* Disable Text Selection */
+  -webkit-user-select: none;
+  user-select: none;
+
+  /* Disable "Pinch to Zoom" */
+  touch-action: manipulation;
+  
+  /* Ensure full height */
+  height: 100%;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* Kill "Gray Tap Highlight" */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hide Scrollbars */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* 3. Visual Fidelity Polish */
+h1, h2, h3 {
+  letter-spacing: 0.02em; /* Subtle native feel */
+  font-weight: 700;
+}
+
+input:focus, button:focus, textarea:focus {
+  outline: none; /* Native apps don't have blue focus rings */
+}
+
+img {
+  -webkit-user-drag: none; /* Don't let users drag the car image */
+}
+
+/* 2. Handle the "Notch" (Safe Areas) */
+/* Granular utilities instead of global padding */
+@utility pt-safe {
+  padding-top: var(--safe-top, env(safe-area-inset-top));
+}
+
+@utility pb-safe {
+  padding-bottom: var(--safe-bottom, env(safe-area-inset-bottom));
+}
+
+@utility pl-safe {
+  padding-left: var(--safe-left, env(safe-area-inset-left));
+}
+
+@utility pr-safe {
+  padding-right: var(--safe-right, env(safe-area-inset-right));
+}
+
+@utility min-h-safe {
+  min-height: 100vh; /* Fallback */
+  min-height: 100dvh; /* Dynamic viewport height for mobile browsers */
+}
+
+@theme {
+  /* Extend default colors to match Native Theme (Dark Mode Forced) */
+  --color-background: #000000;
+  --color-foreground: #FAFAFA;
+  
+  --color-tint: #FACC15; /* Yellow-400 */
+  --color-tint-dark: #FACC15;
+  
+  --color-text-secondary: #A1A1AA; /* Zinc-400 */
+  
+  --color-card: #18181B; /* Zinc-900 */
+  --color-card-border: #27272A; /* Zinc-800 */
+  
+  --color-success: #22C55E;
+  --color-error: #EF4444;
+  --color-warning: #F59E0B;
 }

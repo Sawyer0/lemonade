@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
-import { DiagnosticService } from '@/application/services/DiagnosticService';
+import { ChatService } from '@/application/services/ChatService';
 import { ChatRequestSchema, ChatResponseSchema } from '@/application/dtos';
 import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
 
@@ -14,9 +14,9 @@ export async function POST(req: Request) {
     const lastMessage = messages[messages.length - 1];
     const messageContent = lastMessage?.content || '';
 
-    const diagnosticService = container.get<DiagnosticService>(TYPES.DiagnosticService);
+    const chatService = container.get<ChatService>(TYPES.ChatService);
 
-    const reply = await diagnosticService.handleChatInteraction(sessionId, messageContent);
+    const reply = await chatService.handleChatInteraction(sessionId, messageContent);
 
     const responseData = {
       role: 'assistant' as const,

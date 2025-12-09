@@ -1,11 +1,36 @@
-# Lemonade MVP - AI Agent Development Guide
+# Lemonade Prod - AI Agent Development Guide
 
-This document serves as the **Source of Truth** for any AI agent working on the Lemonade codebase. Follow these rules strictly to maintain architectural integrity and production readiness.
+This document serves as the **Source of Truth** for any AI agent working on the Lemonade codebase. Follow these rules strictly to maintain architectural integrity and production readiness. This application is highly sophisticated and is not an MVP it is in Prod.
 
-## 1. Project Overview
-**Lemonade** is an AI-powered diagnostic platform for vehicles. It acts as a "Master Technician" in your pocket.
-- **Goal**: Provide accurate, safe, and instant mechanical diagnostics via video and chat.
-- **Core Philosophy**: "Safety First, Accuracy Second, Speed Third."
+## 1. Core Principles (The "Golden Rules")
+
+1.  **NEVER Make Assumptions (Ask First)**:
+    *   If a requirement is ambiguous (e.g., "Is this a 1:1 call or a group call?"), **ASK**.
+    *   Do not implement "placeholder" logic based on guesses (e.g., "Assuming 1:1 for MVP").
+    *   It is better to pause and clarify than to write code that needs to be rewritten.
+
+2.  **Architecture: Anemic Domain Model (AI-Native)**:
+    *   **Data (DTOs/Entities)**: Pure JSON state. ZERO methods. Serializable by default. Defined in `src/core/types`.
+    *   **Logic (Services)**: Stateless functions/classes. Accept Data as arguments. Return Data. Defined in `src/application/services`.
+    *   **Why?**: This allows 1:1 mapping with AI Tools and direct injection into LLM Context Windows without overhead.
+    *   **Rule**: Do not refactor into "Rich OOP" (Classes with methods). Keep Data and Logic strictly separated.
+
+3.  **Hybrid Mobile Architecture**:
+    *   **The "Native" Zone**: React Native (with LiveKit SDK).
+        *   **Responsibility**: Camera stream, Microphone (VAD/Echo Cancellation), Call Controls.
+        *   **Why**: Critical need for 60fps low-latency video and raw hardware access. **Never put the live call in a WebView.**
+    *   **The "WebView" Zone**: Next.js (WebView).
+        *   **Responsibility**: Complex Content like PDF Manuals, Wiring Diagrams, Chat History, Billing.
+        *   **Why**: Rendering complex documents/HTML is trivial in Next.js but painful in Native.
+    *   **The Bridge (Mode Switching UX)**:
+        *   **Chat Mode (Default)**: Standard scrolling history with Inline Attachments (WebView).
+        *   **Live Mode**: Full-screen Native Camera/Voice.
+        *   **Interaction**: User toggles modes manually. If AI prompts content in Live Mode, show a **Non-blocking Notification** (Pill). Tapping it switches to Chat Mode.
+
+4.  **Production Quality > MVP Speed**:
+    *   **No "MVP" Hacks**: Do not add comments like `// TODO: Fix for MVP` or `// Temporary`. Write the code correctly the first time.
+    *   **DRY (Don't Repeat Yourself)**: Never re-implement core logic (e.g., Timestamp parsing, ID generation) inline. Use shared infrastructure.
+    *   **Complete Implementations**: Handle all data types (e.g., Text, Image, Tool Calls) in UI components. Do not "simplify" just to get something on screen.
 
 ## 2. Technology Stack
 - **Framework**: Next.js 15 (App Router)
@@ -14,14 +39,15 @@ This document serves as the **Source of Truth** for any AI agent working on the 
 - **Database**: Firebase Firestore (NoSQL)
 - **Auth**: Firebase Authentication (Google Provider)
 - **Storage**: Google Cloud Storage (Direct Uploads via Signed URLs)
-- **AI**: Google Vertex AI (Gemini 2.5 Flash with Thinking Budget for Video Analysis and Chat)
-- **State/Fetching**: **SWR** (Stale-While-Revalidate) - *Do not use useEffect for fetching.*
+- **AI**: Google Vertex AI (Gemini 2.5 Flash for Video/Chat, Gemini Pro for Reasoning)
+- **Real-Time**: **LiveKit** (WebRTC for low-latency Video/Voice)
+- **Mobile**: **React Native** (Expo) + **WebView** (Hybrid Architecture)
+- **State/Fetching**: **SWR** (client-side), **Anemic Domain Model** (server-side)
 - **Dependency Injection**: **InversifyJS**
 
-## 3. Architecture: Feature-Sliced + DI
-We use a strict **Layered Architecture** managed by InversifyJS.
+## 3. Architecture & Code Structure
 
-### Layers
+### Feature-Sliced Layers
 1.  **Core (`src/core`)**: Pure domain logic. Interfaces, Types, Zod Schemas, Constants. *No external dependencies.*
 2.  **Infrastructure (`src/infrastructure`)**: Implementations of Core interfaces. Database calls, AI adapters, 3rd party APIs.
 3.  **Application (`src/application`)**: Business logic services. Orchestrates Infrastructure tools to solve domain problems.
@@ -31,146 +57,68 @@ We use a strict **Layered Architecture** managed by InversifyJS.
 - **NEVER** instantiate services directly (e.g., `new VehicleService()`).
 - **ALWAYS** use the DI Container (`src/infrastructure/di/container.ts`).
 - **ALWAYS** define an Interface in `Core` before writing an Implementation in `Infrastructure`.
-- **Binding**: Bind all new services in `container.ts` using symbols from `types.ts`.
 
 ### Interface Segregation (CRITICAL)
-- **No God Interfaces**: Interfaces must be small and focused on a single responsibility.
-- **Split by Capability**: If an interface has methods for different concerns (e.g., video + chat + voice), split it into separate interfaces.
-- **Naming Convention**: Use `I{Capability}Service` pattern (e.g., `ISessionService`, `IChatService`, `IVideoAnalysisService`).
-- **Composition over Inheritance**: A class can implement multiple focused interfaces. Consumers should depend on the smallest interface they need.
+- **No God Interfaces**: Interfaces must be small and focused.
 - **Example**:
   ```typescript
   // ❌ BAD: God interface
   interface IDiagnosticService {
       processVideo(...): Promise<void>;
       handleChat(...): Promise<string>;
-      processVoice(...): Promise<string>;
-      getSession(...): Promise<Session>;
   }
   
   // ✅ GOOD: Focused interfaces
   interface IVideoAnalysisService { processVideo(...): Promise<void>; }
   interface IChatService { handleChat(...): Promise<string>; }
-  interface IVoiceService { processVoice(...): Promise<string>; }
-  interface ISessionService { getSession(...): Promise<Session>; }
   ```
 
 ## 4. Coding Standards
 
 ### Configuration & Constants
-- **No Magic Strings/Numbers**: Do not hardcode configuration values (Models, API Keys, Timeouts, Feature Flags) in the codebase.
-- **Source of Truth**: All config values must come from `src/infrastructure/config.ts` or `src/core/constants`.
-- **Environment Variables**: Access environment variables ONLY through `config.ts`, never directly via `process.env` in business logic.
-
-### Data Fetching
-- **Anti-Pattern**: Using `useEffect` to fetch data.
-- **Standard**: Use **SWR** (`useSWR`) for all client-side data fetching.
-  ```typescript
-  const { data, error } = useSWR('/api/resource', fetcher);
-  ```
+- **No Magic Strings**: Do not hardcode configuration values.
+- **Source of Truth**: All config values must come from `src/infrastructure/config.ts`.
+- **Environment Variables**: Access ONLY via `config.ts`, never directly via `process.env` in business logic.
 
 ### Error Handling & Logging
-- **No Ad-Hoc Errors**: Never throw raw strings like `throw new Error("Something broke")`.
 - **Standardization**: Always use the `AppError` class and `ErrorCode` enum from `src/core/errors`.
-- **Structured Logging**: **NEVER** use `console.log` or `console.error`. Use the `ILogger` service injected via DI.
-  - Logs must be structured JSON objects.
-  - Include context (sessionId, userId, correlationId).
-- **Reusability**: If a new error scenario arises, add a new `ErrorCode` to the enum. Do not hardcode strings.
-
-### Validation
-- **Strict Zod Schemas**: All data entering the system (API requests, Firestore reads) must be validated with Zod schemas defined in `src/core/types/models.ts`.
-
-### Schema & Type Definitions (CRITICAL)
-- **Single Source of Truth**: All Zod schemas and TypeScript types for domain entities MUST be defined in `src/core/types/models.ts`.
-- **No Duplication**: Entity files in `src/core/entities/` should re-export from `models.ts`, NOT duplicate schemas.
-- **Example**:
+- **Structured Logging**: **NEVER** use `console.log`. Use the `ILogger` service.
   ```typescript
-  // ❌ BAD: Duplicated schema in entity file
-  // src/core/entities/Vehicle.ts
-  export const VehicleSchema = z.object({ ... }); // DUPLICATE!
-  
-  // ✅ GOOD: Re-export from canonical source
-  // src/core/entities/Vehicle.ts
-  export { VehicleSchema, type Vehicle } from '../types/models';
+  // Must be structured JSON
+  logger.info("Processing video", { sessionId: "123", duration: 45 });
   ```
-- **DTOs**: Request/Response DTOs go in `src/application/dtos/`. They may compose or extend core schemas but never redefine them.
-
-### AI Persona & Safety Guidelines
-- **Persona**: "Expert Senior Master Technician".
-  - **Tone**: "Tech-to-Tech" (Collaborative, professional, concise). Treat the user like a capable apprentice.
-  - **No Lectures**: Integrate safety checks naturally into the workflow (The "Quiet Professional").
-- **Safety Interventions**:
-  - **Hard Stops**: Only use all-caps/bold warnings for immediate life threats (e.g., fuel spray, high voltage).
-  - **SafetyMonitor**: All chat/voice/video API routes MUST run the `SafetyMonitor.assess()` check on user input BEFORE generating an AI response.
-  - If a hazard is detected, return a `X-Safety-Intervention` response immediately.
-- **Modular Prompts**: Do NOT store all prompts in a single file.
-  - Create a directory `src/core/prompts/`.
-  - Separate prompts by domain (e.g., `voice.ts`, `video.ts`, `chat.ts`).
-- **Never Override**: Do not weaken the safety prompts.
-
-### API Routes
-- **Secure**: All API routes must be protected by the Middleware (`src/middleware.ts`).
-- **Thin Controllers**: API routes should extract params, call a Service, and return JSON. Business logic belongs in `src/application/services`.
-
-### Firestore Pub/Sub & Real-Time Data (CRITICAL)
-- **Single Source of Truth for State**: All data mutations flow through `ISessionRepository` (or domain-specific repositories).
-- **No Direct Firestore Calls**: Never call `updateDoc()` or `setDoc()` directly in services or routes. Use repository methods.
-- **Schema Consistency (HARD RULE)**:
-  - Fields written by server MUST match fields read by client listeners
-  - **Example of what NOT to do**: Server writes `aiAnalysis.safety_alert` but client reads `safety_stop`
-  - Define all Firestore fields in Zod schema FIRST (in `src/core/types/models.ts`)
-  - Implement repository methods that write to those exact fields
-  - Client listeners expect the same field names—no translation layer needed
-- **Real-Time Listeners**: Use `onSnapshot()` in React hooks with proper cleanup
-  - Must be in `useEffect` (this is the ONE exception to the "no useEffect" rule—managing subscriptions is lifecycle management)
-  - Always unsubscribe on unmount: `useEffect(() => { const unsub = onSnapshot(...); return () => unsub(); }, [id])`
-  - No polling—true pub/sub only
-- **Data Validation**: Before every Firestore write, validate with Zod schema
-  - Use `DiagnosticSessionSchema.safeParse()` in repositories before update
-  - Fail loudly with descriptive errors if validation fails
-- **Timestamp Handling**: Convert Firestore Timestamps to JS Dates consistently
-  - Create a shared utility in `src/infrastructure/firestore/timestamps.ts` to avoid duplication
-  - Apply in all repository reads and listener callbacks
 
 ### File Structure & Clean Code
 - **Single Responsibility**: Each file should do one thing well. If a file exceeds ~200 lines, YOU MUST NOT ADD TO IT. SPLIT IT.
 - **No Bloat**: Avoid "God Components" or "God Services". Refactor mixed responsibilities into helper functions, hooks, or separate components.
-- **Colocation**: Keep related styles, tests, and types close to the component if possible (or follow the FSD structure).
+- **Colocation**: Keep related styles, tests, and types close to the component if possible.
 
-### Component Design
-- **Reusability**: Components should be designed to be reused. Avoid hardcoding business logic inside UI components; pass data via props.
-- **Composition**: Build complex UIs by composing smaller, atomic components.
-- **Completeness**: Do NOT leave "TODO" comments for critical UI feedback (e.g., error notifications). Implement the necessary UI patterns (e.g., Toasts) immediately.
-- **No Mocks**: Do not leave "mock" implementations or comments in production code. Implement the actual logic or a proper abstraction.
+### Data Fetching
+- **Anti-Pattern**: Using `useEffect` to fetch data.
+- **Standard**: Use **SWR** (`useSWR`) for all client-side data fetching.
 
-## 5. Firestore Pub/Sub Testing Checklist
+### Schema & Type Definitions (CRITICAL)
+- **Single Source of Truth**: All Zod schemas MUST be defined in `src/core/types/models.ts`.
+- **No Duplication**: Entity files should re-export from `models.ts`.
+- **DTOs**: Request/Response DTOs go in `src/application/dtos/`.
 
-Before committing any feature that modifies session state:
+### AI Persona & Safety Guidelines
+- **Persona**: "Expert Senior Master Technician". Tone: "Tech-to-Tech" (Collaborative, professional).
+- **SafetyMonitor**: All chat/voice/video API routes MUST run `SafetyMonitor.assess()` BEFORE generating an AI response.
+- **Modular Prompts**: Store prompts in `src/core/prompts/`, separated by domain.
 
-1. **Schema Definition**
-   - [ ] Field defined in `src/core/types/models.ts` Zod schema
-   - [ ] Field is NOT duplicated elsewhere
+## 5. Firestore Pub/Sub & Real-Time Data
 
-2. **Server Write Path**
-   - [ ] Write happens ONLY through `ISessionRepository` method
-   - [ ] Data validated with Zod before write
-   - [ ] Field name matches schema exactly (no nested translations)
-
-3. **Client Read Path**
-   - [ ] Real-time listener expects exact field name from schema
-   - [ ] Listener uses `onSnapshot()` in useEffect with cleanup
-   - [ ] No polling or duplicate fetches
-
-4. **Integration Test**
-   - [ ] Server updates field
-   - [ ] Client listener receives update within 100ms
-   - [ ] UI reflects state change without manual refresh
-
-**Example Checklist for Safety Alert Feature**:
-- ✅ `safety_stop: z.boolean()` in `DiagnosticSessionSchema`
-- ✅ `flagSafetyStop()` in repository writes to `safety_stop` field
-- ✅ `useLiveSession()` reads `sessionData.safety_stop`
-- ✅ Test: Fire safety alert → Client receives update → UI shows alert
+- **Single Source of Truth**: All mutations flow through `ISessionRepository`.
+- **Schema Consistency**: Defined in `src/core/types/models.ts`. Server writes and Client reads MUST match exactly.
+- **Real-Time Listeners**: Use `onSnapshot()` in `useEffect` with cleanup.
+  ```typescript
+  useEffect(() => { 
+      const unsub = onSnapshot(...); 
+      return () => unsub(); 
+  }, [id]);
+  ```
+- **Validation**: Validate with `DiagnosticSessionSchema.safeParse()` before every write.
 
 ## 6. Workflow for New Features
 1.  **Define**: Create the Interface in `src/core/interfaces`.
@@ -178,63 +126,30 @@ Before committing any feature that modifies session state:
 3.  **Bind**: Add the Symbol to `types.ts` and bind it in `container.ts`.
 4.  **Expose**: Create a Next.js API route if needed.
 5.  **Consume**: Use SWR in the Frontend Component.
-6.  **For State Changes**: Follow the Firestore Pub/Sub Testing Checklist above.
+6.  **State**: Follow the Firestore Pub/Sub Checklist.
 
-## 7. Environment
-- **Local**: `.env.local` contains secrets.
-- **Production**: Dockerized container (Cloud Run).
-- **Config**: `next.config.ts` is set for `standalone` output.
-
----
-## Build it like a Master Tech would: Precise, Clean, and Safe.
-
-## 8. LiveKit Agents Best Practices
-**Version v1.0+ Compliance Rules**
+## 7. LiveKit Agents Best Practices (v1.0+)
 
 ### Agent Architecture
-*   **Deprecation Warning**: `MultimodalAgent` is **DEPRECATED** and removed in v1.0+. attempts to import it will fail.
-*   **Unified Agent**: Use `voice.AgentSession` for ALL agent types (Voice, Video, Multimodal). It automatically adapts to the capabilities of the model provided.
-*   **Model Access**: For Google Gemini Realtime, access the model via `google.beta.realtime.RealtimeModel` (plugin namespace subject to change).
+*   **Unified Agent**: Use `voice.AgentSession`. `MultimodalAgent` is **DEPRECATED**.
+*   **Model Access**: Use `google.beta.realtime.RealtimeModel`.
 
 ### Critical Implementation Details
-1.  **Worker Loop Protection**: When using `cli.runApp` in a file that might be imported by the worker path, **YOU MUST** guard the execution to prevent infinite recursion/timeouts.
+1.  **Worker Loop Protection**: Guard `cli.runApp`.
     ```typescript
-    // ✅ GOOD: Guarded Execution
     import { pathToFileURL } from 'url';
-    
     if (import.meta.url === pathToFileURL(process.argv[1]).href) {
         cli.runApp(...)
     }
     ```
-2.  **Session Start**: Do not look for `agent.start()`. The correct API is `agentSession.start(ctx.room)`.
+2.  **Session Start**: Use `agentSession.start(ctx.room)`.
 
-### Example (Gemini Realtime)
-```typescript
-const model = new google.beta.realtime.RealtimeModel({ ... });
-const session = new voice.AgentSession({ llm: model });
-await session.start(ctx.room);
-// ... existing code ...
-await session.start(ctx.room);
-```
-
-## 9. Mobile Web Debugging Rules
-Testing the mobile web app (`EXPO_PUBLIC_PLATFORM=web`) on a real device requires strict network configuration to avoid SSL and Mixed Content errors.
+## 8. Mobile Web Debugging Rules
 
 ### Tunneling Strategy
-1.  **Frontend**: MUST run with `npx expo start --web --tunnel`.
-    *   This provides a public HTTPS URL (e.g., `https://xxxx.exp.direct`).
-2.  **Backend**: MUST be tunneled via Ngrok (`npx ngrok http 3000`).
-    *   This provides a public HTTPS URL (e.g., `https://xxxx.ngrok-free.app`).
-    *   Update `mobile/.env` `EXPO_PUBLIC_API_URL` to this Ngrok URL.
+1.  **Frontend**: `npx expo start --web --tunnel` (HTTPS).
+2.  **Backend**: `npx ngrok http 3000` (HTTPS).
 
 ### Bypass Security Warnings
-Ngrok blocks programmatic API requests (like `fetch()`) with an HTML warning page.
-*   **Fix**: All API Clients fetching from the Ngrok backend MUST include the header:
-    ```javascript
-    headers: { 'ngrok-skip-browser-warning': 'true' }
-    ```
-*   **Server Handling**: The Backend API (`src/app/api/...`) MUST explicitly allow this header in CORS:
-    ```typescript
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, ngrok-skip-browser-warning'
-    ```
-    And MUST export an `OPTIONS` handler to satisfy preflight checks.
+*   **Fix**: Include header `{ 'ngrok-skip-browser-warning': 'true' }` in all fetches.
+*   **Server Handling**: Allow this header in CORS configuration.

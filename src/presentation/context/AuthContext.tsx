@@ -3,7 +3,8 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { clientContainer } from "@/infrastructure/di/clientContainer";
 import { TYPES } from "@/infrastructure/di/types";
-import type { IAuthService } from "@/core/interfaces/IAuthService";
+import type { IAuthService } from '@/core/interfaces/IAuthService';
+import type { ILogger } from '@/core/interfaces/ILogger';
 
 interface AuthContextType {
     user: User | null;
@@ -26,13 +27,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let unsubscribe: () => void = () => { };
 
         const initAuth = async () => {
-             try {
+            try {
                 const authService = clientContainer.get<IAuthService>(TYPES.AuthService);
                 unsubscribe = authService.onAuthStateChange((user) => {
                     setUser(user);
                     setLoading(false);
                 });
-    
+
                 // Bridge Handler for React Native Google Sign-In
                 // The mobile app injects: window.handleNativeGoogleLogin(idToken)
                 window.handleNativeGoogleLogin = async (token: string) => {
@@ -40,11 +41,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         // console.log("Received Native Google Token"); // kept minimal for prod
                         await authService.signInWithGoogleIdToken(token);
                     } catch (error) {
-                        console.error("Native Bridge Sign-In Failed:", error);
+                        const logger = clientContainer.get<ILogger>(TYPES.Logger);
+                        logger.error("Native Bridge Sign-In Failed:", error);
                     }
                 };
             } catch (error) {
-                console.error("Failed to initialize Auth Service:", error);
+                const logger = clientContainer.get<ILogger>(TYPES.Logger);
+                logger.error("Failed to initialize Auth Service:", error);
                 setLoading(false);
             }
         };

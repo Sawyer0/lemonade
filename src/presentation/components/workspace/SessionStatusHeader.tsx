@@ -2,17 +2,14 @@ import React from 'react';
 import { clsx } from 'clsx';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { VoiceInput } from './VoiceInput';
 
 interface SessionStatusHeaderProps {
     sessionId: string;
     vehicleId: string;
     status: 'active' | 'analyzing' | 'waiting_user' | 'completed' | 'error';
-    onAudioDetected: (audio: Float32Array) => void;
-    isProcessingAudio: boolean;
 }
 
-export function SessionStatusHeader({ sessionId, vehicleId, status, onAudioDetected, isProcessingAudio }: SessionStatusHeaderProps) {
+export function SessionStatusHeader({ sessionId, vehicleId, status }: SessionStatusHeaderProps) {
     return (
         <div className="flex justify-between items-start pointer-events-auto">
             <div className="bg-black/60 backdrop-blur-md p-4 rounded-2xl border border-white/10 flex items-center gap-4">
@@ -36,11 +33,6 @@ export function SessionStatusHeader({ sessionId, vehicleId, status, onAudioDetec
                         <span className="text-xs text-zinc-400 uppercase">{status}</span>
                     </div>
                 </div>
-
-                <VoiceInput
-                    onAudioDetected={onAudioDetected}
-                    isProcessing={isProcessingAudio}
-                />
             </div>
         </div>
     );

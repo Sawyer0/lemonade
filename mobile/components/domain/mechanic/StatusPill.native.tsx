@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Theme } from '@/constants/theme';
+import { Theme } from '@mobile/constants/theme';
 
 interface StatusPillProps {
     status: 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';

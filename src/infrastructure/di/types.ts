@@ -3,10 +3,19 @@ export const TYPES = {
     VehicleRepo: Symbol.for('VehicleRepository'),
     SessionRepo: Symbol.for('SessionRepository'),
     VehicleInfoProvider: Symbol.for('VehicleInfoProvider'),
+    BillingRepository: Symbol.for('BillingRepository'),
 
     // --- AI Adapters ---
     VideoAI: Symbol.for('VideoDiagnosticAI'), // Maps to Gemini 2.0 Flash
     ChatAI: Symbol.for('ChatAssistantAI'),    // Maps to Gemini 2.0 Flash
+    SafetyAI: Symbol.for('SafetyAI'),
+
+    // --- 4-Layer Grounding (Deep Tech) ---
+    NHTSAService: Symbol.for("NHTSAService"),
+    EmbeddingService: Symbol.for("EmbeddingService"),
+    VectorRepository: Symbol.for("VectorRepository"),
+    MechanicReasoningService: Symbol.for("MechanicReasoningService"),
+    ServerAuthService: Symbol.for("ServerAuthService"),
 
     // --- Application Services (Focused) ---
     SessionService: Symbol.for('SessionService'),
@@ -15,6 +24,7 @@ export const TYPES = {
     VoiceService: Symbol.for('VoiceService'),
     SafetyMonitor: Symbol.for('SafetyMonitor'),
     ContextCacheService: Symbol.for('ContextCacheService'),
+    BillingService: Symbol.for('BillingService'),
 
     // --- Application Services (Legacy/Composite) ---
     /** @deprecated Use focused service symbols instead */

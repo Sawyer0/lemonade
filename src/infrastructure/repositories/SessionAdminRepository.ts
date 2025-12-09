@@ -1,53 +1,45 @@
-import { injectable } from 'inversify';
+import { injectable, inject } from 'inversify';
 import { adminDb } from '@/infrastructure/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { ISessionRepository } from '@/core/interfaces/ISessionRepository';
-import { DiagnosticSession, AIAnalysis, DiagnosticSessionSchema } from '@/core/entities/DiagnosticSession';
+import { DiagnosticSession, AIAnalysis, DiagnosticSessionSchema, AIAnalysisSchema } from '@/core/entities/DiagnosticSession';
 import { AppError } from '@/core/errors/AppError';
 import { ErrorCode } from '@/core/errors/codes';
+import { TYPES } from '@/infrastructure/di/types';
+import type { ILogger } from '@/core/interfaces/ILogger';
+import { convertTimestamps } from '@/infrastructure/firestore/timestamps';
 
 @injectable()
 export class SessionAdminRepository implements ISessionRepository {
+    constructor(@inject(TYPES.Logger) private logger: ILogger) { }
+
     async create(session: DiagnosticSession): Promise<void> {
-        // admin SDK handles Date objects correctly
-        await adminDb.collection('sessions').doc(session.id).set(session);
-    }
-
-    private convertTimestamps(data: Record<string, unknown>): Record<string, unknown> {
-        if (!data) return data;
-        const converted = { ...data };
-        if (converted.updatedAt && typeof (converted.updatedAt as Record<string, unknown>).toDate === 'function') {
-            converted.updatedAt = ((converted.updatedAt as Record<string, unknown>).toDate as () => Date)();
+        try {
+            // Validate before write
+            DiagnosticSessionSchema.parse(session);
+            // admin SDK handles Date objects correctly
+            await adminDb.collection('sessions').doc(session.id).set(session);
+        } catch (error) {
+            this.logger.error('Session creation failed validation or write', error, { sessionId: session.id });
+            throw error;
         }
-        if (converted.startedAt && typeof (converted.startedAt as Record<string, unknown>).toDate === 'function') {
-            converted.startedAt = ((converted.startedAt as Record<string, unknown>).toDate as () => Date)();
-        }
-        if (converted.messages && Array.isArray(converted.messages)) {
-            converted.messages = converted.messages.map((msg: Record<string, unknown>) => ({
-                ...msg,
-                timestamp: msg.timestamp && typeof (msg.timestamp as Record<string, unknown>).toDate === 'function'
-                    ? ((msg.timestamp as Record<string, unknown>).toDate as () => Date)()
-                    : msg.timestamp
-            }));
-        }
-
-        // Backfill missing userId for legacy/broken sessions to prevent Zod validation errors
-        if (!converted.userId) {
-            converted.userId = 'unknown';
-        }
-
-        return converted;
     }
 
     async findById(id: string): Promise<DiagnosticSession | null> {
         const snap = await adminDb.collection('sessions').doc(id).get();
         if (!snap.exists) return null;
 
-        const data = this.convertTimestamps(snap.data() as Record<string, unknown>);
+        const data = convertTimestamps(snap.data());
+
+        // Data Integrity Fallback: Ensure userId exists for older sessions
+        if (!data.userId) {
+            data.userId = 'unknown';
+        }
+
         const result = DiagnosticSessionSchema.safeParse(data);
 
         if (!result.success) {
-            console.error(`Session validation failed for ${id}:`, result.error);
+            this.logger.error(`Session validation failed for ${id}`, result.error);
             throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Session data validation failed for ${id}: ${result.error.message}`);
         }
 
@@ -55,11 +47,19 @@ export class SessionAdminRepository implements ISessionRepository {
     }
 
     async updateAnalysis(sessionId: string, analysis: AIAnalysis): Promise<void> {
-        await adminDb.collection('sessions').doc(sessionId).update({
-            aiAnalysis: analysis,
-            status: 'waiting_user',
-            updatedAt: new Date()
-        });
+        try {
+            // Validate analysis object
+            AIAnalysisSchema.parse(analysis);
+
+            await adminDb.collection('sessions').doc(sessionId).update({
+                aiAnalysis: analysis,
+                status: 'waiting_user',
+                updatedAt: new Date()
+            });
+        } catch (error) {
+            this.logger.error('Failed to update analysis', error, { sessionId });
+            throw error;
+        }
     }
 
     async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: unknown): Promise<void> {
@@ -95,12 +95,15 @@ export class SessionAdminRepository implements ISessionRepository {
     }
 
     async updateVideo(sessionId: string, videoUrl: string): Promise<void> {
+        if (!videoUrl || typeof videoUrl !== 'string') {
+            throw new AppError(ErrorCode.INVALID_INPUT, 'Invalid video URL');
+        }
         await adminDb.collection('sessions').doc(sessionId).update({ videoUrl });
     }
 
     async findByVehicleId(vehicleId: string): Promise<DiagnosticSession[]> {
         if (!vehicleId) {
-            console.warn('SessionAdminRepository.findByVehicleId called with empty vehicleId');
+            this.logger.warn('SessionAdminRepository.findByVehicleId called with empty vehicleId');
             return [];
         }
         const snapshot = await adminDb.collection('sessions')
@@ -110,10 +113,16 @@ export class SessionAdminRepository implements ISessionRepository {
 
         return snapshot.docs
             .map(doc => {
-                const data = this.convertTimestamps(doc.data());
+                const data = convertTimestamps(doc.data());
+
+                // Data Integrity Fallback
+                if (!data.userId) {
+                    data.userId = 'unknown';
+                }
+
                 const result = DiagnosticSessionSchema.safeParse(data);
                 if (!result.success) {
-                    console.error(`Session validation failed for ${doc.id}:`, result.error);
+                    this.logger.error(`Session validation failed for ${doc.id}`, result.error);
                     return null;
                 }
                 return result.data;

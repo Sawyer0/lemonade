@@ -1,8 +1,7 @@
 import { injectable, inject } from 'inversify';
-import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
-import { CONFIG } from '@/infrastructure/config';
-import { SafetyAssessment, SAFETY_RAW_SCHEMA } from '@/core/types/safety';
-import { ISafetyMonitor } from '@/core/interfaces/ISafetyMonitor';
+import { SafetyAssessment } from '@/core/types/safety';
+import type { ISafetyMonitor } from '@/core/interfaces/ISafetyMonitor';
+import type { ISafetyAI } from '@/core/interfaces/IAIService';
 import type { ILogger } from '@/core/interfaces/ILogger';
 import { TYPES } from '@/infrastructure/di/types';
 import { AppError } from '@/core/errors/AppError';
@@ -10,31 +9,10 @@ import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class SafetyMonitor implements ISafetyMonitor {
-    private vertex: VertexAI;
-    private model: GenerativeModel;
-    private logger: ILogger;
-
-    constructor(@inject(TYPES.Logger) logger: ILogger) {
-        this.logger = logger;
-
-        const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-        const credentials = key ? JSON.parse(key) : {};
-
-        this.vertex = new VertexAI({
-            project: CONFIG.GCLOUD_PROJECT,
-            location: 'us-central1',
-            googleAuthOptions: { credentials }
-        });
-
-        this.model = this.vertex.getGenerativeModel({
-            model: CONFIG.AI_MODELS.PRIMARY,
-            generationConfig: {
-                responseMimeType: 'application/json',
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                responseSchema: SAFETY_RAW_SCHEMA as any // Cast because propertyOrdering might not be in generic SchemaType yet
-            }
-        });
-    }
+    constructor(
+        @inject(TYPES.Logger) private logger: ILogger,
+        @inject(TYPES.SafetyAI) private safetyAI: ISafetyAI
+    ) { }
 
     async assess(userMessage: string, context: string): Promise<SafetyAssessment> {
         try {
@@ -60,11 +38,7 @@ export class SafetyMonitor implements ISafetyMonitor {
             If the user is merely inspecting or asking for analysis, returning "NONE" for hazards.
             `;
 
-            const result = await this.model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }]
-            });
-
-            const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
+            const text = await this.safetyAI.assessSafety(prompt);
 
             if (!text) {
                 this.logger.warn('SafetyMonitor: No response text received', { userMessage });

@@ -4,13 +4,19 @@ Here is the technical stack and modular file architecture designed for scalabili
 
 # 1. Technology Stack Selection
 
-*   **Core Framework**: Next.js 15 (App Router). It serves as the Presentation Layer and API Gateway.
-*   **Language**: TypeScript. Strict typing is required for SOLID interfaces.
-*   **Dependency Injection**: InversifyJS. This is critical for DI (Dependency Inversion) so our business logic depends on interfaces, not Google SDKs.
-*   **Database**: Firestore. Accessed via Repository Pattern.
-*   **AI Orchestration**: Google Vertex AI SDK.
-    *   **Gemini 2.5 Flash**: Used for both video analysis and real-time chat with configurable thinking budget.
-*   **Validation**: Zod. For validating data entering our entities (Open/Closed principle enforcement at the boundary).
+*   **Core Framework (Hybrid)**: Next.js 15 (App Router) wrapped in **Expo / React Native**.
+*   **UI System**: **Konsta UI** + Tailwind CSS. This provides pixel-perfect iOS/Android native theming within the Next.js web view.
+*   **Language**: TypeScript. Shared strictly between Web and Mobile logic.
+*   **Container**: InversifyJS.
+*   **Database**: Firestore.
+*   **AI Orchestration**: Google Vertex AI SDK running on **Firebase Cloud Functions (Gen 2)**.
+    *   **Reasoning Engine**: Cloud Functions provide the 60-minute timeout needed for deep "System 2" thinking.
+    *   **Gemini 2.5 Flash** (`gemini-2.5-flash`): Used for "Eyes" (Vision) and high-speed chat.
+    *   **Gemini 3 Pro** (`gemini-3-pro-preview`): Used for "Brain" (Deep Reasoning/System 2) and Manual Analysis.
+    *   **Gecko** (`text-embedding-004`): Used for "Collective Memory" vectorization.
+    *   **Safety Monitor**: Independent symbolic validator (Post-Processing Guardrail).
+*   **External API**: NHTSA (National Highway Traffic Safety Administration) for Recall Checks.
+*   **Validation**: Zod. For strictly typed "Neuro-Symbolic" contracts.
 *   **State Management**: Zustand. Separating UI state from business state.
 
 # 2. Modular File Architecture (Feature-Sliced Design)
@@ -21,117 +27,91 @@ We will strictly separate Domain (Enterprise Rules), Application (Use Cases), an
 /src
   /core                 <-- THE DOMAIN LAYER (No dependencies on Next.js/Firebase)
     /entities           <-- Pure TS classes (e.g., Vehicle, DiagnosticSession)
-    /interfaces         <-- Contracts (IVehicleRepository, IAIService)
-    /types              <-- Shared Zod schemas
-    /constants          <-- "Safety Constitution" prompts
+    /interfaces         <-- Contracts (INHTSAService, IMechanicReasoningService)
+    /types              <-- Shared Zod schemas (NeurosymbolicState)
+    /prompts            <-- System 2 Structured Reasoning Prompts
 
   /infrastructure       <-- THE ADAPTER LAYER (Implements Core Interfaces)
-    /repositories       <-- Firestore implementations (VehicleFirestoreRepo)
-    /ai                 <-- Vertex AI implementations (Gemini3ProAdapter, GeminiFlashAdapter)
-    /storage            <-- Google Cloud Storage implementations
+    /repositories       <-- Firestore implementations (VectorRepository)
+    /external           <-- Third-party APIs (NHTSAService)
+    /ai                 <-- Vertex AI implementations (EmbeddingService)
     /di                 <-- Dependency Injection Container setup
 
   /application          <-- THE USE CASE LAYER (Business Logic)
-    /services           <-- DiagnosticService, OnboardingService
+    /services           <-- MechanicReasoningService (The Orchestrator)
     /dtos               <-- Data Transfer Objects for API requests
 
   /presentation         <-- THE UI LAYER (Next.js)
     /app                <-- App Router (Pages/Layouts)
-    /components         <-- React Components (VehicleCard, CameraView)
+    /components         <-- React Components
     /hooks              <-- Custom hooks connecting UI to Application Services
-    /api                <-- Route Handlers (Controllers) calling Application Services
 ```
 
-# 3. Implementing SOLID Principles
+# 3. The Neuro-Symbolic Architecture & SOLID Principles
 
-Here is how we apply SOLID to our specific "Master Tech" requirements.
+**Why Neuro-Symbolic?**
+Our application is not just a chatbot; it is a **Hybrid Neuro-Symbolic System**.
+*   **Neural (System 1)**: Large Language Models (`gemini-2.5-flash`) provide perception, intuition, and creativity. They "see" the oil leak or "hear" the rattle.
+*   **Symbolic (System 2)**: Probabilistic outputs are grounded by deterministic logic (`gemini-3-pro-preview` + Zod + NHTSA API). We assert strict Type Interfaces and Logical Constraints that the Neural capabilities must respect.
+
+This Hybrid approach is enforcing using SOLID principles.
 
 ## A. Dependency Inversion Principle (DIP)
 
-**Goal**: The high-level DiagnosticService should not know we are using Gemini or Firestore. It should only know about `IVideoDiagnosticAI` and `ISessionRepository`.
+**Goal**: The `MechanicReasoningService` (Brain) should not know it is talking to Vertex AI or NHTSA. It only knows `INHTSAService` and `IVectorRepository`.
 
-`/src/core/interfaces/IAIService.ts`
+`/src/core/interfaces/IMechanicReasoningService.ts`
 
 ```typescript
-// Interface Segregation Principle (ISP): Split large interfaces into specific roles
-export interface IVideoDiagnosticAI {
-  analyzeMechanicalVideo(videoUrl: string, vehicleContext: string): Promise<AIAnalysis>;
+// The Contract (System 2 Orchestrator)
+export interface IMechanicReasoningService {
+  diagnose(input: ReasoningInput): Promise<NeurosymbolicState>;
 }
 
-export interface IChatAssistantAI {
-  generateReply(history: Message[], vehicleContext: string, diagnosticContext: AIAnalysis | null): Promise<string>;
+// The Data Contract (Strict Type for the Truth Hierarchy)
+export interface NeurosymbolicState {
+  intuition: { hypothesis: string; confidence: number };
+  authorityData: { nhtsaRecalls: string[] }; // Hard Truth
+  consensus: { similarCasesFound: number; consensusFix: string | null }; // Social Truth
+  finalDiagnosis: { decision: 'PROCEED' | 'STOP_DANGER' | 'COMMUNITY_ALERT' };
 }
-
-// The Domain Entity
-export type AIAnalysis = {
-  diagnosis: string;
-  visual_evidence: string[];
-  acoustic_evidence: string[];
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  suggested_actions: string[];
-  safety_alert: boolean;
-};
 ```
 
 ## B. Open/Closed Principle (OCP)
 
-**Goal**: We can swap Gemini 2.5 Flash for a newer model without changing the business logic, just the configuration.
+**Goal**: We can switch from Firestore Vector Search to Pinecone without changing the Mechanic's brain.
 
-`/src/infrastructure/ai/GeminiProAdapter.ts`
+`/src/infrastructure/repositories/FirestoreVectorRepository.ts`
 
 ```typescript
-import { IVideoDiagnosticAI, AnalysisResult } from '@/core/interfaces/IAIService';
-import { VertexAI } from '@google-cloud/vertexai';
-
-// Implements the contract defined in Core
-export class GeminiProAdapter implements IVideoDiagnosticAI {
-  private model;
-
-  constructor(projectId: string) {
-    const vertex = new VertexAI({ project: projectId });
-    // Using Gemini 2.5 Flash with thinking budget for deep analysis
-    this.model = vertex.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  }
-
-  async analyzeVideo(videoUrl: string): Promise<AnalysisResult> {
-    // Implementation details hidden from the rest of the app
-    const result = await this.model.generateContent([
-      "Analyze this mechanical failure...",
-      { fileData: { fileUri: videoUrl, mimeType: 'video/mp4' } }
-    ]);
-    
-    // Map raw AI response to our clean Domain Entity
-    return this.mapResponse(result); 
-  }
-
-  private mapResponse(raw: any): AnalysisResult {
-    // Logic to parse JSON from AI
-    return JSON.parse(raw.response.text());
-  }
+@injectable()
+export class FirestoreVectorRepository implements IVectorRepository {
+    async findSimilar(embedding: number[]): Promise<VectorCase[]> {
+        // Implementation using Firestore Vector Search
+        // Can be swapped for Redis/Pinecone later
+    }
 }
 ```
 
 ## C. Single Responsibility Principle (SRP)
 
-**Goal**: Our API Route shouldn't handle business logic. It should just delegate.
+**Goal**: The `VideoAnalysisService` shouldn't "reason". It should just prepare inputs. The `MechanicReasoningService` performs the "System 2" loop.
 
-`/src/presentation/api/analyze-video/route.ts` (Controller)
+`/src/application/services/VideoAnalysisService.ts`
 
 ```typescript
-import { container } from '@/infrastructure/di/container';
-import { DiagnosticService } from '@/application/services/DiagnosticService';
-import { TYPES } from '@/infrastructure/di/types';
+export class VideoAnalysisService {
+    constructor(@inject(TYPES.MechanicReasoningService) private brain: IMechanicReasoningService) {}
 
-export async function POST(req: Request) {
-  const { videoUrl, sessionId } = await req.json();
-
-  // Resolve the service from the DI container
-  const diagnosticService = container.get<DiagnosticService>(TYPES.DiagnosticService);
-
-  // Delegate business logic
-  await diagnosticService.processVideoUpload(sessionId, videoUrl);
-
-  return Response.json({ status: 'processing' });
+    async process(videoUrl: string) {
+        // 1. Prepare Input (Video -> URL)
+        const input = { videoUrl, ... };
+        
+        // 2. Delegate Thinking to the Specialist
+        const diagnosis = await this.brain.diagnose(input);
+        
+        // 3. Save Result
+    }
 }
 ```
 

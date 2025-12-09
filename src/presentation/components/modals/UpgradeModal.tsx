@@ -1,7 +1,8 @@
 'use client';
 import React, { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Zap, X, Loader2 } from 'lucide-react';
+import { Zap, X, Loader2, Check } from 'lucide-react';
+import { Sheet, Page, Navbar, Link, Block, Button, List, ListItem } from 'konsta/react';
 
 interface UpgradeModalProps {
     isOpen: boolean;
@@ -29,79 +30,76 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
             setLoading(false);
         }
     };
-    if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full max-w-md mx-4 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                {/* Close Button */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors"
-                >
-                    <X className="w-5 h-5" />
-                </button>
+        <Sheet
+            className="h-full md:h-auto md:max-h-[80vh] md:w-[600px] md:mx-auto md:rounded-t-2xl pb-safe"
+            opened={isOpen}
+            onBackdropClick={onClose}
+        >
+            <Page>
+                <Navbar
+                    title="Unlock Pro"
+                    right={
+                        <Link onClick={onClose} iconOnly>
+                            <X className="w-6 h-6" />
+                        </Link>
+                    }
+                />
 
-                {/* Header */}
-                <div className="p-6 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-b border-zinc-800">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-yellow-500/20 rounded-xl">
-                            <Zap className="w-6 h-6 text-yellow-400" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white">Upgrade to Pro</h2>
+                <Block className="text-center space-y-4 pt-8">
+                    <div className="w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-yellow-500/30">
+                        <Zap className="w-10 h-10 text-yellow-400" />
                     </div>
-                    <p className="text-zinc-400">Unlock unlimited AI diagnostics</p>
-                </div>
+                    <div>
+                        <h2 className="text-2xl font-bold text-white mb-1">Upgrade to Pro</h2>
+                        <p className="text-zinc-400">Unlock unlimited AI power for your garage</p>
+                    </div>
+                </Block>
 
-                {/* Features */}
-                <div className="p-6 space-y-4">
-                    <ul className="space-y-3">
-                        {[
-                            'Unlimited Video Analysis',
-                            'Real-time Voice Commands',
-                            'Priority AI Processing',
-                            'Advanced Safety Verification',
-                        ].map((feature) => (
-                            <li key={feature} className="flex items-center gap-3 text-zinc-300">
-                                <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
-                                    <span className="text-green-400 text-xs">✓</span>
+                <List strong inset className="!bg-zinc-900/50 border border-zinc-800">
+                    {[
+                        'Unlimited Video Analysis',
+                        'Real-time Voice Commands',
+                        'Priority AI Processing',
+                        'Advanced Safety Verification',
+                    ].map((feature) => (
+                        <ListItem
+                            key={feature}
+                            title={feature}
+                            media={
+                                <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
+                                    <Check className="w-3 h-3 text-green-400" />
                                 </div>
-                                {feature}
-                            </li>
-                        ))}
-                    </ul>
+                            }
+                        />
+                    ))}
+                </List>
 
-                    {/* Price */}
-                    <div className="pt-4 border-t border-zinc-800">
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-4xl font-bold text-white">$20</span>
-                            <span className="text-zinc-500">/month</span>
-                        </div>
-                        <p className="text-xs text-zinc-500 mt-1">Cancel anytime</p>
+                <Block className="space-y-4">
+                    <div className="flex items-baseline justify-center gap-1 py-4">
+                        <span className="text-4xl font-bold text-white">$20</span>
+                        <span className="text-zinc-500">/month</span>
                     </div>
-                </div>
 
-                {/* CTA */}
-                <div className="p-6 pt-0">
-                    <button
+                    <Button
+                        large
+                        raised
                         onClick={handleUpgrade}
                         disabled={loading}
-                        className="w-full py-4 bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold rounded-xl hover:from-yellow-400 hover:to-orange-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="bg-gradient-to-r from-yellow-500 to-orange-500 !text-black font-bold h-14 !rounded-2xl"
                     >
                         {loading ? (
-                            <>
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                Redirecting to Checkout...
-                            </>
+                            <Loader2 className="w-6 h-6 animate-spin" />
                         ) : (
-                            <>
-                                <Zap className="w-5 h-5" />
-                                Upgrade Now
-                            </>
+                            'Upgrade Now'
                         )}
-                    </button>
-                </div>
-            </div>
-        </div>
+                    </Button>
+                    <p className="text-center text-xs text-zinc-500">
+                        Cancel anytime. Secure checkout via Stripe.
+                    </p>
+                </Block>
+            </Page>
+        </Sheet>
     );
 }

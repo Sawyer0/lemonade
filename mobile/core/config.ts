@@ -1,8 +1,19 @@
+import { Platform } from 'react-native';
+
+const getBaseUrl = () => {
+    // 1. Prefer explicit ENV variable
+    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+
+    // 2. Android (Physical Device with ADB Reverse)
+    if (Platform.OS === 'android') return 'http://localhost:3000';
+
+    // 3. iOS Simulator or Web
+    return 'http://localhost:3000';
+};
+
 export const CONFIG = {
     API: {
-        // Use the ENV variable if set, otherwise default to Android Localhost (10.0.2.2) 
-        // which points to the host machine's localhost:3000
-        BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000',
+        BASE_URL: getBaseUrl(),
         USER_AGENT: 'LemonadeMobile/1.0',
     },
     AUTH: {

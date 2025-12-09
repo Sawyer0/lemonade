@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Theme } from '@/constants/theme';
+import { Theme } from '@mobile/constants/theme';
 import { Send, Mic } from 'lucide-react-native';
 
 interface InputBarProps {

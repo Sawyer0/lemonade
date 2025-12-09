@@ -1,13 +1,14 @@
 'use client';
 import { use, useState, useEffect } from 'react';
 import { useLiveSession } from '@/presentation/hooks/useLiveSession';
-import { CameraWorkspace } from '@/presentation/components/workspace/CameraWorkspace';
+import { SessionWorkspace } from '@/presentation/components/workspace/SessionWorkspace';
 import { useToast, useAuth } from '@/presentation/context';
-import { auth } from '@/infrastructure/firebase/config';
+import { auth, db } from '@/infrastructure/firebase/config';
+import { ApiClient } from '@/infrastructure/api/ApiClient';
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    const { session, loading: sessionLoading } = useLiveSession(id);
+    const { session, loading: sessionLoading } = useLiveSession(id, db);
     const { showToast } = useToast();
     const { user, loading: authLoading } = useAuth();
     const [token, setToken] = useState<string | null>(null);
@@ -64,7 +65,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     }
 
     return (
-        <CameraWorkspace
+        <SessionWorkspace
             session={session}
             token={token}
         />
