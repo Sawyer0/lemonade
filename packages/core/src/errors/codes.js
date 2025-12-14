@@ -1,0 +1,28 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ErrorCode = void 0;
+var ErrorCode;
+(function (ErrorCode) {
+    ErrorCode["UNKNOWN_ERROR"] = "UNKNOWN_ERROR";
+    ErrorCode["INTERNAL_SERVER_ERROR"] = "INTERNAL_SERVER_ERROR";
+    ErrorCode["EXTERNAL_SERVICE_ERROR"] = "EXTERNAL_SERVICE_ERROR";
+    ErrorCode["UNAUTHORIZED"] = "UNAUTHORIZED";
+    ErrorCode["UNAUTHENTICATED"] = "UNAUTHENTICATED";
+    ErrorCode["FORBIDDEN"] = "FORBIDDEN";
+    ErrorCode["PERMISSION_DENIED"] = "PERMISSION_DENIED";
+    ErrorCode["USER_NOT_FOUND"] = "USER_NOT_FOUND";
+    ErrorCode["VALIDATION_ERROR"] = "VALIDATION_ERROR";
+    ErrorCode["INVALID_INPUT"] = "INVALID_INPUT";
+    ErrorCode["MISSING_REQUIRED_PARAMETERS"] = "MISSING_REQUIRED_PARAMETERS";
+    ErrorCode["RESOURCE_NOT_FOUND"] = "RESOURCE_NOT_FOUND";
+    ErrorCode["RESOURCE_ALREADY_EXISTS"] = "RESOURCE_ALREADY_EXISTS";
+    ErrorCode["PAYMENT_REQUIRED"] = "PAYMENT_REQUIRED";
+    ErrorCode["SUBSCRIPTION_INACTIVE"] = "SUBSCRIPTION_INACTIVE";
+    ErrorCode["STRIPE_ERROR"] = "STRIPE_ERROR";
+    ErrorCode["AI_SERVICE_ERROR"] = "AI_SERVICE_ERROR";
+    ErrorCode["SAFETY_VIOLATION"] = "SAFETY_VIOLATION";
+    ErrorCode["VIDEO_PROCESSING_FAILED"] = "VIDEO_PROCESSING_FAILED";
+    ErrorCode["AI_EMPTY_RESPONSE"] = "AI_EMPTY_RESPONSE";
+    ErrorCode["AI_PARSE_ERROR"] = "AI_PARSE_ERROR";
+    ErrorCode["INVALID_CONTENT_TYPE"] = "INVALID_CONTENT_TYPE";
+})(ErrorCode || (exports.ErrorCode = ErrorCode = {}));
