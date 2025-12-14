@@ -1,6 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { adminDb } from '@/infrastructure/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import type { ILogger } from '@lemonade/core';
 import {
     ISessionRepository,
     DiagnosticSession,
@@ -8,8 +9,7 @@ import {
     DiagnosticSessionSchema,
     AIAnalysisSchema,
     AppError,
-    ErrorCode,
-    ILogger
+    ErrorCode
 } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 import { convertTimestamps } from '@/infrastructure/firestore/timestamps';

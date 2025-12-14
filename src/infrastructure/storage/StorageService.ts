@@ -1,5 +1,5 @@
 import { injectable } from 'inversify';
-import { ILogger } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
 import { Storage } from '@google-cloud/storage';
 
 @injectable()

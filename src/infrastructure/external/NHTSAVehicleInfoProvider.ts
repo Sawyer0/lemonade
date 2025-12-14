@@ -1,5 +1,6 @@
 import { injectable, inject } from 'inversify';
-import { IVehicleInfoProvider, VehicleSpecs, ILogger, AppError, ErrorCode } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
+import { IVehicleInfoProvider, VehicleSpecs, AppError, ErrorCode } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 
 @injectable()

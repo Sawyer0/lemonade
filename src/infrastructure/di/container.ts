@@ -3,7 +3,7 @@ import { Container } from "inversify";
 import { TYPES } from "./types";
 
 // Core Interfaces
-import {
+import type {
     IVehicleRepository,
     ISessionRepository,
     IMultimodalUploadAnalyzer,
@@ -58,7 +58,6 @@ import { VideoAnalysisService } from "@/application/services/VideoAnalysisServic
 import { SafetyMonitor } from "@/application/services/SafetyMonitor";
 import { MechanicReasoningService } from "@/application/services/MechanicReasoningService";
 import { SummarizationService } from "@/application/services/SummarizationService";
-
 import { ComplaintIdentificationService } from "@/application/services/ComplaintIdentificationService";
 
 const container = new Container();
@@ -117,8 +116,6 @@ container.bind<ISummarizationService>(TYPES.SummarizationService)
     .inSingletonScope();
 
 // Bind focused interfaces to their specific implementations
-import { ComplaintIdentificationService } from "@/application/services/ComplaintIdentificationService";
-
 container.bind<ISessionService>(TYPES.SessionService)
     .to(SessionService)
     .inSingletonScope();

@@ -1,6 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
-import { IEmbeddingService, ILogger, AppError, ErrorCode } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
+import { IEmbeddingService, AppError, ErrorCode } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 import { CONFIG } from '@/infrastructure/config';
 

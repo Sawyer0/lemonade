@@ -1,12 +1,7 @@
 import { setup, fromPromise, assign } from 'xstate';
-import { NeurosymbolicState, NeurosymbolicStateSchema } from '@/core/types/neurosymbolic';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
-import type { IMultimodalUploadAnalyzer, IChatAssistantAI } from '@/core/interfaces/IAIService';
-import type { INHTSAService } from '@/core/interfaces/INHTSAService';
-import type { IVectorRepository } from '@/core/interfaces/IVectorRepository';
-import type { IGoogleSearchService } from '@/core/interfaces/IGoogleSearchService'; 
-import type { AIAnalysis } from '@/core/types/models';
+import { NeurosymbolicState, NeurosymbolicStateSchema } from '@lemonade/core';
+import { AppError, ErrorCode } from '@lemonade/core';
+import type { IMultimodalUploadAnalyzer, IChatAssistantAI, INHTSAService, IVectorRepository, IGoogleSearchService, AIAnalysis } from '@lemonade/core';
 import type { VerificationRequest, VerificationResponse, SearchRequest, SearchResponse } from '@/application/dtos/verification.dto';
 
 

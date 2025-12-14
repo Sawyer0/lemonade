@@ -1,11 +1,10 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
+import type { ISafetyAI, ILogger } from '@lemonade/core';
 import {
     ISafetyMonitor,
-    ISafetyAI,
     SAFETY_PROMPTS,
-    SafetyAssessment,
-    ILogger
+    SafetyAssessment
 } from '@lemonade/core';
 
 @injectable()

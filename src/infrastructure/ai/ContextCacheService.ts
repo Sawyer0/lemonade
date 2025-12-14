@@ -2,7 +2,8 @@ import { injectable, inject } from 'inversify';
 import { VertexAI } from '@google-cloud/vertexai';
 
 import { CONFIG } from '@/infrastructure/config';
-import { IContextCacheService, ILogger, AppError, ErrorCode, CachePart } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
+import { IContextCacheService, AppError, ErrorCode, CachePart } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 
 @injectable()
@@ -38,7 +39,7 @@ export class ContextCacheService implements IContextCacheService {
         return manager;
     }
 
-    async createCache(parts: import('@/core/interfaces/IContextCacheService').CachePart[], ttlSeconds: number = 3600, displayName?: string): Promise<string> {
+    async createCache(parts: CachePart[], ttlSeconds: number = 3600, displayName?: string): Promise<string> {
         try {
             this.logger.info('Creating Context Cache', { ttlSeconds, partsCount: parts.length, displayName });
 

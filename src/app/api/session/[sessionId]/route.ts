@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/infrastructure/firebase/admin';
+import type { ISessionRepository } from '@lemonade/core';
 import {
     AppError,
     ErrorCode,
-    ISessionRepository,
     DiagnosticSessionSchema,
     DiagnosticSession
 } from '@lemonade/core';
@@ -12,7 +12,7 @@ import { withContext } from '@/application/utils/apiHandler';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { type SessionDetailsResponseDTO } from '@/application/dtos/session.dto';
-import { z } from 'zod'; // Added z for parsing path params
+import { z } from 'zod';
 
 type SessionRouteContext = {
     params: {
@@ -33,22 +33,19 @@ export const GET = withContext(async (req: NextRequest, context: SessionRouteCon
 
         const { sessionId } = context.params;
 
-        // Validate sessionId from path params
         const validatedSessionId = z.string().uuid().parse(sessionId);
 
         const sessionRepo = container.get<ISessionRepository>(TYPES.SessionRepo);
-        const session = await sessionRepo.getSessionById(validatedSessionId);
+        const session = await sessionRepo.findById(validatedSessionId);
 
         if (!session) {
             throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Session not found', 404);
         }
 
-        // Ensure user owns the session
         if (session.userId !== userId) {
             throw new AppError(ErrorCode.FORBIDDEN, 'Access denied', 403);
         }
 
-        // Validate session before returning
         const validatedSession = DiagnosticSessionSchema.parse(session);
 
         return NextResponse.json({ data: validatedSession } satisfies SessionDetailsResponseDTO);

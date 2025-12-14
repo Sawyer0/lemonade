@@ -1,5 +1,6 @@
 import { injectable, inject } from 'inversify';
-import { IBillingRepository, AIUsageRecord, AIUsageRecordSchema, ILogger } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
+import { IBillingRepository, AIUsageRecord, AIUsageRecordSchema } from '@lemonade/core';
 import { adminDb } from '@/infrastructure/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { TYPES } from '@/infrastructure/di/types';

@@ -1,11 +1,8 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
+import type { ISessionRepository, IVehicleRepository, IMechanicReasoningService, ILogger } from '@lemonade/core';
 import {
     IVideoAnalysisService,
-    ISessionRepository,
-    IVehicleRepository,
-    IMechanicReasoningService,
-    ILogger,
     AIAnalysis,
     AppError,
     ErrorCode

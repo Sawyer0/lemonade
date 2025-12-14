@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleAuth } from 'google-auth-library';
 import { CONFIG } from '@/infrastructure/config';
 import { container } from '@/infrastructure/di/container';
+import { withContext } from '@/application/utils/apiHandler';
+import type { IServerAuthService, ISessionRepository, IVehicleRepository, INHTSAService, ILogger } from '@lemonade/core';
 import {
     DiagnosticSession,
-    IServerAuthService,
-    ISessionRepository,
-    IVehicleRepository,
     Vehicle,
-    INHTSAService,
-    ILogger,
     AppError,
     ErrorCode,
     SYSTEM_PROMPTS,
@@ -129,4 +126,3 @@ ${SAFETY_INSTRUCTION_MASTER_TECH}
         );
     }
 });
-

@@ -14,6 +14,17 @@ export class SessionFirestoreRepository implements ISessionRepository {
         return snap.exists() ? (snap.data() as DiagnosticSession) : null;
     }
 
+    async findByUserId(userId: string): Promise<DiagnosticSession[]> {
+        if (!userId) return [];
+        const q = query(
+            collection(db, 'sessions'),
+            where('userId', '==', userId),
+            orderBy('startedAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => doc.data() as DiagnosticSession);
+    }
+
     async updateAnalysis(sessionId: string, analysis: AIAnalysis): Promise<void> {
         await updateDoc(doc(db, 'sessions', sessionId), {
             aiAnalysis: analysis,
@@ -22,7 +33,7 @@ export class SessionFirestoreRepository implements ISessionRepository {
         });
     }
 
-    async addMessage(sessionId: string, role: 'user' | 'assistant', content: string): Promise<void> {
+    async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: unknown): Promise<void> {
         await updateDoc(doc(db, 'sessions', sessionId), {
             messages: arrayUnion({
                 role,
@@ -74,10 +85,8 @@ export class SessionFirestoreRepository implements ISessionRepository {
     }
 
     async updateCumulativeVideoDuration(sessionId: string, minutes: number): Promise<void> {
-        // Fetch current session to get existing cumulative duration
         const session = await this.findById(sessionId);
         if (!session) {
-            // Or throw an AppError, depending on desired behavior
             throw new Error(`Session with ID ${sessionId} not found.`);
         }
 

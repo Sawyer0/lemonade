@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z, ZodSchema } from 'zod';
-import { AppError, ErrorCode, ILogger } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
+import { AppError, ErrorCode } from '@lemonade/core';
 import { container } from '@/infrastructure/di/container';
+import { TYPES } from '@/infrastructure/di/types';
 
 export async function validateRequest<T>(
     request: Request,

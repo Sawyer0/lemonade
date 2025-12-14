@@ -1,12 +1,9 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
+import type { IVehicleRepository, ISessionRepository, IVehicleInfoProvider, ILogger } from '@lemonade/core';
 import {
-    IVehicleRepository,
-    ISessionRepository,
-    IVehicleInfoProvider,
     Vehicle,
-    DiagnosticSession,
-    ILogger
+    DiagnosticSession
 } from '@lemonade/core';
 import { v4 as uuidv4 } from 'uuid';
 

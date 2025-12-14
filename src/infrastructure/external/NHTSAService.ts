@@ -1,5 +1,6 @@
 import { injectable, inject } from 'inversify';
-import { INHTSAService, SafetyRecall, ILogger, SafetyRecallSchema } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
+import { INHTSAService, SafetyRecall, SafetyRecallSchema } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 
 @injectable()

@@ -1,9 +1,8 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
+import type { IChatAssistantAI, ILogger } from '@lemonade/core';
 import {
-    IChatAssistantAI,
     ISummarizationService,
-    ILogger,
     SUMMARIZATION_PROMPT
 } from '@lemonade/core';
 

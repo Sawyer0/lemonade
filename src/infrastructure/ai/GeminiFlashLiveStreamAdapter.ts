@@ -1,9 +1,7 @@
 import { injectable, inject } from 'inversify';
-import { GenerativeModel, SchemaType, Part } from '@google-cloud/vertexai'; // Added Part
+import { GenerativeModel, SchemaType, Part } from '@google-cloud/vertexai';
+import type { ISessionRepository, IContextCacheService, IUserRepository, ILogger, IBillingService } from '@lemonade/core';
 import {
-    ISessionRepository,
-    IContextCacheService,
-    IUserRepository,
     ILiveStreamAnalyzer,
     AIAnalysis,
     AIAnalysisSchema,
@@ -11,8 +9,6 @@ import {
     SYSTEM_PROMPTS,
     AppError,
     ErrorCode,
-    ILogger,
-    IBillingService,
     ReasoningEffort,
     AI_GENERATION_CONFIGS,
     AiGenerationConfig,
@@ -26,7 +22,7 @@ import { GeminiCoreAdapter } from './GeminiCoreAdapter';
 @injectable()
 export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
     private model: GenerativeModel;
-    private readonly CACHE_TTL_SECONDS = 3600 * 24; // 24 hours for video analysis cache
+    private readonly CACHE_TTL_SECONDS = 3600 * 24;
 
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
@@ -36,20 +32,18 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         @inject(TYPES.UserRepo) private userRepo: IUserRepository,
         @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
     ) {
-        this.model = coreAdapter.getGenerativeModel(CONFIG.AI_MODELS.LIVE_MODEL, [], coreAdapter.commonSafetySettings); // Use LIVE_MODEL
+        this.model = coreAdapter.getGenerativeModel(CONFIG.AI_MODELS.LIVE_MODEL, [], coreAdapter.commonSafetySettings);
         this.logger.info(`GeminiFlashLiveStreamAdapter initialized, using model: ${CONFIG.AI_MODELS.LIVE_MODEL}`);
     }
 
-    async countTokens(content: string | import('@/core/types/models').MessagePart[] | Part[]): Promise<number> {
+    async countTokens(content: string | MessagePart[] | Part[]): Promise<number> {
         let parts: Part[] = [];
 
         if (typeof content === 'string') {
             parts = [{ text: content }];
         } else if (Array.isArray(content)) {
-            // Determine if it's MessagePart[] or raw Part[]
             if (content.length > 0 && ('type' in content[0] || 'text' in content[0] || 'inlineData' in content[0] || 'fileData' in content[0])) {
-                // Assume MessagePart[]
-                parts = (content as import('@/core/types/models').MessagePart[]).map(part => {
+                parts = (content as MessagePart[]).map(part => {
                     if (part.type === 'text' && part.text) return { text: part.text };
                     if (part.type === 'image' && part.image) {
                         if (part.image.startsWith('http') || part.image.startsWith('gs://')) {
@@ -103,7 +97,7 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         userId?: string,
         sessionId?: string,
         reasoningEffort?: ReasoningEffort,
-        videoDurationMinutes?: number // Added
+        videoDurationMinutes?: number
     ): Promise<AIAnalysis> {
         this.logger.debug("Sending to Vertex AI (Structured Output) for Full Video Analysis", { videoUrl, mimeType, videoDurationMinutes });
 
@@ -128,7 +122,7 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         }
         // --- End Tiered Access Control ---
 
-        const cacheKeyData = { videoUrl, vehicleContext, mimeType, reasoningEffort, videoDurationMinutes }; // Added videoDurationMinutes to cache key
+        const cacheKeyData = { videoUrl, vehicleContext, mimeType, reasoningEffort, videoDurationMinutes };
         const cacheKey = `analyzeVideo-${JSON.stringify(cacheKeyData)}`;
         const existingCache = await this.cacheService.getCache(cacheKey);
 

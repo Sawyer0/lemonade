@@ -1,10 +1,10 @@
 import { injectable, inject } from 'inversify';
-import { VertexAI, GenerativeModel, Tool, HarmCategory, HarmBlockThreshold, SafetySetting } from '@google-cloud/vertexai'; // Added SafetySetting
+import { VertexAI, GenerativeModel, Tool, HarmCategory, HarmBlockThreshold, SafetySetting } from '@google-cloud/vertexai';
 import { CONFIG } from '@/infrastructure/config';
+import type { ILogger } from '@lemonade/core';
 import {
     AppError,
-    ErrorCode,
-    ILogger
+    ErrorCode
 } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 
@@ -12,8 +12,6 @@ import { VERIFY_SAFE_SUPPORT_TOOL } from '@/app/server-tools/tools/verifySafeSup
 import { START_VIDEO_STREAM_TOOL } from '@/app/server-tools/tools/startVideoStream';
 import { DISPLAY_CONTENT_TOOL } from '@/app/server-tools/tools/displayContent';
 import { GOOGLE_SEARCH_TOOL } from '@/app/server-tools/tools/googleSearch';
-
-@injectable()
 
 @injectable()
 export class GeminiCoreAdapter {

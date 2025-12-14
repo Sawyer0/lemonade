@@ -1,7 +1,11 @@
 import { injectable, inject } from 'inversify';
 import { VertexAI, GenerativeModel, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
-import { ISafetyAI, ILogger, SAFETY_RAW_SCHEMA, AppError, ErrorCode } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
+import { ISafetyAI, SAFETY_RAW_SCHEMA, AppError, ErrorCode } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
+import { CONFIG } from '@/infrastructure/config';
+
+@injectable()
 export class SafetyAIAdapter implements ISafetyAI {
     private model: GenerativeModel;
 

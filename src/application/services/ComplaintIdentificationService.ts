@@ -1,8 +1,6 @@
 import { injectable, inject } from 'inversify';
+import type { ISessionRepository, IChatAssistantAI, ILogger } from '@lemonade/core';
 import {
-    ISessionRepository,
-    IChatAssistantAI,
-    ILogger,
     COMPLAINT_IDENTIFICATION_PROMPT,
     MessagePart
 } from '@lemonade/core';
