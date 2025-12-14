@@ -22,11 +22,11 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
             if (result.data.url) {
                 window.location.href = result.data.url;
             } else {
-                console.error('Checkout error: No URL returned');
+                // console.error('Checkout error: No URL returned');
                 setLoading(false);
             }
-        } catch (error) {
-            console.error('Checkout error:', error);
+        } catch {
+            // console.error('Checkout error:', error);
             setLoading(false);
         }
     };

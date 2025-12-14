@@ -7,5 +7,6 @@ export const TYPES = {
     VideoService: Symbol.for('VideoAnalysisService'),
     SafetyMonitor: Symbol.for('SafetyMonitor'),
     SafetyAI: Symbol.for('SafetyAI'),
-    Logger: Symbol.for('Logger'), // New Symbol
+    Logger: Symbol.for('Logger'),
+    RemoteLogTransport: Symbol.for('RemoteLogTransport'), // New Symbol for Remote Logging Transport
 };

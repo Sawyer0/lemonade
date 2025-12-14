@@ -1,5 +1,5 @@
 import { injectable } from 'inversify';
-import { ISafetyAI } from '../../core/interfaces/IAIService';
+import { ISafetyAI } from '@lemonade/core';
 import { VertexAI, GenerativeModel, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
 import { CONFIG } from '../../config';
 

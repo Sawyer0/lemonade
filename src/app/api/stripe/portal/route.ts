@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { adminDb } from '@/infrastructure/firebase/admin';
-import { container } from '@/infrastructure/di/container';
-import { TYPES } from '@/infrastructure/di/types';
-import { ILogger } from '@/core/interfaces/ILogger';
+
 import { createErrorResponse } from '@/application/utils/validateRequest';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
+import { AppError, ErrorCode } from '@lemonade/core';
+import { withContext } from '@/application/utils/apiHandler';
+import { BillingPortalResponseDTO } from '@/application/dtos/billing.dto';
 
 const getStripe = () => {
     const key = process.env.STRIPE_SECRET_KEY;
@@ -18,7 +17,9 @@ const getStripe = () => {
     });
 };
 
-export async function POST(req: Request) {
+// Unused imports related to DI removed
+
+export const POST = withContext(async (req: Request) => {
     try {
         // 1. Get User ID from Middleware Header
         const userId = req.headers.get('x-user-id');
@@ -41,9 +42,10 @@ export async function POST(req: Request) {
             return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/garage`,
         });
 
-        return NextResponse.json({ url: session.url });
+        return NextResponse.json({ url: session.url } satisfies BillingPortalResponseDTO);
 
     } catch (error) {
-        return createErrorResponse(error);
+        return createErrorResponse(error) as any; // Cast to satisfy Next.js types
     }
-}
+});
+

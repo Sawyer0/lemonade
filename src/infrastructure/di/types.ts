@@ -1,38 +1,40 @@
 export const TYPES = {
-    // --- Infrastructure (Tools) ---
-    VehicleRepo: Symbol.for('VehicleRepository'),
-    SessionRepo: Symbol.for('SessionRepository'),
-    VehicleInfoProvider: Symbol.for('VehicleInfoProvider'),
-    BillingRepository: Symbol.for('BillingRepository'),
-
-    // --- AI Adapters ---
-    VideoAI: Symbol.for('VideoDiagnosticAI'), // Maps to Gemini 2.0 Flash
-    ChatAI: Symbol.for('ChatAssistantAI'),    // Maps to Gemini 2.0 Flash
-    SafetyAI: Symbol.for('SafetyAI'),
-
-    // --- 4-Layer Grounding (Deep Tech) ---
-    NHTSAService: Symbol.for("NHTSAService"),
-    EmbeddingService: Symbol.for("EmbeddingService"),
-    VectorRepository: Symbol.for("VectorRepository"),
-    MechanicReasoningService: Symbol.for("MechanicReasoningService"),
+    Logger: Symbol.for("Logger"),
+    RemoteLogTransport: Symbol.for("RemoteLogTransport"),
+    AuthService: Symbol.for("AuthService"),
     ServerAuthService: Symbol.for("ServerAuthService"),
 
-    // --- Application Services (Focused) ---
-    SessionService: Symbol.for('SessionService'),
-    ChatService: Symbol.for('ChatService'),
-    VideoAnalysisService: Symbol.for('VideoAnalysisService'),
-    VoiceService: Symbol.for('VoiceService'),
-    SafetyMonitor: Symbol.for('SafetyMonitor'),
-    ContextCacheService: Symbol.for('ContextCacheService'),
-    BillingService: Symbol.for('BillingService'),
+    // Repositories
+    VehicleRepo: Symbol.for("VehicleRepo"),
+    SessionRepo: Symbol.for("SessionRepo"),
+    UserRepo: Symbol.for("UserRepo"),
+    BillingRepository: Symbol.for("BillingRepository"),
+    VectorRepository: Symbol.for("VectorRepository"),
 
-    // --- Application Services (Legacy/Composite) ---
-    /** @deprecated Use focused service symbols instead */
-    DiagnosticService: Symbol.for('DiagnosticService'),
-    VehicleService: Symbol.for('VehicleService'),
-    StorageService: Symbol.for('StorageService'),
+    // External Providers
+    VehicleInfoProvider: Symbol.for("VehicleInfoProvider"),
 
-    // --- Infrastructure Services ---
-    Logger: Symbol.for('Logger'),
-    AuthService: Symbol.for('AuthService'),
+    // AI
+    MultimodalUploadAI: Symbol.for("MultimodalUploadAI"), 
+    LiveStreamAI: Symbol.for("LiveStreamAI"), 
+    ChatAI: Symbol.for("ChatAI"),
+    SafetyAI: Symbol.for("SafetyAI"),
+
+    // Application Services
+    VehicleService: Symbol.for("VehicleService"),
+    BillingService: Symbol.for("BillingService"),
+    SessionService: Symbol.for("SessionService"),
+    ChatService: Symbol.for("ChatService"),
+    VideoAnalysisService: Symbol.for("VideoAnalysisService"),
+    SummarizationService: Symbol.for("SummarizationService"), 
+
+    StorageService: Symbol.for("StorageService"),
+    SafetyMonitor: Symbol.for("SafetyMonitor"),
+    ContextCacheService: Symbol.for("ContextCacheService"),
+    NHTSAService: Symbol.for("NHTSAService"),
+    GoogleSearchService: Symbol.for("GoogleSearchService"),
+    EmbeddingService: Symbol.for("EmbeddingService"),
+    MechanicReasoningService: Symbol.for("MechanicReasoningService"),
+    ComplaintIdentificationService: Symbol.for("ComplaintIdentificationService"),
+    GeminiCoreAdapter: Symbol.for("GeminiCoreAdapter"),
 };

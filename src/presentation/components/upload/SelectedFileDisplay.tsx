@@ -1,7 +1,6 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { clsx } from 'clsx';
 
 interface SelectedFileDisplayProps {
     selectedFile: File;

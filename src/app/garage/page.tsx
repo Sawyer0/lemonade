@@ -2,37 +2,43 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import useSWR from 'swr';
 import { Page, Navbar, Link, Block, Button } from 'konsta/react';
 import { VehicleCard } from '@/presentation/components/garage/VehicleCard';
-import { AddVehicleModal } from '@/presentation/components/garage/AddVehicleModal';
-import { UpgradeModal } from '@/presentation/components/modals/UpgradeModal';
-import { Vehicle } from '@/core/entities/Vehicle';
+import { Vehicle, IAuthService } from '@lemonade/core';
 import { useAuth } from '@/presentation/context/AuthContext';
 import { useToast } from '@/presentation/context/ToastContext';
-import { auth } from '@/infrastructure/firebase/config';
 import { ApiClient } from '@/infrastructure/api/ApiClient';
+import { CONFIG } from '@/infrastructure/config';
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
-import { IAuthService } from '@/core/interfaces/IAuthService';
 import { Crown, Zap, Plus, LogOut } from 'lucide-react';
+
+const AddVehicleModal = dynamic(() => import('@/presentation/components/garage/AddVehicleModal').then(mod => mod.AddVehicleModal), {
+    ssr: false,
+    loading: () => null,
+});
+const UpgradeModal = dynamic(() => import('@/presentation/components/modals/UpgradeModal').then(mod => mod.UpgradeModal), {
+    ssr: false,
+    loading: () => null,
+});
+
 
 export default function GaragePage() {
     const { user, loading: authLoading } = useAuth();
     const [isAdding, setIsAdding] = useState(false);
     const [showUpgrade, setShowUpgrade] = useState(false);
 
-    // ... Fetcher Logic ...
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fetcher = async (url: string) => {
-        return ApiClient.get<any>(url);
+    const fetcher = async <T,>(url: string): Promise<T> => {
+        return ApiClient.get<T>(url);
     };
 
-    const { data: userData } = useSWR<{ data: { tier: string } }>(user ? '/api/users/me' : null, fetcher);
+    const { data: userData } = useSWR<{ data: { tier: string } }>(user ? CONFIG.API.ROUTES.USER_ME : null, fetcher);
     const userTier = userData?.data?.tier === 'pro' ? 'pro' : 'free';
 
-    const { data, isLoading, mutate } = useSWR<{ data: Vehicle[] }>(user ? `/api/vehicles?userId=${user.uid}` : null, fetcher);
-    const vehicles: Vehicle[] = data?.data || [];
+    const { data: vehiclesData, error, isLoading, mutate } = useSWR<Vehicle[]>(user ? CONFIG.API.ROUTES.VEHICLES : null, fetcher);
+    const vehicles: Vehicle[] = vehiclesData || [];
 
     const { showToast } = useToast();
     const [portalLoading, setPortalLoading] = useState(false);
@@ -41,7 +47,7 @@ export default function GaragePage() {
     const handleManageSubscription = async () => {
         try {
             setPortalLoading(true);
-            const { url } = await ApiClient.post<{ url: string }, void>('/api/stripe/portal', undefined);
+            const { url } = await ApiClient.post<{ url: string }, void>(CONFIG.API.ROUTES.STRIPE_PORTAL, undefined);
             window.location.href = url;
         } catch {
             showToast('Failed to open subscription management', 'error');
@@ -62,9 +68,7 @@ export default function GaragePage() {
         if (!authLoading && !user) {
             router.push('/');
         } else if (user) {
-            // @ts-ignore
             if (window.ReactNativeWebView) {
-                // @ts-ignore
                 window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOGIN_SUCCESS' }));
             }
         }
@@ -137,19 +141,21 @@ export default function GaragePage() {
                 </div>
             </Block>
 
-            <AddVehicleModal
-                onClose={() => {
-                    setIsAdding(false);
-                    mutate();
-                }}
-            />
+            {isAdding && (
+                <AddVehicleModal
+                    onClose={() => {
+                        setIsAdding(false);
+                        mutate();
+                    }}
+                />
+            )}
 
-            {isAdding && !((window as any).isModalOpen) && null /* Force refresh trick if needed, or just let standard react render handle it */}
-
-            <UpgradeModal
-                isOpen={showUpgrade}
-                onClose={() => setShowUpgrade(false)}
-            />
+            {showUpgrade && (
+                <UpgradeModal
+                    isOpen={showUpgrade}
+                    onClose={() => setShowUpgrade(false)}
+                />
+            )}
         </Page>
     );
 }

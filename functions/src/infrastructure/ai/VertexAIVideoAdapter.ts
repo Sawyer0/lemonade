@@ -1,12 +1,11 @@
 import { injectable } from 'inversify';
-import { IVideoDiagnosticAI } from '../../core/interfaces/IAIService';
-import { AIAnalysis, AIAnalysisSchema } from '../../core/types/models';
+import { IMultimodalUploadAnalyzer, AIAnalysis, AIAnalysisSchema, VIDEO_PROMPTS } from '@lemonade/core';
 import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
 import { CONFIG } from '../../config';
-import { SYSTEM_PROMPTS } from '../../constants';
+import { traceAiCall } from '../observability/langsmithTracer'; // Import tracer
 
 @injectable()
-export class VertexAIVideoAdapter implements IVideoDiagnosticAI {
+export class VertexAIVideoAdapter implements IMultimodalUploadAnalyzer {
     private model: GenerativeModel;
 
     constructor() {
@@ -28,17 +27,22 @@ export class VertexAIVideoAdapter implements IVideoDiagnosticAI {
         });
     }
 
-    async analyzeVideo(videoUri: string, mimeType: string, context: string): Promise<AIAnalysis> {
-        const prompt = SYSTEM_PROMPTS.VIDEO_ANALYSIS(context);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async analyzeUploadedVideo(videoUri: string, context: string, mimeType?: string, userId?: string, sessionId?: string): Promise<AIAnalysis> {
+        const prompt = VIDEO_PROMPTS.ANALYSIS(context);
 
-        const result = await this.model.generateContent({
-            contents: [{
-                role: 'user',
-                parts: [
-                    { text: prompt },
-                    { fileData: { fileUri: videoUri, mimeType } },
-                ],
-            }],
+        const result = await traceAiCall({
+            name: 'video_analysis_cloud_function',
+            inputs: { videoUri, mimeType, context },
+            exec: () => this.model.generateContent({
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                        { fileData: { fileUri: videoUri, mimeType: mimeType || 'video/mp4' } },
+                    ],
+                }],
+            })
         });
 
         const rawText = result.response.candidates?.[0].content.parts[0].text;
@@ -57,4 +61,42 @@ export class VertexAIVideoAdapter implements IVideoDiagnosticAI {
             throw new Error("Invalid JSON response from AI");
         }
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async analyzeUploadedImage(imageUrl: string, vehicleContext: string, mimeType?: string, userId?: string, sessionId?: string): Promise<AIAnalysis> {
+        const prompt = VIDEO_PROMPTS.IMAGE_ANALYSIS(vehicleContext);
+
+        const result = await traceAiCall({
+            name: 'image_analysis_cloud_function',
+            inputs: { imageUrl, mimeType, vehicleContext },
+            exec: () => this.model.generateContent({
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                        { fileData: { fileUri: imageUrl, mimeType: mimeType || 'image/jpeg' } },
+                    ],
+                }],
+            })
+        });
+
+        const rawText = result.response.candidates?.[0].content.parts[0].text;
+        if (!rawText) throw new Error("AI returned empty response");
+
+        try {
+            return AIAnalysisSchema.parse(JSON.parse(rawText));
+        } catch (e) {
+            console.error("Failed to parse AI response", rawText);
+            throw new Error("Invalid JSON response from AI");
+        }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async countTokens(content: string): Promise<number> {
+        const response = await this.model.countTokens({
+            contents: [{ role: 'user', parts: [{ text: content }] }]
+        });
+        return response.totalTokens;
+    }
 }
+

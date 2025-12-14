@@ -4,8 +4,9 @@ import { TYPES } from '@/infrastructure/di/types';
 import { ChatService } from '@/application/services/ChatService';
 import { ChatRequestSchema, ChatResponseSchema } from '@/application/dtos';
 import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
+import { withContext } from '@/application/utils/apiHandler';
 
-export async function POST(req: Request) {
+export const POST = withContext(async (req: Request) => {
   try {
     const { sessionId, messages } = await validateRequest(req, ChatRequestSchema);
 
@@ -30,4 +31,5 @@ export async function POST(req: Request) {
   } catch (error) {
     return createErrorResponse(error);
   }
-}
+});
+

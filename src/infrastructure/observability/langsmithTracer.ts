@@ -1,11 +1,14 @@
 import { Client } from 'langsmith';
 import { v4 as uuidv4 } from 'uuid';
 import { CONFIG } from '@/infrastructure/config';
+import { RequestContext } from '@/infrastructure/context/request-context';
 
 interface TraceOptions<T> {
     name: string;
     inputs: Record<string, unknown>;
     exec: () => Promise<T>;
+    parentTraceId?: string;
+    traceId?: string;
 }
 
 /**
@@ -13,11 +16,12 @@ interface TraceOptions<T> {
  *
  * Wraps AI adapter calls with LangSmith distributed tracing.
  */
-export async function traceAiCall<T>({ name, inputs, exec }: TraceOptions<T>): Promise<T> {
+export async function traceAiCall<T>({ name, inputs, exec, parentTraceId }: TraceOptions<T>): Promise<T> {
     if (!CONFIG.OBSERVABILITY.LANGSMITH_ENABLED) {
         return exec();
     }
 
+    const traceId = RequestContext.getTraceId();
     let client: Client;
     let runId: string;
 
@@ -27,34 +31,35 @@ export async function traceAiCall<T>({ name, inputs, exec }: TraceOptions<T>): P
         await client.createRun({
             id: runId,
             name,
-            inputs,
+            inputs: { ...inputs, traceId }, // Include traceId in LangSmith inputs
             run_type: "llm",
             project_name: CONFIG.OBSERVABILITY.LANGSMITH_PROJECT,
+            parent_run_id: parentTraceId, // Link to parent trace
+            extra: { traceId } // Also store as extra for easy filtering
         });
-    } catch (traceErr) {
-        console.warn('Failed to create LangSmith run, proceeding without tracing:', traceErr);
+    } catch (_traceErr) {
+        // console.warn('Failed to create LangSmith run, proceeding without tracing:', traceErr);
+        // Silently fail or use logger if available. Ideally we shouldn't fail execution if tracing fails.
         return exec();
     }
 
     try {
         const output = await exec();
-        // We assume T is an object compatible with the outputs map, or we wrap it.
-        // In our current usage (Gemini adapters), T is GenerateContentResult which is an object.
         try {
-            await client.updateRun(runId, {
+            await client!.updateRun(runId!, {
                 outputs: output as Record<string, unknown>
             });
-        } catch (traceErr) {
-            console.warn('Failed to update LangSmith run (outputs), proceeding:', traceErr);
+        } catch (_traceErr) {
+            // console.warn('Failed to update LangSmith run (outputs), proceeding:', traceErr);
         }
         return output;
     } catch (err) {
         try {
-            await client.updateRun(runId, {
+            await client!.updateRun(runId!, {
                 error: err instanceof Error ? err.message : String(err),
             });
-        } catch (traceErr) {
-            console.warn('Failed to update LangSmith run (error), proceeding:', traceErr);
+        } catch (_traceErr) {
+            // console.warn('Failed to update LangSmith run (error), proceeding:', traceErr);
         }
         throw err;
     }

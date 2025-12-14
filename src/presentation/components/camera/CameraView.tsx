@@ -41,8 +41,8 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
             if (videoRef.current) {
                 videoRef.current.srcObject = newStream;
             }
-        } catch (error) {
-            console.error('Error accessing camera:', error);
+        } catch {
+            // console.error('Error accessing camera:', error);
             showToast('Failed to access camera. Please check permissions.', 'error');
             onClose();
         }
@@ -88,8 +88,8 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                     // Stop stream after successful capture
                     streamRef.current?.getTracks().forEach(track => track.stop());
                     setIsCapturing(false);
-                } catch (error) {
-                    console.error('Capture upload failed:', error);
+                } catch {
+                    // console.error('Capture upload failed:', error);
                     showToast('Failed to upload image.', 'error');
                     setIsCapturing(false);
                 }

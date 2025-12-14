@@ -1,8 +1,7 @@
 import { injectable } from 'inversify';
 import { db } from '@/infrastructure/firebase/config';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, query, where, orderBy, getDocs, collection, deleteDoc } from 'firebase/firestore';
-import { ISessionRepository } from '@/core/interfaces/ISessionRepository';
-import { DiagnosticSession, AIAnalysis } from '@/core/entities/DiagnosticSession';
+import { ISessionRepository, DiagnosticSession, AIAnalysis } from '@lemonade/core';
 
 @injectable()
 export class SessionFirestoreRepository implements ISessionRepository {
@@ -65,5 +64,56 @@ export class SessionFirestoreRepository implements ISessionRepository {
         );
         const snapshot = await getDocs(q);
         return snapshot.docs.map(doc => doc.data() as DiagnosticSession);
+    }
+
+    async updateComplaint(sessionId: string, complaint: string): Promise<void> {
+        await updateDoc(doc(db, 'sessions', sessionId), {
+            complaint: complaint,
+            updatedAt: new Date()
+        });
+    }
+
+    async updateCumulativeVideoDuration(sessionId: string, minutes: number): Promise<void> {
+        // Fetch current session to get existing cumulative duration
+        const session = await this.findById(sessionId);
+        if (!session) {
+            // Or throw an AppError, depending on desired behavior
+            throw new Error(`Session with ID ${sessionId} not found.`);
+        }
+
+        const newCumulativeDuration = (session.cumulativeVideoDurationProcessedMinutes || 0) + minutes;
+
+        await updateDoc(doc(db, 'sessions', sessionId), {
+            cumulativeVideoDurationProcessedMinutes: newCumulativeDuration,
+            updatedAt: new Date()
+        });
+    }
+
+    async updateLastProcessedFrameTimestamp(sessionId: string, timestamp: number): Promise<void> {
+        await updateDoc(doc(db, 'sessions', sessionId), {
+            lastProcessedFrameTimestamp: timestamp,
+            updatedAt: new Date()
+        });
+    }
+
+    async updateCumulativeAudioDuration(sessionId: string, minutes: number): Promise<void> {
+        const session = await this.findById(sessionId);
+        if (!session) {
+            throw new Error(`Session with ID ${sessionId} not found.`);
+        }
+
+        const newCumulativeDuration = (session.cumulativeAudioDurationProcessedMinutes || 0) + minutes;
+
+        await updateDoc(doc(db, 'sessions', sessionId), {
+            cumulativeAudioDurationProcessedMinutes: newCumulativeDuration,
+            updatedAt: new Date()
+        });
+    }
+
+    async updateLastProcessedAudioChunkTimestamp(sessionId: string, timestamp: number): Promise<void> {
+        await updateDoc(doc(db, 'sessions', sessionId), {
+            lastProcessedAudioChunkTimestamp: timestamp,
+            updatedAt: new Date()
+        });
     }
 }

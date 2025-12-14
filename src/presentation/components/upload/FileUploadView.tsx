@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+
 import { X, Loader2, Upload } from 'lucide-react';
 import { useToast } from '@/presentation/context';
 import { clsx } from 'clsx';
@@ -8,7 +9,7 @@ import { FileDropZone } from './FileDropZone';
 import { SelectedFileDisplay } from './SelectedFileDisplay';
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
-import { ILogger } from '@/core/interfaces/ILogger';
+import { ILogger } from '@lemonade/core';
 
 interface FileUploadViewProps {
 	onUpload: (file: File) => Promise<void>;

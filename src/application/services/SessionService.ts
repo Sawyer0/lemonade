@@ -1,13 +1,15 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
-import type { ISessionService } from '@/core/interfaces/ISessionService';
-import type { ISessionRepository } from '@/core/interfaces/ISessionRepository';
-import type { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
-import type { ILogger } from '@/core/interfaces/ILogger';
-import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
-import { Vehicle } from '@/core/entities/Vehicle';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
+import {
+    ISessionService,
+    ISessionRepository,
+    IVehicleRepository,
+    ILogger,
+    DiagnosticSession,
+    Vehicle,
+    AppError,
+    ErrorCode
+} from '@lemonade/core';
 import { v4 as uuidv4 } from 'uuid';
 
 @injectable()
@@ -16,11 +18,16 @@ export class SessionService implements ISessionService {
         @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
         @inject(TYPES.VehicleRepo) private vehicleRepo: IVehicleRepository,
         @inject(TYPES.Logger) private logger: ILogger
-    ) {}
+    ) { }
 
-    async startSession(vehicleId: string): Promise<string> {
+    async startSession(vehicleId: string, userId: string): Promise<string> {
         const vehicle = await this.vehicleRepo.findById(vehicleId);
         if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
+
+        if (vehicle.userId !== userId) {
+            this.logger.warn(`[SessionService] Unauthorized session start attempt`, { vehicleId, userId, ownerId: vehicle.userId });
+            throw new AppError(ErrorCode.FORBIDDEN, "You do not own this vehicle", 403);
+        }
 
         const newSession: DiagnosticSession = {
             id: uuidv4(),
@@ -33,7 +40,9 @@ export class SessionService implements ISessionService {
             updatedAt: new Date(),
             startedAt: new Date(),
             aiAnalysis: null,
-            safety_stop: false // Initialize safety stop status
+            safety_stop: false,
+            cumulativeVideoDurationProcessedMinutes: 0,
+            cumulativeAudioDurationProcessedMinutes: 0
         };
 
         await this.sessionRepo.create(newSession);

@@ -1,8 +1,7 @@
 import { injectable } from 'inversify';
 import { db } from '@/infrastructure/firebase/config';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
-import { Vehicle } from '@/core/entities/Vehicle';
+import { IVehicleRepository, Vehicle } from '@lemonade/core';
 
 @injectable()
 export class VehicleFirestoreRepository implements IVehicleRepository {

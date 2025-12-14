@@ -15,17 +15,14 @@ This document serves as the **Source of Truth** for any AI agent working on the 
     *   **Why?**: This allows 1:1 mapping with AI Tools and direct injection into LLM Context Windows without overhead.
     *   **Rule**: Do not refactor into "Rich OOP" (Classes with methods). Keep Data and Logic strictly separated.
 
-3.  **Hybrid Mobile Architecture**:
-    *   **The "Native" Zone**: React Native (with LiveKit SDK).
-        *   **Responsibility**: Camera stream, Microphone (VAD/Echo Cancellation), Call Controls.
-        *   **Why**: Critical need for 60fps low-latency video and raw hardware access. **Never put the live call in a WebView.**
+3.  **Hybrid Mobile Architecture & Zero Middleman**:
+    *   **The "Native" Zone**: React Native (Direct Client-to-Google).
+        *   **Mechanism**: **Google Gen AI Client SDK** or **Multimodal Live API (WebSocket)**. 
+        *   **Responsibility**: Camera stream, Microphone (VAD), Call Controls.
+        *   **Rule**: The Backend is strictly a **Token Vending Machine**. Do not proxy audio/video through the server.
     *   **The "WebView" Zone**: Next.js (WebView).
         *   **Responsibility**: Complex Content like PDF Manuals, Wiring Diagrams, Chat History, Billing.
         *   **Why**: Rendering complex documents/HTML is trivial in Next.js but painful in Native.
-    *   **The Bridge (Mode Switching UX)**:
-        *   **Chat Mode (Default)**: Standard scrolling history with Inline Attachments (WebView).
-        *   **Live Mode**: Full-screen Native Camera/Voice.
-        *   **Interaction**: User toggles modes manually. If AI prompts content in Live Mode, show a **Non-blocking Notification** (Pill). Tapping it switches to Chat Mode.
 
 4.  **Production Quality > MVP Speed**:
     *   **No "MVP" Hacks**: Do not add comments like `// TODO: Fix for MVP` or `// Temporary`. Write the code correctly the first time.
@@ -39,8 +36,8 @@ This document serves as the **Source of Truth** for any AI agent working on the 
 - **Database**: Firebase Firestore (NoSQL)
 - **Auth**: Firebase Authentication (Google Provider)
 - **Storage**: Google Cloud Storage (Direct Uploads via Signed URLs)
-- **AI**: Google Vertex AI (Gemini 2.5 Flash for Video/Chat, Gemini Pro for Reasoning)
-- **Real-Time**: **LiveKit** (WebRTC for low-latency Video/Voice)
+- **AI**: **Single Model Architecture** (`gemini-2.5-flash` for ALL operations).
+- **Real-Time**: **Direct WebSocket** to Google Gemini Live API.
 - **Mobile**: **React Native** (Expo) + **WebView** (Hybrid Architecture)
 - **State/Fetching**: **SWR** (client-side), **Anemic Domain Model** (server-side)
 - **Dependency Injection**: **InversifyJS**
@@ -60,18 +57,6 @@ This document serves as the **Source of Truth** for any AI agent working on the 
 
 ### Interface Segregation (CRITICAL)
 - **No God Interfaces**: Interfaces must be small and focused.
-- **Example**:
-  ```typescript
-  // ❌ BAD: God interface
-  interface IDiagnosticService {
-      processVideo(...): Promise<void>;
-      handleChat(...): Promise<string>;
-  }
-  
-  // ✅ GOOD: Focused interfaces
-  interface IVideoAnalysisService { processVideo(...): Promise<void>; }
-  interface IChatService { handleChat(...): Promise<string>; }
-  ```
 
 ## 4. Coding Standards
 
@@ -85,13 +70,12 @@ This document serves as the **Source of Truth** for any AI agent working on the 
 - **Structured Logging**: **NEVER** use `console.log`. Use the `ILogger` service.
   ```typescript
   // Must be structured JSON
-  logger.info("Processing video", { sessionId: "123", duration: 45 });
+  logger.info("Processing video", { sessionId: "123", duration: 45 }, traceId);
   ```
 
 ### File Structure & Clean Code
 - **Single Responsibility**: Each file should do one thing well. If a file exceeds ~200 lines, YOU MUST NOT ADD TO IT. SPLIT IT.
 - **No Bloat**: Avoid "God Components" or "God Services". Refactor mixed responsibilities into helper functions, hooks, or separate components.
-- **Colocation**: Keep related styles, tests, and types close to the component if possible.
 
 ### Data Fetching
 - **Anti-Pattern**: Using `useEffect` to fetch data.
@@ -100,7 +84,38 @@ This document serves as the **Source of Truth** for any AI agent working on the 
 ### Schema & Type Definitions (CRITICAL)
 - **Single Source of Truth**: All Zod schemas MUST be defined in `src/core/types/models.ts`.
 - **No Duplication**: Entity files should re-export from `models.ts`.
-- **DTOs**: Request/Response DTOs go in `src/application/dtos/`.
+- **Models vs DTOs**:
+    - **Models (`src/core/types/models.ts`)**: Core Domain Entities. Represents internal state. "Anemic" (data only).
+    - **DTOs (`src/application/dtos`)**: Data Transfer Objects. Defines API contracts (Input/Output). Can be subsets or composites of Models.
+    - **Rule**: Use Models for internal logic/services. Use DTOs for external communication/validation.
+
+### Code Hygiene & Discipline (STRICT)
+
+1.  **NO Self-Talk Comments**:
+    *   **Bad**: `// I think we should do this maybe?`, `// TODO: Fix this later`, `// Assuming this works`.
+    *   **Good**: `// Retrying connection due to flaky network`, `// Required by API v2 spec`.
+    *   **Rule**: Application code is not a diary. If you are unsure, **ASK**. If you leave a comment, it must be valuable for the *next* developer.
+
+2.  **Ask, Don't Assume**:
+    *   **Rule**: If a requirement is missing (e.g., "What happens if offline?"), stop and ask the user. Do not implement "best guess" logic.
+
+3.  **`useEffect` Restrictions**:
+    *   **Rule**: **NEVER** use `useEffect` for things that can be handled by Event Handlers (e.g., button clicks, form submissions).
+    *   **Rule**: **NEVER** use `useEffect` to "watch" state for side effects if a direct function call can achieve it.
+    *   **Exception**: Synchronization (e.g., subscriptions, raw DOM access) is allowed.
+
+4.  **No Unimplemented Features**:
+    *   **Rule**: Do not leave methods empty or with `console.log("Not implemented")`. If it's in the interface, implementation is mandatory. If it's not, add it.
+
+5.  **Compilation Hygiene (CRITICAL)**:
+    *   **Mistake**: Committing code with syntax errors (e.g., malformed JSX) or duplicate method definitions.
+    *   **Rule**: **ALWAYS** verify that the file is syntactically correct before "finishing". Re-read the `view_file` output if unclear.
+    *   **Rule**: Check for duplicate method signatures when refactoring classes.
+
+6.  **Strict Logging & Tracing**:
+    *   **Mistake**: Using `console.log` in production code or ignoring distributed tracing.
+    *   **Rule**: Client-side code **MUST** use a structured logger implementation (e.g., `MobileLogger`) mirroring the server's `ILogger`.
+    *   **Rule**: All log entries **MUST** include a `traceId` (e.g., `sessionId`) to allow full-stack correlation. `console.log` is forbidden.
 
 ### AI Persona & Safety Guidelines
 - **Persona**: "Expert Senior Master Technician". Tone: "Tech-to-Tech" (Collaborative, professional).
@@ -128,21 +143,15 @@ This document serves as the **Source of Truth** for any AI agent working on the 
 5.  **Consume**: Use SWR in the Frontend Component.
 6.  **State**: Follow the Firestore Pub/Sub Checklist.
 
-## 7. LiveKit Agents Best Practices (v1.0+)
+## 7. Client-Side AI & WebSocket Rules
 
-### Agent Architecture
-*   **Unified Agent**: Use `voice.AgentSession`. `MultimodalAgent` is **DEPRECATED**.
-*   **Model Access**: Use `google.beta.realtime.RealtimeModel`.
+### Direct Connection
+*   **Token Vending**: Clients MUST request an ephemeral token from `/api/session/token` before connecting to Gemini.
+*   **No Server Proxy**: Audio/Video streams MUST go directly from Client to Google WebSocket.
 
-### Critical Implementation Details
-1.  **Worker Loop Protection**: Guard `cli.runApp`.
-    ```typescript
-    import { pathToFileURL } from 'url';
-    if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-        cli.runApp(...)
-    }
-    ```
-2.  **Session Start**: Use `agentSession.start(ctx.room)`.
+### Security
+*   **Ephemeral Tokens Only**: NEVER store hardcoded API keys in the client.
+*   **Scopes**: Tokens should differ for Text vs Agent capabilities if possible.
 
 ## 8. Mobile Web Debugging Rules
 

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CONFIG } from '../core/config';
+import { CONFIG } from '@mobile/constants/config';
 
 export function useWebViewBridge(idToken: string | null) {
     const injectedJavaScript = useMemo(() => {

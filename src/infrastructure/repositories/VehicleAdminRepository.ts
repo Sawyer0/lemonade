@@ -1,7 +1,7 @@
 import { injectable } from 'inversify';
 import { adminDb } from '@/infrastructure/firebase/admin';
-import { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
-import { Vehicle } from '@/core/entities/Vehicle';
+import { Timestamp } from 'firebase-admin/firestore';
+import { IVehicleRepository, Vehicle } from '@lemonade/core';
 
 @injectable()
 export class VehicleAdminRepository implements IVehicleRepository {
@@ -11,8 +11,6 @@ export class VehicleAdminRepository implements IVehicleRepository {
     }
 
     async create(vehicle: Vehicle): Promise<void> {
-        // Convert Date objects to Firestore Timestamps if needed, 
-        // but admin SDK handles JS Dates well.
         await adminDb.collection('vehicles').doc(vehicle.id).set(vehicle);
     }
 
@@ -24,13 +22,26 @@ export class VehicleAdminRepository implements IVehicleRepository {
         return snapshot.docs.map(doc => this.mapToVehicle(doc.data()));
     }
 
-    // Use unknown for the input to be safe, but usually it's DocumentData
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private mapToVehicle(data: any): Vehicle {
+    private mapToVehicle(data: FirebaseFirestore.DocumentData): Vehicle {
+        // Robust mapping with explicit type handling
+        const createdAt = data.createdAt instanceof Timestamp
+            ? data.createdAt.toDate()
+            : new Date(data.createdAt);
+
         return {
-            ...data,
-            // Convert Firestore Timestamp to Date if necessary
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now())
+            id: data.id,
+            vin: data.vin,
+            userId: data.userId,
+            photoUrl: data.photoUrl,
+            activeIssuesCount: data.activeIssuesCount ?? 0,
+            specs: {
+                year: data.specs?.year,
+                make: data.specs?.make,
+                model: data.specs?.model,
+                engine: data.specs?.engine,
+                trim: data.specs?.trim,
+            },
+            createdAt,
         } as Vehicle;
     }
 }

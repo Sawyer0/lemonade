@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
+import { DiagnosticSession } from '@lemonade/core';
 import { useDirectUpload } from '@/presentation/hooks/useDirectUpload';
 import { useTTS } from '@/presentation/hooks/useTTS';
 import { useToast } from '@/presentation/context';
@@ -25,9 +25,14 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
     // useChat v5: Input state is managed manually.
     const chatResult = useChat({
         api: CONFIG.API.ROUTES.CHAT,
-        body: { sessionId: session.id },
+        body: {
+            sessionId: session.id,
+            vehicleContext: session.context,
+            diagnosticContext: session.aiAnalysis
+        },
         headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'x-session-id': session.id
         },
         messages: (session.messages || []).map((m: Record<string, unknown>, index: number) => ({
             id: `${(m.timestamp as Date).getTime()}-${index}`,

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { adminStorage } from '@/infrastructure/firebase/admin';
+import { withContext } from '@/application/utils/apiHandler';
 
-export async function GET() {
+export const GET = withContext(async () => {
     try {
         const bucket = adminStorage.bucket();
         await bucket.setCorsConfiguration([
@@ -16,4 +17,5 @@ export async function GET() {
     } catch (error) {
         return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
     }
-}
+});
+

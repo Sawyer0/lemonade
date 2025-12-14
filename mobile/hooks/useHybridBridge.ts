@@ -1,5 +1,6 @@
-import { DiagnosticSession } from '../core/types/models';
-import { MessagePartSchema } from '../../src/core/types/models'; // Explicitly import MessagePartSchema
+import { z } from 'zod';
+import { DiagnosticSession, MessagePartSchema } from '@lemonade/core';
+
 
 type Message = DiagnosticSession['messages'][number]; // This is the correct schema-defined Message type
 
@@ -20,14 +21,31 @@ export function useHybridBridge(messages: Message[] | undefined) {
             }).filter(Boolean);
 
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const toolPart = validParts.find((p: any) =>
                 p.type === 'tool_result' &&
                 (p.toolName === 'display_content' || p.toolName === 'display_web_content')
             );
 
             if (toolPart && toolPart.result) {
-                // Assuming toolPart.result is { url: string; type: string; title: string }
-                return toolPart.result as { url: string; type: string; title: string };
+                // Validate the structure of the tool result
+                const ResultSchema = z.object({
+                    url: z.string().regex(/^(http|https):\/\//, "Invalid URL"),
+                    type: z.string(),
+                    title: z.string().optional()
+                });
+
+                const parsedResult = ResultSchema.safeParse(toolPart.result);
+
+                if (parsedResult.success) {
+                    return {
+                        url: parsedResult.data.url,
+                        type: parsedResult.data.type,
+                        title: parsedResult.data.title || "External Content"
+                    };
+                } else {
+                    console.warn("[HybridBridge] Invalid tool result structure:", parsedResult.error);
+                }
             }
         }
     }

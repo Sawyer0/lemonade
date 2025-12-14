@@ -1,50 +1,37 @@
 import { injectable, inject } from 'inversify';
-import { SafetyAssessment } from '../../core/types/safety';
-import type { ISafetyMonitor } from '../../core/interfaces/ISafetyMonitor';
-import type { ISafetyAI } from '../../core/interfaces/IAIService';
 import { TYPES } from '../../infrastructure/di/types';
+import { SafetyAssessment } from '@lemonade/core';
+import type { ISafetyMonitor } from '@lemonade/core';
+import type { ISafetyAI } from '@lemonade/core';
+import { ILogger } from '@lemonade/core';
+import { SAFETY_PROMPTS } from '@lemonade/core';
 
 @injectable()
 export class SafetyMonitor implements ISafetyMonitor {
     constructor(
-        @inject(TYPES.SafetyAI) private safetyAI: ISafetyAI
+        @inject(TYPES.SafetyAI) private safetyAI: ISafetyAI,
+        @inject(TYPES.Logger) private logger: ILogger // Inject Logger
     ) { }
 
-    async assess(userMessage: string, context: string): Promise<SafetyAssessment> {
+    async assess(userMessage: string, context: string, traceId?: string): Promise<SafetyAssessment> { // Added traceId
         try {
-            const prompt = `
-            Analyze the following input for immediate safety hazards based on the Master Tech Constitution.
-            
-            CONTEXT:
-            ${context}
-            
-            INPUT:
-            "${userMessage}"
-            
-            CRITICAL CHECKS (Immediate Intervention Required):
-            1. LIFE SAFETY: Intent to work under vehicle (Jack stand verification required).
-            2. HIGH VOLTAGE: Handling orange cabling or HV battery components (Hard Stop).
-            3. RED ZONES: Work on Airbags (SRS), High Pressure Fuel, or Brake Hydraulics (requires Procedure Stop).
-            
-            Output JSON matching this schema:
-            {
-                "safety_score": number (1-10),
-                "hazards_detected": string[],
-                "user_intent": string,
-                "intervention_required": boolean
-            }
-            `;
+            const prompt = SAFETY_PROMPTS.SAFETY_ASSESSMENT(userMessage, context);
+
+            this.logger.debug("Assessing safety with AI", { promptSnippet: prompt.substring(0, 100), traceId }); // Use logger
 
             const text = await this.safetyAI.assessSafety(prompt);
 
-            if (!text) throw new Error("Empty Safety Response");
+            if (!text) {
+                this.logger.warn('SafetyMonitor: No response text received', { userMessage, traceId });
+                throw new Error("Empty Safety Response");
+            }
 
             let cleanText = text.trim();
             cleanText = cleanText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '');
 
             return JSON.parse(cleanText) as SafetyAssessment;
         } catch (error) {
-            console.error("SafetyMonitor Assessment Failed", error);
+            this.logger.error("SafetyMonitor Assessment Failed", error, { userMessage, traceId }); // Use logger
             // Fail closed: block operation when safety check fails
             return {
                 safety_score: 10,

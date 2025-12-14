@@ -3,8 +3,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { clientContainer } from "@/infrastructure/di/clientContainer";
 import { TYPES } from "@/infrastructure/di/types";
-import type { IAuthService } from '@/core/interfaces/IAuthService';
-import type { ILogger } from '@/core/interfaces/ILogger';
+import type { IAuthService, ILogger } from '@lemonade/core';
 
 interface AuthContextType {
     user: User | null;

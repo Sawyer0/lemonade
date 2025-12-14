@@ -29,8 +29,7 @@ export function ToolMessage({ toolName, state, isUser }: ToolMessageProps) {
     return (
         <div className={clsx(
             "my-2 flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-mono select-none",
-            // Style based on user/ai overlap. Usually these are inside AI bubbles.
-            "bg-black/20 border-white/10 text-zinc-300"
+            isUser ? "bg-blue-500/10 border-blue-500/20 text-blue-200" : "bg-black/20 border-white/10 text-zinc-300"
         )}>
             {state === 'call' ? (
                 // Loading Spinner / Icon

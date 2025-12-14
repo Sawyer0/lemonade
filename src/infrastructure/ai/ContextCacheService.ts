@@ -2,11 +2,8 @@ import { injectable, inject } from 'inversify';
 import { VertexAI } from '@google-cloud/vertexai';
 
 import { CONFIG } from '@/infrastructure/config';
-import { IContextCacheService } from '@/core/interfaces/IContextCacheService';
+import { IContextCacheService, ILogger, AppError, ErrorCode, CachePart } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
-import type { ILogger } from '@/core/interfaces/ILogger';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class ContextCacheService implements IContextCacheService {
@@ -22,7 +19,6 @@ export class ContextCacheService implements IContextCacheService {
             try {
                 credentials = JSON.parse(key);
             } catch (error) {
-                // Log the critical error before throwing
                 this.logger.error('Invalid FIREBASE_SERVICE_ACCOUNT_KEY', error);
                 throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Invalid FIREBASE_SERVICE_ACCOUNT_KEY: Failed to parse JSON');
             }
@@ -46,21 +42,20 @@ export class ContextCacheService implements IContextCacheService {
         try {
             this.logger.info('Creating Context Cache', { ttlSeconds, partsCount: parts.length, displayName });
 
-            const modelName = CONFIG.AI_MODELS.AGENT.BRAIN; // e.g. "gemini-1.5-pro-001"
+            const modelName = CONFIG.AI_MODELS.CHAT_MODEL;
 
-            // Map our generic parts to Vertex AI parts
             const contents = [
                 {
                     role: 'user',
                     parts: parts.map(p => {
                         if (p.text) return { text: p.text };
                         if (p.fileData) return { fileData: p.fileData };
-                        return { text: '' }; // Fallback
+                        return { text: '' };
                     })
                 }
             ];
 
-            const cacheConfig: any = {
+            const cacheConfig: Record<string, unknown> = {
                 model: modelName,
                 contents: contents,
                 ttl: `${ttlSeconds}s`,
@@ -70,8 +65,6 @@ export class ContextCacheService implements IContextCacheService {
                 cacheConfig.displayName = displayName;
             }
 
-            // The SDK method signature might vary slightly depending on version, 
-            // but normally it takes a CachedContent object.
             const response = await this.cacheManager.create(cacheConfig);
 
             this.logger.info('Context Cache Created', {
@@ -94,8 +87,7 @@ export class ContextCacheService implements IContextCacheService {
     async getCache(cacheName: string): Promise<unknown> {
         try {
             this.logger.info('Getting Context Cache', { cacheName });
-            const cache = await this.cacheManager.get(cacheName);
-            return cache;
+            return await this.cacheManager.get(cacheName);
         } catch (error) {
             this.logger.error('Failed to get Context Cache', error, { cacheName });
             throw error;
@@ -106,7 +98,6 @@ export class ContextCacheService implements IContextCacheService {
         try {
             this.logger.info('Updating Context Cache TTL', { cacheName, ttlSeconds });
 
-            // update() expects (cachedContent, updateMask)
             await this.cacheManager.update({
                 name: cacheName,
                 ttl: `${ttlSeconds}s`
@@ -134,8 +125,7 @@ export class ContextCacheService implements IContextCacheService {
         try {
             this.logger.info('Listing Context Caches');
             const result = await this.cacheManager.list();
-            // Ensure we return an array
-            // The SDK logic might return a wrapper object
+            
             const safeResult = result as { cachedContents?: unknown[] } | unknown[];
             if (Array.isArray(safeResult)) {
                 return safeResult;
@@ -150,12 +140,10 @@ export class ContextCacheService implements IContextCacheService {
     async findCacheByDisplayName(displayName: string): Promise<string | null> {
         try {
             const caches = await this.listCaches();
-            // We need to treat 'unknown' as having a displayName property
-            // Vertex AI Cache Object structure: { name: string, displayName: string, ... }
+            // Match against Vertex AI Cache Object structure
             const match = caches.find((c: any) => c.displayName === displayName);
 
             if (match) {
-                // Cast match to any to access properties since listCaches returns unknown[]
                 const cachedContent = match as any;
                 this.logger.info('Found existing cache by display name', { displayName, cacheName: cachedContent.name });
                 return cachedContent.name;
@@ -164,7 +152,7 @@ export class ContextCacheService implements IContextCacheService {
             return null;
         } catch (error) {
             this.logger.error('Failed to find cache by display name', error, { displayName });
-            return null; // Return null on error to allow caller to potentially recreate
+            return null;
         }
     }
 }

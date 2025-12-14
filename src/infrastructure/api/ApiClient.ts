@@ -1,7 +1,6 @@
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
-import { IAuthService } from '@/core/interfaces/IAuthService';
-import { ILogger } from '@/core/interfaces/ILogger';
+import { IAuthService, ILogger } from '@lemonade/core';
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 

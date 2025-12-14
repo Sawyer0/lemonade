@@ -1,18 +1,19 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
+import { DiagnosticSession } from '@lemonade/core';
 import { db } from '@/infrastructure/firebase/config';
 import { deleteDoc, doc } from 'firebase/firestore';
-import { Page, Navbar, List, ListItem, Link, NavbarBackLink } from 'konsta/react';
+import { Page, Navbar, List, ListItem, NavbarBackLink } from 'konsta/react';
 import { Trash2 } from 'lucide-react';
 import { motion, AnimatePresence, PanInfo, useAnimation } from 'framer-motion';
+import { useToast } from '@/presentation/context/ToastContext';
 
 interface ServiceHistoryProps {
     sessions: DiagnosticSession[];
-    vehicleId?: string;
+    vehicleId: string;
+    loading: boolean;
 }
 
 // 1. Swipeable Wrapper for Konsta ListItem
@@ -26,11 +27,6 @@ const SwipeableKonstaItem = ({
     onClick: () => void;
 }) => {
     const controls = useAnimation();
-
-    // Name Logic:
-    // 1. AI Diagnosis
-    // 2. User Complaint (if not generic "New Session")
-    // 3. Fallback to Date or "Untitled"
     let title = session.aiAnalysis?.diagnosis;
 
     if (!title) {
@@ -98,20 +94,38 @@ const HistorySkeleton = () => (
 
 // --- MAIN COMPONENT ---
 
-export function ServiceHistory({ sessions }: ServiceHistoryProps) {
+export function ServiceHistory({ sessions, loading }: ServiceHistoryProps) {
     const [items, setItems] = useState<DiagnosticSession[]>(sessions || []);
     const router = useRouter();
-    const [isLoading, setIsLoading] = useState(false);
+    const { showToast } = useToast();
+    // Default to loading if explicitly set, or if sessions are missing (initial fetch)
+    const [isLoading, setIsLoading] = useState(loading !== undefined ? loading : !sessions);
+
+    useEffect(() => {
+        if (sessions) {
+            setItems(sessions);
+        }
+        if (loading !== undefined) {
+            setIsLoading(loading);
+        } else if (sessions) {
+            setIsLoading(false);
+        }
+    }, [sessions, loading]);
 
     const handleDelete = async (sessionId: string) => {
+        setIsLoading(true);
         const originalItems = [...items];
         setItems((prev) => prev.filter((s) => s.id !== sessionId));
 
         try {
             await deleteDoc(doc(db, 'sessions', sessionId));
+            showToast('Session deleted', 'success');
         } catch (err) {
-            console.error(err);
+            console.error('Failed to delete session:', err);
+            showToast('Failed to delete session', 'error');
             setItems(originalItems);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -135,7 +149,7 @@ export function ServiceHistory({ sessions }: ServiceHistoryProps) {
             />
 
             <div className="relative min-h-screen">
-                {isLoading ? (
+                {isLoading && items.length === 0 ? (
                     <HistorySkeleton />
                 ) : items.length === 0 ? (
                     <div className="flex flex-col items-center justify-center pt-32 px-10 text-center opacity-60">
@@ -146,7 +160,7 @@ export function ServiceHistory({ sessions }: ServiceHistoryProps) {
                         <p className="text-zinc-500 text-sm">Start a new diagnosis to see it here.</p>
                     </div>
                 ) : (
-                    <List strong inset className="!m-0 !bg-transparent">
+                    <List strong inset className={`!m-0 !bg-transparent ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
                         <AnimatePresence initial={false}>
                             {sortedItems.map((session) => (
                                 <SwipeableKonstaItem
@@ -160,6 +174,6 @@ export function ServiceHistory({ sessions }: ServiceHistoryProps) {
                     </List>
                 )}
             </div>
-        </Page>
+        </Page >
     );
 }

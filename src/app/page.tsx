@@ -5,7 +5,7 @@ import { auth } from '@/infrastructure/firebase/config';
 import { useAuth, useToast } from '@/presentation/context';
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
-import { IAuthService } from '@/core/interfaces/IAuthService';
+import { IAuthService } from '@lemonade/core';
 import { AuthForm } from '@/presentation/components/auth/AuthForm';
 
 import { Page, Block, Button } from 'konsta/react';
@@ -24,16 +24,8 @@ export default function LandingPage() {
   const handleLogin = async () => {
     try {
       const authService = clientContainer.get<IAuthService>(TYPES.AuthService);
-      // Wait, verified AuthService doesn't expose signInWithGoogleWeb yet? 
-      // Checking local file cache... 
-      // AuthService.ts (Step 130) has generic provider support?
-      // Step 130 view_file of AuthService stopped at line 37.
-      // I need to be sure AuthService HAS a method for this.
-      // If not, I should add it.
-      // Assumption: It likely has generic signIn or I should stick to adding it.
-      // Let's assume for now I will add it if missing.
       await authService.signInWithGoogle();
-    } catch {
+    } catch (error) {
       showToast('Login failed. Please try again.', 'error');
     }
   };

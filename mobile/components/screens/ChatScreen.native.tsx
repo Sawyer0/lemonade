@@ -1,28 +1,131 @@
-import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Text } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { Theme } from '@mobile/constants/theme';
 import { useLiveSession } from '@web-shared-hooks/useLiveSession';
-import { useMobileChat } from '@mobile/hooks/useMobileChat';
-import { useToolHandler } from '@mobile/hooks/useToolHandler';
+import { useGeminiSession } from '@mobile/hooks/useGeminiSession';
+import { useVehicle } from '@mobile/hooks/useVehicle';
 import { ChatBubble } from '../domain/chat/ChatBubble.native';
 import { InputBar } from '../domain/chat/InputBar.native';
+import { NHTSAService } from '@mobile/services/NHTSAService';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '@mobile/infrastructure/firebase/config';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Ionicons } from '@expo/vector-icons';
+
 
 export default function ChatScreen() {
-    // The route is /session/[id], so the param is 'id'
     const { id } = useLocalSearchParams<{ id: string }>();
     const sessionId = id;
+    // State Definitions
     const { session, loading: sessionLoading } = useLiveSession(sessionId, db);
-    const { sendMessage, sending } = useMobileChat(sessionId);
+    const { vehicle } = useVehicle(session?.vehicleId);
 
-    // Handle AI tool calls (e.g. openCamera)
-    useToolHandler(session);
+    const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+    const [cameraActive, setCameraActive] = useState(false);
+    const cameraRef = useRef<CameraView>(null);
+    const frameInterval = useRef<NodeJS.Timeout | null>(null);
+
+    // Tool Handler Logic
+    const handleToolCall = (toolCall: { name: string; args: Record<string, unknown> }, { sendResponse }: { sendResponse: (response: unknown) => void }) => {
+        console.log("Tool Call Received:", toolCall.name);
+
+        if (toolCall.name === 'start_video_stream') {
+            if (!cameraActive) {
+                setCameraActive(true);
+                sendResponse({
+                    functionResponses: [{
+                        name: 'start_video_stream',
+                        response: { result: "Camera Opened" }
+                    }]
+                });
+            } else {
+                sendResponse({
+                    functionResponses: [{
+                        name: 'start_video_stream',
+                        response: { result: "Camera already open" }
+                    }]
+                });
+            }
+        } else if (toolCall.name === 'checkRecalls') {
+            const { year, make, model } = vehicle?.specs || {};
+            if (year && make && model) {
+                const nhtsa = new NHTSAService();
+                nhtsa.getRecallsByVehicle(year, make, model).then(recalls => {
+                    sendResponse({
+                        functionResponses: [{
+                            name: 'checkRecalls',
+                            response: {
+                                recalls: recalls.length > 0 ? recalls : "No Recalls Found",
+                                vehicle: `${year} ${make} ${model}`
+                            }
+                        }]
+                    });
+                });
+            } else {
+                sendResponse({
+                    functionResponses: [{
+                        name: 'checkRecalls',
+                        response: { error: "Vehicle context missing" }
+                    }]
+                });
+            }
+
+        }
+    }
+
+
+    const { connect, sendMessage, loading: connecting, client } = useGeminiSession(sessionId, vehicle, handleToolCall);
+
+    // Auto-Connect on mount when vehicle is ready
+    useEffect(() => {
+        if (vehicle) {
+            connect();
+        }
+    }, [vehicle, connect]);
+
+    // Camera Frame Loop
+    useEffect(() => {
+        // Robust Frame Loop: actively checks connection and handles errors
+        let isProcessing = false;
+
+        if (cameraActive && client && client.isConnected) {
+            frameInterval.current = setInterval(async () => {
+                if (cameraRef.current && !isProcessing) {
+                    isProcessing = true;
+                    try {
+                        const photo = await cameraRef.current.takePictureAsync({
+                            base64: true,
+                            quality: 0.5,
+                            skipProcessing: true
+                        });
+
+                        if (photo?.base64 && client.isConnected) {
+                            client.sendRealtimeInput([{
+                                mimeType: 'image/jpeg',
+                                data: photo.base64
+                            }]);
+                        }
+                    } catch (err) {
+                        console.warn("Frame capture skipped:", err);
+                    } finally {
+                        isProcessing = false;
+                    }
+                }
+            }, 1000);
+        }
+
+        return () => {
+            if (frameInterval.current) {
+                clearInterval(frameInterval.current);
+                frameInterval.current = null;
+            }
+        };
+    }, [cameraActive, client, client?.isConnected]);
 
     const flatListRef = useRef<FlatList>(null);
 
-    // Scroll to bottom on new messages
+    // Scroll to bottom
     useEffect(() => {
         if (session?.messages?.length) {
             setTimeout(() => {
@@ -31,10 +134,11 @@ export default function ChatScreen() {
         }
     }, [session?.messages]);
 
-    if (sessionLoading) {
+    if (sessionLoading || connecting) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Theme.tint} />
+                <Text style={{ color: 'gray', marginTop: 10 }}>{connecting ? "Connecting to Gemini..." : "Loading Session..."}</Text>
             </View>
         );
     }
@@ -50,32 +154,56 @@ export default function ChatScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <Stack.Screen options={{
-                title: `Diagnosis: ${session.complaint.slice(0, 20)}...`,
+                title: cameraActive ? "Live Vision" : `Diagnosis: ${session.complaint.slice(0, 15)}...`,
                 headerStyle: { backgroundColor: Theme.background },
                 headerTintColor: Theme.text,
+                headerRight: () => (
+                    <TouchableOpacity onPress={() => setCameraActive(!cameraActive)}>
+                        <Ionicons name={cameraActive ? "videocam-off" : "videocam"} size={24} color={Theme.tint} />
+                    </TouchableOpacity>
+                )
             }} />
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                style={{ flex: 1 }}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-            >
-                <FlatList
-                    ref={flatListRef}
-                    data={session.messages}
-                    keyExtractor={(item, index) => index.toString()}
-                    renderItem={({ item }) => (
-                        // @ts-ignore - Message structure matches but TS might be strict about unions
-                        <ChatBubble role={item.role} content={item.content} sessionId={session.id} />
-                    )}
-                    contentContainerStyle={styles.listContent}
-                // Inverted? No, standard chat usually bottom-up, but FlatList 'inverted' prop is good for that.
-                // Here we'll stick to standard top-down with scrollToEnd for simplicity unless messages array is reversed.
-                // scrollsToTop={false}
-                />
+            <View style={{ flex: 1 }}>
+                {/* Camera Layer */}
+                {cameraActive && (
+                    <View style={styles.cameraContainer}>
+                        {!cameraPermission?.granted ? (
+                            <TouchableOpacity onPress={requestCameraPermission} style={styles.permButton}>
+                                <Text>Enable Camera</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <CameraView
+                                ref={cameraRef}
+                                style={StyleSheet.absoluteFill}
+                                facing="back"
+                            />
+                        )}
+                        {/* Overlay Controls */}
+                        <TouchableOpacity style={styles.closeCam} onPress={() => setCameraActive(false)}>
+                            <Ionicons name="close-circle" size={40} color="white" />
+                        </TouchableOpacity>
+                    </View>
+                )}
 
-                <InputBar onSend={sendMessage} loading={sending} />
-            </KeyboardAvoidingView>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    style={{ flex: 1, display: cameraActive ? 'none' : 'flex' }}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+                >
+                    <FlatList
+                        ref={flatListRef}
+                        data={session.messages}
+                        keyExtractor={(item, index) => index.toString()}
+                        renderItem={({ item }) => (
+                            <ChatBubble role={item.role} content={item.content} sessionId={session.id} />
+                        )}
+                        contentContainerStyle={styles.listContent}
+                    />
+
+                    <InputBar onSend={sendMessage} loading={false} />
+                </KeyboardAvoidingView>
+            </View>
         </SafeAreaView>
     );
 }
@@ -94,5 +222,23 @@ const styles = StyleSheet.create({
     listContent: {
         padding: 16,
         paddingBottom: 20,
+    },
+    cameraContainer: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'black',
+        zIndex: 10,
+    },
+    permButton: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'white'
+    },
+    closeCam: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderRadius: 25
     }
 });

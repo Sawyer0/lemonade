@@ -1,13 +1,13 @@
 'use client';
-import { Vehicle } from '@/core/entities/Vehicle';
-import Link from 'next/link';
+import { Vehicle } from '@lemonade/core';
+
 import Image from 'next/image';
 import { Car, Loader2 } from 'lucide-react';
 import { Button } from 'konsta/react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { db } from '@/infrastructure/firebase/config';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/presentation/context/AuthContext';
 
@@ -52,7 +52,7 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
 
             router.push(`/session/${sessionId}`);
         } catch (error) {
-            console.error(error);
+            // console.error(error);
             alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
             setDiagnosing(false);
         }

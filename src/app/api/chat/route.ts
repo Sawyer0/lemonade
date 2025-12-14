@@ -1,43 +1,71 @@
 import { streamText } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
-import { IBillingService } from '@/core/interfaces/IBillingService';
-import { IAuthService } from '@/core/interfaces/IAuthService';
+import {
+    IBillingService,
+    ISessionService,
+    SYSTEM_PROMPTS,
+    SAFETY_INSTRUCTION_MASTER_TECH,
+    ILogger
+} from '@lemonade/core';
 import { CONFIG } from '@/infrastructure/config';
-import { SYSTEM_PROMPTS } from '@/core/prompts/system';
-import { SAFETY_INSTRUCTION_MASTER_TECH } from '@/core/prompts/safety';
-import { generateId } from 'ai'; // Helper for Trace ID
+import { adminAuth } from '@/infrastructure/firebase/admin';
+import { withContext } from '@/application/utils/apiHandler';
+import { RequestContext } from '@/infrastructure/context/request-context';
 
 // Initialize Google AI Provider
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
 });
 
-export async function POST(req: Request) {
-  // 1. Generate Trace ID (Distributed Tracing Start)
-  const traceId = req.headers.get('x-trace-id') || generateId();
-  console.log(`[Trace: ${traceId}] Chat Request Started`);
+export const maxDuration = 60; // Timeout handling
+
+export const POST = withContext(async function POST(req: Request): Promise<NextResponse> {
+  // 1. Generate/Get Trace ID (Distributed Tracing Start)
+  const logger = container.get<ILogger>(TYPES.Logger);
+  logger.info(`Chat Request Started`, { path: req.url });
+  const traceId = RequestContext.getTraceId(); // Capture for async callback
 
   try {
     const { messages, vehicleContext, diagnosticContext } = await req.json();
 
-    // 2. Authentication
+    // 2. Authentication (Server-Side)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return new Response('Unauthorized', { status: 401 });
+      logger.warn(`Unauthorized: Missing Token`);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const token = authHeader.split(' ')[1];
-    const authService = container.get<IAuthService>(TYPES.AuthService);
-    const decodedToken = await authService.verifyToken(token);
+
+    // Verify using Firebase Admin SDK
+    const decodedToken = await adminAuth.verifyIdToken(token);
     const userId = decodedToken.uid;
-    // We assume sessionId is passed in headers or body, typically for chat it's implicit in the thread
-    // For MVP, we'll use a placeholder or extract if available. 
-    // Let's assume the frontend passes 'x-session-id'.
     const sessionId = req.headers.get('x-session-id') || 'unknown-session';
 
     // 3. Billing Service Injection
     const billingService = container.get<IBillingService>(TYPES.BillingService);
+
+    // 3b. Context Security (AuthZ) & Sanitize
+    const sessionService = container.get<ISessionService>(TYPES.SessionService);
+    let authoritativeContext = vehicleContext || 'Not specified';
+
+    if (sessionId && sessionId !== 'unknown-session') {
+      try {
+        const { vehicle } = await sessionService.getSessionContext(sessionId);
+        // Construct trusted context string
+        authoritativeContext = JSON.stringify(vehicle.specs);
+        logger.info("Using authoritative vehicle context from DB", { sessionId });
+      } catch (error) {
+        logger.warn("Failed to load session context, falling back to client provided context", { error });
+        // Sanitize fallback
+        authoritativeContext = `<unverified_context>${String(vehicleContext).replace(/<[^>]*>?/gm, '')}</unverified_context>`;
+      }
+    } else {
+      // No session, sanitize client input
+      authoritativeContext = `<unverified_context>${String(vehicleContext).replace(/<[^>]*>?/gm, '')}</unverified_context>`;
+    }
 
     // 4. Construct System Prompt (Neuro-Symbolic)
     const systemPrompt = `
@@ -45,7 +73,7 @@ export async function POST(req: Request) {
     ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
 
     CONTEXT:
-    Vehicle: ${vehicleContext || 'Not specified'}
+    Vehicle: ${authoritativeContext}
     Current Diagnosis: ${diagnosticContext ? JSON.stringify(diagnosticContext) : 'None'}
     
     ${SAFETY_INSTRUCTION_MASTER_TECH}
@@ -53,36 +81,58 @@ export async function POST(req: Request) {
 
     // 5. Stream with Telemetry Hooks
     const result = await streamText({
-      model: google(CONFIG.AI_MODELS.TEXT_INTERFACE), // gemini-2.5-flash
+      model: google(CONFIG.AI_MODELS.CHAT_MODEL), 
       system: systemPrompt,
       messages,
-      async onFinish({ usage, finishReason }) {
+      async onFinish({ usage }: { usage: any }) {
         // --- THE BILLING PATCH ---
         if (usage) {
-            console.log(`[Trace: ${traceId}] Recording Usage: ${usage.promptTokens} in, ${usage.completionTokens} out`);
+          // Safe cast to avoid TS errors with varying SDK versions
+          // Define shape for AI SDK usage object
+          type AIUsage = {
+            promptTokens?: number;
+            inputTokens?: number;
+            completionTokens?: number;
+            outputTokens?: number;
+          };
+          const typedUsage = usage as AIUsage;
+          const inputTokens = typedUsage.promptTokens ?? typedUsage.inputTokens ?? 0;
+          const outputTokens = typedUsage.completionTokens ?? typedUsage.outputTokens ?? 0;
+
+          // Note: We're inside a callback that might run after the request context is closed.
+          // Using the captured 'traceId' variable here is safer than RequestContext.getTraceId(), 
+          // although we can't easily pass it to logger.info() implicitly if the context is gone.
+          // However, since we removed the explicit traceId arg from logger, we rely on ALS.
+          // If ALS is lost, logger will use 'unknown-trace'.
+          // To fix this properly for background callbacks, we would need to wrap this callback in RequestContext.run again.
+
+          await RequestContext.run({ traceId }, async () => {
+            logger.info(`Recording Usage: ${inputTokens} in, ${outputTokens} out`, { usage });
             await billingService.recordUsage({
-                userId,
-                sessionId,
-                inputTokens: usage.promptTokens,
-                outputTokens: usage.completionTokens,
-                model: CONFIG.AI_MODELS.TEXT_INTERFACE,
-                timestamp: new Date()
-            }).catch(err => {
-                console.error(`[Trace: ${traceId}] Billing Failed`, err);
+              userId,
+              sessionId,
+              inputTokens,
+              outputTokens,
+              model: CONFIG.AI_MODELS.CHAT_MODEL,
+              timestamp: new Date(),
+            }, traceId).catch(err => {
+              logger.error(`Billing Failed`, err, { sessionId });
             });
+          });
         }
       },
     });
 
     // Return stream with Trace ID header
-    return result.toDataStreamResponse({
-        headers: {
-            'x-trace-id': traceId
-        }
+    const response = result.toTextStreamResponse({
+      headers: {
+        'x-trace-id': traceId
+      }
     });
+    return new NextResponse(response.body, response);
 
   } catch (error) {
-    console.error(`[Trace: ${traceId}] Chat Failed`, error);
-    return new Response('Internal Server Error', { status: 500 });
+    logger.error(`Chat Failed`, error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
-}
+});

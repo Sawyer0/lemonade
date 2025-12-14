@@ -1,5 +1,4 @@
-import { ISessionRepository } from '@/core/interfaces/ISessionRepository';
-import { DiagnosticSession, AIAnalysis } from '@/core/types/models';
+import { ISessionRepository, DiagnosticSession, AIAnalysis } from '@lemonade/core';
 
 export class MemorySessionRepository implements ISessionRepository {
     private sessions: Map<string, DiagnosticSession> = new Map();

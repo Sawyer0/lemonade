@@ -3,6 +3,7 @@
     "name": "lemonade-mvp",
     "slug": "lemonade-mvp",
     "version": "1.0.0",
+    "newArchEnabled": true,
     "orientation": "portrait",
     "scheme": "lemonademvp",
     "icon": "./assets/images/icon.png",

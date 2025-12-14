@@ -6,18 +6,16 @@ import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useNativeAuth } from '../hooks/useNativeAuth';
 import { useWebViewBridge } from '../hooks/useWebViewBridge';
-import { CONFIG } from '../core/config';
+import { CONFIG } from '@mobile/constants/config';
 import { GlassCard } from './ui/GlassCard.native';
 
 import { useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { VinScanner } from './VinScanner';
 
 interface NativeWebViewProps {
     route?: string;
 }
 
-import { VinScanner } from './VinScanner';
-
-// ... existing imports
 
 export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
     const webviewRef = useRef<WebView>(null);
@@ -40,7 +38,7 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
     useEffect(() => {
         if (!cameraPermission?.granted) requestCameraPermission();
         if (!micPermission?.granted) requestMicPermission();
-    }, []);
+    }, [cameraPermission?.granted, micPermission?.granted, requestCameraPermission, requestMicPermission]);
 
     // Handle Android Back Button
     useEffect(() => {
@@ -154,7 +152,7 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
                                 });
                             }
                         }
-                    } catch (e) {
+                    } catch (_) {
                         // Non-JSON message or irrelevant
                     }
                 }}

@@ -2,18 +2,14 @@ import "reflect-metadata";
 import { Container } from "inversify";
 import { TYPES } from "./types";
 
-// Interfaces
-import { IAuthService } from "@/core/interfaces/IAuthService";
-import { ILogger } from "@/core/interfaces/ILogger";
+import { IAuthService, ILogger } from "@lemonade/core";
 
-// Implementations
 import { AuthService } from "@/infrastructure/auth/AuthService";
-import { Logger } from "@/infrastructure/logging/Logger";
+import { ClientLogger } from "@/infrastructure/logging/ClientLogger"; // Import ClientLogger
 
 const clientContainer = new Container();
 
-// Bind Client-Safe Services
 clientContainer.bind<IAuthService>(TYPES.AuthService).to(AuthService).inSingletonScope();
-clientContainer.bind<ILogger>(TYPES.Logger).to(Logger).inSingletonScope();
+clientContainer.bind<ILogger>(TYPES.Logger).to(ClientLogger).inSingletonScope(); // Bind to ClientLogger
 
 export { clientContainer };

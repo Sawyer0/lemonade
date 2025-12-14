@@ -1,17 +1,18 @@
 import { injectable, inject } from 'inversify';
 import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
-import { IEmbeddingService } from '@/core/interfaces/IEmbeddingService';
+import { IEmbeddingService, ILogger, AppError, ErrorCode } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
-import type { ILogger } from '@/core/interfaces/ILogger';
 import { CONFIG } from '@/infrastructure/config';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
+
+// Interface to bridge missing SDK type definitions strictly
+interface IVertexGenAIModel extends GenerativeModel {
+    embedContent(content: string | unknown): Promise<{ embedding?: { values: number[] } }>;
+    batchEmbedContents(request: { requests: unknown[] }): Promise<{ embeddings?: { values: number[] }[] }>;
+}
 
 @injectable()
 export class EmbeddingService implements IEmbeddingService {
-    private model: GenerativeModel;
-    // Hardcoded for Collective Memory as agreed in plan
-    private readonly MODEL_NAME = 'text-embedding-004';
+    private model: IVertexGenAIModel;
 
     constructor(@inject(TYPES.Logger) private logger: ILogger) {
         const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -27,7 +28,7 @@ export class EmbeddingService implements IEmbeddingService {
                 googleAuthOptions: { credentials }
             });
 
-            this.model = vertex.getGenerativeModel({ model: this.MODEL_NAME });
+            this.model = vertex.getGenerativeModel({ model: CONFIG.AI_MODELS.EMBEDDING }) as unknown as IVertexGenAIModel;
         } catch (error) {
             this.logger.error('Failed to initialize EmbeddingService', error);
             throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to initialize AI Embedding Service');
@@ -36,8 +37,8 @@ export class EmbeddingService implements IEmbeddingService {
 
     async embed(text: string): Promise<number[]> {
         try {
-            // @ts-ignore - SDK types might be missing embedContent for GenerativeModel in this version
-            const result = await (this.model as any).embedContent(text);
+            // GenerativeModel.embedContent returns Promise<EmbedContentResponse>
+            const result = await this.model.embedContent(text);
             const embedding = result.embedding?.values;
 
             if (!embedding) {
@@ -52,13 +53,28 @@ export class EmbeddingService implements IEmbeddingService {
     }
 
     async embedBatch(texts: string[]): Promise<number[][]> {
-        // Vertex AI supports batch embedding but for MVP implementation we loop to be safe with limits
-        // Ideally use batchEmbedContents if available in SDK version
         try {
-            // Parallel execution with Promise.all
-            return await Promise.all(texts.map(t => this.embed(t)));
+            if (texts.length === 0) return [];
+
+            // Native Vertex AI Batch Embedding
+            const response = await this.model.batchEmbedContents({
+                requests: texts.map(t => ({
+                    content: { role: 'user', parts: [{ text: t }] },
+                    taskType: 'RETRIEVAL_DOCUMENT' // Optimal for vector search storage
+                }))
+            });
+
+            if (!response.embeddings) {
+                throw new Error("No embeddings returned from batch request");
+            }
+
+            // Map and validate
+            return response.embeddings.map((e, index) => {
+                if (!e.values) throw new Error(`Embedding missing for item ${index}`);
+                return e.values;
+            });
         } catch (error) {
-            this.logger.error('[EmbeddingService] Batch implementation failed', error);
+            this.logger.error('[EmbeddingService] Batch intent failed', error);
             throw error;
         }
     }

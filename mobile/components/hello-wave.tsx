@@ -12,7 +12,6 @@ export function HelloWave() {
   const rotation = useSharedValue(0);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability
     rotation.value = withRepeat(
       withSequence(
         withTiming(25, { duration: 150 }),
@@ -22,7 +21,7 @@ export function HelloWave() {
       ),
       4 // iterations
     );
-  }, []);
+  }, [rotation]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],

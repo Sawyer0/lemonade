@@ -2,7 +2,7 @@ import { injectable } from 'inversify';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged, GoogleAuthProvider, signInWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/infrastructure/firebase/config';
-import type { IAuthService } from '@/core/interfaces/IAuthService';
+import { IAuthService } from '@lemonade/core';
 
 @injectable()
 export class AuthService implements IAuthService {

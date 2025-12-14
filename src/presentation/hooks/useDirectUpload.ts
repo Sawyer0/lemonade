@@ -1,12 +1,9 @@
 import { useState } from 'react';
-import { Logger } from '@/infrastructure/logging/Logger';
-import { auth } from '@/infrastructure/firebase/config';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
 
-import { clientContainer } from '@/infrastructure/di/clientContainer';
-import { TYPES } from '@/infrastructure/di/types';
-import { ILogger } from '@/core/interfaces/ILogger';
+import { auth } from '@/infrastructure/firebase/config';
+import { AppError, ErrorCode } from '@lemonade/core';
+
+
 
 export function useDirectUpload() {
     const [uploading, setUploading] = useState(false);
@@ -56,16 +53,16 @@ export function useDirectUpload() {
                         // logger.info('[useDirectUpload] Upload success', { status: xhr.status });
                         resolve(true);
                     } else {
-                        const logger = clientContainer.get<ILogger>(TYPES.Logger);
+                        // const logger = clientContainer.get<ILogger>(TYPES.Logger);
                         const uploadError = new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Upload failed with status ${xhr.status}`);
-                        logger.error('[useDirectUpload] XHR Failed', uploadError, { status: xhr.status, response: xhr.response });
+                        console.error('[useDirectUpload] XHR Failed', uploadError, { status: xhr.status, response: xhr.response });
                         reject(uploadError);
                     }
                 };
                 xhr.onerror = () => {
-                    const logger = clientContainer.get<ILogger>(TYPES.Logger);
+                    // const logger = clientContainer.get<ILogger>(TYPES.Logger);
                     const networkError = new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Network error - Check CORS/Tunnel');
-                    logger.error('[useDirectUpload] Network Error (CORS?)', networkError, { status: xhr.status, readyState: xhr.readyState });
+                    console.error('[useDirectUpload] Network Error (CORS?)', networkError, { status: xhr.status, readyState: xhr.readyState });
                     reject(networkError);
                 };
                 xhr.send(file);
@@ -75,8 +72,7 @@ export function useDirectUpload() {
             return publicUrl;
 
         } catch (error) {
-            const logger = new Logger();
-            logger.error('Upload failed', error);
+            console.error('Upload failed', error);
             setUploading(false);
             throw error;
         }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot, Firestore } from 'firebase/firestore';
-import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
+import { DiagnosticSession } from '@lemonade/core';
 import { convertTimestamps } from '@infrastructure/firestore/timestamps';
 
 interface LiveSessionState {

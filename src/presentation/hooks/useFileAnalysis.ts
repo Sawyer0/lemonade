@@ -1,11 +1,9 @@
-import { auth } from '@/infrastructure/firebase/config';
+// import { auth } from '@/infrastructure/firebase/config';
 import { ApiClient } from '@/infrastructure/api/ApiClient';
 import { useToast } from '@/presentation/context';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
+import { AppError, ErrorCode, ILogger } from '@lemonade/core';
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
-import { ILogger } from '@/core/interfaces/ILogger';
 
 interface UseFileAnalysisOptions {
 	sessionId: string;

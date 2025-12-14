@@ -1,14 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { VertexAI, GenerativeModel, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
-import { ISafetyAI } from '@/core/interfaces/IAIService';
+import { ISafetyAI, ILogger, SAFETY_RAW_SCHEMA, AppError, ErrorCode } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
-import type { ILogger } from '@/core/interfaces/ILogger';
-import { CONFIG } from '@/infrastructure/config';
-import { SAFETY_RAW_SCHEMA } from '@/core/types/safety';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
-
-@injectable()
 export class SafetyAIAdapter implements ISafetyAI {
     private model: GenerativeModel;
 
@@ -23,7 +16,7 @@ export class SafetyAIAdapter implements ISafetyAI {
         });
 
         this.model = vertex.getGenerativeModel({
-            model: CONFIG.AI_MODELS.TEXT_INTERFACE,
+            model: CONFIG.AI_MODELS.CHAT_MODEL,
             safetySettings: [
                 {
                     category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,

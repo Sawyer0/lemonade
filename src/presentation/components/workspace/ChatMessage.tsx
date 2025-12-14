@@ -31,6 +31,7 @@ export function ChatMessage({ msg, isVideoMode, onImageCapture, handleCloseTool,
     // Helper to render content parts
     const renderContent = () => {
         if (Array.isArray(msg.content)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             return msg.content.map((p: any, i: number) => {
                 if (p.type === 'text' || (p.text && !p.type)) return <span key={i} className="whitespace-pre-wrap block mb-2 last:mb-0">{p.text}</span>;
                 if (p.type === 'tool-call' || p.type === 'tool_call') return <ToolMessage key={i} toolName={p.toolName!} state="call" isUser={isUser} />;
@@ -38,22 +39,23 @@ export function ChatMessage({ msg, isVideoMode, onImageCapture, handleCloseTool,
                 return null;
             });
         }
-        
+
         const contentStr = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-        
+
         // Attempt to parse if it looks like a JSON array string
         if (contentStr.startsWith('[')) {
-             try {
+            try {
                 const parsed = JSON.parse(contentStr);
                 if (Array.isArray(parsed)) {
-                     return parsed.map((p: any, i: number) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    return parsed.map((p: any, i: number) => {
                         if (p.type === 'text' || (p.text && !p.type)) return <span key={i} className="whitespace-pre-wrap block mb-2 last:mb-0">{p.text}</span>;
-                        return null; 
-                     });
+                        return null;
+                    });
                 }
-             } catch {}
+            } catch { }
         }
-        
+
         return <span className="whitespace-pre-wrap">{contentStr}</span>;
     };
 
@@ -69,11 +71,15 @@ export function ChatMessage({ msg, isVideoMode, onImageCapture, handleCloseTool,
                 text={
                     <div className="text-sm">
                         {renderContent()}
-                        
-                        {/* Tool Invocations rendered INSIDE the bubble if needed, or outside? 
-                            Usually tools like Camera are better outside or distinct. 
-                            Let's keep them inside for context grouping, or move specific interactive ones out.
-                        */}
+
+                        {msg.toolInvocations?.map((tool) => (
+                            <ToolMessage
+                                key={tool.toolCallId}
+                                toolName={tool.toolName}
+                                state={tool.state}
+                                isUser={isUser}
+                            />
+                        ))}
                     </div>
                 }
             />
@@ -82,7 +88,7 @@ export function ChatMessage({ msg, isVideoMode, onImageCapture, handleCloseTool,
             {msg.toolInvocations?.map((toolInvocation) => {
                 const { toolName, toolCallId, state, result } = toolInvocation;
 
-                if (toolName === 'openCamera') {
+                if (toolName === 'start_video_stream') {
                     const resultData = result as Record<string, unknown> | undefined;
                     const isClosed = closedToolIds.has(toolCallId);
 

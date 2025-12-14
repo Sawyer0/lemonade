@@ -4,7 +4,7 @@ import { Paperclip, Send, Loader2 } from 'lucide-react';
 
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
-import { ILogger } from '@/core/interfaces/ILogger';
+import { ILogger } from '@lemonade/core';
 
 interface InputBarProps {
     input: string;

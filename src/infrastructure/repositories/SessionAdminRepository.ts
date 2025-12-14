@@ -1,12 +1,17 @@
 import { injectable, inject } from 'inversify';
 import { adminDb } from '@/infrastructure/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { ISessionRepository } from '@/core/interfaces/ISessionRepository';
-import { DiagnosticSession, AIAnalysis, DiagnosticSessionSchema, AIAnalysisSchema } from '@/core/entities/DiagnosticSession';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
+import {
+    ISessionRepository,
+    DiagnosticSession,
+    AIAnalysis,
+    DiagnosticSessionSchema,
+    AIAnalysisSchema,
+    AppError,
+    ErrorCode,
+    ILogger
+} from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
-import type { ILogger } from '@/core/interfaces/ILogger';
 import { convertTimestamps } from '@/infrastructure/firestore/timestamps';
 
 @injectable()
@@ -128,5 +133,80 @@ export class SessionAdminRepository implements ISessionRepository {
                 return result.data;
             })
             .filter((s): s is DiagnosticSession => s !== null);
+    }
+
+    async findByUserId(userId: string): Promise<DiagnosticSession[]> {
+        if (!userId) {
+            this.logger.warn('SessionAdminRepository.findByUserId called with empty userId');
+            return [];
+        }
+        const snapshot = await adminDb.collection('sessions')
+            .where('userId', '==', userId)
+            .orderBy('startedAt', 'desc')
+            .get();
+
+        return snapshot.docs
+            .map(doc => {
+                const data = convertTimestamps(doc.data());
+                const result = DiagnosticSessionSchema.safeParse(data);
+                if (!result.success) {
+                    this.logger.error(`Session validation failed for ${doc.id}`, result.error);
+                    return null;
+                }
+                return result.data;
+            })
+            .filter((s): s is DiagnosticSession => s !== null);
+    }
+
+    async updateComplaint(sessionId: string, complaint: string): Promise<void> {
+        if (!complaint || typeof complaint !== 'string') {
+            throw new AppError(ErrorCode.INVALID_INPUT, 'Complaint cannot be empty');
+        }
+        await adminDb.collection('sessions').doc(sessionId).update({
+            complaint: complaint,
+            updatedAt: new Date()
+        });
+    }
+
+    async updateCumulativeVideoDuration(sessionId: string, minutes: number): Promise<void> {
+        const session = await this.findById(sessionId);
+        if (!session) {
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, `Session with ID ${sessionId} not found.`);
+        }
+
+        const newCumulativeDuration = (session.cumulativeVideoDurationProcessedMinutes || 0) + minutes;
+
+        await adminDb.collection('sessions').doc(sessionId).update({
+            cumulativeVideoDurationProcessedMinutes: newCumulativeDuration,
+            updatedAt: new Date()
+        });
+    }
+
+    async updateLastProcessedFrameTimestamp(sessionId: string, timestamp: number): Promise<void> {
+        await adminDb.collection('sessions').doc(sessionId).update({
+            lastProcessedFrameTimestamp: timestamp,
+            updatedAt: new Date()
+        });
+    }
+
+    async updateCumulativeAudioDuration(sessionId: string, minutes: number): Promise<void> {
+        const session = await this.findById(sessionId);
+        if (!session) {
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, `Session with ID ${sessionId} not found.`);
+        }
+
+        const newCumulativeDuration = (session.cumulativeAudioDurationProcessedMinutes || 0) + minutes;
+
+        await adminDb.collection('sessions').doc(sessionId).update({
+            cumulativeAudioDurationProcessedMinutes: newCumulativeDuration,
+            updatedAt: new Date()
+        });
+    }
+
+    async updateLastProcessedAudioChunkTimestamp(sessionId: string, timestamp: number): Promise<void> {
+        await adminDb.collection('sessions').doc(sessionId).update({
+            lastProcessedAudioChunkTimestamp: timestamp,
+            updatedAt: new Date()
+        });
     }
 }

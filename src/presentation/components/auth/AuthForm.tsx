@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { List, ListInput, Button, Block } from 'konsta/react';
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
-import { IAuthService } from '@/core/interfaces/IAuthService';
-import { ILogger } from '@/core/interfaces/ILogger';
+import { IAuthService, ILogger } from '@lemonade/core';
 import { useToast } from '@/presentation/context/ToastContext';
 import { User, Mail, Lock } from 'lucide-react';
 
@@ -35,7 +34,7 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
         setLoading(true);
         try {
             const authService = clientContainer.get<IAuthService>(TYPES.AuthService);
-            const logger = clientContainer.get<ILogger>(TYPES.Logger);
+            // const logger = clientContainer.get<ILogger>(TYPES.Logger);
 
             if (mode === 'signup') {
                 await authService.signUpWithEmail(email, password, username);
@@ -46,13 +45,17 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
             }
 
             if (onSuccess) onSuccess();
-        } catch (error: any) {
+        } catch (error: unknown) {
             const logger = clientContainer.get<ILogger>(TYPES.Logger);
             logger.error('Authentication failed', error);
             let msg = 'Authentication failed';
-            if (error.code === 'auth/email-already-in-use') msg = 'Email already in use';
-            if (error.code === 'auth/invalid-credential') msg = 'Invalid email or password';
-            if (error.code === 'auth/weak-password') msg = 'Password should be at least 6 characters';
+
+            // Safe type casting for Firebase error codes
+            const firebaseError = error as { code?: string };
+
+            if (firebaseError.code === 'auth/email-already-in-use') msg = 'Email already in use';
+            if (firebaseError.code === 'auth/invalid-credential') msg = 'Invalid email or password';
+            if (firebaseError.code === 'auth/weak-password') msg = 'Password should be at least 6 characters';
             showToast(msg, 'error');
         } finally {
             setLoading(false);

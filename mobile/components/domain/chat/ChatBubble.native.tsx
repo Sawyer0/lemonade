@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Theme } from '@mobile/constants/theme';
 import { GlassCard } from '@mobile/components/ui/GlassCard.native';
-import { MessagePart } from '@core/types/models';
+import { MessagePart } from '@lemonade/core';
 
 interface ChatBubbleProps {
     role: 'user' | 'assistant' | 'system' | 'tool';
@@ -31,7 +31,7 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
                             </Text>
                         );
                     }
-                    if (p.type === 'tool-call' && p.toolName === 'openCamera') {
+                    if (p.type === 'tool-call' && p.toolName === 'start_video_stream') {
                         return (
                             <TouchableOpacity key={index} onPress={() => router.push(`/live-mechanic?roomName=${sessionId}&sessionId=${sessionId}`)} style={{ marginTop: 8 }}>
                                 <GlassCard variant="thin" style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>

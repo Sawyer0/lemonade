@@ -1,7 +1,6 @@
 'use client';
 
 import { Upload } from 'lucide-react';
-import { clsx } from 'clsx';
 
 interface FileDropZoneProps {
     onFileSelect: (file: File) => void;
@@ -16,7 +15,28 @@ export function FileDropZone({ onFileSelect, fileInputRef, acceptedTypes }: File
 
         const file = e.dataTransfer.files?.[0];
         if (file) {
-            onFileSelect(file);
+            // Robust Validation
+            const fileType = file.type; // e.g. 'image/jpeg'
+            const fileName = file.name.toLowerCase();
+            const allowedList = acceptedTypes.split(',').map(t => t.trim().toLowerCase());
+
+            // Handle "image/*" wildcards, ".pdf" extensions, and exact MIMEs
+            const isValid = allowedList.some(pattern => {
+                if (pattern.endsWith('/*')) {
+                    const baseType = pattern.split('/')[0]; // 'image', 'video'
+                    return fileType.startsWith(baseType + '/');
+                }
+                if (pattern.startsWith('.')) {
+                    return fileName.endsWith(pattern);
+                }
+                return fileType === pattern;
+            });
+
+            if (isValid || acceptedTypes === '*') {
+                onFileSelect(file);
+            } else {
+                alert(`File type not allowed.\nGot: ${fileType || 'unknown'}\nAccepted: ${acceptedTypes}`);
+            }
         }
     };
 

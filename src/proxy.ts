@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
+import { v4 as uuidv4 } from 'uuid'; // Import uuid for generating trace IDs
 
 // Firebase ID Token Verification (Edge Compatible)
-// We use 'jose' because firebase-admin is not supported in Next.js Middleware (Edge Runtime).
-
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-
-// Fetch Google's Public Keys (Cached automatically by jose)
 const JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
 
-// Helper for structured logging in Edge Runtime
 function logError(message: string, error?: unknown) {
   console.error(JSON.stringify({
     timestamp: new Date().toISOString(),
@@ -44,12 +40,15 @@ async function verifyFirebaseToken(token: string) {
 }
 
 export async function proxy(request: NextRequest) {
-  // 1. Protect Sensitive Endpoints
-  // We protect /api/analysis (AI triggers), /api/chat (AI chat), /api/voice (Voice Processing)
-  const protectedPaths = ['/api/analysis', '/api/chat', '/api/vehicles', '/api/upload', '/api/stripe/portal', '/api/sessions', '/api/voice'];
+  // --- Distributed Tracing: Step 1 (Generate/Propagate Trace ID) ---
+  const traceId = request.headers.get('x-trace-id') || uuidv4();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-trace-id', traceId);
+  
+
+  const protectedPaths = ['/api/analysis', '/api/chat', '/api/vehicles', '/api/upload', '/api/stripe/portal', '/api/sessions', '/api/voice', '/session/start'];
 
   if (protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
-
     const authHeader = request.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized: Missing Token' }, { status: 401 });
@@ -64,23 +63,17 @@ export async function proxy(request: NextRequest) {
 
     const userTier = (payload.stripe_role as string) || 'free';
 
-    // 2. Pro Tier Gate (Feature Gating)
-    // Rule: Deep Analysis (/api/analysis/trigger) and Voice (/api/voice) require PRO.
-    // Rule: Basic Chat and Upload is allowed for Free (upload is gated elsewhere or allowed for MVP).
     const proOnlyPaths = ['/api/analysis/trigger', '/api/voice'];
-    
+
     if (proOnlyPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
-       if (userTier !== 'pro') {
-         // Return 403 Forbidden for Free users trying to access Pro features
-         return NextResponse.json(
-           { error: 'Upgrade Required', code: 'PRO_REQUIRED' },
-           { status: 403 }
-         );
-       }
+      if (userTier !== 'pro') {
+        return NextResponse.json(
+          { error: 'Upgrade Required', code: 'PRO_REQUIRED' },
+          { status: 403 }
+        );
+      }
     }
 
-    // Success! Pass through.
-    const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', payload.sub!);
     requestHeaders.set('x-user-tier', userTier);
 
@@ -91,7 +84,11 @@ export async function proxy(request: NextRequest) {
     });
   }
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders 
+    }
+  });
 }
 
 export const config = {

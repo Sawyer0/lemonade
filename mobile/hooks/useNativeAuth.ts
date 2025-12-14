@@ -4,7 +4,7 @@ import {
     statusCodes,
     SignInResponse,
 } from '@react-native-google-signin/google-signin';
-import { CONFIG } from '../core/config';
+import { CONFIG } from '@mobile/constants/config';
 
 export interface UseNativeAuthResult {
     userInfo: SignInResponse | null;

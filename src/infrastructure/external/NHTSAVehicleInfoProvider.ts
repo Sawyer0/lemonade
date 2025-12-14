@@ -1,9 +1,6 @@
 import { injectable, inject } from 'inversify';
-import { IVehicleInfoProvider, VehicleSpecs } from '@/core/interfaces/IVehicleInfoProvider';
+import { IVehicleInfoProvider, VehicleSpecs, ILogger, AppError, ErrorCode } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
-import type { ILogger } from '@/core/interfaces/ILogger';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
 
 @injectable()
 export class NHTSAVehicleInfoProvider implements IVehicleInfoProvider {
@@ -24,14 +21,12 @@ export class NHTSAVehicleInfoProvider implements IVehicleInfoProvider {
             }
 
             const results = (data.Results || []) as NHTSAResult[];
-
-            // Helper to find value by Variable key safely
+            
             const getVal = (key: string) => {
                 const item = results.find((r) => r.Variable === key);
                 return item && item.Value ? item.Value : "Unknown";
             };
 
-            // Extract critical DNA
             const year = parseInt(getVal("Model Year")) || new Date().getFullYear();
             const make = getVal("Make");
             const model = getVal("Model");
@@ -49,7 +44,6 @@ export class NHTSAVehicleInfoProvider implements IVehicleInfoProvider {
             };
         } catch (error) {
             this.logger.error("NHTSA API Error", error instanceof Error ? error : new Error(String(error)), { vin });
-            // Re-throw AppError as-is, wrap others
             if (error instanceof AppError) {
                 throw error;
             }

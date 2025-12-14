@@ -8,10 +8,7 @@ export default async function HistoryPage({ params }: { params: Promise<{ id: st
     const { id } = await params;
     const vehicleService = container.get<VehicleService>(TYPES.VehicleService);
     const history = await vehicleService.getHistory(id);
-    // We might want to fetch vehicle details too for the header, but for now let's stick to history.
-    // Actually, let's fetch vehicle details to show context.
-    // Since VehicleService.onboardVehicle is for onboarding, we might need a getVehicle method.
-    // But for now, let's just show history.
+    const vehicle = await vehicleService.getVehicle(id);
 
     return (
         <div className="min-h-screen bg-black text-white p-6">
@@ -24,11 +21,21 @@ export default async function HistoryPage({ params }: { params: Promise<{ id: st
                     </Link>
                     <div>
                         <h1 className="text-2xl font-black uppercase tracking-tighter">Service History</h1>
-                        <p className="text-zinc-500 font-mono text-sm">Vehicle ID: {id}</p>
+                        {vehicle ? (
+                            <p className="text-zinc-500 font-mono text-sm">
+                                {vehicle.specs.year} {vehicle.specs.make} {vehicle.specs.model} • {vehicle.vin}
+                            </p>
+                        ) : (
+                            <p className="text-zinc-500 font-mono text-sm">Vehicle ID: {id}</p>
+                        )}
                     </div>
                 </div>
 
-                <ServiceHistory sessions={history} />
+                <ServiceHistory
+                    sessions={history}
+                    vehicleId={id}
+                    loading={false}
+                />
             </div>
         </div>
     );

@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  transpilePackages: ['konsta'],
+  transpilePackages: ['konsta', '@lemonade/core'],
 };
 
 export default nextConfig;

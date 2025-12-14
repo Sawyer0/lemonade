@@ -1,13 +1,14 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
-import type { IVehicleRepository } from '@/core/interfaces/IVehicleRepository';
-import type { ISessionRepository } from '@/core/interfaces/ISessionRepository';
-import type { IVehicleInfoProvider } from '@/core/interfaces/IVehicleInfoProvider';
-import { Vehicle } from '@/core/entities/Vehicle';
-import { DiagnosticSession } from '@/core/entities/DiagnosticSession';
+import {
+    IVehicleRepository,
+    ISessionRepository,
+    IVehicleInfoProvider,
+    Vehicle,
+    DiagnosticSession,
+    ILogger
+} from '@lemonade/core';
 import { v4 as uuidv4 } from 'uuid';
-
-import type { ILogger } from '@/core/interfaces/ILogger';
 
 @injectable()
 export class VehicleService {
@@ -19,15 +20,12 @@ export class VehicleService {
     ) { }
 
     async onboardVehicle(vin: string, userId: string): Promise<Vehicle> {
-        // 1. Check if vehicle already exists for this user
         const existing = await this.vehicleRepo.findByUser(userId);
         const duplicate = existing.find(v => v.vin === vin);
         if (duplicate) return duplicate;
 
-        // 2. Fetch DNA from NHTSA 
         const specs = await this.vehicleInfoProvider.getVehicleSpecs(vin);
 
-        // 3. Create Entity
         const newVehicle: Vehicle = {
             id: uuidv4(),
             vin,
@@ -37,13 +35,15 @@ export class VehicleService {
             createdAt: new Date()
         };
 
-        // 4. Save to Repo
         await this.vehicleRepo.create(newVehicle);
 
         return newVehicle;
     }
 
-
+    async getVehicle(id: string): Promise<Vehicle | null> {
+        return this.vehicleRepo.findById(id);
+    }
+    
     async getHistory(vehicleId: string): Promise<DiagnosticSession[]> {
         return this.sessionRepo.findByVehicleId(vehicleId);
     }

@@ -1,8 +1,7 @@
 'use client';
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { clsx } from 'clsx';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
+import { AppError, ErrorCode } from '@lemonade/core';
 
 interface Toast {
     id: string;
@@ -31,24 +30,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             timeoutsRef.current.delete(id);
         }, 3000);
 
-        // Cast to NodeJS.Timeout if necessary for the Map, or change Map type. 
-        // Ideally, Map should hold numbers for browser environment.
-        // But since the ref is defined as Map<string, NodeJS.Timeout>, we should cast or fix ref.
-        // Let's fix the usage to match the Ref definition (standard Next.js env usually has NodeJS types global).
-        // Actually, in client components, it's better to store 'any' or 'number' if using window.setTimeout.
-        // However, user error said "Argument of type 'number' is not assignable to 'Timeout'".
-        // This means the Ref expects NodeJS.Timeout (object) but we got number.
-        // If we use `setTimeout` (global), it returns Timeout (node) or number (dom).
-        // Next.js client component might be picking up @types/node.
-        // Safest fix: `as unknown as NodeJS.Timeout`.
+        // Store timeout ID for cleanup
         timeoutsRef.current.set(id, timeout as unknown as NodeJS.Timeout);
     }, []);
 
     // Cleanup timeouts on unmount
     useEffect(() => {
+        const timeouts = timeoutsRef.current;
         return () => {
-            timeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
-            timeoutsRef.current.clear();
+            timeouts.forEach((timeout) => clearTimeout(timeout));
+            timeouts.clear();
         };
     }, []);
 

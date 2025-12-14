@@ -1,6 +1,6 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
-export default ({ config }: ConfigContext): ExpoConfig => {
+const appConfig = ({ config }: ConfigContext): ExpoConfig => {
     // Check if we are running in web mode via explicit Env Var
     // (process.argv is unreliable in some CLI contexts)
     const isWeb = process.env.EXPO_PUBLIC_PLATFORM === 'web';
@@ -22,3 +22,5 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         plugins,
     };
 };
+
+export default appConfig;

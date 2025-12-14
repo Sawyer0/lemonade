@@ -1,8 +1,7 @@
 import { Dispatch, SetStateAction } from 'react';
 import { ApiClient } from '@/infrastructure/api/ApiClient';
 import { CONFIG } from '@/infrastructure/config';
-import { AppError } from '@/core/errors/AppError';
-import { ErrorCode } from '@/core/errors/codes';
+import { AppError, ErrorCode } from '@lemonade/core';
 
 interface ToolInvocation {
     toolName: string;
@@ -46,7 +45,7 @@ export const useWorkspaceActions = ({
             try {
                 const publicUrl = await uploadFile(file, sessionId);
                 // Trigger analysis via API (Fire and Forget)
-                const response = await ApiClient.post(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
+                await ApiClient.post(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
                     sessionId, publicUrl
                 });
 

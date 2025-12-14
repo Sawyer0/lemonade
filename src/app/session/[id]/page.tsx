@@ -4,7 +4,6 @@ import { useLiveSession } from '@/presentation/hooks/useLiveSession';
 import { SessionWorkspace } from '@/presentation/components/workspace/SessionWorkspace';
 import { useToast, useAuth } from '@/presentation/context';
 import { auth, db } from '@/infrastructure/firebase/config';
-import { ApiClient } from '@/infrastructure/api/ApiClient';
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -26,24 +25,6 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             setToken(null);
         }
     }, [user]);
-    // Message sending is handled by CameraWorkspace component via useChat hook
-    // This function is kept for reference but not used directly
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const handleSendMessage = async (message: string) => {
-        if (!session || !token) return;
-        try {
-            await fetch('/api/chat/message', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ sessionId: session.id, message })
-            });
-        } catch {
-            showToast('Failed to send message', 'error');
-        }
-    };
 
     if (sessionLoading || authLoading || !token) {
         return (

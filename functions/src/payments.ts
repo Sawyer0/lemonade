@@ -2,11 +2,12 @@ import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { stripe, getProPriceId } from './stripe';
 import { CONFIG } from './config';
-import { ErrorCode } from '@core/errors';
+import { ErrorCode } from '@lemonade/core';
+import { CreateCheckoutSessionResponseDTO } from '@application/dtos/billing.dto';
 
 const db = getFirestore();
 
-export const createCheckoutSession = onCall(async (request) => {
+export const createCheckoutSession = onCall(async (request): Promise<CreateCheckoutSessionResponseDTO> => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', ErrorCode.UNAUTHORIZED);
     }
@@ -32,6 +33,10 @@ export const createCheckoutSession = onCall(async (request) => {
             success_url: `${CONFIG.APP_URL}/garage?success=true`,
             cancel_url: `${CONFIG.APP_URL}/garage?canceled=true`,
         });
+
+        if (!session.url) {
+            throw new HttpsError('internal', ErrorCode.STRIPE_ERROR, 'Failed to create Stripe session URL');
+        }
 
         return { url: session.url };
     } catch (error) {
@@ -70,6 +75,7 @@ export const stripeWebhook = onRequest(async (req, res) => {
                     await db.collection('users').doc(userId).set({
                         tier: 'pro',
                         subscriptionId: session.subscription,
+                        stripeCustomerId: session.customer,
                         updatedAt: new Date(),
                     }, { merge: true });
                 }

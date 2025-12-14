@@ -24,24 +24,26 @@
     ],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@core/*": [
-        "./src/core/*"
-      ],
-      "@infrastructure/*": [
-        "./src/infrastructure/*"
-      ],
-      "@application/*": [
-        "./src/application/*"
-      ],
-      "@presentation/*": [
-        "./src/presentation/*"
-      ]
-    }
-  },
+                "paths": {
+                  "@/*": [
+                    "./src/*"
+                  ],
+                  "@lemonade/core": [
+                    "./packages/core/src/index.ts"
+                  ],
+                  "@lemonade/core/*": [
+                    "./packages/core/src/*"
+                  ],
+                  "@infrastructure/*": [
+                    "./src/infrastructure/*"
+                  ],
+                  "@application/*": [
+                    "./src/application/*"
+                  ],
+                  "@presentation/*": [
+                    "./src/presentation/*"
+                  ]
+                }  },
   "include": [
     "next-env.d.ts",
     "**/*.ts",

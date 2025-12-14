@@ -6,4 +6,9 @@ export const CONFIG = {
     GEMINI_THINKING_MODEL: 'gemini-2.5-pro',
     // "Fast Brain" for real-time interaction (Frontend)
     GEMINI_LIVE_MODEL: 'gemini-2.5-flash',
+    TEXT_EMBEDDING_MODEL: 'text-embedding-004',
+    OBSERVABILITY: {
+        LANGSMITH_ENABLED: process.env.LANGSMITH_TRACING === 'true',
+        LANGSMITH_PROJECT: process.env.LANGSMITH_PROJECT || 'lemonade-mvp'
+    }
 };

@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-// --- Chat Request ---
 export const ChatRequestSchema = z.object({
     messages: z.array(z.object({
         role: z.enum(['user', 'assistant', 'system', 'tool']),
@@ -11,8 +10,6 @@ export const ChatRequestSchema = z.object({
 
 export type ChatRequestDTO = z.infer<typeof ChatRequestSchema>;
 
-// --- Chat Response ---
-// Used for non-streaming responses or validation
 export const ChatResponseSchema = z.object({
     role: z.enum(['user', 'assistant', 'system', 'tool']),
     content: z.any(),

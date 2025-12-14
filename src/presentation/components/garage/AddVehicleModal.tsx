@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useVehicleOnboarding } from '@/presentation/hooks/useVehicleOnboarding';
 import { useAuth } from '@/presentation/context/AuthContext';
 import { Sheet, Page, Navbar, Link as NavbarLink, List, ListInput, Button, Block, BlockTitle } from 'konsta/react';
@@ -12,7 +12,7 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
     const { user } = useAuth();
 
     // Listen for Native Scan Result
-    useState(() => {
+    useEffect(() => {
         const handleNativeMessage = (event: MessageEvent) => {
             try {
                 // Handle different event structures (native vs web)
@@ -35,18 +35,18 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
         // Standard web listener
         window.addEventListener('message', handleNativeMessage);
         // React Native specific listener (sometimes attached differently depending on platform version)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         document.addEventListener('message', handleNativeMessage as any);
 
         return () => {
             window.removeEventListener('message', handleNativeMessage);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             document.removeEventListener('message', handleNativeMessage as any);
         };
-    });
+    }, [user?.uid, submitVin]);
 
     const triggerNativeScan = () => {
-        // @ts-ignore
         if (window.ReactNativeWebView) {
-            // @ts-ignore
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SCAN_VIN' }));
         } else {
             alert("Scanner only available on mobile app. Please enter manually.");
@@ -106,7 +106,7 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
                             <div className="flex flex-col h-full pt-10 px-6">
                                 <div className="text-center mb-8">
                                     <h3 className="text-2xl font-bold text-white mb-2">Scan VIN Barcode</h3>
-                                    <p className="text-zinc-400">Locate the barcode on your driver's door jamb or dashboard.</p>
+                                    <p className="text-zinc-400">Locate the barcode on your driver&apos;s door jamb or dashboard.</p>
                                 </div>
 
                                 <button

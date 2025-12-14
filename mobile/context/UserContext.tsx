@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNativeAuth } from '../hooks/useNativeAuth';
 import { db } from '../infrastructure/firebase/config';
-import { User, UserSchema } from '../core/types/models';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { User, UserSchema } from '@lemonade/core';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 interface UserContextType {
     user: User | null;
@@ -13,12 +13,13 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-    const { userInfo, idToken } = useNativeAuth(); // idToken availability indicates signed in
+    const { userInfo } = useNativeAuth(); // idToken availability indicates signed in
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         if (!userInfo?.data?.user?.id) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setUser(null);
             setIsLoading(false);
             return;
@@ -48,7 +49,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                     id: uid,
                     email: userInfo.data.user.email || '',
                     displayName: userInfo.data.user.name || undefined,
-                    photoUrl: userInfo.data.user.photo || undefined,
+                    photoUrl: (userInfo.data.user.photo && /^(https?:\/\/.+\.(?:png|jpg|jpeg|gif|svg|webp))(?:\?.*)?$/i.test(userInfo.data.user.photo)) ? userInfo.data.user.photo : undefined,
+                    tier: 'free',
                     preferences: { autoOpenCamera: false },
                     createdAt: new Date(),
                     updatedAt: new Date(),

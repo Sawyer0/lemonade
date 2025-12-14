@@ -16,7 +16,6 @@ interface ToolInvocation {
 interface Message {
     id: string;
     role: 'user' | 'assistant' | 'system';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     content: unknown;
     toolInvocations?: ToolInvocation[];
 }

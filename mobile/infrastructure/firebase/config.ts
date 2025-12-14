@@ -2,7 +2,13 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, initializeAuth } from "firebase/auth";
 // Manual implementation because firebase/auth/react-native export is missing in this version
 // Ported from @firebase/auth/dist/rn/index.js
-const getReactNativePersistence = (storage: any) => {
+interface ReactNativeStorage {
+    getItem(key: string): Promise<string | null>;
+    setItem(key: string, value: string): Promise<void>;
+    removeItem(key: string): Promise<void>;
+}
+
+const getReactNativePersistence = (storage: ReactNativeStorage) => {
     // Firebase Internal Persistence requires a Class Constructor, not an instance.
     class ReactNativePersistence {
         static type = 'LOCAL';
@@ -17,6 +23,7 @@ const getReactNativePersistence = (storage: any) => {
             } catch { return false; }
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         _set(key: string, value: any) {
             return storage.setItem(key, JSON.stringify(value));
         }
@@ -34,6 +41,7 @@ const getReactNativePersistence = (storage: any) => {
         _removeListener() { }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return ReactNativePersistence as any;
 };
 import { getFirestore } from "firebase/firestore";

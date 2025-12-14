@@ -1,14 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z, ZodSchema } from 'zod';
-import { AppError, ErrorCode } from '@/core/errors';
+import { AppError, ErrorCode, ILogger } from '@lemonade/core';
 import { container } from '@/infrastructure/di/container';
-import { TYPES } from '@/infrastructure/di/types';
-import { ILogger } from '@/core/interfaces/ILogger';
 
-/**
- * Validates a request body against a Zod schema.
- * Returns parsed data or throws an AppError with a 400 status.
- */
 export async function validateRequest<T>(
     request: Request,
     schema: ZodSchema<T>
@@ -28,9 +22,6 @@ export async function validateRequest<T>(
     }
 }
 
-/**
- * Validates query parameters from a URL against a Zod schema.
- */
 export function validateQueryParams<T>(
     request: Request,
     schema: ZodSchema<T>
@@ -59,10 +50,6 @@ export function validateQueryParams<T>(
     }
 }
 
-/**
- * Validates a response object against a Zod schema before sending it to the client.
- * Ensures API contract consistency and catches data type mismatches early.
- */
 export function validateResponse<T>(
     data: unknown,
     schema: ZodSchema<T>
@@ -88,10 +75,6 @@ export function validateResponse<T>(
     }
 }
 
-/**
- * Creates a standardized error response for API routes.
- * Logs the error using the ILogger service.
- */
 export function createErrorResponse(error: unknown): NextResponse {
     const logger = container.get<ILogger>(TYPES.Logger);
     const appError = AppError.fromError(error);

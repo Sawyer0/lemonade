@@ -1,5 +1,5 @@
 import React from 'react';
-import { AIAnalysis } from '@/core/entities/DiagnosticSession';
+import { AIAnalysis } from '@lemonade/core';
 
 interface AnalysisCardProps {
     analysis: AIAnalysis | null;

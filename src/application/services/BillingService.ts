@@ -1,7 +1,5 @@
 import { injectable, inject } from 'inversify';
-import type { IBillingService } from '@/core/interfaces/IBillingService';
-import type { IBillingRepository } from '@/core/interfaces/IBillingRepository';
-import { AIUsageRecord } from '@/core/types/models';
+import { IBillingService, IBillingRepository, AIUsageRecord } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 
 @injectable()

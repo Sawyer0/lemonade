@@ -11,10 +11,18 @@
         "skipLibCheck": true,
         "baseUrl": ".",
         "paths": {
-            "@core/*": ["../src/core/*"],
-            "@infrastructure/*": ["../src/infrastructure/*"],
-            "@application/*": ["../src/application/*"]
-        }
+            "@core/*": [
+                "../src/core/*"
+            ],
+            "@infrastructure/*": [
+                "../src/infrastructure/*"
+            ],
+            "@application/*": [
+                "../src/application/*"
+            ]
+        },
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true
     },
     "compileOnSave": true,
     "include": [

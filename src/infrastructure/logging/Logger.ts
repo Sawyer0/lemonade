@@ -1,54 +1,61 @@
 import { injectable, inject } from 'inversify';
-import { ILogger } from '@/core/interfaces/ILogger';
+import { ILogger } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
+import { RequestContext } from '@/infrastructure/context/request-context';
+
+interface RemoteTransport {
+    send(logEntry: Record<string, unknown>): void;
+}
 
 @injectable()
 export class Logger implements ILogger {
     private isProduction = process.env.NODE_ENV === 'production';
+    private remoteTransport: RemoteTransport | undefined;
 
-    // In a real app, you would inject a transport like Datadog or Sentry here
-    // private transport: RemoteTransport;
-
-    info(message: string, meta?: Record<string, any>): void {
-        const logEntry = {
-            level: 'INFO',
-            timestamp: new Date().toISOString(),
-            message,
-            ...meta
-        };
-        console.log(JSON.stringify(logEntry));
-        
-        // TODO: this.transport.send(logEntry);
+    constructor(@inject(TYPES.RemoteLogTransport) remoteTransport?: RemoteTransport) {
+        this.remoteTransport = remoteTransport;
     }
 
-    error(message: string, error?: Error | unknown, meta?: Record<string, any>): void {
-        const logEntry = {
-            level: 'ERROR',
+    private formatLog(level: string, message: string, context?: Record<string, unknown>): Record<string, unknown> {
+        return {
+            level,
             timestamp: new Date().toISOString(),
+            traceId: RequestContext.getTraceId(),
             message,
+            ...context
+        };
+    }
+
+    info(message: string, context?: Record<string, unknown>): void {
+        const logEntry = this.formatLog('INFO', message, context);
+        console.log(JSON.stringify(logEntry));
+        this.remoteTransport?.send(logEntry);
+    }
+
+    error(message: string, error?: Error | unknown, context?: Record<string, unknown>): void {
+        const logEntry = this.formatLog('ERROR', message, {
             error: error instanceof Error ? {
                 name: error.name,
                 message: error.message,
                 stack: error.stack
             } : error,
-            ...meta
-        };
+            ...context
+        });
         console.error(JSON.stringify(logEntry));
-
-        // CRITICAL: In production, errors MUST go to a remote service
-        if (this.isProduction) {
-            // this.sentry.captureException(error);
-        }
+        this.remoteTransport?.send(logEntry);
     }
 
-    warn(message: string, meta?: Record<string, any>): void {
-        const logEntry = { level: 'WARN', timestamp: new Date().toISOString(), message, ...meta };
+    warn(message: string, context?: Record<string, unknown>): void {
+        const logEntry = this.formatLog('WARN', message, context);
         console.warn(JSON.stringify(logEntry));
+        this.remoteTransport?.send(logEntry);
     }
 
-    debug(message: string, meta?: Record<string, any>): void {
+    debug(message: string, context?: Record<string, unknown>): void {
         if (!this.isProduction) {
-            console.debug(JSON.stringify({ level: 'DEBUG', message, ...meta }));
+            const logEntry = this.formatLog('DEBUG', message, context);
+            console.debug(JSON.stringify(logEntry));
+            this.remoteTransport?.send(logEntry);
         }
     }
 }

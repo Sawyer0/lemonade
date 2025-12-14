@@ -1,13 +1,25 @@
 import { useState } from 'react';
 import { auth } from '@mobile/infrastructure/firebase/config';
 
+// Define the shape of the message content expected from the stream
+interface StreamedMessagePart {
+    type: 'text'; // Assuming text chunks for now
+    content: string;
+}
+
 interface UseMobileChatResult {
     sendMessage: (text: string) => Promise<void>;
     sending: boolean;
     error: string | null;
 }
 
-export function useMobileChat(sessionId: string): UseMobileChatResult {
+// Modify the hook to accept callbacks for stream updates
+export function useMobileChat(
+    sessionId: string,
+    onStreamUpdate: (messagePart: StreamedMessagePart) => void,
+    onStreamComplete: (fullMessage: string) => void,
+    onStreamError: (error: Error) => void
+): UseMobileChatResult {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -20,12 +32,17 @@ export function useMobileChat(sessionId: string): UseMobileChatResult {
             const API_URL = process.env.EXPO_PUBLIC_API_URL;
             if (!API_URL) throw new Error("API_URL is not defined");
 
+            const user = auth.currentUser;
+            if (!user) {
+                throw new Error("User must be authenticated to send messages");
+            }
+            const token = await user.getIdToken();
+
             const response = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Add auth token if your API requires it (it likely does via middleware)
-                    // 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` 
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     sessionId,
@@ -40,12 +57,34 @@ export function useMobileChat(sessionId: string): UseMobileChatResult {
                 throw new Error(errData.message || 'Failed to send message');
             }
 
-            // We ignore the stream response here and rely on useLiveSession (Firestore)
-            // to update the UI with the assistant's response.
-            
-        } catch (err: any) {
+            // --- Consume the stream response ---
+            const reader = response.body?.getReader();
+            if (!reader) {
+                throw new Error("Failed to get readable stream from response.");
+            }
+
+            let accumulatedMessage = '';
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    break;
+                }
+                const chunk = decoder.decode(value, { stream: true });
+                accumulatedMessage += chunk;
+
+                // Call the stream update callback for progressive UI updates
+                onStreamUpdate({ type: 'text', content: chunk });
+            }
+
+            onStreamComplete(accumulatedMessage); // Notify when the full message is received
+
+        } catch (err: unknown) {
             console.error("Chat Send Error:", err);
-            setError(err.message);
+            const caughtError = err instanceof Error ? err : new Error(String(err));
+            setError(caughtError.message);
+            onStreamError(caughtError); // Notify on error
         } finally {
             setSending(false);
         }

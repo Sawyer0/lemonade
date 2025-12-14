@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db, auth } from '@mobile/infrastructure/firebase/config';
 import { convertTimestamps } from '@infrastructure/firestore/timestamps';
-import { DiagnosticSession } from '@core/entities/DiagnosticSession';
+import { DiagnosticSession } from '@lemonade/core';
 
 export function useGarage() {
     const [sessions, setSessions] = useState<DiagnosticSession[]>([]);
@@ -12,6 +12,7 @@ export function useGarage() {
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(false);
             return;
         }
