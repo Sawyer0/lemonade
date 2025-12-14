@@ -1,4 +1,3 @@
-'use server';
 import { FunctionDeclaration, SchemaType } from '@google-cloud/vertexai';
 
 export const START_VIDEO_STREAM_TOOL: FunctionDeclaration = {

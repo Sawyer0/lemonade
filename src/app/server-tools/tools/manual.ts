@@ -1,4 +1,3 @@
-'use server';
 export const CONSULT_MANUAL_TOOL = {
     functionDeclarations: [{
         name: "consult_manual",

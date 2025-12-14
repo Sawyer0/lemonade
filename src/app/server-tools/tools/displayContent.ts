@@ -1,4 +1,3 @@
-'use server';
 import { FunctionDeclaration, SchemaType } from '@google-cloud/vertexai';
 
 export const DISPLAY_CONTENT_TOOL: FunctionDeclaration = {
@@ -24,4 +23,3 @@ export const DISPLAY_CONTENT_TOOL: FunctionDeclaration = {
         required: ['url', 'type', 'title']
     }
 };
-
