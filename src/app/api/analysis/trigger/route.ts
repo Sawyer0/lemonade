@@ -74,11 +74,8 @@ export const POST = withContext(async (req: Request) => {
 
         const videoAnalysisService = container.get<VideoAnalysisService>(TYPES.VideoAnalysisService);
 
-        // Fire and Forget
-        // Note: For background tasks, we capture the traceId from the current context to pass it along if the service supports it.
-        // If processVideoUpload expects a traceId string, we get it from RequestContext.
-        const currentTraceId = RequestContext.getTraceId();
-        videoAnalysisService.processVideoUpload(sessionId, finalPublicUrl, currentTraceId).catch(err => {
+        // Fire and Forget - processVideoUpload signature is (sessionId, videoUrl, videoDurationMinutes?)
+        videoAnalysisService.processVideoUpload(sessionId, finalPublicUrl).catch(err => {
             logger.error(`[Background Job Failed] Session: ${sessionId}`, err, { sessionId });
         });
 
@@ -95,4 +92,3 @@ export const POST = withContext(async (req: Request) => {
         return createErrorResponse(error);
     }
 });
-

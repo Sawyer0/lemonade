@@ -20,7 +20,9 @@ type SessionRouteContext = {
     };
 };
 
-export const GET = withContext(async (req: NextRequest, context: SessionRouteContext) => {
+export const GET = withContext(async (req: NextRequest, context: unknown) => {
+    const { params } = context as SessionRouteContext;
+    
     try {
         const authHeader = req.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
@@ -31,7 +33,7 @@ export const GET = withContext(async (req: NextRequest, context: SessionRouteCon
         const decodedToken = await adminAuth.verifyIdToken(token);
         const userId = decodedToken.uid;
 
-        const { sessionId } = context.params;
+        const { sessionId } = params;
 
         const validatedSessionId = z.string().uuid().parse(sessionId);
 

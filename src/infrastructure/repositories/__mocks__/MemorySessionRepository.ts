@@ -1,4 +1,4 @@
-import { ISessionRepository, DiagnosticSession, AIAnalysis } from '@lemonade/core';
+import { ISessionRepository, DiagnosticSession, AIAnalysis, MessagePart } from '@lemonade/core';
 
 export class MemorySessionRepository implements ISessionRepository {
     private sessions: Map<string, DiagnosticSession> = new Map();
@@ -24,7 +24,7 @@ export class MemorySessionRepository implements ISessionRepository {
         }
     }
 
-    async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: unknown): Promise<void> {
+    async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: string | MessagePart[]): Promise<void> {
         const session = this.sessions.get(sessionId);
         if (session) {
             session.messages.push({ role, content, timestamp: new Date() });

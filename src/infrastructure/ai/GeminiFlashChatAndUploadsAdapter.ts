@@ -334,7 +334,6 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         }
     }
 
-    // ... (generateReply method implementation remains unchanged) ...
     async generateReply(
         history: { role: string; content?: unknown }[],
         message: string,
@@ -343,19 +342,18 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         userId: string,
         sessionId: string,
         reasoningEffort?: ReasoningEffort,
-        additionalParts?: Part[], // Added additionalParts for multimodal chat
+        additionalParts?: Part[],
         traceId?: string
-    ): Promise<string | import('@/core/types/models').MessagePart[]> {
+    ): Promise<string | MessagePart[]> {
         const genConfig = this.getGenerationConfigForChat(reasoningEffort);
 
-        // Generate a cache key for this specific query
-        const cacheKeyData = { history, message, vehicleContext, diagnosticContext, genConfig, userId, sessionId, reasoningEffort, additionalParts }; // Added additionalParts
+        const cacheKeyData = { history, message, vehicleContext, diagnosticContext, genConfig, userId, sessionId, reasoningEffort, additionalParts };
         const cacheKey = `generateReply-${JSON.stringify(cacheKeyData)}`;
         const existingCache = await this.cacheService.getCache(cacheKey);
 
         if (existingCache) {
             this.logger.info('Cache hit for generateReply', { cacheKey, traceId });
-            return existingCache as string | import('@/core/types/models').MessagePart[];
+            return existingCache as string | MessagePart[];
         }
 
         const chat = this.model.startChat({
@@ -364,11 +362,10 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                 if (typeof msg.content === 'string') {
                     parts.push({ text: msg.content });
                 } else if (Array.isArray(msg.content)) {
-                    parts = (msg.content as import('@/core/types/models').MessagePart[]).map(part => {
+                    parts = (msg.content as MessagePart[]).map(part => {
                         if (part.type === 'text' && part.text) return { text: part.text };
-                        if (part.type === 'image' && part.image) return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } }; // Assuming JPEG for now
-                        // TODO: Handle audio parts in history if needed
-                        return { text: '' }; // Fallback
+                        if (part.type === 'image' && part.image) return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
+                        return { text: '' };
                     });
                 } else if (msg.content !== null && msg.content !== undefined) {
                     parts.push({ text: JSON.stringify(msg.content) });
@@ -438,7 +435,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         const finalCandidate = response.candidates?.[0];
         const contentParts = finalCandidate?.content?.parts || [];
 
-        const messageParts: import('@/core/types/models').MessagePart[] = [];
+        const messageParts: MessagePart[] = [];
 
         let text = contentParts.find(p => p.text)?.text;
 
@@ -485,16 +482,14 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         return finalResponse;
     }
 
-    async countTokens(content: string | import('@/core/types/models').MessagePart[] | Part[]): Promise<number> {
+    async countTokens(content: string | MessagePart[] | Part[]): Promise<number> {
         let parts: Part[] = [];
 
         if (typeof content === 'string') {
             parts = [{ text: content }];
         } else if (Array.isArray(content)) {
-            // Determine if it's MessagePart[] or raw Part[]
             if (content.length > 0 && ('type' in content[0] || 'text' in content[0] || 'inlineData' in content[0] || 'fileData' in content[0])) {
-                // Assume MessagePart[]
-                parts = (content as import('@/core/types/models').MessagePart[]).map(part => {
+                parts = (content as MessagePart[]).map(part => {
                     if (part.type === 'text' && part.text) return { text: part.text };
                     if (part.type === 'image' && part.image) {
                         if (part.image.startsWith('http') || part.image.startsWith('gs://')) {
@@ -506,11 +501,9 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                             }
                         }
                     }
-                    // TODO: Handle audio parts for token counting if needed
-                    return { text: '' }; // Fallback
+                    return { text: '' };
                 }).filter(p => ('text' in p && p.text !== '') || ('fileData' in p) || ('inlineData' in p));
             } else {
-                // Assume raw Part[]
                 parts = content as Part[];
             }
         }
@@ -530,7 +523,4 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             return 0;
         }
     }
-
-
-
 }

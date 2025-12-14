@@ -1,12 +1,12 @@
 // src/app/api/session/[sessionId]/image-frame/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/infrastructure/firebase/admin'; // Import for Firebase Auth
+import { adminAuth } from '@/infrastructure/firebase/admin';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { AppError, ErrorCode, ILiveStreamAnalyzer, ILogger } from '@lemonade/core';
-import { verifyApiKey } from '@/app/api/utils/auth'; // Import API key verification utility
-import { createErrorResponse } from '@/application/utils/validateRequest'; // Import createErrorResponse
-import { withContext } from '@/application/utils/apiHandler'; // Import withContext
+import { verifyApiKey } from '@/app/api/utils/auth';
+import { createErrorResponse } from '@/application/utils/validateRequest';
+import { withContext } from '@/application/utils/apiHandler';
 
 type ImageFrameRouteContext = {
     params: {
@@ -14,27 +14,25 @@ type ImageFrameRouteContext = {
     };
 };
 
-export const POST = withContext(async (request: NextRequest, context: ImageFrameRouteContext) => { // Corrected destructuring
+export const POST = withContext(async (request: NextRequest, context: unknown) => {
+    const { params } = context as ImageFrameRouteContext;
     const logger = container.get<ILogger>(TYPES.Logger);
-    const { sessionId } = context.params;
+    const { sessionId } = params;
 
     try {
-        const body = await request.json(); // Read body ONCE
+        const body = await request.json();
 
-        // --- Authentication ---
         const apiKeyValidationResponse = verifyApiKey(request);
         let userId: string;
 
         if (request.headers.has('X-API-KEY')) {
-            // API Key is present, treat request as coming from an authorized agent
-            if (apiKeyValidationResponse) return apiKeyValidationResponse; // Invalid API Key
+            if (apiKeyValidationResponse) return apiKeyValidationResponse;
 
-            userId = body.userId; // Expect userId to be sent by agent
+            userId = body.userId;
             if (!userId) {
                 throw new AppError(ErrorCode.MISSING_REQUIRED_PARAMETERS, 'userId is required in the body for API Key authenticated requests.');
             }
         } else {
-            // No API Key, fall back to Firebase token authentication
             const authHeader = request.headers.get('Authorization');
             if (!authHeader?.startsWith('Bearer ')) {
                 throw new AppError(ErrorCode.UNAUTHORIZED, 'Missing Authorization token for user authentication.');
@@ -43,7 +41,6 @@ export const POST = withContext(async (request: NextRequest, context: ImageFrame
             const decodedToken = await adminAuth.verifyIdToken(token);
             userId = decodedToken.uid;
         }
-        // --- End Authentication ---
 
         const { imageData, mimeType, vehicleContext, inputTimestamp } = body;
 
@@ -62,17 +59,12 @@ export const POST = withContext(async (request: NextRequest, context: ImageFrame
         );
 
         if (!analysis) {
-            // This can happen if the AI chooses not to return an analysis (e.g., rate limiting from AI)
             return NextResponse.json({ message: "No analysis returned for this image frame, possibly due to rate limits or AI decision." }, { status: 204 });
         }
 
         return NextResponse.json(analysis);
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error(`API Error in /api/session/${sessionId}/image-frame:`, error);
-
-        if (error instanceof AppError) {
-            return NextResponse.json({ message: error.message, code: error.code }, { status: error.httpStatus });
-        }
-        return createErrorResponse(error); // Use central error response utility
+        return createErrorResponse(error);
     }
 });

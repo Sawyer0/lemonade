@@ -15,7 +15,8 @@ import type {
     VisionInput,
     NhtsaInput,
     VectorInput,
-    WebInput
+    WebInput,
+    SimilarCase
 } from '@lemonade/core';
 import { mechanicMachine } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
@@ -53,7 +54,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     const idx = input.data;
                     return this.nhtsaService.checkRecalls(idx.year, idx.make, idx.model);
                 }),
-                vectorSearch: fromPromise(async ({ input }: { input: VectorInput }) => {
+                vectorSearch: fromPromise(async ({ input }: { input: VectorInput }): Promise<SimilarCase[]> => {
                     const embedding = await this.embeddingService.embed(input.data.query);
                     return this.vectorRepo.findSimilar(embedding, 3, { userId: input.data.userId });
                 }),

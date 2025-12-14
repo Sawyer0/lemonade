@@ -12,6 +12,7 @@ import { withContext } from '@/application/utils/apiHandler';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { AudioChunkRequestSchema, AudioChunkResponseDTO } from '@/application/dtos/audio.dto';
+import { verifyApiKey } from '@/app/api/utils/auth';
 
 type AudioChunkRouteContext = {
     params: {
@@ -19,11 +20,12 @@ type AudioChunkRouteContext = {
     };
 };
 
-export const POST = withContext(async (req: NextRequest, context: AudioChunkRouteContext) => {
+export const POST = withContext(async (req: NextRequest, context: unknown) => {
+    const { params } = context as AudioChunkRouteContext;
     const logger = container.get<ILogger>(TYPES.Logger);
 
     try {
-        const { sessionId } = context.params;
+        const { sessionId } = params;
         const body = await req.json(); // Read body ONCE
 
         // --- Authentication ---
