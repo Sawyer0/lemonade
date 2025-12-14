@@ -2,9 +2,7 @@ export * from './entities/DiagnosticSession';
 export * from './entities/User';
 export * from './entities/Vehicle';
 
-export * from './errors/AppError';
-export * from './errors/codes';
-
+export * from './errors';
 
 export * from './interfaces/IAIService'; // Exports IChatAssistantAI, IMultimodalUploadAnalyzer, ILiveStreamAnalyzer
 export * from './interfaces/IAuthService';
