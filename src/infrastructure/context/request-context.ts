@@ -1,4 +1,3 @@
-'use server';
 import { AsyncLocalStorage } from 'async_hooks';
 
 /**
