@@ -23,9 +23,9 @@ type AudioChunkRouteContext = {
 export const POST = withContext(async (req: NextRequest, context: unknown) => {
     const { params } = context as AudioChunkRouteContext;
     const logger = container.get<ILogger>(TYPES.Logger);
+    const { sessionId } = params;
 
     try {
-        const { sessionId } = params;
         const body = await req.json(); // Read body ONCE
 
         // --- Authentication ---
@@ -83,7 +83,7 @@ export const POST = withContext(async (req: NextRequest, context: unknown) => {
         return NextResponse.json({ analysis: analysis } satisfies AudioChunkResponseDTO);
 
     } catch (error) {
-        logger.error(`API Error in POST /api/session/${context.params.sessionId}/audio-chunk`, error);
+        logger.error(`API Error in POST /api/session/${sessionId}/audio-chunk`, error);
         return createErrorResponse(error);
     }
 });

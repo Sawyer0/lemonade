@@ -54,9 +54,8 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     const idx = input.data;
                     return this.nhtsaService.checkRecalls(idx.year, idx.make, idx.model);
                 }),
-                vectorSearch: fromPromise(async ({ input }: { input: VectorInput }): Promise<SimilarCase[]> => {
-                    const embedding = await this.embeddingService.embed(input.data.query);
-                    return this.vectorRepo.findSimilar(embedding, 3, { userId: input.data.userId });
+                vectorSearch: fromPromise(async ({ input }: { input: VectorInput }) => {
+                    return this.vectorRepo.search(input.data.query, 3, { userId: input.data.userId });
                 }),
                 webVerification: fromPromise(async ({ input }: { input: WebInput }) => {
                     const data = input.data;
