@@ -1,4 +1,6 @@
-const { createRunOncePlugin, withProjectBuildGradle, withAppBuildGradle, withAndroidManifest, AndroidConfig } = require('@expo/config-plugins');
+const { createRunOncePlugin, withProjectBuildGradle, withAppBuildGradle, withAndroidManifest, withDangerousMod, AndroidConfig } = require('@expo/config-plugins');
+const fs = require('fs');
+const path = require('path');
 
 const pkg = require('../package.json');
 
@@ -22,8 +24,17 @@ const withMetaWearables = (config) => {
     config.modResults = addMetaData(config.modResults);
     config.modResults = addQueries(config.modResults);
     config.modResults = addIntentFilter(config.modResults);
+    config.modResults = addFileProvider(config.modResults);
     return config;
   });
+
+  config = withDangerousMod(config, [
+    'android',
+    async (config) => {
+      await createFilePathResource(config.modRequest.projectRoot);
+      return config;
+    },
+  ]);
 
   return config;
 };
@@ -92,6 +103,8 @@ function addQueries(manifest) {
 
 function addIntentFilter(manifest) {
   const application = manifest.manifest.application[0];
+  if (!application.activity) return manifest;
+  
   const mainActivity = application.activity.find(a => a.$['android:name'] === '.MainActivity');
 
   if (!mainActivity) return manifest;
@@ -117,6 +130,52 @@ function addIntentFilter(manifest) {
   }
 
   return manifest;
+}
+
+function addFileProvider(manifest) {
+  const application = manifest.manifest.application[0];
+  if (!application.provider) {
+    application.provider = [];
+  }
+
+  const packageName = manifest.manifest.$.package || 'com.lemonade.app';
+  const authority = `${packageName}.fileprovider`;
+
+  if (!application.provider.some(p => p.$['android:name'] === 'androidx.core.content.FileProvider')) {
+    application.provider.push({
+      $: {
+        'android:name': 'androidx.core.content.FileProvider',
+        'android:authorities': authority,
+        'android:exported': 'false',
+        'android:grantUriPermissions': 'true',
+      },
+      'meta-data': [
+        {
+          $: {
+            'android:name': 'android.support.FILE_PROVIDER_PATHS',
+            'android:resource': '@xml/file_paths',
+          },
+        },
+      ],
+    });
+  }
+
+  return manifest;
+}
+
+async function createFilePathResource(projectRoot) {
+  const resDir = path.join(projectRoot, 'android/app/src/main/res/xml');
+  if (!fs.existsSync(resDir)) {
+    fs.mkdirSync(resDir, { recursive: true });
+  }
+
+  const filePathsContent = `<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-path name="my_images" path="Android/data/${path.basename(projectRoot)}/files/Pictures" />
+    <cache-path name="cache_images" path="." />
+</paths>`;
+
+  fs.writeFileSync(path.join(resDir, 'file_paths.xml'), filePathsContent);
 }
 
 function addMavenRepository(buildGradle) {

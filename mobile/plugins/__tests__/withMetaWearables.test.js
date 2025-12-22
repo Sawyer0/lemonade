@@ -14,6 +14,9 @@ jest.mock('@expo/config-plugins', () => ({
   withAndroidManifest: jest.fn((config, action) => {
     return { ...config, _androidManifestAction: action };
   }),
+  withDangerousMod: jest.fn((config, [platform, action]) => {
+    return { ...config, _dangerousModAction: action };
+  }),
   createRunOncePlugin: jest.fn((plugin, name, version) => plugin),
 }));
 
@@ -107,5 +110,35 @@ describe('withMetaWearables manifest', () => {
     const mainActivity = application.activity.find(a => a.$['android:name'] === '.MainActivity');
     const intentFilter = mainActivity['intent-filter'].find(f => f.data && f.data.some(d => d.$['android:scheme'] === 'lemonade-meta'));
     expect(intentFilter).toBeDefined();
+  });
+
+  it('should inject FileProvider into manifest', () => {
+    const config = { name: 'test-app', slug: 'test-app' };
+    const resultConfig = withMetaWearables(config);
+    const action = resultConfig._androidManifestAction;
+    
+    const initialModConfig = {
+      modResults: {
+        manifest: {
+          $: { 'xmlns:android': 'http://schemas.android.com/apk/res/android', package: 'com.lemonade.app' },
+          application: [
+            {
+              $: { 'android:name': '.MainApplication' },
+            }
+          ]
+        }
+      }
+    };
+
+    const finalModConfig = action(initialModConfig);
+    const application = finalModConfig.modResults.manifest.application[0];
+    
+    const provider = application.provider.find(p => p.$['android:name'] === 'androidx.core.content.FileProvider');
+    expect(provider).toBeDefined();
+    expect(provider.$['android:authorities']).toBe('com.lemonade.app.fileprovider');
+    expect(provider.$['android:exported']).toBe('false');
+    expect(provider.$['android:grantUriPermissions']).toBe('true');
+    expect(provider['meta-data'][0].$['android:name']).toBe('android.support.FILE_PROVIDER_PATHS');
+    expect(provider['meta-data'][0].$['android:resource']).toBe('@xml/file_paths');
   });
 });
