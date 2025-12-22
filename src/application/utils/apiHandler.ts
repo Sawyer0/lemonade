@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { RequestContext } from '@/infrastructure/context/request-context';
+import { RequestContext } from '@lemonade/infrastructure';
 import { v4 as uuidv4 } from 'uuid';
 
 type RouteHandler = (req: NextRequest, context?: unknown) => Promise<NextResponse> | NextResponse;
@@ -13,3 +13,4 @@ export function withContext(handler: RouteHandler): RouteHandler {
         });
     };
 }
+

@@ -34,8 +34,9 @@ export interface ILiveStreamAnalyzer {
         vehicleContext: string,
         userId: string,
         sessionId: string,
-        inputTimestamp?: number
-    ): Promise<AIAnalysis | null>;
+        inputTimestamp?: number,
+        localTriage?: any
+    ): Promise<AIAnalysis | MessagePart[] | null>;
 
     analyzeLiveAudioChunk(
         audioData: string,
@@ -45,7 +46,7 @@ export interface ILiveStreamAnalyzer {
         sessionId: string,
         audioChunkDurationSeconds: number,
         inputTimestamp?: number
-    ): Promise<AIAnalysis | null>;
+    ): Promise<AIAnalysis | MessagePart[] | null>;
 
     countTokens(content: string | MessagePart[]): Promise<number>;
 }

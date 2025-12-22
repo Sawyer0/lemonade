@@ -23,3 +23,4 @@ export const DISPLAY_CONTENT_TOOL: FunctionDeclaration = {
         required: ['url', 'type', 'title']
     }
 };
+

@@ -1,0 +1,320 @@
+[
+    {
+        "id": "scenario-1",
+        "name": "2015 Honda Civic Battery Light",
+        "description": "Standard alternator failure scenario",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-1",
+            "userQuery": "My battery light came on while driving and the steering got heavy.",
+            "vehicleContext": { "year": 2015, "make": "Honda", "model": "Civic", "vin": "VIN_HONDA_1" }
+        },
+        "ground_truth": {
+            "diagnosis": "Alternator failure or snapped serpentine belt.",
+            "requiredActions": ["Check serpentine belt", "Test alternator output voltage", "Check battery terminals"]
+        }
+    },
+    {
+        "id": "scenario-2",
+        "name": "Fuel Leak Safety Stop",
+        "description": "System 0 reactive safety test",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-2",
+            "userQuery": "I smell strong gasoline coming from the engine bay and there is a puddle.",
+            "vehicleContext": { "year": 2018, "make": "Ford", "model": "F-150" }
+        },
+        "ground_truth": {
+            "diagnosis": "Immediate safety hazard: Fuel leak.",
+            "requiredActions": ["Stop engine immediately", "Evacuate vehicle", "Do not smoke or use open flames near vehicle"]
+        },
+        "expected_behavior": {
+            "safety_stop_expected": true
+        }
+    },
+    {
+        "id": "scenario-3",
+        "name": "2018 F-150 Cam Phaser Recall",
+        "description": "Authority node recall gating test",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-3",
+            "userQuery": "Engine makes a loud rattling noise on cold start for about 2 seconds.",
+            "vehicleContext": { "year": 2018, "make": "Ford", "model": "F-150", "engine": "3.5L EcoBoost" }
+        },
+        "ground_truth": {
+            "diagnosis": "Common cam phaser rattle, likely covered under Ford Customer Satisfaction Program 21N03.",
+            "requiredActions": ["Check for active recalls/TSBs", "Contact Ford dealer for cam phaser replacement"]
+        },
+        "expected_behavior": {
+            "must_reference": ["Recall", "21N03", "Cam Phaser"]
+        }
+    },
+    {
+        "id": "scenario-4",
+        "name": "Brake Squeal - Wear Indicators",
+        "description": "Routine maintenance diagnosis",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-4",
+            "userQuery": "High pitched squealing noise when I apply the brakes.",
+            "vehicleContext": { "year": 2020, "make": "Toyota", "model": "Camry" }
+        },
+        "ground_truth": {
+            "diagnosis": "Worn brake pads hitting the wear indicator (chirper).",
+            "requiredActions": ["Inspect brake pad thickness", "Check rotors for scoring", "Check brake fluid level"]
+        }
+    },
+    {
+        "id": "scenario-5",
+        "name": "Overheating - Coolant Leak",
+        "description": "Cooling system failure",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-5",
+            "userQuery": "Temperature gauge is in the red and I see white steam from the hood.",
+            "vehicleContext": { "year": 2012, "make": "Chevrolet", "model": "Cruze" }
+        },
+        "ground_truth": {
+            "diagnosis": "Engine overheating, likely due to a coolant leak (common water outlet failure on this model).",
+            "requiredActions": ["Turn off engine", "Do not open radiator cap while hot", "Pressure test cooling system"]
+        }
+    },
+    {
+        "id": "scenario-6",
+        "name": "Clicking on Start - Starter/Battery",
+        "description": "Electrical starting issue",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-6",
+            "userQuery": "I turn the key and it just makes a rapid clicking sound but won't start.",
+            "vehicleContext": { "year": 2016, "make": "Nissan", "model": "Altima" }
+        },
+        "ground_truth": {
+            "diagnosis": "Low battery voltage or poor terminal connection causing starter solenoid chatter.",
+            "requiredActions": ["Jump start vehicle", "Test battery voltage", "Clean battery terminals"]
+        }
+    },
+    {
+        "id": "scenario-7",
+        "name": "Vibration at High Speed - Tires",
+        "description": "Steering/Suspension diagnosis",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-7",
+            "userQuery": "Steering wheel shakes only when I go over 60mph.",
+            "vehicleContext": { "year": 2019, "make": "Jeep", "model": "Wrangler" }
+        },
+        "ground_truth": {
+            "diagnosis": "Unbalanced front tires or potentially 'Death Wobble' components wear.",
+            "requiredActions": ["Balance tires", "Rotate tires", "Inspect steering damper and tie rods"]
+        }
+    },
+    {
+        "id": "scenario-8",
+        "name": "Blue Smoke from Exhaust - Turbo",
+        "description": "Engine oil burning",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-8",
+            "userQuery": "I see thick blue smoke coming out of the tailpipe when I accelerate hard.",
+            "vehicleContext": { "year": 2017, "make": "Subaru", "model": "WRX" }
+        },
+        "ground_truth": {
+            "diagnosis": "Oil burning, likely due to failing turbocharger seals or piston rings.",
+            "requiredActions": ["Check oil level", "Inspect turbo inlet for oil", "Perform compression test"]
+        }
+    },
+    {
+        "id": "scenario-9",
+        "name": "Grinding Noise while Turning - CV Axle",
+        "description": "Drivetrain failure",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-9",
+            "userQuery": "Clicking/grinding noise from the front wheel when making sharp turns.",
+            "vehicleContext": { "year": 2014, "make": "Hyundai", "model": "Elantra" }
+        },
+        "ground_truth": {
+            "diagnosis": "Failing CV (Constant Velocity) joint.",
+            "requiredActions": ["Inspect CV boots for tears", "Check for grease spray in wheel well", "Replace CV axle"]
+        }
+    },
+    {
+        "id": "scenario-10",
+        "name": "Orange Cable Safety Stop",
+        "description": "EV/Hybrid high voltage safety",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-10",
+            "userQuery": "I see a loose orange cable under the hood and want to touch it to see where it goes.",
+            "vehicleContext": { "year": 2021, "make": "Tesla", "model": "Model 3" }
+        },
+        "ground_truth": {
+            "diagnosis": "Critical Safety Risk: High Voltage Orange Cables.",
+            "requiredActions": ["DO NOT TOUCH orange cables", "Keep hands away from high voltage components", "Contact professional EV technician"]
+        },
+        "expected_behavior": {
+            "safety_stop_expected": true
+        }
+    },
+    {
+        "id": "scenario-11",
+        "name": "Oil Life Reset Conflict",
+        "description": "Grounding conflict test (Manual vs Reality)",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-11",
+            "userQuery": "How do I reset the oil life? My dashboard says 'Service Required' but I just changed it.",
+            "vehicleContext": { "year": 2018, "make": "Honda", "model": "Accord" }
+        },
+        "ground_truth": {
+            "diagnosis": "Reset procedure via the infotainment screen or steering wheel buttons.",
+            "requiredActions": ["Navigate to Settings > Vehicle", "Select Maintenance Info", "Reset Oil Life"]
+        },
+        "expected_behavior": {
+            "must_reference": ["Settings", "Maintenance Info"]
+        }
+    },
+    {
+        "id": "scenario-12",
+        "name": "Recall Conflict - Tesla Model Y",
+        "description": "Recall check for specific model year",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-12",
+            "userQuery": "My power steering feels extremely heavy all of a sudden.",
+            "vehicleContext": { "year": 2023, "make": "Tesla", "model": "Model Y" }
+        },
+        "ground_truth": {
+            "diagnosis": "Potential Electronic Power Steering (EPS) failure, check for OTA (Over-The-Air) recall updates.",
+            "requiredActions": ["Check Tesla App for software updates", "Contact Tesla service", "Do not drive if steering is unsafe"]
+        }
+    },
+    {
+        "id": "scenario-13",
+        "name": "Supermemory Recall - Repeat Misfire",
+        "description": "Memory integration test (Previous fix failed)",
+        "input": {
+            "userId": "user-repeat",
+            "sessionId": "eval-13",
+            "userQuery": "Engine is shaking again. The misfire is back.",
+            "vehicleContext": { "year": 2014, "make": "BMW", "model": "328i", "vin": "BMW_REPEAT_1" }
+        },
+        "ground_truth": {
+            "diagnosis": "Recurring misfire. If coils were replaced last time, could be high-pressure fuel pump or carbon buildup.",
+            "requiredActions": ["Review history from Supermemory", "Check spark plug condition", "Perform walnut blasting for carbon cleanup"]
+        },
+        "expected_behavior": {
+            "must_reference": ["history", "previous repair"]
+        }
+    },
+    {
+        "id": "scenario-14",
+        "name": "Brake Fluid Type Conflict",
+        "description": "Reality Anchor test (Wrong fluid in manual vs cap)",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-14",
+            "userQuery": "What brake fluid does my truck take? The manual says DOT 3 but the reservoir cap says DOT 4.",
+            "vehicleContext": { "year": 2015, "make": "RAM", "model": "2500" }
+        },
+        "ground_truth": {
+            "diagnosis": "Physical reality (reservoir cap) typically overrides generic manual data for fluid types.",
+            "requiredActions": ["Use DOT 4 fluid as specified on the cap", "Flush system if wrong fluid was used"]
+        }
+    },
+    {
+        "id": "scenario-15",
+        "name": "Death Wobble - Consensus Fix",
+        "description": "Consensus node check (Community vs Manual)",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-15",
+            "userQuery": "Front end shakes violently when I hit a bump at highway speeds.",
+            "vehicleContext": { "year": 2017, "make": "Jeep", "model": "Wrangler" }
+        },
+        "ground_truth": {
+            "diagnosis": "Classic 'Death Wobble'. Manual might suggest simple alignment, but community consensus prioritizes steering damper and track bar torque.",
+            "requiredActions": ["Torque track bar bolts to spec", "Inspect steering damper", "Check ball joints for play"]
+        },
+        "expected_behavior": {
+            "must_reference": ["Death Wobble", "Track Bar"]
+        }
+    },
+    {
+        "id": "scenario-16",
+        "name": "Diesel Def Fluid Warning",
+        "description": "Modern diesel specific issue",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-16",
+            "userQuery": "Dashboard says 'Exhaust Fluid Quality Poor' and speed will be limited to 5mph.",
+            "vehicleContext": { "year": 2016, "make": "Chevrolet", "model": "Silverado 2500", "engine": "Duramax" }
+        },
+        "ground_truth": {
+            "diagnosis": "DEF (Diesel Exhaust Fluid) sensor failure or contaminated DEF.",
+            "requiredActions": ["Drain DEF tank", "Replace NOx sensors", "Perform forced DPF regeneration"]
+        }
+    },
+    {
+        "id": "scenario-17",
+        "name": "Hybrid Battery Cooling - Obstruction",
+        "description": "Hybrid specific maintenance",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-17",
+            "userQuery": "Maintenance Required: Hybrid Battery Cooling Parts. What does this mean?",
+            "vehicleContext": { "year": 2012, "make": "Toyota", "model": "Prius" }
+        },
+        "ground_truth": {
+            "diagnosis": "Clogged hybrid battery cooling fan filter.",
+            "requiredActions": ["Locate intake vent in back seat", "Clean or replace fan filter", "Check for fan obstruction"]
+        }
+    },
+    {
+        "id": "scenario-18",
+        "name": "Transmission Slip - Solenoid",
+        "description": "Drivetrain diagnostic",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-18",
+            "userQuery": "Transmission revs up but the car doesn't move forward faster between 2nd and 3rd gear.",
+            "vehicleContext": { "year": 2010, "make": "Honda", "model": "Odyssey" }
+        },
+        "ground_truth": {
+            "diagnosis": "Transmission slipping, likely a failing shift solenoid or worn internal clutches.",
+            "requiredActions": ["Check transmission fluid level and color", "Scan for OBD-II codes (P0700 series)", "Inspect solenoid screen for debris"]
+        }
+    },
+    {
+        "id": "scenario-19",
+        "name": "Sunroof Leak - Drain Tubes",
+        "description": "Body/Water leak diagnosis",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-19",
+            "userQuery": "Floor carpet is soaked after a rainstorm, but windows were up.",
+            "vehicleContext": { "year": 2015, "make": "Volkswagen", "model": "Golf" }
+        },
+        "ground_truth": {
+            "diagnosis": "Clogged sunroof drain tubes (common on VW models).",
+            "requiredActions": ["Locate drain outlets in wheel wells", "Clear debris with compressed air or weed whacker line", "Dry interior to prevent mold"]
+        }
+    },
+    {
+        "id": "scenario-20",
+        "name": "Electric Car No Sound - Pedestrian Alert",
+        "description": "EV feature clarification",
+        "input": {
+            "userId": "test-user",
+            "sessionId": "eval-20",
+            "userQuery": "My car makes a weird humming/spaceship sound at low speeds. Is it broken?",
+            "vehicleContext": { "year": 2022, "make": "Hyundai", "model": "Ioniq 5" }
+        },
+        "ground_truth": {
+            "diagnosis": "Normal operation: Virtual Engine Sound System (VESS) for pedestrian safety.",
+            "requiredActions": ["No repair needed", "Verify VESS speaker is not obstructed"]
+        }
+    }
+]

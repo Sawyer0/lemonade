@@ -164,3 +164,4 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
         </Page>
     );
 }
+

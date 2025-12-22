@@ -1,38 +1,41 @@
-import { setup, fromPromise, assign } from 'xstate';
-import { NeurosymbolicState, NeurosymbolicStateSchema } from '../types/neurosymbolic';
-import { AppError } from '../errors/AppError';
-import { ErrorCode } from '../errors/codes';
+import { setup, fromPromise, assign, DoneActorEvent, ErrorActorEvent } from 'xstate';
+import { NeurosymbolicState } from '../types/neurosymbolic';
 import type { IMultimodalUploadAnalyzer, IChatAssistantAI } from '../interfaces/IAIService';
 import type { INHTSAService } from '../interfaces/INHTSAService';
 import type { IVectorRepository } from '../interfaces/IVectorRepository';
 import type { IGoogleSearchService } from '../interfaces/IGoogleSearchService';
-import type { AIAnalysis } from '../types/models';
+import type { IMemoryService, MemorySearchResult } from '../interfaces/IMemoryService';
+import type { AIAnalysis, SafetyRecall, VectorDocument } from '../types/models';
 import type { VerificationRequest, VerificationResponse, SearchRequest, SearchResponse } from '../types/verification';
+import type { LocalTriageResult } from '../types/localPerception';
 
 export interface VisionInput { service: IMultimodalUploadAnalyzer; data: MechanicContext & { searchContext: SearchResponse | undefined; verificationContext: VerificationResponse | undefined } }
 export interface NhtsaInput { service: INHTSAService; data: { year: number; make: string; model: string } }
 export interface VectorInput { service: IVectorRepository; data: { query: string; userId: string } }
 export interface SearchInput { service: IGoogleSearchService; data: SearchRequest }
 export interface VerificationInput { service: IChatAssistantAI; data: VerificationRequest }
-export interface WebInput { service: IChatAssistantAI; data: VerificationRequest } 
+export interface MemoryInput { service: IMemoryService; data: { query: string; vin?: string } }
 
 export interface MechanicInput {
     sessionId: string;
     userId: string;
     vehicleContext: Record<string, unknown>;
     userQuery: string;
-    videoUrl?: string; 
-    services: MechanicServices; 
+    videoUrl?: string;
+    services: MechanicServices;
+    localTriage?: LocalTriageResult;
 }
 
 export interface MechanicContext extends MechanicInput {
-    nhtsaResults: unknown[];
-    embeddingInfo: Record<string, unknown>[];
+    nhtsaResults: SafetyRecall[];
+    embeddingInfo: VectorDocument[];
+    vehicleHistory: MemorySearchResult[];
     visualAnalysis?: AIAnalysis;
     searchResults?: SearchResponse;
     verificationResult?: VerificationResponse;
     result?: NeurosymbolicState;
     error?: string;
+    localTriage?: LocalTriageResult;
 }
 
 export interface MechanicServices {
@@ -41,24 +44,18 @@ export interface MechanicServices {
     vector: IVectorRepository;
     chat: IChatAssistantAI;
     search: IGoogleSearchService;
+    memory: IMemoryService;
 }
 
 export type MechanicEvent =
-    | { type: 'DIAGNOSE'; userId: string; sessionId: string; vehicleContext: Record<string, unknown>; userQuery: string; videoUrl?: string }
-    | { type: 'REPORT_ERROR'; error: string }
+    | { type: 'DIAGNOSE'; userId: string; sessionId: string; vehicleContext: Record<string, unknown>; userQuery: string; videoUrl?: string; localTriage?: LocalTriageResult }
     | { type: 'UPDATE_SERVICES'; services: MechanicServices };
 
 export const mechanicMachine = setup({
     types: {
         context: {} as MechanicContext,
         events: {} as MechanicEvent,
-        input: {} as MechanicInput, 
-    },
-    actions: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setError: assign({ error: ({ event }: { event: any }) => event.error.message }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setResult: assign({ result: ({ event }: { event: any }) => event.output }),
+        input: {} as MechanicInput,
     },
     actors: {
         visionAnalysis: fromPromise(async ({ input }: { input: VisionInput }) => input.service.analyzeUploadedVideo(input.data.videoUrl!, JSON.stringify(input.data.vehicleContext), 'video/mp4', input.data.userId, input.data.sessionId)),
@@ -66,18 +63,15 @@ export const mechanicMachine = setup({
         vectorSearch: fromPromise(async ({ input }: { input: VectorInput }) => {
             return input.service.search(input.data.query, 3, { userId: input.data.userId });
         }),
-        // Actor 4: Web Search (Google)
         googleSearch: fromPromise(async ({ input }: { input: SearchInput }) => {
             return input.service.search(input.data);
         }),
-        // Actor 5: Hypothesis Verification (LLM)
         webVerification: fromPromise(async ({ input }: { input: VerificationInput }) => {
             return input.service.verifyHypothesis(input.data);
+        }),
+        supermemorySearch: fromPromise(async ({ input }: { input: MemoryInput }) => {
+            return input.service.search(`Vehicle VIN: ${input.data.vin || 'Unknown'}. Component/Issue: ${input.data.query}`);
         })
-    },
-    guards: {
-        hasVideo: ({ context }) => !!context.videoUrl,
-        hasRecalls: ({ context }) => context.nhtsaResults.length > 0,
     }
 }).createMachine({
     id: 'mechanic',
@@ -92,24 +86,55 @@ export const mechanicMachine = setup({
         services: input.services,
         nhtsaResults: [],
         embeddingInfo: [],
+        vehicleHistory: [],
     }),
     states: {
         idle: {
             on: {
                 DIAGNOSE: {
-                    target: 'analyzing',
-                    actions: assign({
-                        sessionId: ({ event }) => event.sessionId,
-                        userId: ({ event }) => event.userId,
-                        vehicleContext: ({ event }) => event.vehicleContext,
-                        userQuery: ({ event }) => event.userQuery,
-                        videoUrl: ({ event }) => event.videoUrl
+                    target: 'recalling',
+                    actions: assign(({ event }: { event: MechanicEvent }) => {
+                        if (event.type === 'DIAGNOSE') {
+                            return {
+                                sessionId: event.sessionId,
+                                userId: event.userId,
+                                vehicleContext: event.vehicleContext,
+                                userQuery: event.userQuery,
+                                videoUrl: event.videoUrl,
+                                localTriage: event.localTriage
+                            };
+                        }
+                        return {};
                     })
                 },
                 UPDATE_SERVICES: {
-                    actions: assign({
-                        services: ({ event }) => event.services
+                    actions: assign(({ event }: { event: MechanicEvent }) => {
+                        if (event.type === 'UPDATE_SERVICES') {
+                            return { services: event.services };
+                        }
+                        return {};
                     })
+                }
+            }
+        },
+        recalling: {
+            description: "Step 0: Recall vehicle history from Supermemory",
+            invoke: {
+                src: 'supermemorySearch',
+                input: ({ context }: { context: MechanicContext }) => ({
+                    service: context.services.memory,
+                    data: {
+                        query: context.userQuery,
+                        vin: String(context.vehicleContext.vin || '')
+                    }
+                }),
+                onDone: {
+                    target: 'analyzing',
+                    actions: assign({ vehicleHistory: ({ event }: { event: DoneActorEvent<MemorySearchResult[]> }) => event.output })
+                },
+                onError: {
+                    target: 'analyzing',
+                    actions: assign({ error: ({ event }: { event: ErrorActorEvent }) => (event.error instanceof Error ? event.error.message : String(event.error)) })
                 }
             }
         },
@@ -126,16 +151,25 @@ export const mechanicMachine = setup({
                                 input: ({ context }: { context: MechanicContext }) => ({
                                     service: context.services.nhtsa,
                                     data: {
-                                        year: Number((context.vehicleContext as any).year || 0),
-                                        make: String((context.vehicleContext as any).make || ''),
-                                        model: String((context.vehicleContext as any).model || '')
+                                        year: Number(context.vehicleContext.year || 0),
+                                        make: String(context.vehicleContext.make || ''),
+                                        model: String(context.vehicleContext.model || '')
                                     }
                                 }),
                                 onDone: {
                                     target: 'done',
-                                    actions: assign({ nhtsaResults: ({ event }) => event.output })
+                                    actions: assign({ nhtsaResults: ({ event }: { event: DoneActorEvent<SafetyRecall[]> }) => {
+                                        console.log('DEBUG: nhtsaCheck done');
+                                        return event.output;
+                                    }})
                                 },
-                                onError: { target: 'done' }
+                                onError: {
+                                    target: 'done',
+                                    actions: assign({ error: ({ event }: { event: ErrorActorEvent }) => {
+                                        console.log('DEBUG: nhtsaCheck error', event.error);
+                                        return (event.error instanceof Error ? event.error.message : String(event.error));
+                                    }})
+                                }
                             }
                         },
                         done: { type: 'final' }
@@ -150,15 +184,24 @@ export const mechanicMachine = setup({
                                 input: ({ context }: { context: MechanicContext }) => ({ service: context.services.vector, data: { query: context.userQuery, userId: context.userId } }),
                                 onDone: {
                                     target: 'done',
-                                    actions: assign({ embeddingInfo: ({ event }) => event.output })
+                                    actions: assign({ embeddingInfo: ({ event }: { event: DoneActorEvent<VectorDocument[]> }) => {
+                                        console.log('DEBUG: vectorSearch done');
+                                        return event.output;
+                                    }})
                                 },
-                                onError: { target: 'done' }
+                                onError: {
+                                    target: 'done',
+                                    actions: assign({ error: ({ event }: { event: ErrorActorEvent }) => {
+                                        console.log('DEBUG: vectorSearch error', event.error);
+                                        return (event.error instanceof Error ? event.error.message : String(event.error));
+                                    }})
+                                }
                             }
                         },
                         done: { type: 'final' }
                     }
                 },
-                search: { // Node 3a: External Search
+                search: {
                     initial: 'querying',
                     states: {
                         querying: {
@@ -175,15 +218,24 @@ export const mechanicMachine = setup({
                                 }),
                                 onDone: {
                                     target: 'done',
-                                    actions: assign({ searchResults: ({ event }) => event.output })
+                                    actions: assign({ searchResults: ({ event }: { event: DoneActorEvent<SearchResponse> }) => {
+                                        console.log('DEBUG: googleSearch done');
+                                        return event.output;
+                                    }})
                                 },
-                                onError: { target: 'done' }
+                                onError: {
+                                    target: 'done',
+                                    actions: assign({ error: ({ event }: { event: ErrorActorEvent }) => {
+                                        console.log('DEBUG: googleSearch error', event.error);
+                                        return (event.error instanceof Error ? event.error.message : String(event.error));
+                                    }})
+                                }
                             }
                         },
                         done: { type: 'final' }
                     }
                 },
-                verification: { // Node 3b: Hypothesis Verification
+                verification: {
                     initial: 'verifying',
                     states: {
                         verifying: {
@@ -199,18 +251,33 @@ export const mechanicMachine = setup({
                                 }),
                                 onDone: {
                                     target: 'done',
-                                    actions: assign({ verificationResult: ({ event }) => event.output })
+                                    actions: assign({ verificationResult: ({ event }: { event: DoneActorEvent<VerificationResponse> }) => {
+                                        console.log('DEBUG: webVerification done');
+                                        return event.output;
+                                    }})
                                 },
-                                onError: { target: 'done' }
+                                onError: {
+                                    target: 'done',
+                                    actions: assign({ error: ({ event }: { event: ErrorActorEvent }) => {
+                                        console.log('DEBUG: webVerification error', event.error);
+                                        return (event.error instanceof Error ? event.error.message : String(event.error));
+                                    }})
+                                }
                             }
                         },
                         done: { type: 'final' }
+                    }
+                },
+                local_grounding: {
+                    initial: 'idle',
+                    states: {
+                        idle: { type: 'final' }
                     }
                 }
             },
             onDone: 'vision_verifying'
         },
-        vision_verifying: { // Node 4: Vision Analysis (Contextualized by Search)
+        vision_verifying: {
             description: "Stage 2: Node 4 (Vision Analysis)",
             invoke: {
                 src: 'visionAnalysis',
@@ -224,14 +291,17 @@ export const mechanicMachine = setup({
                 }),
                 onDone: {
                     target: 'synthesizing',
-                    actions: assign({ visualAnalysis: ({ event }) => event.output })
+                    actions: assign({ visualAnalysis: ({ event }: { event: DoneActorEvent<AIAnalysis> }) => event.output })
                 },
-                onError: { target: 'synthesizing' }
+                onError: {
+                    target: 'synthesizing',
+                    actions: assign({ error: ({ event }: { event: ErrorActorEvent }) => (event.error instanceof Error ? event.error.message : String(event.error)) })
+                }
             }
         },
         synthesizing: {
             description: "Construct final NeurosymbolicState",
-            entry: 'setResult', // Actual logic resides in service, but machine tracks state
+            actions: assign({ result: ({ event }: { event: DoneActorEvent<NeurosymbolicState> }) => event.output }),
             type: 'final'
         }
     }

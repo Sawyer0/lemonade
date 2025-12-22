@@ -19,3 +19,4 @@ describe('start_video_stream Tool', () => {
         expect(START_VIDEO_STREAM_TOOL.parameters.required).toContain('focusArea');
     });
 });
+

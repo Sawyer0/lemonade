@@ -11,7 +11,8 @@ export const SearchResultItemSchema = z.object({
     title: z.string(),
     link: z.string().url(),
     snippet: z.string(),
-    source: z.string().optional()
+    source: z.string().optional(),
+    date: z.string().optional()
 });
 
 export const SearchResponseSchema = z.object({

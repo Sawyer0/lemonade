@@ -4,14 +4,14 @@ export interface SimilarCase {
     id: string;
     text: string;
     score: number; 
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
 }
 
 /**
  * Node 2 Storage: Manages the "Collective Memory" vector database.
  */
 export interface IVectorRepository {
-    addCase(text: string, vector: number[], metadata?: Record<string, any>): Promise<void>;
+    addCase(text: string, vector: number[], metadata?: Record<string, unknown>): Promise<void>;
     findSimilar(vector: number[], limit?: number, filter?: { userId?: string }): Promise<SimilarCase[]>;
     search(query: string, limit?: number, filter?: Record<string, unknown>): Promise<VectorDocument[]>;
 }

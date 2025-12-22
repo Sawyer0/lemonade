@@ -14,3 +14,4 @@ export const CONSULT_MANUAL_TOOL = {
         }
     }]
 };
+

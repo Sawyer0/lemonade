@@ -57,3 +57,4 @@ export function sanitizeMessages(messages: any[], logger: ILogger): any[] {
 
     return filteredMessages;
 }
+

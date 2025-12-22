@@ -157,3 +157,4 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
         </div>
     );
 }
+

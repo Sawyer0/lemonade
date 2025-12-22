@@ -33,8 +33,13 @@ export const TYPES = {
     ContextCacheService: Symbol.for("ContextCacheService"),
     NHTSAService: Symbol.for("NHTSAService"),
     GoogleSearchService: Symbol.for("GoogleSearchService"),
+    SupermemoryService: Symbol.for("SupermemoryService"),
+    ReactiveSafetyService: Symbol.for("ReactiveSafetyService"),
     EmbeddingService: Symbol.for("EmbeddingService"),
     MechanicReasoningService: Symbol.for("MechanicReasoningService"),
     ComplaintIdentificationService: Symbol.for("ComplaintIdentificationService"),
     GeminiCoreAdapter: Symbol.for("GeminiCoreAdapter"),
+    ConfigProvider: Symbol.for("ConfigProvider"),
+    TracingService: Symbol.for("TracingService"),
 };
+

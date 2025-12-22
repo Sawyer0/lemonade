@@ -27,7 +27,7 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
                         setMode('manual');
                     }
                 }
-            } catch (e) {
+            } catch {
                 // Ignore parsing errors
             }
         };
@@ -174,3 +174,4 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
         </Sheet>
     );
 }
+

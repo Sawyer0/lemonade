@@ -60,3 +60,4 @@ export class AuthService implements IAuthService {
         return this.currentUser?.getIdToken();
     }
 }
+

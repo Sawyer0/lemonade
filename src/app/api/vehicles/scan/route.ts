@@ -37,3 +37,4 @@ export const POST = withContext(async (req: Request) => {
     return createErrorResponse(error);
   }
 });
+

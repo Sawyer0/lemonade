@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Vehicle, AppError, ErrorCode } from '@lemonade/core';
 import { auth } from '@/infrastructure/firebase/config';
+import { logger } from '@/infrastructure/logging/ClientLogger';
 
 export function useVehicleOnboarding() {
     const [status, setStatus] = useState<'idle' | 'scanning' | 'processing' | 'success' | 'error'>('idle');
@@ -36,11 +37,12 @@ export function useVehicleOnboarding() {
             return data.data;
 
         } catch (err) {
-            console.error('Failed to decode VIN', err);
+            logger.error('Failed to decode VIN', err as Error);
             setStatus('error');
         }
     };
 
     return { status, submitVin, newVehicle, setStatus };
 }
+
 

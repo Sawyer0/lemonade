@@ -13,3 +13,4 @@ export const SignResponseSchema = z.object({
 });
 
 export type SignResponseDTO = z.infer<typeof SignResponseSchema>;
+

@@ -152,7 +152,7 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
                                 });
                             }
                         }
-                    } catch (_) {
+                    } catch {
                         // Non-JSON message or irrelevant
                     }
                 }}

@@ -1,11 +1,12 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
-import type { IChatAssistantAI, ILogger } from '@lemonade/core';
-import {
-    ISummarizationService,
-    SUMMARIZATION_PROMPT
+import type { 
+    ISummarizationService, 
+    IChatAssistantAI, 
+    ILogger, 
+    MessagePart
 } from '@lemonade/core';
-
+import { SUMMARIZATION_PROMPT } from '@lemonade/core';
 @injectable()
 export class SummarizationService implements ISummarizationService {
     constructor(
@@ -31,7 +32,7 @@ export class SummarizationService implements ISummarizationService {
             if (typeof summary === 'string') {
                 return summary;
             } else if (Array.isArray(summary)) {
-                const textPart = summary.find((p: any) => p.type === 'text' && p.text);
+                const textPart = summary.find((p: MessagePart) => p.type === 'text' && p.text);
                 return textPart ? (textPart.text || '') : '';
             }
             else {

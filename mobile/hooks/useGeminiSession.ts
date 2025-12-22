@@ -1,10 +1,10 @@
-
+// mobile/hooks/useGeminiSession.ts
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { db, auth } from '@mobile/infrastructure/firebase/config';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { MobileLogger } from '../services/MobileLogger';
 import { Vehicle } from '@lemonade/core';
-import { CONFIG } from '@infrastructure/config';
+import * as FileSystem from 'expo-file-system';
 
 // LiveKit Imports
 import {
@@ -12,22 +12,20 @@ import {
     RoomEvent,
     LocalParticipant,
     RemoteParticipant,
-    ConnectionState,
-    Track,
+    Participant,
     DataPacket_Kind,
-    RemoteTrackPublication,
+    ConnectionState,
 } from 'livekit-client';
 
 // Import the new camera vision stream hook
 import { useCameraVisionStream } from './useCameraVisionStream';
 
 // LiveKit Data Channel Topics
-const VISION_TOPIC = "vision_stream"; // Deprecated for continuous stream, but kept if needed for reference
 const AI_RESPONSE_TOPIC = "ai_response";
-const CHAT_TOPIC = "chat_message"; // Defined in livekit-agent, consistent here
-const TOOL_RESPONSE_TOPIC = "tool_response"; // Data channel topic for client sending tool responses
-const VISUAL_BURST_REQUEST = "capture_visual_burst"; // Agent -> Client
-const VISUAL_BURST_RESPONSE = "visual_burst_response"; // Client -> Agent
+const CHAT_TOPIC = "chat_message";
+const TOOL_RESPONSE_TOPIC = "tool_response";
+const VISUAL_BURST_REQUEST = "capture_visual_burst";
+const VISUAL_BURST_RESPONSE = "visual_burst_response";
 
 interface ToolCall {
     functionCall: {
@@ -36,7 +34,6 @@ interface ToolCall {
     };
 }
 
-// Updated interface to match server-side MessagePart and LiveKit agent payload
 interface AiResponseData {
     type: 'audio' | 'vision' | 'chat' | 'tool_call' | 'barge-in';
     analysis?: {
@@ -52,7 +49,6 @@ interface AiResponseData {
 export function useGeminiSession(
     sessionId: string,
     vehicle: Vehicle | null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onToolCall?: (toolCall: ToolCall['functionCall'], actions: { sendResponse: (res: unknown) => void }) => void
 ) {
     const logger = useRef(new MobileLogger()).current;
@@ -63,12 +59,12 @@ export function useGeminiSession(
     const [room, setRoom] = useState<Room | null>(null);
     const [localParticipant, setLocalParticipant] = useState<LocalParticipant | null>(null);
     const [aiResponses, setAiResponses] = useState<AiResponseData[]>([]);
+    const [agentState, setAgentState] = useState<'idle' | 'listening' | 'thinking'>('idle');
 
     const messageQueue = useRef<string[]>([]);
-    const pendingToolResponses = useRef<{ toolCallId: string; response: unknown }[]>([]); // Queue for offline tool responses
+    const pendingToolResponses = useRef<{ toolCallId: string; response: unknown }[]>([]);
     const livekitRoomRef = useRef<Room | null>(null);
 
-    // LiveKit Agent config for identity comparison (client-side copy for data channel filtering)
     const LIVEKIT_AGENT_CONFIG = {
         AGENT_IDENTITY: 'GeminiMasterTechAgent',
     };
@@ -81,184 +77,122 @@ export function useGeminiSession(
         cameraRef,
         cameraDevice,
         requestCameraPermission,
-        flushBuffer, // Use flushBuffer instead of startCameraStreaming
-        // startCameraStreaming, // Removed
-        // stopCameraStreaming, // Removed (managed by buffer loop logic inside hook)
+        frameProcessor,
+        getSemanticPeak,
+        currentDetections,
     } = useCameraVisionStream({
-        localParticipant, // Pass the localParticipant from this hook
-        visionTopic: VISION_TOPIC, // Kept for now
-        captureInterval: 500, // 500ms for buffer capture
         sessionId,
     });
 
-    const sendVisualBurst = useCallback(async () => {
-        if (!room || !localParticipant) return;
-        
+    /**
+     * Tool response sender
+     */
+    const sendToolResponse = useCallback(async (response: unknown, toolCallId: string) => {
+        const currentRoom = livekitRoomRef.current;
+        const currentParticipant = currentRoom?.localParticipant;
+
+        if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) {
+            logger.warn("Cannot send tool response: Not connected. Queuing.");
+            pendingToolResponses.current.push({ toolCallId, response });
+            return;
+        }
         try {
-            const frames = await flushBuffer();
-            if (frames.length === 0) {
-                logger.warn("No frames in buffer to send.");
-                return;
-            }
-
-            // Send as JSON payload
-            const payload = new TextEncoder().encode(JSON.stringify({ frames }));
-            await localParticipant.publishData(payload, DataPacket_Kind.RELIABLE, [VISUAL_BURST_RESPONSE]);
-            logger.info(`Sent visual burst with ${frames.length} frames.`);
-        } catch (error) {
-            logger.error("Failed to send visual burst:", error as Error);
-        }
-    }, [room, localParticipant, flushBuffer, logger]);
-
-    const connect = useCallback(async () => {
-        if (!auth.currentUser || !vehicle) {
-            logger.warn("Connect: Missing current user or vehicle data.");
-            return;
-        }
-        if (room && room.isConnecting) {
-            logger.info("Connect: Room is already connecting.");
-            return;
-        }
-        if (room && room.isConnected) {
-            logger.info("Connect: Room is already connected.");
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // Camera permission is now handled by useCameraVisionStream, request it
-            if (!cameraPermissionGranted) {
-                logger.info("Camera permission not granted, requesting...");
-                await requestCameraPermission();
-                // If permission is denied, still try to connect to LiveKit but camera streaming won't start
-            }
-
-            const idToken = await auth.currentUser.getIdToken();
-            const API_URL = process.env.EXPO_PUBLIC_API_URL;
-            const livekitHost = process.env.EXPO_PUBLIC_LIVEKIT_HOST || 'ws://localhost:7880';
-
-            // Construct Context for LiveKit Agent Metadata
-            const vehicleContextJson = JSON.stringify({
-                year: vehicle.specs.year,
-                make: vehicle.specs.make,
-                model: vehicle.specs.model,
-                engine: vehicle.specs.engine,
-                vin: vehicle.vin
+            const encoder = new TextEncoder();
+            const payload = encoder.encode(JSON.stringify({ toolCallId, response }));
+            await currentParticipant.publishData(payload, {
+                reliable: true,
+                topic: TOOL_RESPONSE_TOPIC
             });
-            const userId = auth.currentUser.uid;
-
-            // 1. Fetch LiveKit Token from our Elysia.js LiveKit Agent server
-            const response = await fetch(`${API_URL}/livekit-agent/get-livekit-token`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}` // Pass Firebase ID token for authentication
-                },
-                body: JSON.stringify({
-                    roomName: sessionId,
-                    participantName: userId,
-                    metadata: JSON.stringify({ vehicleContext: vehicleContextJson, userId })
-                })
-            });
-
-            if (!response.ok) {
-                const errorBody = await response.text();
-                throw new Error(`Failed to fetch LiveKit token: ${response.statusText} - ${errorBody}`);
-            }
-            const { token: livekitToken } = await response.json();
-
-            // 2. Connect to LiveKit Room
-            const newRoom = new Room();
-            livekitRoomRef.current = newRoom; // Store room instance
-
-            newRoom.on(RoomEvent.Connected, async () => {
-                logger.info(`Connected to LiveKit room: ${sessionId}`);
-                setIsLive(true);
-                setRoom(newRoom);
-                setLocalParticipant(newRoom.localParticipant);
-
-                // 3. Publish Audio (Microphone)
-                try {
-                    await newRoom.localParticipant.enableMicrophone();
-                    logger.info("Microphone published successfully.");
-                } catch (e) {
-                    logger.error("Failed to publish microphone", e as Error, undefined, sessionId);
-                }
-
-                // 4. (Removed) Start Camera Streaming - Now passive until requested
-
-                // 5. Subscribe to AI Response Data Channel (directly here, not in separate useEffect)
-                const onDataReceived = (payload: Uint8Array, participant: RemoteParticipant, topic: string) => {
-                    if (participant.identity === LIVEKIT_AGENT_CONFIG.AGENT_IDENTITY) {
-                        if (topic === AI_RESPONSE_TOPIC) {
-                            try {
-                                const decoder = new TextDecoder();
-                                const message = decoder.decode(payload);
-                                const responseData: AiResponseData = JSON.parse(message);
-                                handleAiResponseFromDataChannel(responseData);
-                            } catch (e) {
-                                logger.error("Failed to parse AI response from data channel", e as Error, undefined, sessionId);
-                            }
-                        } else if (topic === VISUAL_BURST_REQUEST) {
-                            logger.info("Received request for visual burst.");
-                            sendVisualBurst();
-                        }
-                    }
-                };
-                newRoom.on(RoomEvent.DataReceived, onDataReceived);
-            });
-
-            newRoom.on(RoomEvent.Disconnected, () => {
-                logger.info(`Disconnected from LiveKit room: ${sessionId}`);
-                setIsLive(false);
-                setRoom(null);
-                setLocalParticipant(null);
-                // stopCameraStreaming(); // Removed
-                // Clean up DataReceived listener on disconnect
-                newRoom.off(RoomEvent.DataReceived);
-            });
-
-            await newRoom.connect(livekitHost, livekitToken, {
-                autoSubscribe: false,
-            });
-
-            // Flush Message Queue
-            while (messageQueue.current.length > 0) {
-                const queuedMsg = messageQueue.current.shift();
-                if (queuedMsg) {
-                    sendChatMessage(queuedMsg);
-                }
-            }
-
-            // Flush Tool Response Queue
-            while (pendingToolResponses.current.length > 0) {
-                const { toolCallId, response } = pendingToolResponses.current.shift()!;
-                sendToolResponse(response, toolCallId);
-            }
-
+            logger.info(`Tool response for ${toolCallId} sent.`);
         } catch (e) {
-            logger.error("LiveKit Connection Flow Error", e as Error, undefined, sessionId);
-        } finally {
-            setLoading(false);
+            logger.error("Failed to send tool response", e as Error);
         }
-    }, [sessionId, vehicle, auth.currentUser, cameraPermissionGranted, requestCameraPermission, logger, handleAiResponseFromDataChannel, sendChatMessage, sendVisualBurst, cameraActive]);
+    }, [logger]);
 
-    const disconnect = useCallback(() => {
-        livekitRoomRef.current?.disconnect();
-        setIsLive(false);
-        setRoom(null);
-        setLocalParticipant(null);
-        setAiResponses([]);
-        // stopCameraStreaming(); // Removed
-    }, []);
-
-    const sendChatMessage = useCallback(async (text: string) => {
-        if (!room || !localParticipant) {
-            messageQueue.current.push(text);
-            if (!loading) {
-                connect();
+    /**
+     * AI Response handler
+     */
+    const handleAiResponseFromDataChannel = useCallback(async (responseData: AiResponseData) => {
+        if (responseData.type === 'audio' || responseData.type === 'vision' || responseData.type === 'chat') {
+            if (responseData.analysis?.diagnosis) {
+                const aiMsg = {
+                    role: 'assistant',
+                    content: responseData.analysis.diagnosis,
+                    timestamp: new Date()
+                };
+                await updateDoc(doc(db, 'sessions', sessionId), {
+                    messages: arrayUnion(aiMsg)
+                });
+                setAiResponses(prev => [...prev, responseData]);
             }
-            logger.warn("Cannot send message: LiveKit room not connected or local participant not found. Queued.");
+        } else if (responseData.type === 'tool_call' && responseData.toolCall) {
+            logger.info(`Received tool call: ${responseData.toolCall.name}`);
+            if (onToolCall) {
+                const toolCallId = responseData.toolCall.id;
+                onToolCall(
+                    { name: responseData.toolCall.name, args: responseData.toolCall.args },
+                    {
+                        sendResponse: (res: unknown) => sendToolResponse(res, toolCallId)
+                    }
+                );
+            }
+        }
+        // AI responded, so it's done thinking
+        setAgentState('idle');
+    }, [sessionId, onToolCall, sendToolResponse, logger]);
+
+    /**
+     * Handoff logic
+     */
+    const handoffToCloud = useCallback(async (reason: string) => {
+        const currentRoom = livekitRoomRef.current;
+        const currentParticipant = currentRoom?.localParticipant;
+
+        if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) return;
+
+        const peak = await getSemanticPeak();
+        if (!peak) return;
+
+        try {
+            const base64 = await FileSystem.readAsStringAsync(peak.path, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
+
+            const payload = new TextEncoder().encode(JSON.stringify({
+                frames: [base64],
+                metadata: {
+                    reason,
+                    localDetections: peak.detections,
+                    timestamp: Date.now(),
+                    sessionId
+                }
+            }));
+
+            await currentParticipant.publishData(payload, {
+                reliable: true,
+                topic: VISUAL_BURST_RESPONSE
+            });
+            logger.info("Handoff packet synchronized.");
+        } catch (e) {
+            logger.error("Handoff failed", e as Error);
+        }
+    }, [getSemanticPeak, sessionId, logger]);
+
+    const sendVisualBurst = useCallback(async () => {
+        setAgentState('thinking');
+        await handoffToCloud("Agent Request (Visual Burst)");
+    }, [handoffToCloud]);
+
+    /**
+     * Chat message sender
+     */
+    const sendChatMessage = useCallback(async (text: string) => {
+        const currentRoom = livekitRoomRef.current;
+        const currentParticipant = currentRoom?.localParticipant;
+
+        if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) {
+            messageQueue.current.push(text);
+            logger.warn("Not connected. Message queued.");
             return;
         }
 
@@ -270,78 +204,131 @@ export function useGeminiSession(
         try {
             const encoder = new TextEncoder();
             const payload = encoder.encode(JSON.stringify(userMsg));
-
-            await localParticipant.publishData(payload, DataPacket_Kind.RELIABLE, [CHAT_TOPIC]); // Use CHAT_TOPIC
-            logger.info("Chat message sent via LiveKit data channel.");
+            await currentParticipant.publishData(payload, {
+                reliable: true,
+                topic: CHAT_TOPIC
+            });
         } catch (e) {
-            logger.error("Failed to send chat message via data channel", e as Error, undefined, sessionId);
+            logger.error("Failed to send chat message", e as Error);
         }
-    }, [room, localParticipant, sessionId, loading, connect, logger]);
+    }, [sessionId, logger]);
 
-    const sendToolResponse = useCallback(async (response: unknown, toolCallId: string) => {
-        if (!room || !localParticipant) {
-            logger.warn("Cannot send tool response: LiveKit room not connected. Queuing.");
-            pendingToolResponses.current.push({ toolCallId, response });
-            if (!loading) {
-                connect();
-            }
-            return;
-        }
+    /**
+     * Connector
+     */
+    const connect = useCallback(async () => {
+        if (!auth.currentUser || !vehicle) return;
+        if (room && (room.state === ConnectionState.Connecting || room.state === ConnectionState.Connected)) return;
+
+        setLoading(true);
         try {
-            const encoder = new TextEncoder();
-            const payload = encoder.encode(JSON.stringify({ toolCallId, response }));
-
-            await localParticipant.publishData(payload, DataPacket_Kind.RELIABLE, [TOOL_RESPONSE_TOPIC]);
-            logger.info(`Tool response for ${toolCallId} sent via LiveKit data channel.`);
-        } catch (e) {
-            logger.error("Failed to send tool response via data channel", e as Error, undefined, sessionId);
-        }
-    }, [room, localParticipant, sessionId, logger, loading, connect]);
-
-    const handleAiResponseFromDataChannel = useCallback(async (responseData: AiResponseData) => {
-        // Handle Chat/Audio/Vision text responses
-        if (responseData.type === 'audio' || responseData.type === 'vision' || responseData.type === 'chat') {
-            if (responseData.analysis && responseData.analysis.diagnosis) {
-                const aiMsg = {
-                    role: 'assistant',
-                    content: responseData.analysis.diagnosis,
-                    timestamp: new Date()
-                };
-                await updateDoc(doc(db, 'sessions', sessionId), {
-                    messages: arrayUnion(aiMsg)
-                });
-                setAiResponses(prev => [...prev, responseData]);
+            if (!cameraPermissionGranted) {
+                await requestCameraPermission();
             }
-        }
-        // Handle Tool Calls
-        else if (responseData.type === 'tool_call' && responseData.toolCall) {
-            logger.info(`Received tool call: ${responseData.toolCall.name}`);
-            if (onToolCall) {
-                onToolCall(
-                    { name: responseData.toolCall.name, args: responseData.toolCall.args },
-                    { 
-                        sendResponse: (res: unknown) => sendToolResponse(res, responseData.toolCall!.id) 
+
+            const idToken = await auth.currentUser.getIdToken();
+            const API_URL = process.env.EXPO_PUBLIC_API_URL;
+            const livekitHost = process.env.EXPO_PUBLIC_LIVEKIT_HOST || 'ws://localhost:7880';
+
+            const response = await fetch(`${API_URL}/livekit-agent/get-livekit-token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    roomName: sessionId,
+                    participantName: auth.currentUser.uid,
+                    metadata: JSON.stringify({ vehicleContext: JSON.stringify(vehicle), userId: auth.currentUser.uid })
+                })
+            });
+
+            if (!response.ok) throw new Error("Failed to fetch token");
+            const { token: livekitToken } = await response.json();
+
+            const newRoom = new Room();
+            livekitRoomRef.current = newRoom;
+
+            newRoom.on(RoomEvent.Connected, async () => {
+                setIsLive(true);
+                setRoom(newRoom);
+                setLocalParticipant(newRoom.localParticipant);
+
+                try {
+                    await newRoom.localParticipant.enableCameraAndMicrophone();
+                } catch (e) {
+                    logger.error("Failed to enable media", e as Error);
+                }
+
+                const onDataReceived = (payload: Uint8Array, participant?: RemoteParticipant, _kind?: DataPacket_Kind, topic?: string) => {
+                    if (participant?.identity === LIVEKIT_AGENT_CONFIG.AGENT_IDENTITY) {
+                        if (topic === AI_RESPONSE_TOPIC) {
+                            try {
+                                const data = JSON.parse(new TextDecoder().decode(payload));
+                                handleAiResponseFromDataChannel(data);
+                            } catch (e) {
+                                logger.error("Parse error", e as Error);
+                            }
+                        } else if (topic === VISUAL_BURST_REQUEST) {
+                            sendVisualBurst();
+                        }
                     }
-                );
-            }
-        }
-        // Handle Barge-in
-        else if (responseData.type === 'barge-in') {
-            logger.info("Received barge-in signal from agent.");
-            // TODO: Stop any local TTS playback if implemented in future
-            // For now, we can update UI state or clear current AI response display if it was streaming text
-        }
-    }, [sessionId, onToolCall, sendToolResponse, logger]);
+                };
+                newRoom.on(RoomEvent.DataReceived, onDataReceived);
 
+                // --- Context Latch: Proactive Visual Burst on VAD ---
+                // Trigger sending the "Semantic Peak" the moment the user starts speaking.
+                // This ensures visual context arrives before the LLM generates a response.
+                const onActiveSpeakersChanged = (speakers: Participant[]) => {
+                    const isUserSpeaking = speakers.some(s => s.identity === auth.currentUser?.uid);
 
-    // Expose local participant for camera controls, etc.
-    const { localParticipant: useHookLocalParticipant } = useLocalParticipant();
-    useEffect(() => {
-        if (useHookLocalParticipant) {
-            setLocalParticipant(useHookLocalParticipant);
+                    if (isUserSpeaking) {
+                        setAgentState('listening');
+                        logger.info('VAD Triggered: User Speaking');
+                        // We still trigger burst, but now we also update UI state
+                        sendVisualBurst();
+                    } else if (agentState === 'listening') {
+                        // User stopped speaking. If we are waiting for response, we might transition to thinking logic effectively handled by sendVisualBurst setting it to thinking.
+                        // However, to avoid flickering if sendVisualBurst happened fast, we primarily rely on explicit states.
+                        // Actually, sendVisualBurst sets 'thinking'. So if we just stop speaking, we shouldn't overwrite 'thinking' with 'idle'.
+                    }
+                };
+                newRoom.on(RoomEvent.ActiveSpeakersChanged, onActiveSpeakersChanged);
+
+                // Flush queues
+                while (messageQueue.current.length > 0) {
+                    const msg = messageQueue.current.shift();
+                    if (msg) sendChatMessage(msg);
+                }
+                while (pendingToolResponses.current.length > 0) {
+                    const { toolCallId, response: res } = pendingToolResponses.current.shift()!;
+                    sendToolResponse(res, toolCallId);
+                }
+
+                newRoom.on(RoomEvent.Disconnected, () => {
+                    setIsLive(false);
+                    setRoom(null);
+                    setLocalParticipant(null);
+                    newRoom.off(RoomEvent.DataReceived, onDataReceived);
+                    newRoom.off(RoomEvent.ActiveSpeakersChanged, onActiveSpeakersChanged);
+                });
+            });
+
+            await newRoom.connect(livekitHost, livekitToken, { autoSubscribe: false });
+        } catch (e) {
+            logger.error("Connection error", e as Error);
+        } finally {
+            setLoading(false);
         }
-    }, [useHookLocalParticipant]);
+    }, [sessionId, vehicle, cameraPermissionGranted, requestCameraPermission, logger, handleAiResponseFromDataChannel, sendChatMessage, sendVisualBurst, sendToolResponse, LIVEKIT_AGENT_CONFIG.AGENT_IDENTITY, room]);
 
+    const disconnect = useCallback(() => {
+        livekitRoomRef.current?.disconnect();
+        setIsLive(false);
+        setRoom(null);
+        setLocalParticipant(null);
+        setAiResponses([]);
+    }, []);
 
     return {
         connect,
@@ -356,8 +343,10 @@ export function useGeminiSession(
         cameraActive,
         toggleCamera,
         cameraRef,
-        cameraDevice, // Expose cameraDevice for Camera component
-        requestCameraPermission // Expose request permission for UI
+        cameraDevice,
+        requestCameraPermission,
+        frameProcessor,
+        currentDetections,
+        agentState,
     };
 }
-

@@ -1,9 +1,7 @@
 import { useState } from 'react';
-
 import { auth } from '@/infrastructure/firebase/config';
 import { AppError, ErrorCode } from '@lemonade/core';
-
-
+import { logger } from '@/infrastructure/logging/ClientLogger';
 
 export function useDirectUpload() {
     const [uploading, setUploading] = useState(false);
@@ -50,19 +48,17 @@ export function useDirectUpload() {
             await new Promise((resolve, reject) => {
                 xhr.onload = () => {
                     if (xhr.status === 200) {
-                        // logger.info('[useDirectUpload] Upload success', { status: xhr.status });
+                        logger.info('[useDirectUpload] Upload success', { status: xhr.status });
                         resolve(true);
                     } else {
-                        // const logger = clientContainer.get<ILogger>(TYPES.Logger);
                         const uploadError = new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Upload failed with status ${xhr.status}`);
-                        console.error('[useDirectUpload] XHR Failed', uploadError, { status: xhr.status, response: xhr.response });
+                        logger.error('[useDirectUpload] XHR Failed', uploadError, { status: xhr.status, response: xhr.response });
                         reject(uploadError);
                     }
                 };
                 xhr.onerror = () => {
-                    // const logger = clientContainer.get<ILogger>(TYPES.Logger);
                     const networkError = new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Network error - Check CORS/Tunnel');
-                    console.error('[useDirectUpload] Network Error (CORS?)', networkError, { status: xhr.status, readyState: xhr.readyState });
+                    logger.error('[useDirectUpload] Network Error (CORS?)', networkError, { status: xhr.status, readyState: xhr.readyState });
                     reject(networkError);
                 };
                 xhr.send(file);
@@ -72,7 +68,7 @@ export function useDirectUpload() {
             return publicUrl;
 
         } catch (error) {
-            console.error('Upload failed', error);
+            logger.error('Upload failed', error as Error);
             setUploading(false);
             throw error;
         }
@@ -80,3 +76,4 @@ export function useDirectUpload() {
 
     return { uploadFile, uploading, progress };
 }
+

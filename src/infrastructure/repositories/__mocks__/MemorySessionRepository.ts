@@ -47,7 +47,7 @@ export class MemorySessionRepository implements ISessionRepository {
         }
     }
 
-    async flagSafetyStop(sessionId: string, reason: string): Promise<void> {
+    async flagSafetyStop(sessionId: string, /* eslint-disable-line @typescript-eslint/no-unused-vars */ reason: string): Promise<void> {
         const session = this.sessions.get(sessionId);
         if (session) {
             session.safety_stop = true;

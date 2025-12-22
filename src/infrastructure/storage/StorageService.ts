@@ -1,6 +1,7 @@
 import { injectable } from 'inversify';
 import type { ILogger } from '@lemonade/core';
 import { Storage } from '@google-cloud/storage';
+import { CONFIG } from '@/infrastructure/config';
 
 @injectable()
 export class StorageService {
@@ -12,21 +13,12 @@ export class StorageService {
         const storageOptions: { projectId: string; credentials?: { client_email: string; private_key: string } } = { projectId };
 
         // Use Service Account from Env if available (Development/Production)
-        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-            try {
-                const credentials = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-                storageOptions.credentials = {
-                    client_email: credentials.client_email,
-                    private_key: credentials.private_key,
-                };
-            } catch (error) {
-                if (this.logger) {
-                    this.logger.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY", error as Error);
-                } else {
-                    // Fallback only if logger missing
-                    // console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY", error);
-                }
-            }
+        const serviceAccount = CONFIG.FIREBASE.SERVICE_ACCOUNT;
+        if (serviceAccount) {
+            storageOptions.credentials = {
+                client_email: serviceAccount.client_email,
+                private_key: serviceAccount.private_key,
+            };
         }
 
         const storage = new Storage(storageOptions);

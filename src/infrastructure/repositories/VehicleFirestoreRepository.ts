@@ -20,3 +20,4 @@ export class VehicleFirestoreRepository implements IVehicleRepository {
         return querySnapshot.docs.map(doc => doc.data() as Vehicle);
     }
 }
+

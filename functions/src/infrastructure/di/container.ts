@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { Container } from 'inversify';
+import { Container, interfaces } from 'inversify';
 import { TYPES } from './types';
 import { 
     ISessionRepository, 
@@ -11,16 +11,21 @@ import {
     ISafetyMonitor,
     ILogger 
 } from '@lemonade/core';
+import { 
+    VertexAIVideoAdapter, 
+    VertexAISafetyAdapter, 
+    Logger,
+    EnvConfigProvider,
+    TracingService,
+    FirestoreSessionRepository,
+    TYPES as INFRA_TYPES
+} from '@lemonade/infrastructure';
 
-import { FirestoreSessionRepository } from '../repositories/FirestoreSessionRepository';
 import { FirestoreVehicleRepository } from '../repositories/FirestoreVehicleRepository';
-import { VertexAIVideoAdapter } from '../ai/VertexAIVideoAdapter';
-import { VertexAISafetyAdapter } from '../ai/VertexAISafetyAdapter';
 import { NHTSAService } from '../external/NHTSAService';
 import { VectorRepository } from '../repositories/VectorRepository';
 import { VideoAnalysisService } from '../../application/services/VideoAnalysisService';
 import { SafetyMonitor } from '../../application/services/SafetyMonitor';
-import { Logger } from '../logging/Logger'; // Implementation
 
 // Define RemoteTransport interface if not already defined globally or in common core
 interface RemoteTransport {
@@ -29,12 +34,12 @@ interface RemoteTransport {
 
 const container = new Container();
 
-// --- BIND CUSTOM REMOTE TRANSPORT HERE (e.g., Google Cloud Logging client) ---
-// For now, it's just an optional parameter, so we bind a dummy or leave it unbound
-// If you uncomment this, you'd provide an actual implementation:
-// container.bind<RemoteTransport>(TYPES.RemoteLogTransport).to(GoogleCloudLoggingTransport).inSingletonScope();
+// Bind Infrastructure Services
+container.bind(INFRA_TYPES.ConfigProvider).to(EnvConfigProvider).inSingletonScope();
+container.bind(INFRA_TYPES.TracingService).to(TracingService).inSingletonScope();
 
-container.bind<ILogger>(TYPES.Logger).toDynamicValue((context: any) => {
+// Logger Binding
+container.bind<ILogger>(TYPES.Logger).toDynamicValue((context: interfaces.Context) => {
     // Resolve RemoteLogTransport if it's bound, otherwise pass undefined
     const remoteTransport = context.container.isBound(TYPES.RemoteLogTransport)
         ? (context.container as Container).get<RemoteTransport>(TYPES.RemoteLogTransport)

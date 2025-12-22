@@ -1,7 +1,7 @@
 import { injectable, inject } from 'inversify';
-import { adminDb } from '@/infrastructure/firebase/admin';
+import { adminDb } from '@lemonade/infrastructure';
 import { FieldValue, Filter } from 'firebase-admin/firestore';
-import type { IVectorRepository, SimilarCase, IEmbeddingService, ILogger } from '@lemonade/core';
+import type { IVectorRepository, SimilarCase, IEmbeddingService, ILogger, VectorDocument } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 
 @injectable()
@@ -13,18 +13,43 @@ export class FirestoreVectorRepository implements IVectorRepository {
         @inject(TYPES.EmbeddingService) private embeddingService: IEmbeddingService
     ) { }
 
-    async search(query: string, limit: number = 5, filter?: Record<string, unknown>): Promise<any[]> {
+    async search(query: string, limit: number = 5, filter?: Record<string, unknown>): Promise<VectorDocument[]> {
         try {
             const vector = await this.embeddingService.embed(query);
+            const coll = adminDb.collection(this.COLLECTION);
 
-            // Extract userId from filter if present, as findSimilar expects { userId?: string }
-            const userId = filter?.userId as string | undefined;
+            let preFilter: Filter | undefined;
+            if (filter?.userId) {
+                preFilter = Filter.or(
+                    Filter.where('metadata.userId', '==', filter.userId),
+                    Filter.where('metadata.isGlobal', '==', true)
+                );
+            }
 
-            return await this.findSimilar(vector, limit, { userId });
+            const vectorQuery = coll.findNearest({
+                vectorField: 'vector',
+                queryVector: FieldValue.vector(vector),
+                limit: limit,
+                distanceMeasure: 'COSINE',
+                distanceResultField: '_distance',
+                ...(preFilter ? { filter: preFilter } : {})
+            });
+
+            const snapshot = await vectorQuery.get();
+
+            return snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    text: data.text,
+                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+                    vector: data.vector?.values || [],
+                    metadata: data.metadata || {}
+                } as VectorDocument;
+            });
 
         } catch (error) {
-            this.logger.error('[FirestoreVectorRepository] Semantic Search failed', error);
-            // Fallback: Return empty or throw? Interface implies array return.
+            this.logger.error('[FirestoreVectorRepository] Semantic Search failed', error as Error);
             return [];
         }
     }

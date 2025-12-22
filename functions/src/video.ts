@@ -3,7 +3,7 @@ import { container } from './infrastructure/di/container';
 import { TYPES } from './infrastructure/di/types';
 import { VideoAnalysisService } from './application/services/VideoAnalysisService';
 import { CONFIG } from './config';
-import { RequestContext } from './infrastructure/context/request-context';
+import { RequestContext } from '@lemonade/infrastructure';
 import { v4 as uuidv4 } from 'uuid';
 
 export const analyzeUploadedVideo = onObjectFinalized(

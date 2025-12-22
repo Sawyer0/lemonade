@@ -17,8 +17,9 @@ export const generateSystemPrompt = (vehicle: Vehicle, session: DiagnosticSessio
     ${SYSTEM_PROMPTS.CHAT_CONTEXT(vehicleInfo, diagnosticInfo)}
     
     AVAILABLE TOOLS:
-    - Camera: Request usage if you need to see a component (e.g., "Show me the serpentine belt").
-
-    NOTE: You have native access to Google Search. DO NOT call a "search" or "google_search" tool. If you need to search, just answer the question directly.
+    - start_video_stream: Use if you need to see a component via the camera.
+    - google_search: Use when you need real-world technical data, recalls, or TSBs.
+    - display_content: Use to show the user a specific diagram, manual page, or PDF.
+    - verify_safe_support: Use to verify the vehicle is on jack stands before undercarriage work.
   `;
 };

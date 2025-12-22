@@ -9,9 +9,14 @@ const appConfig = ({ config }: ConfigContext): ExpoConfig => {
 
     if (isWeb) {
         // Filter out plugins that are known to cause issues on web or are native-only
+        const nativeOnlyPlugins = [
+            '@livekit/react-native',
+            'react-native-vision-camera',
+            'llama.rn'
+        ];
         plugins = plugins.filter(plugin => {
             const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
-            return pluginName !== '@livekit/react-native';
+            return !nativeOnlyPlugins.includes(pluginName);
         });
     }
 

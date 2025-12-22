@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CONFIG } from '@/infrastructure/config';
-import { AppError, ErrorCode } from '@lemonade/core';
+import { ErrorCode } from '@lemonade/core';
 
 export function verifyApiKey(request: NextRequest): NextResponse | undefined {
     const apiKey = request.headers.get('X-API-KEY');
@@ -22,3 +22,4 @@ export function verifyApiKey(request: NextRequest): NextResponse | undefined {
     // If API key is valid, proceed
     return undefined; // Indicates success, no response needed
 }
+

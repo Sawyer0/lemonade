@@ -4,11 +4,9 @@ AI-powered vehicle diagnostic platform. A "Master Technician" in your pocket.
 
 # CONFIDENTIAL - PROPRIETARY SOFTWARE
 
----
-
 ## Overview
 
-Lemonade provides accurate, safe, and instant mechanical diagnostics via video and chat. The platform uses Google's Gemini 2.5 Flash with thinking budget for deep reasoning and real-time assistance.
+Lemonade provides accurate, safe, and instant mechanical diagnostics via video and chat. The platform utilizes a sophisticated **Neuro-symbolic 4-Layered Architecture** (System 2) combined with **Reactive Safety Gating** (System 0) to ensure grounded reasoning and absolute user safety.
 
 **Core Philosophy**: Safety First, Accuracy Second, Speed Third.
 
@@ -100,41 +98,30 @@ npx expo start
 ## Project Structure
 
 ```
+packages/
+├── core/                 # Pure domain logic (entities, interfaces, types)
+└── infrastructure/       # Shared adapters (AI, Firebase, Logging)
 src/
-├── core/                 # Domain layer (no external deps)
-│   ├── entities/         # Business entities (Vehicle, Session)
-│   ├── interfaces/       # Contracts (IRepository, IAIService)
-│   ├── prompts/          # AI system prompts by domain
-│   ├── tools/            # AI tool definitions (webSearch, openCamera)
-│   └── types/            # Zod schemas
-├── infrastructure/       # Implementation layer
-│   ├── ai/               # Gemini adapters
-│   ├── di/               # Dependency injection container
-│   ├── firebase/         # Firebase config & admin
-│   └── repositories/     # Firestore implementations
-├── application/          # Business logic services
-│   └── services/         # DiagnosticService, VehicleService
-├── presentation/         # UI layer
-│   ├── components/       # React components
-│   └── hooks/            # Custom hooks (useLiveSession, etc.)
-├── app/                  # Next.js App Router
-│   └── api/              # API routes
+├── app/                  # Next.js App Router (API Routes & Pages)
+├── application/          # Business logic orchestration
+│   └── services/         # DiagnosticService, ReactiveSafetyService, etc.
+├── infrastructure/       # Web-specific implementations & DI container
+└── presentation/         # React UI layer (Components, Hooks)
 mobile/                   # React Native Application (Expo)
-├── app/                  # File-based routing
-├── components/           # Native components
-└── infrastructure/       # Native implementations
-
+├── app/                  # Native routing
+├── components/           # Native UI components
+└── infrastructure/       # Native hardware implementations
 ```
 
 ## Architecture
 
 The application follows a strict layered architecture with InversifyJS for dependency injection:
 
-1. **Core** → Pure domain logic, no framework dependencies
-2. **Infrastructure** → External integrations (Firebase, Vertex AI)
-3. **Application** → Business logic orchestration
-4. **Presentation** → React UI components
-5. **Mobile** → Hybrid Architecture (Native Camera + Next.js WebViews)
+1. **Core (`packages/core`)** → Pure domain logic and contracts, zero external dependencies.
+2. **Infrastructure (`packages/infrastructure`)** → Shared adapters for external integrations (Firebase, Vertex AI, Tracing).
+3. **Application (`src/application`)** → Business logic orchestration and neuro-symbolic reasoning.
+4. **Presentation (`src/presentation`)** → React UI components and state management.
+5. **Mobile (`mobile/`)** → Hybrid Architecture (Native Camera + Shared WebViews).
 
 See `docs/LEMONADE-ARCHITECTURE.md` for detailed documentation.
 
@@ -167,6 +154,7 @@ flowchart TD
   subgraph App[Application Layer\nsrc/application/services]
     DS[DiagnosticService]
     VS[VehicleService]
+    RS[ReactiveSafetyService]
   end
 
   subgraph Infra[Infrastructure Layer\nsrc/infrastructure]
@@ -174,6 +162,7 @@ flowchart TD
     Firebase[Firebase Admin & Auth]
     Vertex[Vertex AI Adapters\nGeminiProAdapter / GeminiFlashAdapter]
     Storage[StorageService\nGCS Signed URLs]
+    Tracing[TracingService\nLangSmith Integration]
   end
 
   subgraph GCP[Backend Services]
@@ -225,6 +214,7 @@ sequenceDiagram
     participant U as User
     participant UI as Session Workspace<br/>(CameraWorkspace / ChatStream)
     participant API as Next.js API Routes
+    participant RS as ReactiveSafetyService (System 0)
     participant DS as DiagnosticService
     participant GX as GeminiFlashAdapter
     participant GXModel as Gemini 2.5 Flash
@@ -237,7 +227,14 @@ sequenceDiagram
     %% User starts interaction
     U->>UI: Chat / Voice message
     UI->>API: POST /api/chat or /api/voice
-    API->>DS: handleChatInteraction / processVoiceCommand
+    API->>RS: checkSafety(userQuery)
+    
+    alt Dangerous Query
+        RS-->>API: STOP_DANGER + Safety Message
+        API-->>UI: Immediate Hazard Alert
+    else Safe Query
+        API->>DS: handleChatInteraction / processVoiceCommand
+    end
 
     %% DiagnosticService calls Gemini through adapter
     DS->>GX: generateReply / processAudioCommand
@@ -272,16 +269,27 @@ sequenceDiagram
     UI-->>U: updated chat + safety / camera UI
 ```
 
+### Neuro-symbolic Reasoning Loop (System 2)
+
+Lemonade implements a "System 2" deliberate reasoning process to eliminate AI hallucinations and ensure safety:
+
+1. **Node 1: Perception (Intuition)**: AI generates a hypothesis from visual/acoustic evidence.
+2. **Node 2: Authority (The Law)**: NHTSA recall/TSB check overrides AI intuition for safety-critical issues.
+3. **Node 3: Consensus (Collective Memory)**: Vector search of verified community fixes validates the repair pattern.
+4. **Node 4: Reality Anchor (Grounding)**: Symbolic verification of specs (torque, fluid types) against extracted metadata and live visual state.
+
+**Reactive Safety Gating (System 0)**: A deterministic layer that monitors user input for high-risk keywords (e.g., "gas leak", "orange cables") to trigger immediate safety stops before AI processing.
+
 ## Key Features
 
-- **Real-time Chat** with Gemini 2.5 Flash
-- **Web Search Grounding** for TSBs, recalls, torque specs
-- **Video Analysis** for visual diagnostics
-- **Voice Input** with VAD (Voice Activity Detection)
-- **Safety Constitution** - AI governed by strict safety directives
-- **Live Session Sync** via Firestore real-time listeners
-- **Robust Context Caching**: Caches large Technical Service Manuals (PDFs) in Vertex AI for low-latency RAG.
-- **OBD-II Database**: Automated scraping and indexing of diagnostic codes via Firecrawl.
+- **Neuro-symbolic Reasoning (System 2)**: A 4-node loop (Perception, Authority, Consensus, Reality Anchor) that validates AI intuition against technical manuals and physical reality.
+- **Reactive Safety Gating (System 0)**: Deterministic, instant protection against critical hazards (fuel leaks, high voltage) bypassing deep reasoning for immediate response.
+- **Agentic Custom Grounding**: Proprietary metadata extraction from TSBs, recalls, and technical documentation for precision diagnostic verification.
+- **Real-time Chat** with Gemini 2.5 Flash and LangSmith observability.
+- **Video Analysis** for high-fidelity visual diagnostics and physical state verification.
+- **Voice Input** with VAD (Voice Activity Detection) for hands-free shop use.
+- **Live Session Sync** via Firestore real-time listeners.
+- **Robust Context Caching**: Caches Technical Service Manuals (PDFs) in Vertex AI for low-latency retrieval.
 - **Hybrid Mobile Experience**: Native camera performance mixed with web-based rich content.
 
 ## Deployment

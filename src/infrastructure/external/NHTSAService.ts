@@ -27,23 +27,23 @@ export class NHTSAService implements INHTSAService {
 
             if (data.Count > 0 && Array.isArray(data.results)) {
                 this.logger.info(`[NHTSAService] Found ${data.Count} recalls`);
-                return data.results.map((r: any) => {
+                return data.results.map((r: Record<string, unknown>) => {
                     return SafetyRecallSchema.parse({
-                        ReportReceivedDate: r.ReportReceivedDate,
-                        Component: r.Component,
-                        Summary: r.Summary,
-                        Consequence: r.Consequence,
-                        Remedy: r.Remedy,
-                        Notes: r.Notes,
-                        NHTSACampaignNumber: r.NHTSACampaignNumber,
-                        Manufacturer: r.Manufacturer,
-                        parkIt: r.parkIt,
-                        parkOutSide: r.parkOutSide,
-                        overTheAirUpdate: r.overTheAirUpdate,
-                        NHTSAActionNumber: r.NHTSAActionNumber,
-                        ModelYear: r.ModelYear,
-                        Make: r.Make,
-                        Model: r.Model,
+                        ReportReceivedDate: String(r.ReportReceivedDate || ''),
+                        Component: String(r.Component || ''),
+                        Summary: String(r.Summary || ''),
+                        Consequence: String(r.Consequence || ''),
+                        Remedy: String(r.Remedy || ''),
+                        Notes: String(r.Notes || ''),
+                        NHTSACampaignNumber: String(r.NHTSACampaignNumber || ''),
+                        Manufacturer: String(r.Manufacturer || ''),
+                        parkIt: !!r.parkIt,
+                        parkOutSide: !!r.parkOutSide,
+                        overTheAirUpdate: !!r.overTheAirUpdate,
+                        NHTSAActionNumber: String(r.NHTSAActionNumber || ''),
+                        ModelYear: String(r.ModelYear || ''),
+                        Make: String(r.Make || ''),
+                        Model: String(r.Model || ''),
                     });
                 });
             }

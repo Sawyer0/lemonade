@@ -37,3 +37,4 @@ export function SessionStatusHeader({ sessionId, vehicleId, status }: SessionSta
         </div>
     );
 }
+

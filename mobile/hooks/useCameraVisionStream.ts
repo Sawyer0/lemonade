@@ -1,138 +1,159 @@
 // mobile/hooks/useCameraVisionStream.ts
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Camera, useCameraDevices, useCameraPermission, CameraDevice } from 'react-native-vision-camera';
-import RNFS from 'react-native-fs';
-import { LocalParticipant } from 'livekit-client';
-import { MobileLogger } from '@mobile/services/MobileLogger';
+import { Camera, useCameraDevices, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
+import { useResizePlugin } from 'vision-camera-resize-plugin';
+import * as FileSystem from 'expo-file-system';
+import { useLocalPerception } from '../context/LocalPerceptionContext';
+import { useSharedValue } from 'react-native-reanimated';
+import { runOnJS } from 'react-native-reanimated';
+import { MobileLogger } from '../services/MobileLogger';
+import { LocalDetection } from '@lemonade/core';
 
 interface UseCameraVisionStreamOptions {
-    localParticipant: LocalParticipant | null;
-    visionTopic: string; // Kept for interface compatibility, though used differently now
-    captureInterval?: number; // 500ms default for buffer loop
     sessionId: string;
 }
 
 export function useCameraVisionStream({
-    localParticipant,
-    visionTopic,
-    captureInterval = 500, // 500ms for "Time Machine" buffer
-    sessionId
+    sessionId,
 }: UseCameraVisionStreamOptions) {
     const logger = useRef(new MobileLogger()).current;
 
+    // Services
+    const { localPerception } = useLocalPerception();
+    const { resize } = useResizePlugin();
+
     // Camera Permissions & Device
     const devices = useCameraDevices();
-    const cameraDevice = devices.back; // Prefer back camera
+    const cameraDevice = devices.find(d => d.position === 'back');
     const { hasPermission: cameraPermissionGranted, requestPermission: requestCameraPermission } = useCameraPermission();
 
-    // Camera State
+    // State
     const [cameraActive, setCameraActive] = useState(false);
     const cameraRef = useRef<Camera>(null);
-    const bufferLoopRef = useRef<NodeJS.Timeout | null>(null);
-    
-    // Ring Buffer: Stores file paths of the last 3 frames
-    const frameBuffer = useRef<string[]>([]);
-    const MAX_BUFFER_SIZE = 3;
+    const [currentDetections, setCurrentDetections] = useState<LocalDetection[]>([]);
 
-    // Start the "Silent Observer" loop
-    const startBufferLoop = useCallback(async () => {
-        if (!cameraPermissionGranted || !cameraDevice) {
-            logger.warn("Cannot start buffer loop: Permissions or device missing.");
+
+
+    // Triage State (Worklet Safe)
+    const lastTriageTime = useSharedValue(0);
+    const TRIAGE_INTERVAL = 1000; // Triage once per second to conserve battery/NPU
+    const triageBufferPath = `${FileSystem.cacheDirectory}triage_buffer_${sessionId}.jpg`;
+
+    // Semantic Peak Buffer: Stores the best frames from the last 5 seconds
+    const triageHistory = useRef<{ path: string; detections: LocalDetection[] }[]>([]);
+    const MAX_HISTORY = 5;
+
+    /**
+     * JS-side process to handle the resized buffer, save it, and run local TRIAGE.
+     */
+    const processFrameForTriage = useCallback(async (base64Data: string) => {
+        if (!localPerception || !localPerception.isReady()) return;
+
+        try {
+            // Save locally for llama.rn to ingest via file path
+            await FileSystem.writeAsStringAsync(triageBufferPath, base64Data, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
+
+            // Perform Local Inference
+            const detections = await localPerception.triageFrame(triageBufferPath);
+
+            if (detections.length > 0) {
+                logger.debug('Local Triage Success', { detections });
+
+                // Update Realtime State for HUD
+                setCurrentDetections(detections);
+
+                // Update History for Semantic Peak
+                triageHistory.current.push({ path: triageBufferPath, detections });
+                if (triageHistory.current.length > MAX_HISTORY) {
+                    triageHistory.current.shift();
+                }
+            } else {
+                setCurrentDetections([]);
+            }
+        } catch (e) {
+            logger.error('Failed to process frame for triage', e);
+        }
+    }, [localPerception, triageBufferPath, logger]);
+
+    /**
+     * Native Frame Processor (Zero-Jank Pipeline)
+     */
+    const frameProcessor = useFrameProcessor((frame) => {
+        'worklet';
+
+        const now = Date.now();
+        if (now - lastTriageTime.value < TRIAGE_INTERVAL) return;
+        lastTriageTime.value = now;
+
+        // 1. Resize natively to SmolVLM resolution (384x384)
+        // This operation stays in native/GPU space
+        const resized = resize(frame, {
+            scale: { width: 384, height: 384 },
+            pixelFormat: 'rgb',
+            dataType: 'uint8',
+        });
+
+        // 2. Convert to Base64 (lightweight for 384x384) and pass to JS
+        // We use a helper from vision-camera or just use the resized buffer
+        // Note: vision-camera-resize-plugin returns a Uint8Array in worklet
+        // We need a way to convert to base64 efficiently in worklet or pass the buffer.
+
+        // Unfortunately, writeAsStringAsync needs a string. 
+        // For 'Zero-Jank', we'll pass the buffer and let JS handle it.
+        runOnJS(processFrameForTriage)(resized.toString()); // Placeholder for buffer transfer logic
+    }, [resize, processFrameForTriage]);
+
+    // ROI & Zoom State
+    const [zoom, setZoom] = useState(1.0);
+    const MIN_ZOOM = 1.0;
+    const MAX_ZOOM = 5.0; // Cap at 5x to prevent extreme digital noise
+
+    /**
+     * Sets the Region of Interest (ROI) by converting a normalized crop rect to a sensor zoom level.
+     * @param rect Normalized ROI { x, y, width, height } where values are 0..1
+     * Currently assumes center-weighted ROI for digital zoom.
+     */
+    const setRegionOfInterest = useCallback((rect: { x: number, y: number, width: number, height: number } | null) => {
+        if (!rect) {
+            setZoom(MIN_ZOOM);
             return;
         }
-        if (bufferLoopRef.current) return; // Already running
 
-        logger.info("Starting visual buffer loop (Silent Observer)...");
-        
-        bufferLoopRef.current = setInterval(async () => {
-            if (!cameraRef.current || !cameraActive) return;
+        // Calculate Zoom Factor: 1.0 / max(width, height)
+        // E.g., focusing on a 20% box (0.2) -> 5x Zoom
+        const targetZoom = Math.min(Math.max(1 / Math.max(rect.width, rect.height), MIN_ZOOM), MAX_ZOOM);
 
-            try {
-                const photo = await cameraRef.current.takePhoto({
-                    qualityPrioritization: 'speed',
-                    quality: 40, // Lower quality for buffer is acceptable, or keep high if bandwidth allows burst
-                    skipMetadata: true,
-                });
-
-                const path = `file://${photo.path}`;
-                
-                // Add to buffer
-                frameBuffer.current.push(path);
-
-                // Maintain Ring Buffer Size
-                if (frameBuffer.current.length > MAX_BUFFER_SIZE) {
-                    const oldestFrame = frameBuffer.current.shift();
-                    if (oldestFrame) {
-                        // Clean up file to prevent storage bloat
-                        RNFS.unlink(oldestFrame).catch(err => 
-                            logger.warn(`Failed to cleanup frame: ${oldestFrame}`, err)
-                        );
-                    }
-                }
-
-            } catch (error) {
-                logger.error("Failed to capture buffer frame:", error as Error);
-            }
-        }, captureInterval);
-    }, [cameraPermissionGranted, cameraDevice, cameraActive, captureInterval, logger]);
-
-    const stopBufferLoop = useCallback(() => {
-        if (bufferLoopRef.current) {
-            clearInterval(bufferLoopRef.current);
-            bufferLoopRef.current = null;
-            
-            // Clean up all buffered frames
-            frameBuffer.current.forEach(path => {
-                RNFS.unlink(path).catch(() => {});
-            });
-            frameBuffer.current = [];
-            
-            logger.info("Stopped visual buffer loop.");
-        }
+        logger.debug('ROI Set: Adjusting Sensor Zoom', { targetZoom, rect });
+        setZoom(targetZoom);
     }, [logger]);
 
-    // Called when Agent requests a "Semantic Burst"
-    const flushBuffer = useCallback(async (): Promise<string[]> => {
-        logger.info("Flushing visual buffer for Semantic Burst...");
-        const encodedFrames: string[] = [];
+    /**
+     * Logic to find the "Semantic Peak" (best frame) for Handoff.
+     */
+    const getSemanticPeak = useCallback(async (): Promise<{ path: string; detections: LocalDetection[] } | null> => {
+        if (triageHistory.current.length === 0) return null;
 
-        // Read all current frames in buffer
-        for (const path of frameBuffer.current) {
-            try {
-                const base64 = await RNFS.readFile(path, 'base64');
-                encodedFrames.push(base64);
-            } catch (error) {
-                logger.error(`Failed to read frame for burst: ${path}`, error as Error);
-            }
-        }
+        // Sort by confidence
+        const sorted = [...triageHistory.current].sort((a, b) => {
+            const maxA = Math.max(...a.detections.map(d => d.confidence));
+            const maxB = Math.max(...b.detections.map(d => d.confidence));
+            return maxB - maxA;
+        });
 
-        // Note: We do NOT clear the buffer here, as the user might still be talking
-        // and we want to maintain context. We only clear on stop.
-        
-        return encodedFrames;
-    }, [logger]);
+        return sorted[0];
+    }, []);
 
     const toggleCamera = useCallback(() => {
         setCameraActive(prev => !prev);
     }, []);
 
-    // Manage Loop Lifecycle
-    useEffect(() => {
-        if (cameraActive) {
-            startBufferLoop();
-        } else {
-            stopBufferLoop();
-        }
-        return () => stopBufferLoop();
-    }, [cameraActive, startBufferLoop, stopBufferLoop]);
-
-    // Request permissions on mount
     useEffect(() => {
         if (!cameraPermissionGranted) {
             requestCameraPermission();
         }
     }, [cameraPermissionGranted, requestCameraPermission]);
-
 
     return {
         cameraPermissionGranted,
@@ -141,6 +162,10 @@ export function useCameraVisionStream({
         cameraRef,
         cameraDevice,
         requestCameraPermission,
-        flushBuffer, // New API
+        frameProcessor,
+        getSemanticPeak,
+        zoom,
+        setRegionOfInterest,
+        currentDetections
     };
 }

@@ -1,14 +1,16 @@
+import { SHARED_CONFIG } from '@lemonade/core';
+
 export const CONFIG = {
+    ...SHARED_CONFIG, // Inherit all shared configurations
     APP_URL: process.env.APP_URL || 'http://localhost:3000',
-    GCLOUD_PROJECT: process.env.GCLOUD_PROJECT || 'lemonade-3c4e7',
     LOCATION: 'us-central1',
     // "Thinking Model" for deep analysis with reasoning budget (Cloud Functions)
     GEMINI_THINKING_MODEL: 'gemini-2.5-pro',
-    // "Fast Brain" for real-time interaction (Frontend)
-    GEMINI_LIVE_MODEL: 'gemini-2.5-flash',
-    TEXT_EMBEDDING_MODEL: 'text-embedding-004',
-    OBSERVABILITY: {
-        LANGSMITH_ENABLED: process.env.LANGSMITH_TRACING === 'true',
-        LANGSMITH_PROJECT: process.env.LANGSMITH_PROJECT || 'lemonade-mvp'
+    STRIPE: {
+        SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+    },
+    FIREBASE: {
+        SERVICE_ACCOUNT_KEY: process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '',
     }
 };

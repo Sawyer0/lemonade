@@ -22,3 +22,4 @@ export function KonstaProvider({ children }: { children: React.ReactNode }) {
     </App>
   );
 }
+

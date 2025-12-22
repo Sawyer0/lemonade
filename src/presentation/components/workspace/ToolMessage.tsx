@@ -57,3 +57,4 @@ export function ToolMessage({ toolName, state, isUser }: ToolMessageProps) {
         </div>
     );
 }
+

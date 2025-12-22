@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, initializeAuth } from "firebase/auth";
+import { SHARED_CONFIG } from '@lemonade/core';
 // Manual implementation because firebase/auth/react-native export is missing in this version
 // Ported from @firebase/auth/dist/rn/index.js
 interface ReactNativeStorage {
@@ -23,8 +24,8 @@ const getReactNativePersistence = (storage: ReactNativeStorage) => {
             } catch { return false; }
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        _set(key: string, value: any) {
+
+        _set(key: string, value: unknown) {
             return storage.setItem(key, JSON.stringify(value));
         }
 
@@ -41,8 +42,7 @@ const getReactNativePersistence = (storage: ReactNativeStorage) => {
         _removeListener() { }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return ReactNativePersistence as any;
+    return ReactNativePersistence;
 };
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -52,8 +52,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const firebaseConfig = {
     apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    projectId: SHARED_CONFIG.GCLOUD.PROJECT_ID,
+    storageBucket: SHARED_CONFIG.GCLOUD.MEDIA_BUCKET,
     messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
@@ -64,12 +64,13 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 // Initialize Auth with persistence
 // We try to initialize with AsyncStorage first. 
 // If it throws (because an instance already exists, e.g. hot reload), we fall back to getAuth.
-let auth: any;
+let auth: Auth;
 try {
     auth = initializeAuth(app, {
         persistence: getReactNativePersistence(AsyncStorage)
     });
-} catch (e) {
+} catch (e: unknown) {
+    console.error("Firebase Auth initialization failed, possibly due to hot reload:", e);
     // Auth already initialized (likely during hot reload)
     auth = getAuth(app);
 }

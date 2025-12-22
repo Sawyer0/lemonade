@@ -4,11 +4,10 @@ import { TYPES } from '@/infrastructure/di/types';
 import { VideoAnalysisService } from '@/application/services/VideoAnalysisService';
 import { ILogger, ISessionRepository } from '@lemonade/core';
 import { AnalysisTriggerRequestSchema, AnalysisTriggerResponseSchema } from '@/application/dtos';
-import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
+import { validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
 import { Storage } from '@google-cloud/storage';
 import { z } from 'zod';
 import { withContext } from '@/application/utils/apiHandler';
-import { RequestContext } from '@/infrastructure/context/request-context';
 
 const storage = new Storage();
 const GCS_MEDIA_BUCKET = process.env.GCLOUD_MEDIA_BUCKET || 'your-gcs-media-bucket';
@@ -25,7 +24,7 @@ export const POST = withContext(async (req: Request) => {
         }
 
         const requestBody = await req.json();
-        const { sessionId, publicUrl, imageData } = requestBody;
+        const { sessionId, publicUrl } = requestBody;
 
         const extendedSchema = AnalysisTriggerRequestSchema.extend({
             imageData: z.string().optional(),

@@ -2,10 +2,13 @@ import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { stripe, getProPriceId } from './stripe';
 import { CONFIG } from './config';
-import { ErrorCode } from '@lemonade/core';
+import { ErrorCode, ILogger } from '@lemonade/core';
 import { CreateCheckoutSessionResponseDTO } from '@application/dtos/billing.dto';
+import { container } from './infrastructure/di/container';
+import { TYPES } from './infrastructure/di/types';
 
 const db = getFirestore();
+const logger = container.get<ILogger>(TYPES.Logger);
 
 export const createCheckoutSession = onCall(async (request): Promise<CreateCheckoutSessionResponseDTO> => {
     if (!request.auth) {
@@ -40,7 +43,7 @@ export const createCheckoutSession = onCall(async (request): Promise<CreateCheck
 
         return { url: session.url };
     } catch (error) {
-        console.error('Stripe Checkout Error:', error);
+        logger.error('Stripe Checkout Error', error as Error);
         // We wrap the internal error but expose a standard code to the client
         throw new HttpsError('internal', ErrorCode.STRIPE_ERROR);
     }
@@ -48,7 +51,7 @@ export const createCheckoutSession = onCall(async (request): Promise<CreateCheck
 
 export const stripeWebhook = onRequest(async (req, res) => {
     const sig = req.headers['stripe-signature'];
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const endpointSecret = CONFIG.STRIPE.WEBHOOK_SECRET;
 
     let event;
 
@@ -59,7 +62,7 @@ export const stripeWebhook = onRequest(async (req, res) => {
             event = req.body;
         }
     } catch (err) {
-        console.error(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown'}`);
+        logger.error(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown'}`, err as Error);
         res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown'}`);
         return;
     }
@@ -71,7 +74,7 @@ export const stripeWebhook = onRequest(async (req, res) => {
                 const userId = session.client_reference_id || session.metadata?.userId;
 
                 if (userId) {
-                    console.log(`Upgrading user ${userId} to PRO`);
+                    logger.info(`Upgrading user ${userId} to PRO`);
                     await db.collection('users').doc(userId).set({
                         tier: 'pro',
                         subscriptionId: session.subscription,
@@ -83,12 +86,12 @@ export const stripeWebhook = onRequest(async (req, res) => {
             }
             case 'customer.subscription.deleted': {
                 const subscription = event.data.object;
-                console.log(`Subscription deleted: ${subscription.id}`);
+                logger.info(`Subscription deleted: ${subscription.id}`);
                 break;
             }
         }
     } catch (error) {
-        console.error('Error processing webhook:', error);
+        logger.error('Error processing webhook', error as Error);
         res.status(500).send('Internal Server Error');
         return;
     }

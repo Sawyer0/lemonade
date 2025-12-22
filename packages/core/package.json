@@ -1,11 +1,17 @@
 {
   "name": "@lemonade/core",
   "version": "1.0.0",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "private": true,
+  "scripts": {
+    "build": "tsc"
+  },
   "dependencies": {
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "firebase": "^12.6.0",
+    "firebase-admin": "^13.6.0",
+    "xstate": "^5.25.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

@@ -6,13 +6,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native';
-import { useEffect } from 'react';
+// Removed useEffect, useCallback, runOnJS
 
 export function HelloWave() {
-  const rotation = useSharedValue(0);
-
-  useEffect(() => {
-    rotation.value = withRepeat(
+  // Initialize rotation directly with the animation sequence
+  const rotation = useSharedValue(
+    withRepeat(
       withSequence(
         withTiming(25, { duration: 150 }),
         withTiming(-25, { duration: 150 }),
@@ -20,8 +19,8 @@ export function HelloWave() {
         withTiming(0, { duration: 150 })
       ),
       4 // iterations
-    );
-  }, [rotation]);
+    )
+  );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],

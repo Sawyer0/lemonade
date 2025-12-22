@@ -7,7 +7,7 @@ import { useGeminiSession } from '@mobile/hooks/useGeminiSession';
 import { useVehicle } from '@mobile/hooks/useVehicle';
 import { ChatBubble } from '../domain/chat/ChatBubble.native';
 import { InputBar } from '../domain/chat/InputBar.native';
-import { NHTSAService } from '@mobile/services/NHTSAService';
+import { CONFIG } from '@mobile/constants/config';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '@mobile/infrastructure/firebase/config';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -50,18 +50,35 @@ export default function ChatScreen() {
         } else if (toolCall.name === 'checkRecalls') {
             const { year, make, model } = vehicle?.specs || {};
             if (year && make && model) {
-                const nhtsa = new NHTSAService();
-                nhtsa.getRecallsByVehicle(year, make, model).then(recalls => {
-                    sendResponse({
-                        functionResponses: [{
-                            name: 'checkRecalls',
-                            response: {
-                                recalls: recalls.length > 0 ? recalls : "No Recalls Found",
-                                vehicle: `${year} ${make} ${model}`
-                            }
-                        }]
+                // Call API instead of local service
+                const apiUrl = `${CONFIG.API.BASE_URL}/api/nhtsa/recalls?year=${year}&make=${make}&model=${model}`;
+                
+                fetch(apiUrl)
+                    .then(res => {
+                        if (!res.ok) throw new Error("API call failed");
+                        return res.json();
+                    })
+                    .then(data => {
+                         const recalls = data.recalls || [];
+                         sendResponse({
+                            functionResponses: [{
+                                name: 'checkRecalls',
+                                response: {
+                                    recalls: recalls.length > 0 ? recalls : "No Recalls Found",
+                                    vehicle: `${year} ${make} ${model}`
+                                }
+                            }]
+                        });
+                    })
+                    .catch(err => {
+                        console.error("Failed to fetch recalls", err);
+                         sendResponse({
+                            functionResponses: [{
+                                name: 'checkRecalls',
+                                response: { error: "Failed to fetch recalls" }
+                            }]
+                        });
                     });
-                });
             } else {
                 sendResponse({
                     functionResponses: [{

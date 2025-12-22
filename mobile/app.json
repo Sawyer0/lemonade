@@ -38,7 +38,15 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "react-native-vision-camera",
+      [
+        "llama.rn",
+        {
+          "n_gpu_layers": "auto",
+          "use_metal": true
+        }
+      ]
     ]
   }
 }

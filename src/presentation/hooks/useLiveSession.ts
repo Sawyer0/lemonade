@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot, Firestore } from 'firebase/firestore';
-import { DiagnosticSession } from '@lemonade/core';
-import { convertTimestamps } from '@infrastructure/firestore/timestamps';
+import { DiagnosticSession, convertTimestamps } from '@lemonade/core';
 
 interface LiveSessionState {
     session: DiagnosticSession | null;

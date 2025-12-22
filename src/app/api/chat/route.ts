@@ -4,20 +4,20 @@ import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import {
-    IBillingService,
-    ISessionService,
-    SYSTEM_PROMPTS,
-    SAFETY_INSTRUCTION_MASTER_TECH,
-    ILogger
+  IBillingService,
+  ISessionService,
+  SYSTEM_PROMPTS,
+  SAFETY_INSTRUCTION_MASTER_TECH,
+  ILogger
 } from '@lemonade/core';
 import { CONFIG } from '@/infrastructure/config';
-import { adminAuth } from '@/infrastructure/firebase/admin';
+import { adminAuth } from '@lemonade/infrastructure';
 import { withContext } from '@/application/utils/apiHandler';
-import { RequestContext } from '@/infrastructure/context/request-context';
+import { RequestContext } from '@lemonade/infrastructure';
 
 // Initialize Google AI Provider
 const google = createGoogleGenerativeAI({
-  apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
+  apiKey: CONFIG.AI_MODELS.GOOGLE_API_KEY,
 });
 
 export const maxDuration = 60; // Timeout handling
@@ -81,31 +81,21 @@ export const POST = withContext(async function POST(req: Request): Promise<NextR
 
     // 5. Stream with Telemetry Hooks
     const result = await streamText({
-      model: google(CONFIG.AI_MODELS.CHAT_MODEL), 
+      model: google(CONFIG.AI_MODELS.CHAT_MODEL),
       system: systemPrompt,
       messages,
-      async onFinish({ usage }: { usage: any }) {
+      async onFinish({ usage }) {
         // --- THE BILLING PATCH ---
         if (usage) {
-          // Safe cast to avoid TS errors with varying SDK versions
-          // Define shape for AI SDK usage object
-          type AIUsage = {
-            promptTokens?: number;
-            inputTokens?: number;
-            completionTokens?: number;
-            outputTokens?: number;
-          };
-          const typedUsage = usage as AIUsage;
+          // Safe cast to avoid TS errors
+          // Note: AI SDK v4+ uses inputTokens/outputTokens, v3 used promptTokens/completionTokens
+          const typedUsage = usage as unknown as Record<string, number | undefined>;
+
           const inputTokens = typedUsage.promptTokens ?? typedUsage.inputTokens ?? 0;
           const outputTokens = typedUsage.completionTokens ?? typedUsage.outputTokens ?? 0;
 
-          // Note: We're inside a callback that might run after the request context is closed.
-          // Using the captured 'traceId' variable here is safer than RequestContext.getTraceId(), 
-          // although we can't easily pass it to logger.info() implicitly if the context is gone.
-          // However, since we removed the explicit traceId arg from logger, we rely on ALS.
-          // If ALS is lost, logger will use 'unknown-trace'.
-          // To fix this properly for background callbacks, we would need to wrap this callback in RequestContext.run again.
 
+          // Re-establish request context for async callback to ensure tracing works
           await RequestContext.run({ traceId }, async () => {
             logger.info(`Recording Usage: ${inputTokens} in, ${outputTokens} out`, { usage });
             await billingService.recordUsage({
@@ -136,3 +126,4 @@ export const POST = withContext(async function POST(req: Request): Promise<NextR
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 });
+

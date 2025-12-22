@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/UserContext';
-import { DiagnosticSession } from '@lemonade/core';
+import { DiagnosticSession, MessagePart } from '@lemonade/core';
 
 export function useToolHandler(session: DiagnosticSession | null) {
     const router = useRouter();
@@ -14,19 +14,31 @@ export function useToolHandler(session: DiagnosticSession | null) {
         const lastMessage = session.messages[session.messages.length - 1];
 
         // Prevent duplicate handling
-        const msgId = lastMessage.timestamp.toString(); // Simple ID proxy if no uuid on message
+        const msgId = lastMessage.timestamp.toString(); 
         if (lastHandledMessageId.current === msgId) return;
 
         // Only react to assistant messages that might contain tool calls
         if (lastMessage.role === 'assistant' && Array.isArray(lastMessage.content)) {
-            const toolCall = lastMessage.content.find(p => p.type === 'tool-call');
+            const toolCalls = (lastMessage.content as MessagePart[]).filter(p => p.type === 'tool-call');
 
-            if (toolCall && toolCall.toolName === 'start_video_stream') {
-                // Check if we should auto-open based on user preference
-                if (user?.preferences?.autoOpenCamera) {
-                    console.log("[Auto-Tool] Auto-opening camera based on preference");
-                    lastHandledMessageId.current = msgId;
-                    router.push(`/live-mechanic?roomName=${session.id}&sessionId=${session.id}`);
+            for (const toolCall of toolCalls) {
+                if (!toolCall.toolName) continue;
+
+                if (toolCall.toolName === 'start_video_stream' || toolCall.toolName === 'verify_safe_support') {
+                    // Both require live camera access
+                    if (user?.preferences?.autoOpenCamera) {
+                        console.log(`[Auto-Tool] Opening camera for ${toolCall.toolName}`);
+                        lastHandledMessageId.current = msgId;
+                        router.push(`/live-mechanic?roomName=${session.id}&sessionId=${session.id}&tool=${toolCall.toolName}`);
+                    }
+                } else if (toolCall.toolName === 'display_content') {
+                    const args = toolCall.args as any;
+                    if (args?.url) {
+                        console.log(`[Tool] Displaying content: ${args.title}`);
+                        lastHandledMessageId.current = msgId;
+                        // Assuming we have a modal or webview for viewing documentation
+                        router.push(`/modal?url=${encodeURIComponent(args.url)}&title=${encodeURIComponent(args.title || 'Documentation')}`);
+                    }
                 }
             }
         }

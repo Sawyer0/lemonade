@@ -16,3 +16,5 @@ export class ClientLogger implements ILogger {
         console.debug(`[DEBUG] ${message}`, context);
     }
 }
+
+export const logger = new ClientLogger();

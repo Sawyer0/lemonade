@@ -13,7 +13,7 @@ import { ApiClient } from '@/infrastructure/api/ApiClient';
 import { CONFIG } from '@/infrastructure/config';
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
-import { Crown, Zap, Plus, LogOut } from 'lucide-react';
+import { Plus, LogOut } from 'lucide-react';
 
 const AddVehicleModal = dynamic(() => import('@/presentation/components/garage/AddVehicleModal').then(mod => mod.AddVehicleModal), {
     ssr: false,
@@ -37,7 +37,7 @@ export default function GaragePage() {
     const { data: userData } = useSWR<{ data: { tier: string } }>(user ? CONFIG.API.ROUTES.USER_ME : null, fetcher);
     const userTier = userData?.data?.tier === 'pro' ? 'pro' : 'free';
 
-    const { data: vehiclesData, error, isLoading, mutate } = useSWR<Vehicle[]>(user ? CONFIG.API.ROUTES.VEHICLES : null, fetcher);
+    const { data: vehiclesData, isLoading, mutate } = useSWR<Vehicle[]>(user ? CONFIG.API.ROUTES.VEHICLES : null, fetcher);
     const vehicles: Vehicle[] = vehiclesData || [];
 
     const { showToast } = useToast();

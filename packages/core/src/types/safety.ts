@@ -4,7 +4,8 @@ export const SafetyAssessmentSchema = z.object({
     safety_score: z.number().int().min(1).max(10).describe("1-10 scale of danger"),
     hazards_detected: z.array(z.enum(["JACK_STAND_MISSING", "HIGH_VOLTAGE", "FUEL_LEAK", "SAFETY_CHECK_FAILED", "NONE"])),
     user_intent: z.string(),
-    intervention_required: z.boolean()
+    intervention_required: z.boolean(),
+    suggested_output: z.string().optional()
 });
 
 export type SafetyAssessment = z.infer<typeof SafetyAssessmentSchema>;
@@ -19,8 +20,9 @@ export const SAFETY_RAW_SCHEMA = {
             items: { type: "STRING", enum: ["JACK_STAND_MISSING", "HIGH_VOLTAGE", "FUEL_LEAK", "SAFETY_CHECK_FAILED", "NONE"] }
         },
         safety_score: { type: "INTEGER", description: "1-10 scale of danger" },
-        user_intent: { type: "STRING" }
+        user_intent: { type: "STRING" },
+        suggested_output: { type: "STRING" }
     },
     required: ["safety_score", "hazards_detected", "intervention_required", "user_intent"],
-    propertyOrdering: ["intervention_required", "hazards_detected", "safety_score", "user_intent"]
+    propertyOrdering: ["intervention_required", "hazards_detected", "safety_score", "user_intent", "suggested_output"]
 };

@@ -39,3 +39,4 @@ export const VerificationResponseSchema = z.object({
 
 export type VerificationRequest = z.infer<typeof VerificationRequestSchema>;
 export type VerificationResponse = z.infer<typeof VerificationResponseSchema>;
+

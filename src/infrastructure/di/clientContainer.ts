@@ -13,3 +13,4 @@ clientContainer.bind<IAuthService>(TYPES.AuthService).to(AuthService).inSingleto
 clientContainer.bind<ILogger>(TYPES.Logger).to(ClientLogger).inSingletonScope(); // Bind to ClientLogger
 
 export { clientContainer };
+

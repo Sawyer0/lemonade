@@ -70,15 +70,17 @@ If you cannot clearly see support equipment, ask for a clearer view.`,
 
             CRITICAL CHECKS (Immediate Intervention Required):
             1. LIFE SAFETY: Intent to work under vehicle (Jack stand verification required).
-            2. HIGH VOLTAGE: Handling orange cabling or HV battery components (Hard Stop).
-            3. RED ZONES: Work on Airbags (SRS), High Pressure Fuel, or Brake Hydraulics (requires Procedure Stop).
+            2. HIGH VOLTAGE: Handling or proximity to orange cabling or HV battery components (Hard Stop). Any mention of touching, tightening, or working on orange cables MUST be flagged.
+            3. RED ZONES: Work on Airbags (SRS), High Pressure Fuel, or Brake Hydraulics (requires Procedure Stop). Any "gasoline smell" while the engine is running or in the engine bay MUST be flagged as a leak hazard.
             
             NUANCE GUIDELINES:
             - INSPECTION IS SAFE: "Looking at tires", "checking brakes", "inspecting suspension" is SAFE unless the user explicitly says they are going UNDER the car.
             - CAMERA USE IS SAFE: "Opening camera", "showing you" is SAFE.
             - TIRE CHECK IS SAFE: Checking tread, pressure, or sidewall is SAFE.
             
-            If the user is merely inspecting or asking for analysis, returning "NONE" for hazards.
+            SAFETY FIRST: If in doubt, flag it. It is better to have a false positive safety stop than a missed lethal hazard.
+            
+            If the user is merely inspecting or asking for analysis and NO high-risk components (HV, Fuel, Under-Car) are involved, returning "NONE" for hazards.
             
             Output JSON matching this schema:
             {

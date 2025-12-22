@@ -20,7 +20,8 @@ function loadEnv() {
             }
         });
         return env;
-    } catch (e) {
+    } catch (e: unknown) {
+        console.warn('Error loading .env.local:', e);
         return {};
     }
 }
@@ -54,8 +55,8 @@ async function updateCors() {
                 console.log("✅ Found buckets:");
                 buckets.forEach(b => console.log(`   - ${b.name}`));
             }
-        } catch (e) {
-            console.log("⚠️  Could not list buckets (Likely missing 'Storage Admin' permission)");
+        } catch (e: unknown) {
+            console.log("⚠️  Could not list buckets (Likely missing 'Storage Admin' permission)", e);
         }
 
         // List of buckets to try

@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db, auth } from '@mobile/infrastructure/firebase/config';
-import { convertTimestamps } from '@infrastructure/firestore/timestamps';
+import { convertTimestamps } from '@lemonade/core';
 import { DiagnosticSession } from '@lemonade/core';
+import { MobileLogger } from '@mobile/services/MobileLogger';
 
 export function useGarage() {
     const [sessions, setSessions] = useState<DiagnosticSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const logger = useRef(new MobileLogger()).current;
 
     useEffect(() => {
         const user = auth.currentUser;
@@ -33,13 +35,13 @@ export function useGarage() {
             setSessions(sessionsData);
             setLoading(false);
         }, (err) => {
-            console.error("Garage Subscription Error:", err);
+            logger.error("Garage Subscription Error:", err);
             setError(err.message);
             setLoading(false);
         });
 
         return () => unsub();
-    }, []);
+    }, [logger]);
 
     return { sessions, loading, error };
 }

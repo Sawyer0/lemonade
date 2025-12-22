@@ -119,7 +119,7 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
         mimeType: string,
         userId: string,
         sessionId: string
-    ): Promise<any> {
+        ): Promise<AIAnalysis> {
         this.logger.info('[VideoAnalysisService] analyzeVideo called', { sessionId, url });
 
         const session = await this.sessionRepo.findById(sessionId);
@@ -142,10 +142,27 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
             vehicleContext: vehicle.specs
         });
 
+        const finalVerdict = reasoningState.finalDiagnosis;
+
         return {
-            diagnosis: reasoningState.finalDiagnosis.userOutput,
-            reasoning: reasoningState.finalDiagnosis.reasoningTrace,
-            actions: reasoningState.finalDiagnosis.requiredActions
+            diagnosis: finalVerdict.userOutput,
+            visual_evidence: reasoningState.intuition.reasoning.split('; '),
+            acoustic_evidence: [],
+            severity: (finalVerdict.decision === 'STOP_DANGER' ? 'critical' :
+                finalVerdict.decision === 'REQUEST_MORE_INFO' ? 'medium' :
+                    'low'),
+            safety_alert: finalVerdict.decision === 'STOP_DANGER',
+            suggested_actions: finalVerdict.requiredActions,
+            engineDescription: reasoningState.visualGrounding.engineDescription,
+            isStock: reasoningState.visualGrounding.isStock,
+            visualConflictDetected: reasoningState.visualGrounding.visualConflictDetected,
+            detectedCondition: reasoningState.visualGrounding.detectedCondition,
+            confidence: reasoningState.intuition.confidence,
+            verification: {
+                isVerified: reasoningState.verification.isVerified,
+                verifiedSource: reasoningState.verification.verifiedSource,
+                conflictingEvidence: reasoningState.verification.conflictingEvidence
+            }
         };
     }
 }

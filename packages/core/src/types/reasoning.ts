@@ -1,3 +1,5 @@
+import { LocalTriageResult } from './localPerception';
+
 export interface ReasoningInput {
     userQuery: string;
     videoUrl?: string;
@@ -13,4 +15,5 @@ export interface ReasoningInput {
     userId: string;
     complaint?: string;
     videoDurationMinutes?: number; // From runVisionAnalysis
+    localTriage?: LocalTriageResult;
 }

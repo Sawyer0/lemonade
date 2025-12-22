@@ -168,3 +168,4 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
         </div>
     );
 }
+

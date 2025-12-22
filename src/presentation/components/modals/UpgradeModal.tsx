@@ -103,3 +103,4 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
         </Sheet>
     );
 }
+

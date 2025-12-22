@@ -8,3 +8,4 @@ declare global {
         handleNativeGoogleLogin?: (token: string) => void;
     }
 }
+

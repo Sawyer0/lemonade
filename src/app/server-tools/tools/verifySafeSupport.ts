@@ -46,3 +46,4 @@ export interface VerifySafeSupportResponse {
     tool_call_id: string;
     result: SafetyVerificationResult;
 }
+

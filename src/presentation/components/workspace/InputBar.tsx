@@ -84,3 +84,4 @@ export function InputBar({ input, setInput, onSendMessage, onUpload, uploading, 
         </div>
     );
 }
+

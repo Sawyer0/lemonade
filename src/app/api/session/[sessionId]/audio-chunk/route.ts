@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/infrastructure/firebase/admin';
+import { adminAuth } from '@lemonade/infrastructure';
 import {
     AppError,
     ErrorCode,

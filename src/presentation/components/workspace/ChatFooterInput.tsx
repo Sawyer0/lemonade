@@ -23,3 +23,4 @@ export function ChatFooterInput({ sessionId, setShowFileUpload }: ChatFooterInpu
         </div>
     );
 }
+

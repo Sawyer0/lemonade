@@ -77,3 +77,4 @@ ui-debug.log*
 
 # gemini
 .gemini/
+conductor/

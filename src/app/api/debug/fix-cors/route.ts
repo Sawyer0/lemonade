@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminStorage } from '@/infrastructure/firebase/admin';
+import { adminStorage } from '@lemonade/infrastructure';
 import { withContext } from '@/application/utils/apiHandler';
 
 export const GET = withContext(async () => {
@@ -18,4 +18,5 @@ export const GET = withContext(async () => {
         return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
     }
 });
+
 

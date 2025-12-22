@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { adminDb } from '@/infrastructure/firebase/admin';
+import { adminDb } from '@lemonade/infrastructure';
+import { CONFIG } from '@/infrastructure/config';
 
 import { createErrorResponse } from '@/application/utils/validateRequest';
 import { AppError, ErrorCode } from '@lemonade/core';
@@ -8,7 +9,7 @@ import { withContext } from '@/application/utils/apiHandler';
 import { BillingPortalResponseDTO } from '@/application/dtos/billing.dto';
 
 const getStripe = () => {
-    const key = process.env.STRIPE_SECRET_KEY;
+    const key = CONFIG.PAYMENTS.STRIPE_SECRET_KEY;
     if (!key) {
         throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'STRIPE_SECRET_KEY is missing');
     }
@@ -39,13 +40,14 @@ export const POST = withContext(async (req: Request) => {
         const stripe = getStripe();
         const session = await stripe.billingPortal.sessions.create({
             customer: userData.stripeCustomerId,
-            return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/garage`,
+            return_url: `${CONFIG.PAYMENTS.APP_URL}/garage`,
         });
 
         return NextResponse.json({ url: session.url } satisfies BillingPortalResponseDTO);
 
     } catch (error) {
-        return createErrorResponse(error) as any; // Cast to satisfy Next.js types
+        return createErrorResponse(error);
     }
 });
+
 

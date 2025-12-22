@@ -53,16 +53,44 @@ export class GoogleSearchService implements IGoogleSearchService {
             const data = await response.json();
 
             if (!data.items) {
-                this.logger.info('[GoogleSearchService] No results found', { query: request.query });
+                this.logger.info('[GoogleSearchService] No results found', { 
+                    query: request.query,
+                    sessionId: request.sessionId 
+                });
                 return { results: [], queryUsed: request.query, totalFound: 0 };
             }
 
-            const results = data.items.map((item: { title: string; link: string; snippet: string; displayLink: string }) => ({
-                title: item.title,
-                link: item.link,
-                snippet: item.snippet,
-                source: item.displayLink
-            }));
+            interface GoogleSearchItem {
+                title: string;
+                link: string;
+                snippet: string;
+                displayLink: string;
+                pagemap?: {
+                    metatags?: Array<Record<string, string | undefined>>;
+                };
+            }
+
+            const results = (data.items as GoogleSearchItem[]).map((item) => {
+                const metatags = item.pagemap?.metatags?.[0] || {};
+                const date = metatags['article:published_time'] || 
+                             metatags['og:published_time'] || 
+                             metatags['date'] ||
+                             metatags['pubdate'];
+
+                return {
+                    title: item.title,
+                    link: item.link,
+                    snippet: item.snippet,
+                    source: item.displayLink,
+                    date: typeof date === 'string' ? date : undefined
+                };
+            });
+
+            this.logger.debug('[GoogleSearchService] Search results processed', {
+                query: request.query,
+                count: results.length,
+                sessionId: request.sessionId
+            });
 
             return {
                 results,

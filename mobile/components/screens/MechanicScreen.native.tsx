@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, TextInput, ScrollView } from 'react-native'; // Added TextInput, ScrollView
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-// import { CameraView, useCameraPermissions } from 'expo-camera'; // Removed
 import { Theme } from '@mobile/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-// import { useSentinel } from '@mobile/hooks/useSentinel'; // Removed
 import { useGeminiSession } from '@mobile/hooks/useGeminiSession';
 import { useVehicle } from '@mobile/hooks/useVehicle';
-import { Camera } from 'react-native-vision-camera'; // Add Camera import
+import { Camera } from 'react-native-vision-camera';
 
-import { CONFIG } from '@mobile/constants/config';
+
 import { useNativeAuth } from '@mobile/hooks/useNativeAuth';
+import { DetectionHUD } from '../camera/DetectionHUD';
 
 export default function MechanicScreenNative() {
     const router = useRouter();
@@ -20,82 +19,101 @@ export default function MechanicScreenNative() {
     // Vehicle Context Resolution
     const vehicleId = typeof vehicleContext === 'string' ? vehicleContext : undefined;
     const { vehicle } = useVehicle(vehicleId);
-    const { idToken } = useNativeAuth();
+    useNativeAuth();
+
+    // Refs to hold mutable camera state/functions without triggering useCallback/useEffect dependencies
+    const cameraActiveRef = useRef<boolean>(false);
+    const toggleCameraRef = useRef<() => void>(() => { });
 
     // Tool Handler for Server-Driven Gating
-        const handleToolCall = (toolCall: { name: string; args: Record<string, unknown> }, { sendResponse }: { sendResponse: (response: unknown) => void }) => {
-            console.log("[MechanicScreen] Tool Call:", toolCall.name);
-    
-            if (toolCall.name === 'start_video_stream') {
-                if (!cameraActive) {
-                    toggleCamera(); // Toggle camera active state
-                    sendResponse({
-                        functionResponses: [{
-                            name: 'start_video_stream',
-                            response: { result: "Camera Opened. Streaming video..." }
-                        }]
-                    });
-                } else {
-                    sendResponse({
-                        functionResponses: [{
-                            name: 'start_video_stream',
-                            response: { result: "Camera is already open and streaming." }
-                        }]
-                    });
-                }
-            } else if (toolCall.name === 'stop_video_stream') {
-                if (cameraActive) {
-                    toggleCamera(); // Toggle camera active state
-                    sendResponse({
-                        functionResponses: [{
-                            name: 'stop_video_stream',
-                            response: { result: "Camera Closed." }
-                        }]
-                    });
-                } else {
-                    sendResponse({
-                        functionResponses: [{
-                            name: 'stop_video_stream',
-                            response: { result: "Camera is already closed." }
-                        }]
-                    });
-                }
+    // Use useCallback to memoize, ensuring it only recreates if its dependencies (the refs) change
+    const handleToolCall = useCallback((toolCall: { name: string; args: Record<string, unknown> }, { sendResponse }: { sendResponse: (response: unknown) => void }) => {
+        console.log("[MechanicScreen] Tool Call:", toolCall.name);
+
+        // Access current values via refs
+        const currentCameraActive = cameraActiveRef.current;
+        const currentToggleCamera = toggleCameraRef.current;
+
+        if (toolCall.name === 'start_video_stream') {
+            if (!currentCameraActive) {
+                currentToggleCamera(); // Toggle camera active state
+                sendResponse({
+                    functionResponses: [{
+                        name: 'start_video_stream',
+                        response: { result: "Camera Opened. Streaming video..." }
+                    }]
+                });
+            } else {
+                sendResponse({
+                    functionResponses: [{
+                        name: 'start_video_stream',
+                        response: { result: "Camera is already open and streaming." }
+                    }]
+                });
             }
-            // 'perform_diagnosis' tool call is removed as vision data is streamed continuously
-        };
+        } else if (toolCall.name === 'stop_video_stream') {
+            if (currentCameraActive) {
+                currentToggleCamera(); // Toggle camera active state
+                sendResponse({
+                    functionResponses: [{
+                        name: 'stop_video_stream',
+                        response: { result: "Camera Closed." }
+                    }]
+                });
+            } else {
+                sendResponse({
+                    functionResponses: [{
+                        name: 'stop_video_stream',
+                        response: { result: "Camera is already closed." }
+                    }]
+                });
+            }
+        }
+    }, []); // Empty dependency array because it accesses mutable refs
+
     // Connect to Gemini (now LiveKit via Agent)
     const {
         connect,
-        loading, // Renamed from connecting
-        room, // LiveKit room object
-        localParticipant, // LiveKit local participant
-        aiResponses, // AI responses from data channel
-        sendMessage, // For chat input
+        loading,
+        room,
+        aiResponses,
+        sendMessage,
 
-        // Camera related states and functions from useGeminiSession
         cameraPermissionGranted,
         cameraActive,
         toggleCamera,
         cameraRef,
         cameraDevice,
         requestCameraPermission,
-        } = useGeminiSession(sessionId, vehicle, handleToolCall);
-    
-        const [chatMessage, setChatMessage] = useState('');
-    
-        const handleSendMessage = () => {
-            if (chatMessage.trim()) {
-                sendMessage(chatMessage);
-                setChatMessage('');
-            }
-        };
-    
-        const scrollViewRef = useRef<ScrollView>(null); // Add this line
-    
-        // Auto-connect to session on mount
-        useEffect(() => {
-            connect();
-        }, [connect]);
+        currentDetections,
+        frameProcessor,
+        agentState,
+    } = useGeminiSession(sessionId, vehicle, handleToolCall);
+
+    // Keep refs updated with the latest state/functions from useGeminiSession
+    useEffect(() => {
+        cameraActiveRef.current = cameraActive;
+    }, [cameraActive]);
+
+    useEffect(() => {
+        toggleCameraRef.current = toggleCamera;
+    }, [toggleCamera]);
+
+    const [chatMessage, setChatMessage] = useState('');
+
+    const handleSendMessage = () => {
+        if (chatMessage.trim()) {
+            sendMessage(chatMessage);
+            setChatMessage('');
+        }
+    };
+
+    const scrollViewRef = useRef<ScrollView>(null);
+
+    // Auto-connect to session on mount
+    useEffect(() => {
+        connect();
+    }, [connect]);
 
     if (!cameraPermissionGranted) {
         return (
@@ -111,6 +129,9 @@ export default function MechanicScreenNative() {
         );
     }
 
+    // isLive is inferred from the room connection status.
+    const isLive = room?.state === 'connected';
+
     return (
         <View style={styles.container}>
             {/* Native Camera View */}
@@ -120,6 +141,7 @@ export default function MechanicScreenNative() {
                     ref={cameraRef}
                     device={cameraDevice}
                     isActive={cameraActive}
+                    frameProcessor={frameProcessor}
                 />
             ) : (
                 <View style={[styles.fullScreenVideo, { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }]}>
@@ -129,6 +151,10 @@ export default function MechanicScreenNative() {
             )}
 
             {/* AI HUD Overlay */}
+            {cameraActive && (
+                <DetectionHUD detections={currentDetections} agentState={agentState} />
+            )}
+
             <SafeAreaView style={styles.hudOverlay} pointerEvents="box-none">
 
                 {/* Top Status Bar */}
@@ -150,7 +176,7 @@ export default function MechanicScreenNative() {
                 >
                     {aiResponses.map((response, index) => (
                         <View key={index} style={styles.aiResponseMessage}>
-                            <Text style={styles.aiResponseMessageText}>{response.analysis.diagnosis}</Text>
+                            <Text style={styles.aiResponseMessageText}>{response.analysis?.diagnosis}</Text>
                             <Text style={styles.aiResponseTime}>{response.type} - {new Date().toLocaleTimeString()}</Text>
                         </View>
                     ))}

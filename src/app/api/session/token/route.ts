@@ -6,7 +6,6 @@ import { withContext } from '@/application/utils/apiHandler';
 import type { IServerAuthService, ISessionRepository, IVehicleRepository, INHTSAService, ILogger } from '@lemonade/core';
 import {
     DiagnosticSession,
-    Vehicle,
     AppError,
     ErrorCode,
     SYSTEM_PROMPTS,
@@ -95,9 +94,7 @@ ${SAFETY_INSTRUCTION_MASTER_TECH}
             scopes: ['https://www.googleapis.com/auth/cloud-platform'],
             projectId: CONFIG.GCLOUD.PROJECT_ID,
             // Uses GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_KEY if set in env
-            credentials: process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-                ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-                : undefined
+            credentials: CONFIG.FIREBASE.SERVICE_ACCOUNT
         });
 
         const client = await auth.getClient();

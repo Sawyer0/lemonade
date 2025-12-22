@@ -1,7 +1,6 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/infrastructure/firebase/config';
 import { useAuth, useToast } from '@/presentation/context';
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
@@ -25,7 +24,8 @@ export default function LandingPage() {
     try {
       const authService = clientContainer.get<IAuthService>(TYPES.AuthService);
       await authService.signInWithGoogle();
-    } catch (error) {
+    } catch (error: unknown) {
+      console.error("Login failed:", error); // Explicitly use error
       showToast('Login failed. Please try again.', 'error');
     }
   };
@@ -88,3 +88,4 @@ export default function LandingPage() {
     </Page>
   );
 }
+

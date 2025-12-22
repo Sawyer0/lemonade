@@ -127,3 +127,4 @@ export function ChatMessage({ msg, isVideoMode, onImageCapture, handleCloseTool,
         </div>
     );
 }
+

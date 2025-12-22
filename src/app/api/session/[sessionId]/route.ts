@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/infrastructure/firebase/admin';
+import { adminAuth } from '@lemonade/infrastructure';
 import type { ISessionRepository } from '@lemonade/core';
 import {
     AppError,
     ErrorCode,
-    DiagnosticSessionSchema,
-    DiagnosticSession
+    DiagnosticSessionSchema
 } from '@lemonade/core';
 import { createErrorResponse } from '@/application/utils/validateRequest';
 import { withContext } from '@/application/utils/apiHandler';

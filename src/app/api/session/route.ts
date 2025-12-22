@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/infrastructure/firebase/admin';
+import { adminAuth } from '@lemonade/infrastructure';
 import {
     AppError,
     ErrorCode,
@@ -13,7 +13,6 @@ import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import {
     StartSessionRequestSchema,
-    type StartSessionRequestDTO,
     type StartSessionResponseDTO,
     type SessionListResponseDTO,
 } from '@/application/dtos/session.dto';
@@ -86,3 +85,4 @@ export const POST = withContext(async (req: NextRequest) => {
         return createErrorResponse(error);
     }
 });
+

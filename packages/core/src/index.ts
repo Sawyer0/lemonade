@@ -13,14 +13,18 @@ export * from './interfaces/IContextCacheService';
 export * from './interfaces/IEmbeddingService';
 export * from './interfaces/IGoogleSearchService';
 export * from './interfaces/ILogger';
+export * from './interfaces/IMemoryService';
 export * from './interfaces/IMechanicReasoningService';
 export * from './interfaces/INHTSAService';
+export * from './interfaces/IReactiveSafetyService';
+export * from './interfaces/IModelManagerService';
 export * from './interfaces/IRealtimeAIService';
 export * from './interfaces/ISafetyMonitor';
 export * from './interfaces/IServerAuthService';
 export * from './interfaces/ISessionRepository';
 export * from './interfaces/ISessionService';
 export * from './interfaces/ISummarizationService';
+export * from './interfaces/ITracingService';
 export * from './interfaces/ITTSService';
 export * from './interfaces/IUserRepository';
 export * from './interfaces/IVectorRepository';
@@ -41,9 +45,19 @@ export * from './prompts/verification'; // Exports VERIFICATION_PROMPTS
 export * from './prompts/video';
 
 export * from './types/ai';
-export * from './types/models'; // Exports DiagnosticSession, AIAnalysis, User, Vehicle, MessagePart, SafetyRecall, AIAnalysisSchema, DiagnosticSessionSchema, UserSchema, VehicleSchema etc.
+
+export * from './types/evals';
+
+export * from './types/models';
+
+ // Exports DiagnosticSession, AIAnalysis, User, Vehicle, MessagePart, SafetyRecall, AIAnalysisSchema, DiagnosticSessionSchema, UserSchema, VehicleSchema etc.
+export * from './types/localPerception';
 export * from './types/neurosymbolic';
 export * from './types/reasoning'; // Exports ReasoningInput
 export * from './types/safety'; // Exports SafetyAssessment, SAFETY_RAW_SCHEMA
-export * from './types/verification'; // Exports SearchRequest, SearchResponse, VerificationRequest, VerificationResponse
+export * from './types/tools';
+export * from './types/verification';
+ // Exports SearchRequest, SearchResponse, VerificationRequest, VerificationResponse
 export * from './types/video';
+export * from './config'; // Added export for centralized configuration
+export * from './utils/timestamps';

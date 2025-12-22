@@ -177,3 +177,4 @@ export function ServiceHistory({ sessions, loading }: ServiceHistoryProps) {
         </Page >
     );
 }
+

@@ -48,12 +48,13 @@ export const GET = withContext(async (req: NextRequest) => {
         try {
             const logger = container.get<ILogger>(TYPES.Logger);
             logger.error('Failed to start session', error as Error);
-        } catch (diError) {
+        } catch (diError: unknown) {
             // Last resort: If the logging subsystem itself is down, use safe console output
             console.error(JSON.stringify({
                 level: 'FATAL',
                 message: 'DI Container failed to resolve Logger during exception handling',
-                originalError: error instanceof Error ? error.message : String(error)
+                originalError: error instanceof Error ? error.message : String(error),
+                diError: diError instanceof Error ? diError.message : String(diError)
             }));
         }
 
@@ -63,4 +64,5 @@ export const GET = withContext(async (req: NextRequest) => {
         );
     }
 });
+
 

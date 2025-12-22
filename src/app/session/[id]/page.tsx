@@ -3,12 +3,12 @@ import { use, useState, useEffect } from 'react';
 import { useLiveSession } from '@/presentation/hooks/useLiveSession';
 import { SessionWorkspace } from '@/presentation/components/workspace/SessionWorkspace';
 import { useToast, useAuth } from '@/presentation/context';
-import { auth, db } from '@/infrastructure/firebase/config';
+import { db } from '@/infrastructure/firebase/config';
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const { session, loading: sessionLoading } = useLiveSession(id, db);
-    const { showToast } = useToast();
+    const { } = useToast();
     const { user, loading: authLoading } = useAuth();
     const [token, setToken] = useState<string | null>(null);
 

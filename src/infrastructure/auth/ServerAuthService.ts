@@ -1,5 +1,5 @@
 import { injectable } from 'inversify';
-import { adminAuth } from '@/infrastructure/firebase/admin';
+import { adminAuth } from '@lemonade/infrastructure';
 import { IServerAuthService } from '@lemonade/core';
 import { DecodedIdToken } from 'firebase-admin/auth';
 
@@ -9,3 +9,4 @@ export class ServerAuthService implements IServerAuthService {
         return adminAuth.verifyIdToken(token);
     }
 }
+

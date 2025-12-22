@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@mobile/infrastructure/firebase/config';
 import { Vehicle } from '@lemonade/core';
-import { convertTimestamps } from '@infrastructure/firestore/timestamps';
+import { convertTimestamps } from '@lemonade/core';
 
 export function useVehicle(vehicleId: string | undefined) {
     const [vehicle, setVehicle] = useState<Vehicle | null>(null);

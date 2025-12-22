@@ -1,0 +1,79 @@
+import { injectable, inject } from 'inversify';
+import { VertexAI, GenerativeModel, Tool, HarmCategory, HarmBlockThreshold, SafetySetting } from '@google-cloud/vertexai';
+import type { IConfigProvider } from '../interfaces/IConfigProvider';
+import type { ILogger } from '@lemonade/core';
+import {
+    AppError,
+    ErrorCode
+} from '@lemonade/core';
+import { TYPES } from '../di/types';
+
+import { VERIFY_SAFE_SUPPORT_TOOL } from './tools/verifySafeSupport';
+import { START_VIDEO_STREAM_TOOL } from './tools/startVideoStream';
+import { DISPLAY_CONTENT_TOOL } from './tools/displayContent';
+import { GOOGLE_SEARCH_TOOL } from './tools/googleSearch';
+
+@injectable()
+export class GeminiCoreAdapter {
+    private vertex: VertexAI;
+    public readonly commonSafetySettings: SafetySetting[];
+    public readonly commonTools: Tool[];
+
+    constructor(
+        @inject(TYPES.Logger) private logger: ILogger,
+        @inject(TYPES.ConfigProvider) private config: IConfigProvider
+    ) {
+        const fbConfig = this.config.getFirebaseConfig();
+        const key = fbConfig.serviceAccountKey;
+        
+        if (!key) {
+            this.logger.error('CRITICAL: FIREBASE_SERVICE_ACCOUNT_KEY is missing in GeminiCoreAdapter', {}, undefined);
+            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'FIREBASE_SERVICE_ACCOUNT_KEY is missing');
+        }
+
+        try {
+            const credentials = JSON.parse(key);
+            this.logger.debug('Service Account Email', { email: credentials.client_email });
+
+            const authOptions = { credentials };
+            const gcloudConfig = this.config.getGoogleCloudConfig();
+
+            this.vertex = new VertexAI({
+                project: gcloudConfig.project,
+                location: gcloudConfig.location || 'us-central1',
+                googleAuthOptions: authOptions
+            });
+
+            this.commonSafetySettings = [
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE }
+            ];
+
+            this.commonTools = [{
+                functionDeclarations: [
+                    VERIFY_SAFE_SUPPORT_TOOL,
+                    DISPLAY_CONTENT_TOOL, 
+                    START_VIDEO_STREAM_TOOL, 
+                    GOOGLE_SEARCH_TOOL
+                ]
+            }];
+
+            this.logger.info('GeminiCoreAdapter initialized as a model factory.');
+
+        } catch (error) {
+            this.logger.error('Failed to initialize GeminiCoreAdapter (VertexAI client)', error as Error);
+            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to initialize AI Adapter Core');
+        }
+    }
+
+    public getGenerativeModel(modelId: string, tools?: Tool[], safetySettings?: SafetySetting[]): GenerativeModel {
+        this.logger.info(`Getting GenerativeModel for model: ${modelId}`);
+        return this.vertex.getGenerativeModel({
+            model: modelId,
+            safetySettings: safetySettings || this.commonSafetySettings,
+            tools: tools || this.commonTools
+        });
+    }
+}

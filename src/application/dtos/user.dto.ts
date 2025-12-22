@@ -15,3 +15,4 @@ export const UserResponseSchema = z.object({
 });
 
 export type UserResponseDTO = z.infer<typeof UserResponseSchema>;
+

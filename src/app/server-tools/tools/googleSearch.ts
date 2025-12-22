@@ -14,3 +14,4 @@ export const GOOGLE_SEARCH_TOOL: FunctionDeclaration = {
         required: ['query']
     }
 };
+

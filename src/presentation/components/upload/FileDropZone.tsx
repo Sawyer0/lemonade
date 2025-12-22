@@ -58,3 +58,4 @@ export function FileDropZone({ onFileSelect, fileInputRef, acceptedTypes }: File
         </div>
     );
 }
+

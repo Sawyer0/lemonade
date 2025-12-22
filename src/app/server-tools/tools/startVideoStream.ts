@@ -38,3 +38,4 @@ export interface StartVideoResponse {
     targetComponent?: string;
     message: string;
 }
+

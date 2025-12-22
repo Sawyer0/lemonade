@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/infrastructure/firebase/admin';
+import { adminAuth } from '@lemonade/infrastructure';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import {
@@ -15,12 +15,12 @@ import { withContext } from '@/application/utils/apiHandler';
 
 export const POST = withContext(async (request: NextRequest) => {
     const logger = container.get<ILogger>(TYPES.Logger);
+    let userId: string | undefined;
 
     try {
         const body = await request.json();
 
         const apiKeyValidationResponse = verifyApiKey(request);
-        let userId: string | undefined; // userId is optional for token counting, primarily for logging
 
         if (request.headers.has('X-API-KEY')) {
             if (apiKeyValidationResponse) return apiKeyValidationResponse;
@@ -51,9 +51,11 @@ export const POST = withContext(async (request: NextRequest) => {
             throw new AppError(ErrorCode.INVALID_INPUT, `Invalid modelType: ${modelType}. Must be 'chat' or 'live'.`);
         }
 
+        logger.info(`Token count successful`, { userId, tokenCount });
         return NextResponse.json({ tokenCount });
-    } catch (error: any) {
-        logger.error(`API Error in /api/token-count:`, error);
+    } catch (error: unknown) {
+        logger.error(`API Error in /api/token-count:`, error, { userId });
         return createErrorResponse(error);
     }
 });
+

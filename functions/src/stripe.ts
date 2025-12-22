@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
+import { CONFIG } from './config';
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const STRIPE_SECRET_KEY = CONFIG.STRIPE.SECRET_KEY;
 
 if (!STRIPE_SECRET_KEY) {
     console.warn('STRIPE_SECRET_KEY is missing in environment variables.');

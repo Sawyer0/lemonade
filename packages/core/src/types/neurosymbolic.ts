@@ -43,7 +43,8 @@ export const FinalDiagnosisSchema = z.object({
     decision: z.enum(['PROCEED', 'STOP_DANGER', 'REQUEST_MORE_INFO', 'REFER_TO_HUMAN']),
     reasoningTrace: z.string().describe("Step-by-step logic explaining how the decision was reached (CoT)."),
     userOutput: z.string().describe("The final helpful response to the user."),
-    requiredActions: z.array(z.string()).describe("Specific steps the user must take.")
+    requiredActions: z.array(z.string()).describe("Specific steps the user must take."),
+    metaConfidence: z.number().min(0).max(1).describe("Aggregate confidence score after weighting all 4 layers.")
 });
 
 export const NeurosymbolicStateSchema = z.object({

@@ -16,3 +16,4 @@ export const ChatResponseSchema = z.object({
 });
 
 export type ChatResponseDTO = z.infer<typeof ChatResponseSchema>;
+

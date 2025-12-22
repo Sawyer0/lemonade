@@ -6,7 +6,7 @@
  * - Cards: Zinc-900
  */
 
-import { Platform } from 'react-native';
+
 
 const tintColorLight = '#FACC15'; // Yellow-400
 const tintColorDark = '#FACC15';
