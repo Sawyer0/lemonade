@@ -6,12 +6,17 @@ import { getFirestore } from 'firebase-admin/firestore';
 export class FirestoreVehicleRepository implements IVehicleRepository {
     private db = getFirestore();
 
-    async findById(id: string): Promise<Vehicle | null> {
+    async findById(id: string, userId: string): Promise<Vehicle | null> {
         const doc = await this.db.collection('vehicles').doc(id).get();
         if (!doc.exists) return null;
         
         const data = doc.data();
         if (!data) return null;
+
+        // Security Check
+        if (data.userId !== userId) {
+            return null;
+        }
 
         // Convert Firestore Timestamps to Dates
         const vehicleData = {

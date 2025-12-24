@@ -1,5 +1,5 @@
 import { injectable, inject } from 'inversify';
-import { GenerativeModel, Tool, Part, SchemaType, GenerateContentResult } from '@google-cloud/vertexai'; 
+import { GenerativeModel, Tool, Part, SchemaType, GenerateContentResult } from '@google-cloud/vertexai';
 import type {
     IChatAssistantAI,
     IMultimodalUploadAnalyzer,
@@ -29,7 +29,7 @@ import { CONFIG } from '../config'; // Use local config
 import { TracingService } from '../observability/TracingService'; // Use TracingService class
 import { RequestContext } from '../context/request-context'; // Import RequestContext
 import { TYPES } from '../di/types'; // Use local types
-import { handleFunctionCalls } from './FunctionCallHandler';
+import { FunctionCallService } from './FunctionCallHandler';
 import { GeminiCoreAdapter } from './GeminiCoreAdapter';
 
 
@@ -42,8 +42,8 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
         @inject(TYPES.BillingService) private billingService: IBillingService,
-        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter, 
-        @inject(TYPES.GoogleSearchService) private searchService: IGoogleSearchService,
+        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
+        @inject(TYPES.FunctionCallService) private functionCallService: FunctionCallService,
         @inject(TYPES.ContextCacheService) private cacheService: IContextCacheService,
         @inject(TYPES.TracingService) private tracer: TracingService // Inject TracingService
     ) {
@@ -203,18 +203,18 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                 exec: async () => this.model.generateContent(request)
             });
 
-            if (result.response.usageMetadata && userId && sessionId) {
+            if ((result as any).response.usageMetadata && userId && sessionId) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: result.response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: result.response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
                     model: CONFIG.AI_MODELS.CHAT_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            const responseText = result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const responseText = (result as any).response?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response for uploaded video analysis");
 
             const analysis = AIAnalysisSchema.parse(JSON.parse(responseText));
@@ -312,18 +312,18 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                 exec: async () => this.model.generateContent(request)
             });
 
-            if (result.response.usageMetadata && userId && sessionId) {
+            if ((result as any).response.usageMetadata && userId && sessionId) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: result.response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: result.response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
                     model: CONFIG.AI_MODELS.CHAT_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            const responseText = result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const responseText = (result as any).response?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response for uploaded image analysis");
 
             const analysis = AIAnalysisSchema.parse(JSON.parse(responseText));
@@ -334,6 +334,154 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             this.logger.error("Vertex AI Uploaded Image Analysis Failure", error);
             throw error;
         }
+    }
+
+    async *generateReplyStream(
+        history: { role: string; content?: unknown }[],
+        message: string,
+        vehicleContext: string,
+        diagnosticContext: AIAnalysis | null,
+        userId: string,
+        sessionId: string,
+        reasoningEffort?: ReasoningEffort,
+        additionalParts?: Part[],
+        traceId?: string
+    ): AsyncGenerator<string, string | MessagePart[], unknown> {
+        const genConfig = this.getGenerationConfigForChat(reasoningEffort);
+
+        const chat = this.model.startChat({
+            history: history.map(msg => {
+                let parts: Part[] = [];
+                if (typeof msg.content === 'string') {
+                    parts.push({ text: msg.content });
+                } else if (Array.isArray(msg.content)) {
+                    parts = (msg.content as MessagePart[]).map(part => {
+                        if (part.type === 'text' && part.text) return { text: part.text };
+                        if (part.type === 'image' && part.image) return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
+                        return { text: '' };
+                    });
+                }
+                return {
+                    role: msg.role === 'assistant' ? 'model' : 'user',
+                    parts: parts
+                };
+            }),
+            generationConfig: {
+                thinkingConfig: genConfig.thinkingConfig,
+                temperature: genConfig.temperature,
+                responseMimeType: genConfig.responseMimeType,
+            } as unknown as import('@google-cloud/vertexai').GenerationConfig,
+        });
+
+        const contextPrompt = `
+        ${SYSTEM_PROMPTS.IDENTITY}
+        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+
+        CONTEXT:
+        Vehicle: ${vehicleContext}
+        Current Diagnosis: ${diagnosticContext ? JSON.stringify(diagnosticContext) : 'None'}
+        
+        ${SAFETY_INSTRUCTION_MASTER_TECH}
+        `;
+
+        const userParts: Part[] = [{ text: `${contextPrompt}\n\nUSER MESSAGE:\n${message}` }];
+        if (additionalParts && additionalParts.length > 0) {
+            userParts.push(...additionalParts);
+        }
+
+        let currentInput: Part[] = userParts;
+        let loopCount = 0;
+        const MAX_LOOPS = 3;
+        let accumulatedText = "";
+
+        while (loopCount < MAX_LOOPS) {
+            const result = await this.model.sendMessageStream(currentInput);
+            
+            let hasFunctionCall = false;
+            for await (const chunk of result.stream) {
+                const parts = chunk.candidates?.[0]?.content?.parts || [];
+                
+                // Check for function calls in this chunk
+                if (parts.some(p => p.functionCall)) {
+                    hasFunctionCall = true;
+                    // We don't yield function calls as raw strings to the text stream.
+                    // We need the full response to handle them.
+                }
+
+                const partText = parts.find(p => p.text)?.text || "";
+                if (partText) {
+                    accumulatedText += partText;
+                    yield partText;
+                }
+            }
+
+            const finalResponse = await result.response;
+            
+            // Handle Billing for this turn
+            if (finalResponse.usageMetadata) {
+                await this.billingService.recordUsage({
+                    userId, sessionId,
+                    inputTokens: finalResponse.usageMetadata.promptTokenCount || 0,
+                    outputTokens: finalResponse.usageMetadata.candidatesTokenCount || 0,
+                    model: CONFIG.AI_MODELS.CHAT_MODEL,
+                    timestamp: new Date()
+                }, traceId);
+            }
+
+            // Orchestrate Tools
+            // We use the FunctionCallService to handle server-side loops
+            const nextResponse = await this.functionCallService.handleFunctionCalls(
+                finalResponse,
+                chat,
+                { userId, sessionId }
+            );
+
+            // If handleFunctionCalls returned a DIFFERENT response, it means it ran a tool turn.
+            // But handleFunctionCalls is designed for blocking calls. 
+            // In a streaming context, if handleFunctionCalls ran server-side tools, 
+            // the 'nextResponse' it returns is the FINAL response after all tools.
+            
+            // If tools were run, we might have missed streaming the final text turn.
+            // Check if tools were actually run by comparing parts
+            const initialParts = finalResponse.candidates?.[0]?.content?.parts || [];
+            const finalParts = nextResponse.candidates?.[0]?.content?.parts || [];
+            
+            if (nextResponse !== finalResponse) {
+                // Tools were run! The final text is in finalParts.
+                // We need to yield any NEW text that wasn't in the initial stream.
+                const finalText = finalParts.find(p => p.text)?.text || "";
+                const newText = finalText.replace(accumulatedText, "");
+                if (newText) {
+                    accumulatedText += newText;
+                    yield newText;
+                }
+                // Loop ends here because handleFunctionCalls already exhausted the MAX_LOOPS
+                break; 
+            } else {
+                // No more server-side tools to run.
+                // If there are client-side tools, we should return them as structured data.
+                const clientTools = finalParts.filter(p => p.functionCall);
+                if (clientTools.length > 0) {
+                    // How to return client tools in a text stream?
+                    // We return them in the final 'return' of the generator.
+                    const messageParts: MessagePart[] = [{ type: 'text', text: accumulatedText }];
+                    for (const call of clientTools) {
+                        if (call.functionCall) {
+                            messageParts.push({
+                                type: 'tool-call',
+                                toolName: call.functionCall.name,
+                                toolCallId: 'call_' + Math.random().toString(36).substr(2, 9),
+                                args: call.functionCall.args
+                            });
+                        }
+                    }
+                    return messageParts;
+                }
+                break;
+            }
+        }
+
+        return accumulatedText;
     }
 
     async generateReply(
@@ -427,13 +575,11 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             }, traceId);
         }
 
-        let response = result.response;
-        response = await handleFunctionCalls(
+        let response = (result as any).response;
+        response = await this.functionCallService.handleFunctionCalls(
             response,
             chat,
-            this.logger,
             {
-                searchService: this.searchService,
                 userId,
                 sessionId
             }

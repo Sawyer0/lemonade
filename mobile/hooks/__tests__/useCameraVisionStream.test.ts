@@ -1,10 +1,13 @@
-
 import { renderHook, act } from '@testing-library/react-native';
 import { useCameraVisionStream } from '../useCameraVisionStream';
-
-// Imports
 import { useLocalPerception } from '../../context/LocalPerceptionContext';
+import { useResizePlugin } from 'vision-camera-resize-plugin';
+
+jest.mock('../../context/LocalPerceptionContext');
+jest.mock('vision-camera-resize-plugin');
+
 const mockUseLocalPerception = useLocalPerception as jest.Mock;
+const mockUseResizePlugin = useResizePlugin as jest.Mock;
 
 describe('useCameraVisionStream', () => {
     beforeEach(() => {
@@ -14,6 +17,9 @@ describe('useCameraVisionStream', () => {
                 triageFrame: jest.fn(),
                 isReady: jest.fn().mockReturnValue(true),
             },
+        });
+        mockUseResizePlugin.mockReturnValue({
+            resize: jest.fn()
         });
     });
 

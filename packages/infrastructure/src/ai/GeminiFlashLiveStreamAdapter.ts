@@ -1,6 +1,6 @@
 import { injectable, inject } from 'inversify';
 import { GenerativeModel, SchemaType, Part } from '@google-cloud/vertexai';
-import type { ISessionRepository, IContextCacheService, IUserRepository, ILogger, IBillingService } from '@lemonade/core';
+import type { ISessionRepository, IContextCacheService, IUserRepository, ILogger, IBillingService, IGoogleSearchService } from '@lemonade/core';
 import {
     ILiveStreamAnalyzer,
     AIAnalysis,
@@ -13,13 +13,12 @@ import {
     AI_GENERATION_CONFIGS,
     AiGenerationConfig,
     MessagePart,
-    SHARED_CONFIG,
-    IGoogleSearchService
+    SHARED_CONFIG
 } from '@lemonade/core';
 import { TracingService } from '../observability/TracingService';
 import { TYPES } from '../di/types';
 import { GeminiCoreAdapter } from './GeminiCoreAdapter';
-import { handleFunctionCalls } from './FunctionCallHandler';
+import { FunctionCallService } from './FunctionCallHandler';
 
 @injectable()
 export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
@@ -30,7 +29,7 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         @inject(TYPES.Logger) private logger: ILogger,
         @inject(TYPES.BillingService) private billingService: IBillingService, // Depends on the Service interface
         @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
-        @inject(TYPES.GoogleSearchService) private searchService: IGoogleSearchService,
+        @inject(TYPES.FunctionCallService) private functionCallService: FunctionCallService,
         @inject(TYPES.ContextCacheService) private cacheService: IContextCacheService,
         @inject(TYPES.UserRepo) private userRepo: IUserRepository,
         @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
@@ -89,11 +88,6 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         if (!effort || effort === "none") return AI_GENERATION_CONFIGS.LIVE_VIDEO;
         return AI_GENERATION_CONFIGS.LIVE_VIDEO;
     }
-
-    // ... (Rest of logic is business logic that works as long as dependencies are met)
-    // I am skipping copy-pasting the exact same body for brevity in this response, 
-    // but in "production" I write the whole file content.
-    // I will write the WHOLE FILE CONTENT below.
 
     async analyzeFullVideo(
         videoUrl: string,
@@ -196,18 +190,18 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                 exec: async () => model.generateContent(request) as any
             });
 
-            if (result.response.usageMetadata && userId && sessionId) {
+            if ((result as any).response.usageMetadata && userId && sessionId) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: result.response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: result.response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
                     model: SHARED_CONFIG.AI_MODELS.CHAT_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            const responseText = result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const responseText = (result as any).response?.candidates?.[0]?.content?.parts?.[0]?.text;
 
             if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response");
 
@@ -322,24 +316,22 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                 exec: async () => chat.sendMessage(userParts)
             });
 
-            if (result.response.usageMetadata) {
+            if ((result as any).response.usageMetadata) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: result.response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: result.response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
                     model: SHARED_CONFIG.AI_MODELS.CHAT_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            let response = result.response;
-            response = await handleFunctionCalls(
+            let response = (result as any).response;
+            response = await this.functionCallService.handleFunctionCalls(
                 response,
                 chat,
-                this.logger,
                 {
-                    searchService: this.searchService,
                     userId,
                     sessionId
                 }
@@ -347,11 +339,11 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
 
             const finalCandidate = response.candidates?.[0];
             const contentParts = finalCandidate?.content?.parts || [];
-            const functionCalls = contentParts.filter(p => p.functionCall).map(p => p.functionCall);
+            const functionCalls = contentParts.filter((p: Part) => p.functionCall).map((p: Part) => p.functionCall);
 
             if (functionCalls.length > 0) {
                 const messageParts: MessagePart[] = [];
-                const text = contentParts.find(p => p.text)?.text;
+                const text = contentParts.find((p: Part) => p.text)?.text;
                 if (text) messageParts.push({ type: 'text', text });
 
                 for (const call of functionCalls) {
@@ -484,24 +476,22 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                 exec: async () => chat.sendMessage(userParts)
             });
 
-            if (result.response.usageMetadata) {
+            if ((result as any).response.usageMetadata) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: result.response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: result.response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
                     model: SHARED_CONFIG.AI_MODELS.LIVE_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            let response = result.response;
-            response = await handleFunctionCalls(
+            let response = (result as any).response;
+            response = await this.functionCallService.handleFunctionCalls(
                 response,
                 chat,
-                this.logger,
                 {
-                    searchService: this.searchService,
                     userId,
                     sessionId
                 }
@@ -509,11 +499,11 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
 
             const finalCandidate = response.candidates?.[0];
             const contentParts = finalCandidate?.content?.parts || [];
-            const functionCalls = contentParts.filter(p => p.functionCall).map(p => p.functionCall);
+            const functionCalls = contentParts.filter((p: Part) => p.functionCall).map((p: Part) => p.functionCall);
 
             if (functionCalls.length > 0) {
                 const messageParts: MessagePart[] = [];
-                const text = contentParts.find(p => p.text)?.text;
+                const text = contentParts.find((p: Part) => p.text)?.text;
                 if (text) messageParts.push({ type: 'text', text });
 
                 for (const call of functionCalls) {

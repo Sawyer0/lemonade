@@ -1,5 +1,5 @@
 import { injectable, inject, optional } from 'inversify';
-import { ILogger } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
 import { TYPES } from '../di/types';
 import { RequestContext } from '../context/request-context';
 

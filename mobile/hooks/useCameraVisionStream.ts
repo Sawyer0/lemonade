@@ -7,7 +7,7 @@ import { useLocalPerception } from '../context/LocalPerceptionContext';
 import { useSharedValue } from 'react-native-reanimated';
 import { runOnJS } from 'react-native-reanimated';
 import { MobileLogger } from '../services/MobileLogger';
-import { LocalDetection } from '@lemonade/core';
+import { SemanticTriageResult } from '@lemonade/core';
 
 interface UseCameraVisionStreamOptions {
     sessionId: string;
@@ -30,7 +30,7 @@ export function useCameraVisionStream({
     // State
     const [cameraActive, setCameraActive] = useState(false);
     const cameraRef = useRef<Camera>(null);
-    const [currentDetections, setCurrentDetections] = useState<LocalDetection[]>([]);
+    const [currentDetections, setCurrentDetections] = useState<SemanticTriageResult[]>([]);
 
 
 
@@ -40,7 +40,7 @@ export function useCameraVisionStream({
     const triageBufferPath = `${FileSystem.cacheDirectory}triage_buffer_${sessionId}.jpg`;
 
     // Semantic Peak Buffer: Stores the best frames from the last 5 seconds
-    const triageHistory = useRef<{ path: string; detections: LocalDetection[] }[]>([]);
+    const triageHistory = useRef<{ path: string; detections: SemanticTriageResult[] }[]>([]);
     const MAX_HISTORY = 5;
 
     /**
@@ -88,32 +88,23 @@ export function useCameraVisionStream({
         lastTriageTime.value = now;
 
         // 1. Resize natively to SmolVLM resolution (384x384)
-        // This operation stays in native/GPU space
         const resized = resize(frame, {
             scale: { width: 384, height: 384 },
             pixelFormat: 'rgb',
             dataType: 'uint8',
         });
 
-        // 2. Convert to Base64 (lightweight for 384x384) and pass to JS
-        // We use a helper from vision-camera or just use the resized buffer
-        // Note: vision-camera-resize-plugin returns a Uint8Array in worklet
-        // We need a way to convert to base64 efficiently in worklet or pass the buffer.
-
-        // Unfortunately, writeAsStringAsync needs a string. 
-        // For 'Zero-Jank', we'll pass the buffer and let JS handle it.
-        runOnJS(processFrameForTriage)(resized.toString()); // Placeholder for buffer transfer logic
+        runOnJS(processFrameForTriage)(resized.toString()); 
     }, [resize, processFrameForTriage]);
 
     // ROI & Zoom State
     const [zoom, setZoom] = useState(1.0);
     const MIN_ZOOM = 1.0;
-    const MAX_ZOOM = 5.0; // Cap at 5x to prevent extreme digital noise
+    const MAX_ZOOM = 5.0; 
 
     /**
      * Sets the Region of Interest (ROI) by converting a normalized crop rect to a sensor zoom level.
      * @param rect Normalized ROI { x, y, width, height } where values are 0..1
-     * Currently assumes center-weighted ROI for digital zoom.
      */
     const setRegionOfInterest = useCallback((rect: { x: number, y: number, width: number, height: number } | null) => {
         if (!rect) {
@@ -121,8 +112,6 @@ export function useCameraVisionStream({
             return;
         }
 
-        // Calculate Zoom Factor: 1.0 / max(width, height)
-        // E.g., focusing on a 20% box (0.2) -> 5x Zoom
         const targetZoom = Math.min(Math.max(1 / Math.max(rect.width, rect.height), MIN_ZOOM), MAX_ZOOM);
 
         logger.debug('ROI Set: Adjusting Sensor Zoom', { targetZoom, rect });
@@ -132,13 +121,13 @@ export function useCameraVisionStream({
     /**
      * Logic to find the "Semantic Peak" (best frame) for Handoff.
      */
-    const getSemanticPeak = useCallback(async (): Promise<{ path: string; detections: LocalDetection[] } | null> => {
+    const getSemanticPeak = useCallback(async (): Promise<{ path: string; detections: SemanticTriageResult[] } | null> => {
         if (triageHistory.current.length === 0) return null;
 
-        // Sort by confidence
+        // Sort by confidence (default to 0 if missing)
         const sorted = [...triageHistory.current].sort((a, b) => {
-            const maxA = Math.max(...a.detections.map(d => d.confidence));
-            const maxB = Math.max(...b.detections.map(d => d.confidence));
+            const maxA = Math.max(...a.detections.map(d => d.confidence || 0));
+            const maxB = Math.max(...b.detections.map(d => d.confidence || 0));
             return maxB - maxA;
         });
 

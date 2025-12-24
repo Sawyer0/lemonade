@@ -1,17 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import * as MetaWearables from '../modules/meta-wearables';
 import { MetaStreamView } from '../modules/meta-wearables';
+import { useGeminiSession } from '../hooks/useGeminiSession';
+import { useVehicle } from '../hooks/useVehicle';
 
 export default function ConnectGlassesScreen() {
   const [registrationState, setRegistrationState] = useState<string>('UNKNOWN');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamState, setStreamState] = useState<string>('STOPPED');
-  const [deviceId, setDeviceId] = useState<string>('mock-device-id'); // In a real app, this comes from discovery
+  const [deviceId, setDeviceId] = useState<string>('mock-device-id');
+
+  // Hardcoded for testing the integration
+  const sessionId = 'meta-test-session';
+  const vehicleId = 'meta-test-vehicle';
+
+  const { vehicle } = useVehicle(vehicleId);
+  const {
+    connect: connectAI,
+    disconnect: disconnectAI,
+    isLive,
+    loading: aiLoading,
+    aiResponses,
+    agentState,
+    sendExternalImage
+  } = useGeminiSession(sessionId, vehicle);
 
   useEffect(() => {
-    MetaWearables.initialize();
-    setRegistrationState(MetaWearables.getRegistrationState());
+    let initSuccess = false;
+
+    try {
+      MetaWearables.initialize();
+      initSuccess = true;
+      // Only get registration state after successful initialization
+      const state = MetaWearables.getRegistrationState();
+      setRegistrationState(state);
+    } catch (e) {
+      console.error('Failed to initialize MetaWearables:', e);
+      setRegistrationState('SDK_ERROR');
+    }
 
     const regSub = MetaWearables.addRegistrationChangeListener((event) => {
       setRegistrationState(event.state);
@@ -24,8 +51,9 @@ export default function ConnectGlassesScreen() {
     return () => {
       regSub.remove();
       streamSub.remove();
+      disconnectAI();
     };
-  }, []);
+  }, [disconnectAI]);
 
   const handleRegister = () => {
     MetaWearables.startRegistration();
@@ -53,48 +81,95 @@ export default function ConnectGlassesScreen() {
     }
   };
 
+  const handleConnectAI = async () => {
+    if (isLive) {
+      disconnectAI();
+    } else {
+      await connectAI();
+    }
+  };
+
   const handleCapture = async () => {
     try {
       const uri = await MetaWearables.capturePhoto();
-      Alert.alert('Success', `Photo captured: ${uri}`);
+      if (isLive) {
+        await sendExternalImage(uri);
+      } else {
+        Alert.alert('Hardware Capture Success', `Photo saved to: ${uri}\n\n(AI not connected to receive it)`);
+      }
     } catch (e) {
       Alert.alert('Error', 'Failed to capture photo');
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Ray-Ban Meta Integration</Text>
-      
+
       <View style={styles.section}>
-        <Text style={styles.label}>Registration Status: {registrationState}</Text>
+        <Text style={styles.sectionTitle}>1. Hardware Connectivity</Text>
+        <Text style={styles.label}>Glasses Registration: {registrationState}</Text>
         <TouchableOpacity style={styles.button} onPress={handleRegister}>
-          <Text style={styles.buttonText}>Start Registration Handshake</Text>
+          <Text style={styles.buttonText}>Pair with Meta View</Text>
         </TouchableOpacity>
-      </View>
 
-      <View style={styles.section}>
+        <View style={styles.divider} />
+
         <TouchableOpacity style={styles.button} onPress={handleRequestPermissions}>
-          <Text style={styles.buttonText}>Request Camera Permissions</Text>
+          <Text style={styles.buttonText}>Authorize Camera Access</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.label}>Stream Status: {streamState}</Text>
-        <TouchableOpacity 
-          style={[styles.button, isStreaming && styles.buttonStop]} 
+        <Text style={styles.sectionTitle}>2. LiveKit AI Brain</Text>
+        <Text style={styles.label}>AI Status: {isLive ? 'CONNECTED' : 'DISCONNECTED'} ({agentState})</Text>
+        <TouchableOpacity
+          style={[styles.button, isLive && styles.buttonStop]}
+          onPress={handleConnectAI}
+          disabled={aiLoading}
+        >
+          {aiLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>{isLive ? 'Disconnect Master Tech' : 'Connect Master Tech'}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>3. Point-of-View Control</Text>
+        <Text style={styles.label}>POV Stream: {streamState}</Text>
+        <TouchableOpacity
+          style={[styles.button, isStreaming && styles.buttonStop]}
           onPress={handleToggleStream}
         >
-          <Text style={styles.buttonText}>{isStreaming ? 'Stop POV Stream' : 'Start POV Stream'}</Text>
+          <Text style={styles.buttonText}>{isStreaming ? 'Stop Glasses Feed' : 'Start Glasses Feed'}</Text>
         </TouchableOpacity>
       </View>
 
       {isStreaming && (
         <View style={styles.previewContainer}>
           <MetaStreamView style={styles.preview} deviceId={deviceId} />
-          <TouchableOpacity style={styles.captureButton} onPress={handleCapture}>
-            <Text style={styles.buttonText}>Capture 12MP Still</Text>
+          <TouchableOpacity
+            style={[styles.captureButton, agentState === 'thinking' && styles.buttonDisabled]}
+            onPress={handleCapture}
+            disabled={agentState === 'thinking'}
+          >
+            <Text style={styles.buttonText}>
+              {agentState === 'thinking' ? 'AI ANALYZING...' : 'DEEP LOOK (CAPTURE & ANALYZE)'}
+            </Text>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {aiResponses.length > 0 && (
+        <View style={styles.responseContainer}>
+          <Text style={styles.sectionTitle}>AI Diagnostic Insights</Text>
+          {aiResponses.map((res, i) => (
+            <View key={i} style={styles.responseItem}>
+              <Text style={styles.responseText}>{res.analysis?.diagnosis}</Text>
+            </View>
+          ))}
         </View>
       )}
     </ScrollView>
@@ -104,48 +179,70 @@ export default function ConnectGlassesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#f5f5f5',
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 30,
-    marginTop: 20,
-    color: '#333',
+    marginBottom: 20,
+    marginTop: 10,
+    color: '#1a1a1a',
   },
   section: {
     marginBottom: 20,
     padding: 15,
     backgroundColor: '#fff',
-    borderRadius: 10,
-    elevation: 2,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#333',
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     marginBottom: 10,
     color: '#666',
+    fontWeight: '500',
   },
   button: {
     backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 10,
     alignItems: 'center',
   },
   buttonStop: {
     backgroundColor: '#FF3B30',
   },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+  },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 15,
+  },
+  divider: {
+    height: 10,
   },
   previewContainer: {
-    marginTop: 20,
-    height: 400,
-    borderRadius: 15,
+    marginTop: 10,
+    height: 450,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#000',
+    borderWidth: 2,
+    borderColor: '#007AFF',
   },
   preview: {
     flex: 1,
@@ -155,11 +252,31 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#fff',
+  },
+  responseContainer: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007AFF',
+  },
+  responseItem: {
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+  },
+  responseText: {
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 20,
   }
 });
+

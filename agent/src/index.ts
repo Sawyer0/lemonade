@@ -4,7 +4,7 @@ import { AccessToken } from 'livekit-server-sdk';
 import { env } from './env';
 import LiveKitMasterTechAgent from './livekit-agent'; // default export of defineAgent
 import admin from 'firebase-admin';
-import { ILogger } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
 import { 
     EnvConfigProvider, 
     Logger, 

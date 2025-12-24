@@ -50,8 +50,17 @@ export function LocalPerceptionProvider({ children }: { children: React.ReactNod
                     }
                 } catch (e) {
                     logger.error('Failed to auto-initialize local LLM', e);
+                    // Allow app to continue even if LLM fails
+                    setIsReady(true);
+                    setError('Local AI unavailable - running in cloud mode');
                 }
+            } else {
+                // Model not downloaded - app can still run
+                setIsReady(true);
             }
+        }).catch((e) => {
+            logger.error('Model check failed', e);
+            setIsReady(true);
         });
 
         return () => {

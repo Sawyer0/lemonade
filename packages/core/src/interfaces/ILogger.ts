@@ -4,3 +4,6 @@ export interface ILogger {
     warn(message: string, context?: Record<string, unknown>): void;
     debug(message: string, context?: Record<string, unknown>): void;
 }
+
+// Runtime value to satisfy Bun/ESM imports
+export const ILogger = Symbol('ILogger');

@@ -4,7 +4,7 @@ import type { ILogger } from '@lemonade/core';
 import { IEmbeddingService, AppError, ErrorCode } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 import { CONFIG } from '@/infrastructure/config';
-import { GeminiCoreAdapter } from './GeminiCoreAdapter';
+import { GeminiCoreAdapter } from '@lemonade/infrastructure';
 
 @injectable()
 export class EmbeddingService implements IEmbeddingService {

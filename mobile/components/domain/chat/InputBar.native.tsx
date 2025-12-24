@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Theme } from '@mobile/constants/theme';
-import { Send, Mic } from 'lucide-react-native';
+import { Send, Mic, Paperclip } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 interface InputBarProps {
     onSend: (text: string) => Promise<void>;
+    onMediaSelect?: (uri: string, type: 'image' | 'video') => Promise<void>;
     loading?: boolean;
 }
 
-export function InputBar({ onSend, loading }: InputBarProps) {
+export function InputBar({ onSend, onMediaSelect, loading }: InputBarProps) {
     const [text, setText] = useState('');
 
     const handleSend = async () => {
@@ -18,11 +20,28 @@ export function InputBar({ onSend, loading }: InputBarProps) {
         await onSend(msg);
     };
 
+    const handlePickMedia = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images', 'videos'],
+            allowsEditing: true,
+            quality: 0.8,
+        });
+
+        if (!result.canceled && onMediaSelect) {
+            const asset = result.assets[0];
+            await onMediaSelect(asset.uri, asset.type === 'video' ? 'video' : 'image');
+        }
+    };
+
     return (
         <View style={styles.container}>
-            {/* Mic Button (Placeholder) */}
-            <TouchableOpacity style={styles.iconButton}>
-                <Mic size={24} color={Theme.textSecondary} />
+            {/* Media Upload Button */}
+            <TouchableOpacity 
+                style={styles.iconButton} 
+                onPress={handlePickMedia}
+                disabled={loading}
+            >
+                <Paperclip size={24} color={Theme.tint} />
             </TouchableOpacity>
 
             <TextInput

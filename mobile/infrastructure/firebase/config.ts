@@ -44,8 +44,9 @@ const getReactNativePersistence = (storage: ReactNativeStorage) => {
 
     return ReactNativePersistence;
 };
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
+import { connectAuthEmulator } from "firebase/auth";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Expo uses EXPO_PUBLIC_ prefix for environment variables
@@ -62,8 +63,6 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Auth with persistence
-// We try to initialize with AsyncStorage first. 
-// If it throws (because an instance already exists, e.g. hot reload), we fall back to getAuth.
 let auth: Auth;
 try {
     auth = initializeAuth(app, {
@@ -71,10 +70,25 @@ try {
     });
 } catch (e: unknown) {
     console.error("Firebase Auth initialization failed, possibly due to hot reload:", e);
-    // Auth already initialized (likely during hot reload)
     auth = getAuth(app);
 }
 
-export { auth };
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// --- Emulator Connection Logic ---
+if (__DEV__ && process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
+    const EMULATOR_HOST = process.env.EXPO_PUBLIC_EMULATOR_HOST || '10.0.2.2'; // Android Emulator localhost
+    console.log(`[Firebase] Connecting to Emulators at ${EMULATOR_HOST}...`);
+    
+    try {
+        connectAuthEmulator(auth, `http://${EMULATOR_HOST}:9099`);
+        connectFirestoreEmulator(db, EMULATOR_HOST, 8080);
+        connectStorageEmulator(storage, EMULATOR_HOST, 9199);
+        console.log('[Firebase] Emulators connected successfully.');
+    } catch (e) {
+        console.warn('[Firebase] Emulator connection failed (already connected?):', e);
+    }
+}
+
+export { auth, db, storage };

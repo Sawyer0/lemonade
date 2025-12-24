@@ -4,6 +4,8 @@ import {
     AppError,
     ErrorCode,
     MessagePart,
+} from '@lemonade/core';
+import type {
     IReactiveSafetyService,
     ISafetyMonitor
 } from '@lemonade/core';
@@ -99,14 +101,113 @@ export class ChatService implements IChatService {
         return prunedHistory;
     }
 
-    async handleChatInteraction(sessionId: string, userMessage: string) {
+    async *handleChatInteractionStream(sessionId: string, userMessage: string | MessagePart[]): AsyncGenerator<string, void, unknown> {
         const session = await this.sessionRepo.getHistory(sessionId);
         if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
 
-        const vehicle = await this.vehicleRepo.findById(session.vehicleId);
+        const vehicle = await this.vehicleRepo.findById(session.vehicleId, session.userId);
+
+        // Extract text for safety checks
+        let userText = '';
+        if (typeof userMessage === 'string') {
+            userText = userMessage;
+        } else if (Array.isArray(userMessage)) {
+            userText = userMessage
+                .filter(p => p.type === 'text' && p.text)
+                .map(p => p.text)
+                .join('\n');
+        }
 
         // System 0: Reactive Safety (Regex)
-        const reactiveAssessment = this.reactiveSafety.checkSafety(userMessage);
+        const reactiveAssessment = this.reactiveSafety.checkSafety(userText);
+        if (reactiveAssessment && reactiveAssessment.intervention_required) {
+            this.logger.warn('Chat interaction blocked by System 0 Safety', { sessionId, hazard: reactiveAssessment.hazards_detected });
+            const safetyReply = reactiveAssessment.suggested_output || "CRITICAL SAFETY STOP: Immediate hazard detected.";
+            await this.sessionRepo.addMessage(sessionId, 'user', userMessage);
+            await this.sessionRepo.addMessage(sessionId, 'assistant', safetyReply);
+            yield safetyReply;
+            return;
+        }
+
+        const vehicleContext = `
+      VEHICLE: ${vehicle?.specs.year} ${vehicle?.specs.make} ${vehicle?.specs.model}
+      LAST DIAGNOSIS: ${JSON.stringify(session.aiAnalysis)}
+    `;
+
+        // System 1: Semantic Safety (SafetyMonitor)
+        const semanticAssessment = await this.safetyMonitor.assess(userText, vehicleContext);
+        if (semanticAssessment.intervention_required) {
+            this.logger.warn('Chat interaction blocked by System 1 Safety', { sessionId, hazard: semanticAssessment.hazards_detected });
+            const safetyReply = semanticAssessment.suggested_output || "SAFETY STOP: Potential hazard detected. Please be careful.";
+            await this.sessionRepo.addMessage(sessionId, 'user', userMessage);
+            await this.sessionRepo.addMessage(sessionId, 'assistant', safetyReply);
+            yield safetyReply;
+            return;
+        }
+
+        const processedHistory = await this._pruneHistoryByTokens(session.messages, CONFIG.AI_SETTINGS.MAX_CHAT_HISTORY_TOKENS);
+
+        const additionalParts = Array.isArray(userMessage) ? userMessage.filter(p => p.type === 'fileData' || p.type === 'image_url').map(p => {
+            if (p.type === 'fileData' && p.fileData) return { fileData: p.fileData };
+            return {};
+        }).filter(p => p.fileData) : [];
+
+        const stream = this.chatAI.generateReplyStream(
+            processedHistory,
+            userText,
+            vehicleContext,
+            session.aiAnalysis,
+            session.userId,
+            sessionId,
+            undefined,
+            additionalParts as any
+        );
+
+        let fullReplyText = "";
+        let finalResult: string | MessagePart[] | undefined;
+
+        // Iterate through the generator to yield chunks to the API
+        while (true) {
+            const { value, done } = await stream.next();
+            if (done) {
+                finalResult = value as string | MessagePart[];
+                break;
+            }
+            if (typeof value === 'string') {
+                fullReplyText += value;
+                yield value;
+            }
+        }
+
+        // Persist history after stream completes
+        // Use finalResult if it's structured (contains tool calls), otherwise use accumulated text
+        const assistantContent = finalResult || fullReplyText;
+        await this.sessionRepo.addMessage(sessionId, 'user', userMessage);
+        await this.sessionRepo.addMessage(sessionId, 'assistant', assistantContent);
+
+        this.complaintIdentificationService.identifyAndSetComplaint(sessionId, userText)
+            .catch((error: unknown) => this.logger.error('Background complaint identification failed', error, { sessionId }));
+    }
+
+    async handleChatInteraction(sessionId: string, userMessage: string | MessagePart[]) {
+        const session = await this.sessionRepo.getHistory(sessionId);
+        if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
+
+        const vehicle = await this.vehicleRepo.findById(session.vehicleId, session.userId);
+
+        // Extract text for safety checks
+        let userText = '';
+        if (typeof userMessage === 'string') {
+            userText = userMessage;
+        } else if (Array.isArray(userMessage)) {
+            userText = userMessage
+                .filter(p => p.type === 'text' && p.text)
+                .map(p => p.text)
+                .join('\n');
+        }
+
+        // System 0: Reactive Safety (Regex)
+        const reactiveAssessment = this.reactiveSafety.checkSafety(userText);
         if (reactiveAssessment && reactiveAssessment.intervention_required) {
             this.logger.warn('Chat interaction blocked by System 0 Safety', { sessionId, hazard: reactiveAssessment.hazards_detected });
             const safetyReply = reactiveAssessment.suggested_output || "CRITICAL SAFETY STOP: Immediate hazard detected.";
@@ -121,7 +222,7 @@ export class ChatService implements IChatService {
     `;
 
         // System 1: Semantic Safety (SafetyMonitor)
-        const semanticAssessment = await this.safetyMonitor.assess(userMessage, vehicleContext);
+        const semanticAssessment = await this.safetyMonitor.assess(userText, vehicleContext);
         if (semanticAssessment.intervention_required) {
             this.logger.warn('Chat interaction blocked by System 1 Safety', { sessionId, hazard: semanticAssessment.hazards_detected });
             const safetyReply = semanticAssessment.suggested_output || "SAFETY STOP: Potential hazard detected. Please be careful.";
@@ -132,19 +233,41 @@ export class ChatService implements IChatService {
 
         const processedHistory = await this._pruneHistoryByTokens(session.messages, CONFIG.AI_SETTINGS.MAX_CHAT_HISTORY_TOKENS);
 
+        // Handle multimodal content separation if necessary for specific adapters, 
+        // but for now we pass userMessage directly to generateReply which should support it.
+        // We might need to split 'fileData' if the adapter interface requires 'additionalParts'.
+        // Let's assume the adapter's generateReply can take string or MessagePart[] for the 'message' arg.
+        // Wait, IChatAssistantAI.generateReply signature check needed.
+        
+        // Checking IChatAssistantAI.ts signature...
+        // generateReply(history, message: string, ... additionalParts?: ...)
+        
+        // If the interface expects 'message' to be a string, we need to adapt.
+        // I should update IChatAssistantAI as well to support multimodal directly in the message arg.
+        
+        // For now, I'll extract text and pass the rest as 'additionalParts' if the interface demands it.
+        // Let's check IAIService.ts again to be sure.
+        
         const reply = await this.chatAI.generateReply(
             processedHistory,
-            userMessage,
+            userText, // Pass text component
             vehicleContext,
             session.aiAnalysis,
             session.userId,
-            sessionId
+            sessionId,
+            undefined, // reasoningEffort
+            // Extract fileData parts for the 'additionalParts' argument if multimodal
+            Array.isArray(userMessage) ? userMessage.filter(p => p.type === 'fileData' || p.type === 'image_url').map(p => {
+                 if (p.type === 'fileData' && p.fileData) return { fileData: p.fileData };
+                 // if (p.type === 'image_url' && p.image_url) ... needs adapter support
+                 return {};
+            }).filter(p => p.fileData) : []
         );
 
         await this.sessionRepo.addMessage(sessionId, 'user', userMessage);
         await this.sessionRepo.addMessage(sessionId, 'assistant', reply);
 
-        this.complaintIdentificationService.identifyAndSetComplaint(sessionId, userMessage)
+        this.complaintIdentificationService.identifyAndSetComplaint(sessionId, userText)
             .catch((error: unknown) => this.logger.error('Background complaint identification failed', error, { sessionId }));
 
         return reply;

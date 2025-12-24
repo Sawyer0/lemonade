@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SupermemoryService } from '../SupermemoryService';
 import { ILogger } from '@lemonade/core';
-import { IConfigProvider } from '../../../interfaces/IConfigProvider';
+import { SupermemoryService } from '../SupermemoryService';
+import type { IConfigProvider } from '../../../interfaces/IConfigProvider';
 
 describe('SupermemoryService', () => {
     let service: SupermemoryService;
@@ -35,44 +35,57 @@ describe('SupermemoryService', () => {
     it('should call Supermemory API to add a document', async () => {
         (global.fetch as any).mockResolvedValue({
             ok: true,
-            json: async () => ({ success: true })
+            json: async () => ({ status: 'success' })
         });
 
         await service.addDocument('test content', ['tag1'], 'custom-space');
 
         expect(global.fetch).toHaveBeenCalledWith(
-            expect.stringContaining('supermemory.ai/api/v1/add'),
+            expect.stringContaining('api.supermemory.ai/v3/documents'),
             expect.objectContaining({
                 method: 'POST',
-                headers: expect.objectContaining({
+                headers: {
                     'Authorization': 'Bearer test-key',
-                    'Content-Type': 'application/json'
-                }),
-                body: expect.stringContaining('test content')
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    content: 'test content',
+                    tags: ['tag1'],
+                    spaceId: 'custom-space'
+                })
             })
         );
     });
 
     it('should call Supermemory API to search', async () => {
-        const mockResults = [
-            { content: 'result 1', metadata: { source: 'history' } }
-        ];
-        
+        const mockResponse = {
+            results: [
+                { content: 'result 1', metadata: {} }
+            ]
+        };
         (global.fetch as any).mockResolvedValue({
             ok: true,
-            json: async () => ({ results: mockResults })
+            json: async () => mockResponse
         });
 
         const results = await service.search('test query', { spaceId: 'test-space' });
 
         expect(global.fetch).toHaveBeenCalledWith(
-            expect.stringContaining('supermemory.ai/api/v1/search'),
+            expect.stringContaining('api.supermemory.ai/v3/search'),
             expect.objectContaining({
                 method: 'POST',
-                body: expect.stringContaining('test query')
+                headers: {
+                    'Authorization': 'Bearer test-key',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: 'test query',
+                    spaceId: 'test-space',
+                    top_k: 3
+                })
             })
         );
-        expect(results).toEqual(mockResults);
+        expect(results).toEqual(mockResponse.results);
     });
 
     it('should log an error if API call fails', async () => {

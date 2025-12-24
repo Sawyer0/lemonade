@@ -1,19 +1,25 @@
 import { z } from 'zod';
 
-export const LocalDetectionSchema = z.object({
-    objectId: z.string().describe("Identifier of the detected car part (e.g., 'battery', 'alternator')"),
-    confidence: z.number().min(0).max(1),
+export const SemanticTriageResultSchema = z.object({
+    id: z.object({
+        obj: z.string().describe("Identifier of the detected car part (e.g., 'Brake Rotor')"),
+        cat: z.string().describe("System Category (e.g., 'Braking', 'Suspension')")
+    }),
+    eval: z.object({
+        stat: z.enum(['NORMAL', 'CAUTION', 'CRITICAL', 'UNCERTAIN']).describe("Condition status"),
+        risk: z.boolean().describe("True if safety risk detected"),
+        note: z.string().describe("Brief visual reason for assessment")
+    }),
+    confidence: z.number().min(0).max(1).optional().describe("Confidence score of the VLM output"),
     bbox: z.array(z.number()).length(4).optional().describe("[x, y, width, height] relative to frame"),
-    state: z.string().optional().describe("Physical state detected (e.g., 'corroded', 'loose')"),
-    lastSeen: z.number().describe("Timestamp of last detection"),
-    steadyStrikeCount: z.number().describe("Number of consecutive frames seen"),
-    metadata: z.record(z.any()).optional()
+    timestamp: z.number().optional().describe("Timestamp of detection"),
+    steadyStrikeCount: z.number().optional().describe("Number of consecutive frames seen")
 });
 
-export type LocalDetection = z.infer<typeof LocalDetectionSchema>;
+export type SemanticTriageResult = z.infer<typeof SemanticTriageResultSchema>;
 
 export const LocalTriageResultSchema = z.object({
-    detections: z.array(LocalDetectionSchema),
+    detections: z.array(SemanticTriageResultSchema),
     bestFramePath: z.string().optional().describe("Path to the highest-confidence frame on local disk"),
     highestConfidenceId: z.string().optional(),
     timestamp: z.number()
@@ -28,10 +34,15 @@ export interface ILocalPerceptionService {
     initialize(modelPath: string): Promise<void>;
 
     /**
+     * Runs a dummy inference to prime the NPU/GPU for faster first real inference.
+     */
+    warmup(): Promise<void>;
+
+    /**
      * Performs inference on a single frame.
      * @param framePath Path to the image file on local storage.
      */
-    triageFrame(framePath: string): Promise<LocalDetection[]>;
+    triageFrame(framePath: string): Promise<SemanticTriageResult[]>;
 
     /**
      * Frees resources.

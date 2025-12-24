@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GeminiFlashChatAndUploadsAdapter } from '../GeminiFlashChatAndUploadsAdapter';
-import { ILogger, IBillingService, IGoogleSearchService, IContextCacheService } from '@lemonade/core';
+import { ILogger, IBillingService, IContextCacheService } from '@lemonade/core';
 import { TracingService } from '../../observability/TracingService';
 import { GeminiCoreAdapter } from '../GeminiCoreAdapter';
+import { FunctionCallService } from '../FunctionCallHandler';
 
 describe('GeminiFlashChatAndUploadsAdapter', () => {
     let adapter: GeminiFlashChatAndUploadsAdapter;
     let mockLogger: ILogger;
     let mockBillingService: IBillingService;
     let mockCoreAdapter: GeminiCoreAdapter;
-    let mockSearchService: IGoogleSearchService;
+    let mockFunctionCallService: FunctionCallService;
     let mockCacheService: IContextCacheService;
     let mockTracer: TracingService;
     let mockModel: any;
@@ -18,7 +19,11 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
     beforeEach(() => {
         mockLogger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as any;
         mockBillingService = { recordUsage: vi.fn().mockResolvedValue(undefined) } as any;
-        mockSearchService = { search: vi.fn() } as any;
+        
+        mockFunctionCallService = { 
+            handleFunctionCalls: vi.fn().mockImplementation((response) => Promise.resolve(response)) 
+        } as any;
+        
         mockCacheService = { getCache: vi.fn().mockResolvedValue(null), createCache: vi.fn().mockResolvedValue(undefined) } as any;
         mockTracer = { traceAiCall: vi.fn(({ exec }) => exec()) } as any;
 
@@ -42,7 +47,7 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
             mockLogger,
             mockBillingService,
             mockCoreAdapter,
-            mockSearchService,
+            mockFunctionCallService,
             mockCacheService,
             mockTracer
         );

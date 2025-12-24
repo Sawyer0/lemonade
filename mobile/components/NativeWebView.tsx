@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { WebView } from 'react-native-webview';
-import { StyleSheet, StatusBar, View, ActivityIndicator, BackHandler } from 'react-native';
+import { StyleSheet, StatusBar, View, ActivityIndicator, BackHandler, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -8,6 +8,8 @@ import { useNativeAuth } from '../hooks/useNativeAuth';
 import { useWebViewBridge } from '../hooks/useWebViewBridge';
 import { CONFIG } from '@mobile/constants/config';
 import { GlassCard } from './ui/GlassCard.native';
+import { useRouter } from 'expo-router';
+import { LucideGlasses } from 'lucide-react-native';
 
 import { useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { VinScanner } from './VinScanner';
@@ -19,6 +21,7 @@ interface NativeWebViewProps {
 
 export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
     const webviewRef = useRef<WebView>(null);
+    const router = useRouter();
     useKeepAwake(); // Prevents screen from sleeping during video diagnostics
     const { isSigningIn, signIn, signOut, idToken } = useNativeAuth();
     const { injectedJavaScript } = useWebViewBridge(idToken);
@@ -178,6 +181,16 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
                     <VinScanner onScan={handleVinScanned} onClose={() => setShowScanner(false)} />
                 </View>
             )}
+
+            {/* Floating Glasses Action */}
+            {idToken && !showScanner && (
+                <TouchableOpacity
+                    style={[styles.glassesButton, { top: insets.top + 10 }]}
+                    onPress={() => router.push('/connect-glasses')}
+                >
+                    <LucideGlasses color="#fff" size={24} />
+                </TouchableOpacity>
+            )}
         </SafeAreaView>
     );
 }
@@ -208,5 +221,21 @@ const styles = StyleSheet.create({
         right: 20,
         alignItems: 'center',
         zIndex: 100,
+    },
+    glassesButton: {
+        position: 'absolute',
+        right: 20,
+        backgroundColor: 'rgba(0, 122, 255, 0.9)',
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        zIndex: 1000,
     }
 });

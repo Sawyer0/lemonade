@@ -14,14 +14,6 @@
       "reflect-metadata"
     ],
     "baseUrl": ".",
-    "paths": {
-      "@lemonade/core": [
-        "../core/src/index.ts"
-      ],
-      "@lemonade/core/*": [
-        "../core/src/*"
-      ]
-    },
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
@@ -30,6 +22,7 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "src/**/__tests__/**/*"
   ]
 }

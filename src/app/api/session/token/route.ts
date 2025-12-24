@@ -3,7 +3,7 @@ import { GoogleAuth } from 'google-auth-library';
 import { CONFIG } from '@/infrastructure/config';
 import { container } from '@/infrastructure/di/container';
 import { withContext } from '@/application/utils/apiHandler';
-import type { IServerAuthService, ISessionRepository, IVehicleRepository, INHTSAService, ILogger } from '@lemonade/core';
+import type { ISessionRepository, IVehicleRepository, INHTSAService, ILogger, IEdgeSecurityService } from '@lemonade/core';
 import {
     DiagnosticSession,
     AppError,
@@ -18,21 +18,22 @@ import { TYPES } from '@/infrastructure/di/types';
  * Returns a short-lived OAuth Access Token AND the Contextual System Instruction
  */
 export const GET = withContext(async (req: NextRequest) => {
+    const logger = container.get<ILogger>(TYPES.Logger);
+    const security = container.get<IEdgeSecurityService>(TYPES.EdgeSecurityService);
+
     try {
-        // 1. Authenticate User
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        // 1. Authenticate User (Airtight Signature Check)
+        const auth = await security.getAuthenticatedUser(req);
+        if (!auth) {
+            return NextResponse.json({ error: 'Unauthorized: Middleware bypass detected' }, { status: 401 });
         }
-        const idToken = authHeader.split('Bearer ')[1];
 
-        const authService = container.get<IServerAuthService>(TYPES.ServerAuthService);
-        const decodedToken = await authService.verifyToken(idToken);
-        const userId = decodedToken.uid;
-
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (auth.tier !== 'pro') {
+            logger.warn(`Access Denied: Pro tier required for Live Mechanic session.`, { tier: auth.tier });
+            return NextResponse.json({ error: 'Upgrade Required', code: 'PRO_REQUIRED' }, { status: 403 });
         }
+
+        const userId = auth.userId;
 
         // 2. Fetch Session Context (for Prompt Construction)
         // Client should pass sessionId query param

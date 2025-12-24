@@ -11,6 +11,7 @@ import { Camera } from 'react-native-vision-camera';
 
 import { useNativeAuth } from '@mobile/hooks/useNativeAuth';
 import { DetectionHUD } from '../camera/DetectionHUD';
+import { GhostCard } from '../ui/GhostCard';
 
 export default function MechanicScreenNative() {
     const router = useRouter();
@@ -88,6 +89,7 @@ export default function MechanicScreenNative() {
         currentDetections,
         frameProcessor,
         agentState,
+        ghostCard,
     } = useGeminiSession(sessionId, vehicle, handleToolCall);
 
     // Keep refs updated with the latest state/functions from useGeminiSession
@@ -166,6 +168,13 @@ export default function MechanicScreenNative() {
                         </Text>
                     </View>
                 </View>
+
+                {/* Ghost Card (Proactive Triage) */}
+                {ghostCard && (
+                    <View style={{ paddingHorizontal: 20 }}>
+                        <GhostCard title={ghostCard.title} subtitle="Consulting Cloud Agent..." />
+                    </View>
+                )}
 
                 {/* AI Responses Display */}
                 <ScrollView

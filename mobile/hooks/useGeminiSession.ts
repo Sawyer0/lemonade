@@ -3,8 +3,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { db, auth } from '@mobile/infrastructure/firebase/config';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { MobileLogger } from '../services/MobileLogger';
-import { Vehicle } from '@lemonade/core';
+import { Vehicle, SemanticTriageResult } from '@lemonade/core';
 import * as FileSystem from 'expo-file-system';
+import { triggerGhostFeedback } from '../services/FeedbackService';
 
 // LiveKit Imports
 import {
@@ -22,10 +23,10 @@ import { useCameraVisionStream } from './useCameraVisionStream';
 
 // LiveKit Data Channel Topics
 const AI_RESPONSE_TOPIC = "ai_response";
-const CHAT_TOPIC = "chat_message";
 const TOOL_RESPONSE_TOPIC = "tool_response";
 const VISUAL_BURST_REQUEST = "capture_visual_burst";
 const VISUAL_BURST_RESPONSE = "visual_burst_response";
+const PROACTIVE_PING_TOPIC = "proactive_ping";
 
 interface ToolCall {
     functionCall: {
@@ -46,6 +47,8 @@ interface AiResponseData {
     };
 }
 
+const COMPLEX_SYSTEMS = ['hybrid', 'abs', 'transmission', 'ecu', 'airbag', 'high voltage', 'brake system'];
+
 export function useGeminiSession(
     sessionId: string,
     vehicle: Vehicle | null,
@@ -61,7 +64,10 @@ export function useGeminiSession(
     const [aiResponses, setAiResponses] = useState<AiResponseData[]>([]);
     const [agentState, setAgentState] = useState<'idle' | 'listening' | 'thinking'>('idle');
 
-    const messageQueue = useRef<string[]>([]);
+    // Proactive Triage State
+    const [ghostCard, setGhostCard] = useState<{ id: string; title: string } | null>(null);
+    const escalatedIds = useRef<Set<string>>(new Set());
+
     const pendingToolResponses = useRef<{ toolCallId: string; response: unknown }[]>([]);
     const livekitRoomRef = useRef<Room | null>(null);
 
@@ -125,6 +131,8 @@ export function useGeminiSession(
                 });
                 setAiResponses(prev => [...prev, responseData]);
             }
+            // Clear Ghost Card when analysis returns
+            setGhostCard(null);
         } else if (responseData.type === 'tool_call' && responseData.toolCall) {
             logger.info(`Received tool call: ${responseData.toolCall.name}`);
             if (onToolCall) {
@@ -144,7 +152,7 @@ export function useGeminiSession(
     /**
      * Handoff logic
      */
-    const handoffToCloud = useCallback(async (reason: string) => {
+    const handoffToCloud = useCallback(async (reason: string, metadata?: any) => {
         const currentRoom = livekitRoomRef.current;
         const currentParticipant = currentRoom?.localParticipant;
 
@@ -164,7 +172,8 @@ export function useGeminiSession(
                     reason,
                     localDetections: peak.detections,
                     timestamp: Date.now(),
-                    sessionId
+                    sessionId,
+                    ...metadata
                 }
             }));
 
@@ -172,7 +181,7 @@ export function useGeminiSession(
                 reliable: true,
                 topic: VISUAL_BURST_RESPONSE
             });
-            logger.info("Handoff packet synchronized.");
+            logger.info("Handoff packet synchronized.", { reason });
         } catch (e) {
             logger.error("Handoff failed", e as Error);
         }
@@ -184,32 +193,99 @@ export function useGeminiSession(
     }, [handoffToCloud]);
 
     /**
-     * Chat message sender
+     * Proactive Ping (Semantic Triage)
      */
-    const sendChatMessage = useCallback(async (text: string) => {
+    const sendProactivePing = useCallback(async (detection: SemanticTriageResult) => {
+        const currentRoom = livekitRoomRef.current;
+        const currentParticipant = currentRoom?.localParticipant;
+
+        if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) return;
+
+        try {
+            // 1. UI/Audio Feedback (The "Ghost")
+            setGhostCard({ id: detection.id.obj, title: `Inspecting ${detection.id.obj}...` });
+            await triggerGhostFeedback();
+
+            // 2. Notify Agent
+            const payload = new TextEncoder().encode(JSON.stringify({
+                type: "PROACTIVE_PING",
+                detection,
+                sessionId,
+                timestamp: Date.now()
+            }));
+
+            await currentParticipant.publishData(payload, {
+                reliable: true,
+                topic: PROACTIVE_PING_TOPIC
+            });
+
+            // 3. Auto-handoff the peak frame if it's critical
+            if (detection.eval.risk || detection.eval.stat === 'CRITICAL') {
+                await handoffToCloud(`Proactive Escalation: ${detection.eval.note}`, { detection });
+            }
+
+            logger.info("Proactive Ping sent", { part: detection.id.obj });
+        } catch (e) {
+            logger.error("Proactive Ping failed", e as Error);
+        }
+    }, [sessionId, handoffToCloud, logger]);
+
+    /**
+     * Triage Monitoring Effect
+     */
+    useEffect(() => {
+        if (!isLive || currentDetections.length === 0) return;
+
+        const best = currentDetections.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+        const partId = best.id.obj.toLowerCase();
+
+        // Avoid re-triggering for the same part in one session
+        if (escalatedIds.current.has(partId)) return;
+
+        const isComplex = COMPLEX_SYSTEMS.some(sys => best.id.cat.toLowerCase().includes(sys));
+        const shouldEscalate = best.eval.risk || best.eval.stat === 'CRITICAL' || isComplex || best.eval.stat === 'UNCERTAIN';
+
+        if (shouldEscalate) {
+            escalatedIds.current.add(partId);
+            sendProactivePing(best);
+        }
+    }, [currentDetections, isLive, sendProactivePing]);
+
+    /**
+     * Send External Image (e.g. from Meta Glasses)
+     */
+    const sendExternalImage = useCallback(async (uri: string) => {
         const currentRoom = livekitRoomRef.current;
         const currentParticipant = currentRoom?.localParticipant;
 
         if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) {
-            messageQueue.current.push(text);
-            logger.warn("Not connected. Message queued.");
+            logger.warn("Cannot send external image: Not connected.");
             return;
         }
 
-        const userMsg = { role: 'user', content: text, timestamp: new Date() };
-        await updateDoc(doc(db, 'sessions', sessionId), {
-            messages: arrayUnion(userMsg)
-        });
-
+        setAgentState('thinking');
         try {
-            const encoder = new TextEncoder();
-            const payload = encoder.encode(JSON.stringify(userMsg));
+            const base64 = await FileSystem.readAsStringAsync(uri, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
+
+            const payload = new TextEncoder().encode(JSON.stringify({
+                frames: [base64],
+                metadata: {
+                    reason: "Meta Glasses Capture",
+                    timestamp: Date.now(),
+                    sessionId
+                }
+            }));
+
             await currentParticipant.publishData(payload, {
                 reliable: true,
-                topic: CHAT_TOPIC
+                topic: VISUAL_BURST_RESPONSE
             });
+            logger.info("External image sent via Visual Burst.");
         } catch (e) {
-            logger.error("Failed to send chat message", e as Error);
+            logger.error("Failed to send external image", e as Error);
+            setAgentState('idle');
         }
     }, [sessionId, logger]);
 
@@ -277,29 +353,18 @@ export function useGeminiSession(
                 newRoom.on(RoomEvent.DataReceived, onDataReceived);
 
                 // --- Context Latch: Proactive Visual Burst on VAD ---
-                // Trigger sending the "Semantic Peak" the moment the user starts speaking.
-                // This ensures visual context arrives before the LLM generates a response.
                 const onActiveSpeakersChanged = (speakers: Participant[]) => {
                     const isUserSpeaking = speakers.some(s => s.identity === auth.currentUser?.uid);
 
                     if (isUserSpeaking) {
                         setAgentState('listening');
                         logger.info('VAD Triggered: User Speaking');
-                        // We still trigger burst, but now we also update UI state
                         sendVisualBurst();
-                    } else if (agentState === 'listening') {
-                        // User stopped speaking. If we are waiting for response, we might transition to thinking logic effectively handled by sendVisualBurst setting it to thinking.
-                        // However, to avoid flickering if sendVisualBurst happened fast, we primarily rely on explicit states.
-                        // Actually, sendVisualBurst sets 'thinking'. So if we just stop speaking, we shouldn't overwrite 'thinking' with 'idle'.
                     }
                 };
                 newRoom.on(RoomEvent.ActiveSpeakersChanged, onActiveSpeakersChanged);
 
                 // Flush queues
-                while (messageQueue.current.length > 0) {
-                    const msg = messageQueue.current.shift();
-                    if (msg) sendChatMessage(msg);
-                }
                 while (pendingToolResponses.current.length > 0) {
                     const { toolCallId, response: res } = pendingToolResponses.current.shift()!;
                     sendToolResponse(res, toolCallId);
@@ -328,6 +393,7 @@ export function useGeminiSession(
         setRoom(null);
         setLocalParticipant(null);
         setAiResponses([]);
+        escalatedIds.current.clear();
     }, []);
 
     return {
@@ -348,5 +414,7 @@ export function useGeminiSession(
         frameProcessor,
         currentDetections,
         agentState,
+        sendExternalImage,
+        ghostCard, // Export Ghost Card State
     };
 }

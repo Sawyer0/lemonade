@@ -1,11 +1,26 @@
-
 import { LocalPerceptionService } from '../LocalPerceptionService';
 import { MobileLogger } from '../MobileLogger';
 import { PerformanceMonitor } from '../PerformanceMonitor';
 import { initLlama } from 'llama.rn';
 import * as FileSystem from 'expo-file-system';
 
-// Mocks are hoisted from jest.setup.js, but we can refine them here if needed
+// Explicitly mock llama.rn for Jest
+jest.mock('llama.rn', () => ({
+    initLlama: jest.fn(() => Promise.resolve({
+        completion: jest.fn(() => Promise.resolve({ text: 'part: state' })),
+        release: jest.fn(),
+    })),
+    LlamaContext: jest.fn(),
+}));
+
+// Mock Expo FileSystem
+jest.mock('expo-file-system', () => ({
+    writeAsStringAsync: jest.fn(),
+    cacheDirectory: 'file:///cache/',
+    EncodingType: { Base64: 'base64' }
+}));
+
+// Mocks
 const mockLogger = {
     info: jest.fn(),
     debug: jest.fn(),
@@ -39,31 +54,45 @@ describe('LocalPerceptionService', () => {
         await service.warmup();
         expect(FileSystem.writeAsStringAsync).toHaveBeenCalled();
         // Check if completion was called on the context
-        const context = await (initLlama as jest.Mock).mock.results[0].value;
+        const context = await (initLlama as any).mock.results[0].value;
         expect(context.completion).toHaveBeenCalled();
     });
 
-    it('should triage frame and return detections', async () => {
+    it('should triage frame and return semantic results', async () => {
         await service.initialize('file:///model.gguf');
 
-        // Mock completion response
-        const context = await (initLlama as jest.Mock).mock.results[0].value;
-        context.completion.mockResolvedValueOnce({ text: 'alternator: rust' });
+        // Mock completion response with VALID JSON
+        const context = await (initLlama as any).mock.results[0].value;
+        const validJson = JSON.stringify({
+            id: { obj: 'Brake Rotor', cat: 'Braking' },
+            eval: { stat: 'CRITICAL', risk: true, note: 'Deep surface rust visible' }
+        });
+        context.completion.mockResolvedValueOnce({ text: validJson });
 
-        const detections = await service.triageFrame('file:///frame.jpg');
+        const results = await service.triageFrame('file:///frame.jpg');
 
-        expect(detections).toHaveLength(1);
-        expect(detections[0]).toEqual(expect.objectContaining({
-            objectId: 'alternator',
-            state: 'rust',
-            confidence: 0.85
+        expect(results).toHaveLength(1);
+        expect(results[0]).toEqual(expect.objectContaining({
+            id: expect.objectContaining({ obj: 'Brake Rotor' }),
+            eval: expect.objectContaining({ risk: true, stat: 'CRITICAL' })
         }));
     });
 
-    it('should handle throttling', async () => {
-        (mockPerformanceMonitor.getMetrics as jest.Mock).mockReturnValue({ shouldThrottle: true });
+    it('should handle invalid JSON by returning UNCERTAIN', async () => {
         await service.initialize('file:///model.gguf');
-        const detections = await service.triageFrame('file:///frame.jpg');
-        expect(detections).toEqual([]);
+        const context = await (initLlama as any).mock.results[0].value;
+        context.completion.mockResolvedValueOnce({ text: 'Not JSON' });
+
+        const results = await service.triageFrame('file:///frame.jpg');
+        // We expect one result indicating UNCERTAIN due to parsing error
+        expect(results).toHaveLength(1);
+        expect(results[0].eval.stat).toBe('UNCERTAIN');
+    });
+
+    it('should handle throttling', async () => {
+        (mockPerformanceMonitor.getMetrics as any).mockReturnValue({ shouldThrottle: true });
+        await service.initialize('file:///model.gguf');
+        const results = await service.triageFrame('file:///frame.jpg');
+        expect(results).toEqual([]);
     });
 });

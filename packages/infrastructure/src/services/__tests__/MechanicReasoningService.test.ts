@@ -24,6 +24,7 @@ describe('MechanicReasoningService', () => {
     let mockSearch: IGoogleSearchService;
     let mockMemory: IMemoryService;
     let mockReactive: IReactiveSafetyService;
+    let mockSafetyMonitor: ISafetyMonitor;
     let mockTracing: ITracingService;
     let mockLogger: ILogger;
 
@@ -70,6 +71,11 @@ describe('MechanicReasoningService', () => {
         } as any;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mockReactive = { checkSafety: vi.fn().mockReturnValue(null) } as any;
+        
+        mockSafetyMonitor = {
+            assess: vi.fn().mockResolvedValue({ intervention_required: false, hazards_detected: [] })
+        } as any;
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mockTracing = { traceAiCall: vi.fn(({ exec }) => exec()) } as any;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,6 +90,7 @@ describe('MechanicReasoningService', () => {
             mockSearch,
             mockMemory,
             mockReactive,
+            mockSafetyMonitor,
             mockTracing,
             mockLogger
         );

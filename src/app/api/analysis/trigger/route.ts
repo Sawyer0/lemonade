@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { VideoAnalysisService } from '@/application/services/VideoAnalysisService';
-import { ILogger, ISessionRepository } from '@lemonade/core';
+import { ILogger, ISessionRepository, IEdgeSecurityService } from '@lemonade/core';
 import { AnalysisTriggerRequestSchema, AnalysisTriggerResponseSchema } from '@/application/dtos';
 import { validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
 import { Storage } from '@google-cloud/storage';
@@ -14,17 +14,22 @@ const GCS_MEDIA_BUCKET = process.env.GCLOUD_MEDIA_BUCKET || 'your-gcs-media-buck
 
 export const POST = withContext(async (req: Request) => {
     const logger = container.get<ILogger>(TYPES.Logger);
+    const security = container.get<IEdgeSecurityService>(TYPES.EdgeSecurityService);
     logger.info(`Analysis Trigger Request Started`, { path: req.url });
 
     try {
-        const tier = req.headers.get('x-user-tier');
-        if (tier !== 'pro') {
-            logger.warn(`Access Denied: Pro tier required for analysis trigger.`, { tier });
-            return NextResponse.json({ error: 'Upgrade Required' }, { status: 403 });
+        const auth = await security.getAuthenticatedUser(req);
+        if (!auth) {
+            return NextResponse.json({ error: 'Unauthorized: Middleware bypass detected' }, { status: 401 });
         }
 
+        if (auth.tier !== 'pro') {
+            logger.warn(`Access Denied: Pro tier required for analysis trigger.`, { tier: auth.tier });
+            return NextResponse.json({ error: 'Upgrade Required', code: 'PRO_REQUIRED' }, { status: 403 });
+        }
+
+        const authUserId = auth.userId;
         const requestBody = await req.json();
-        const { sessionId, publicUrl } = requestBody;
 
         const extendedSchema = AnalysisTriggerRequestSchema.extend({
             imageData: z.string().optional(),
@@ -32,13 +37,9 @@ export const POST = withContext(async (req: Request) => {
             vehicleContext: z.string().optional(),
         });
         const validatedInput = extendedSchema.parse(requestBody);
+        const { sessionId, publicUrl } = validatedInput;
 
         // --- Security Check: Ownership ---
-        const authUserId = req.headers.get('x-user-id');
-        if (!authUserId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
         const sessionRepo = container.get<ISessionRepository>(TYPES.SessionRepo);
         const session = await sessionRepo.findById(sessionId);
 

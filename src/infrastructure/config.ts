@@ -19,7 +19,7 @@ export const CONFIG = {
     // AI Configuration
     AI_MODELS: {
         ...SHARED_CONFIG.AI_MODELS,
-        GOOGLE_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
+        GOOGLE_API_KEY: process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
     },
 
     // Firebase Admin Configuration (Server-Side Only)

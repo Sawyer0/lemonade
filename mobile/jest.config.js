@@ -12,9 +12,12 @@ module.exports = {
         '<rootDir>/**/?(*.)+(spec|test).[jt]s?(x)',
     ],
     transformIgnorePatterns: [
-        'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(modules-core)?|@expo(nent)?|.*react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|llama.rn|@lemonade/core|react-native-vision-camera|vision-camera-resize-plugin|react-native-reanimated|react-native-worklets-core)'
+        'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(modules-core)?|@expo(nent)?|.*react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|llama.rn|@lemonade/core|react-native-vision-camera|vision-camera-resize-plugin|react-native-reanimated|react-native-worklets-core|firebase|@firebase)'
     ],
     moduleNameMapper: {
+        '^@mobile/(.*)$': '<rootDir>/$1',
+        '^@lemonade/core$': '<rootDir>/../packages/core/src/index.ts',
+        '^@lemonade/infrastructure$': '<rootDir>/../packages/infrastructure/src/index.ts',
         '^expo$': '<rootDir>/__mocks__/expo.js',
         'expo/src/winter/runtime\\.native\\.ts': '<rootDir>/__mocks__/expo-winter-stub.js',
         'expo/src/winter/installGlobal\\.ts': '<rootDir>/__mocks__/expo-winter-stub.js',

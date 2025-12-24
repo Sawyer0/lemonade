@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../context/UserContext';
+import { useAuth } from '../context/AuthContext';
 import { DiagnosticSession, MessagePart } from '@lemonade/core';
 
 export function useToolHandler(session: DiagnosticSession | null) {

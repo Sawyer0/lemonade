@@ -35,7 +35,6 @@ export interface IAuthService {
     signInWithGoogle(): Promise<void>;
 
     signOut(): Promise<void>;
-    signOut(): Promise<void>;
 
     getToken(): Promise<string | undefined>;
 }

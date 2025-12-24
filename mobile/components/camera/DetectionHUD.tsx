@@ -8,10 +8,10 @@ import Animated, {
     withSequence,
     Easing
 } from 'react-native-reanimated';
-import { LocalDetection } from '@lemonade/core';
+import { SemanticTriageResult } from '@lemonade/core';
 
 interface DetectionHUDProps {
-    detections: LocalDetection[];
+    detections: SemanticTriageResult[];
     agentState: 'idle' | 'listening' | 'thinking';
 }
 
@@ -20,12 +20,14 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
     if (detections.length === 0) return null;
 
     // Use the highest confidence detection for the HUD
-    const bestDetection = detections.sort((a, b) => b.confidence - a.confidence)[0];
-    const { confidence, objectId, state } = bestDetection;
+    // Note: confidence is optional in new schema, default to 0 if missing
+    const bestDetection = detections.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+    const { id, eval: evaluation, confidence } = bestDetection;
+    const confValue = confidence || 0;
 
     // Cloud Override Logic
     const isCloudActive = agentState !== 'idle';
-    const isLocked = confidence >= 0.8;
+    const isLocked = confValue >= 0.8;
 
     // Throbber Logic
     const borderOpacity = useSharedValue(0.5);
@@ -57,30 +59,36 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
         }
     }, [isLocked, isCloudActive]);
 
-    const animatedStyle = useAnimatedStyle(() => {
-        let borderColor = '#FFD700'; // Default Yellow
-        let borderStyle: 'solid' | 'dashed' | 'dotted' | undefined = 'dashed';
+    const getStatusColor = () => {
+        if (isCloudActive) return '#8A2BE2'; // BlueViolet
+        if (!isLocked) return '#FFD700'; // Gold (Searching)
 
-        if (isCloudActive) {
-            borderColor = '#8A2BE2'; // BlueViolet for Cloud
-            borderStyle = 'solid';
-        } else if (isLocked) {
-            borderColor = '#00EDA4'; // Green for Locked
-            borderStyle = 'solid';
+        switch (evaluation.stat) {
+            case 'CRITICAL': return '#FF4444'; // Red
+            case 'CAUTION': return '#FFA500'; // Orange
+            case 'UNCERTAIN': return '#A9A9A9'; // Gray
+            case 'NORMAL': return '#00EDA4'; // Green
+            default: return '#00EDA4';
         }
+    };
 
+    const statusColor = getStatusColor();
+
+    const animatedStyle = useAnimatedStyle(() => {
         return {
             opacity: borderOpacity.value,
-            borderColor,
-            borderStyle,
-            borderWidth: isCloudActive ? 3 : 2, // Thicker for cloud
+            borderColor: statusColor,
+            borderStyle: isCloudActive || isLocked ? 'solid' : 'dashed',
+            borderWidth: isCloudActive ? 3 : 2,
         };
     });
 
     const getStatusText = () => {
         if (agentState === 'listening') return 'LISTENING...';
         if (agentState === 'thinking') return 'THINKING...';
-        return (state || 'analyzing').toUpperCase();
+        
+        const note = evaluation.note && evaluation.stat !== 'NORMAL' ? evaluation.note : evaluation.stat;
+        return note.toUpperCase();
     };
 
     return (
@@ -89,10 +97,10 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
                 <Animated.View style={[styles.reticleBox, animatedStyle]}>
                     <View style={[styles.labelContainer, isCloudActive && { backgroundColor: '#8A2BE2' }]}>
                         <Text style={styles.labelText}>
-                            {objectId.toUpperCase()}
+                            {id.obj.toUpperCase()}
                         </Text>
-                        <Text style={[styles.stateText, { color: isCloudActive ? 'white' : (isLocked ? '#00EDA4' : '#FFD700') }]}>
-                            {getStatusText()} {agentState === 'idle' && `(${Math.round(confidence * 100)}%)`}
+                        <Text style={[styles.stateText, { color: isCloudActive ? 'white' : statusColor }]}>
+                            {getStatusText()} {agentState === 'idle' && `(${Math.round(confValue * 100)}%)`}
                         </Text>
                     </View>
                 </Animated.View>

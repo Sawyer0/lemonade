@@ -5,9 +5,18 @@ import { IVehicleRepository, Vehicle } from '@lemonade/core';
 
 @injectable()
 export class FirestoreVehicleRepository implements IVehicleRepository {
-    async findById(id: string): Promise<Vehicle | null> {
+    async findById(id: string, userId: string): Promise<Vehicle | null> {
         const snap = await adminDb.collection('vehicles').doc(id).get();
-        return snap.exists ? this.mapToVehicle(snap.data()!) : null;
+        if (!snap.exists) return null;
+        
+        const vehicle = this.mapToVehicle(snap.data()!);
+        
+        // Security Check: Ensure the vehicle belongs to the requested user
+        if (vehicle.userId !== userId) {
+            return null;
+        }
+        
+        return vehicle;
     }
 
     async create(vehicle: Vehicle): Promise<void> {

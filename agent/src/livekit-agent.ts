@@ -5,7 +5,7 @@ import * as resemble from '@livekit/agents-plugin-resemble';
 import * as silero from '@livekit/agents-plugin-silero';
 import { RoomEvent, RemoteParticipant, DataPacketKind } from '@livekit/rtc-node';
 import {
-    ILogger,
+    type ILogger,
     SHARED_CONFIG,
     SYSTEM_PROMPTS,
 } from '@lemonade/core';
@@ -30,6 +30,7 @@ import { env } from './env';
 // Data channel topics
 const VISUAL_BURST_REQUEST = "capture_visual_burst";
 const VISUAL_BURST_RESPONSE = "visual_burst_response";
+const PROACTIVE_PING = "proactive_ping";
 
 interface JobMetadata {
     vehicleContext?: string;
@@ -165,7 +166,25 @@ export default defineAgent({
 
         // 6. Handle Semantic Bursts (Data Channel)
         ctx.room.on(RoomEvent.DataReceived, async (payload: Uint8Array, participant?: RemoteParticipant, kind?: DataPacketKind, topic?: string) => {
-            if (topic !== VISUAL_BURST_RESPONSE || participant?.identity !== userId) return;
+            if (participant?.identity !== userId) return;
+
+            if (topic === PROACTIVE_PING) {
+                try {
+                    const ping = JSON.parse(new TextDecoder().decode(payload));
+                    const { detection } = ping;
+                    mainLogger.info(`Received Proactive Ping`, { part: detection.id.obj, risk: detection.eval.risk });
+                    
+                    // The agent can choose to acknowledge the ping verbally if it's high risk
+                    if (detection.eval.risk) {
+                        agent.session.say(`I'm seeing something concerning with the ${detection.id.obj}. Analyzing now...`);
+                    }
+                } catch (e) {
+                    mainLogger.warn('Failed to parse proactive ping', { error: e as Error });
+                }
+                return;
+            }
+
+            if (topic !== VISUAL_BURST_RESPONSE) return;
 
             try {
                 const packet = JSON.parse(new TextDecoder().decode(payload));

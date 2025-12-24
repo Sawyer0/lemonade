@@ -1,5 +1,5 @@
 import { injectable, inject } from 'inversify';
-import type { ISessionRepository, IChatAssistantAI, ILogger } from '@lemonade/core';
+import type { ISessionRepository, IChatAssistantAI, ILogger, IComplaintIdentificationService } from '@lemonade/core';
 import {
     COMPLAINT_IDENTIFICATION_PROMPT,
     MessagePart
@@ -7,7 +7,7 @@ import {
 import { TYPES } from '@/infrastructure/di/types';
 
 @injectable()
-export class ComplaintIdentificationService {
+export class ComplaintIdentificationService implements IComplaintIdentificationService {
     constructor(
         @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
         @inject(TYPES.ChatAI) private chatAssistantAI: IChatAssistantAI,

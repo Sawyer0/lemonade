@@ -15,10 +15,11 @@ export const TYPES = {
     VehicleInfoProvider: Symbol.for("VehicleInfoProvider"),
 
     // AI
-    MultimodalUploadAI: Symbol.for("MultimodalUploadAI"), 
-    LiveStreamAI: Symbol.for("LiveStreamAI"), 
+    MultimodalUploadAI: Symbol.for("MultimodalUploadAI"),
+    LiveStreamAI: Symbol.for("LiveStreamAI"),
     ChatAI: Symbol.for("ChatAI"),
     SafetyAI: Symbol.for("SafetyAI"),
+    FunctionCallService: Symbol.for("FunctionCallService"),
 
     // Application Services
     VehicleService: Symbol.for("VehicleService"),
@@ -26,7 +27,7 @@ export const TYPES = {
     SessionService: Symbol.for("SessionService"),
     ChatService: Symbol.for("ChatService"),
     VideoAnalysisService: Symbol.for("VideoAnalysisService"),
-    SummarizationService: Symbol.for("SummarizationService"), 
+    SummarizationService: Symbol.for("SummarizationService"),
 
     StorageService: Symbol.for("StorageService"),
     SafetyMonitor: Symbol.for("SafetyMonitor"),
@@ -41,5 +42,8 @@ export const TYPES = {
     GeminiCoreAdapter: Symbol.for("GeminiCoreAdapter"),
     ConfigProvider: Symbol.for("ConfigProvider"),
     TracingService: Symbol.for("TracingService"),
+    EvalRunner: Symbol.for("EvalRunner"),
+    EdgeSecurityService: Symbol.for("EdgeSecurityService"),
+    RateLimiter: Symbol.for("RateLimiter"),
 };
 

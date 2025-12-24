@@ -2,7 +2,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { DetectionHUD } from '../DetectionHUD';
-import { LocalDetection } from '@lemonade/core';
+import { SemanticTriageResult } from '@lemonade/core';
 
 // Mock Reanimated
 jest.mock('react-native-reanimated', () => {
@@ -23,8 +23,14 @@ jest.mock('react-native-reanimated', () => {
 });
 
 describe('DetectionHUD', () => {
-    const mockDetections: LocalDetection[] = [
-        { objectId: 'rust', confidence: 0.9, bbox: [0, 0, 100, 100], state: 'severe', lastSeen: Date.now(), steadyStrikeCount: 1 }
+    const mockResults: SemanticTriageResult[] = [
+        {
+            id: { obj: 'Brake Rotor', cat: 'Braking' },
+            eval: { stat: 'CRITICAL', risk: true, note: 'Severe rust' },
+            confidence: 0.9,
+            timestamp: Date.now(),
+            steadyStrikeCount: 1
+        }
     ];
 
     it('should render nothing when no detections', () => {
@@ -33,25 +39,25 @@ describe('DetectionHUD', () => {
     });
 
     it('should render locked state (Green) when confidence >= 0.8', () => {
-        const { getByText } = render(<DetectionHUD detections={mockDetections} agentState="idle" />);
-        expect(getByText('RUST')).toBeTruthy();
-        expect(getByText('SEVERE (90%)')).toBeTruthy();
+        const { getByText } = render(<DetectionHUD detections={mockResults} agentState="idle" />);
+        expect(getByText('BRAKE ROTOR')).toBeTruthy();
+        // Expects note to be displayed
+        expect(getByText('SEVERE RUST (90%)')).toBeTruthy();
     });
 
     it('should render searching state (Yellow) when confidence < 0.8', () => {
-        const lowConfDetections = [{ ...mockDetections[0], confidence: 0.5 }];
-        const { getByText } = render(<DetectionHUD detections={lowConfDetections} agentState="idle" />);
-        expect(getByText('RUST')).toBeTruthy();
-        // Visual style check would require snapshot or style inspection
+        const lowConfResults = [{ ...mockResults[0], confidence: 0.5 }];
+        const { getByText } = render(<DetectionHUD detections={lowConfResults} agentState="idle" />);
+        expect(getByText('BRAKE ROTOR')).toBeTruthy();
     });
 
     it('should render listening state (Purple) when agentState is listening', () => {
-        const { getByText } = render(<DetectionHUD detections={mockDetections} agentState="listening" />);
+        const { getByText } = render(<DetectionHUD detections={mockResults} agentState="listening" />);
         expect(getByText('LISTENING...')).toBeTruthy();
     });
 
     it('should render thinking state (Purple) when agentState is thinking', () => {
-        const { getByText } = render(<DetectionHUD detections={mockDetections} agentState="thinking" />);
+        const { getByText } = render(<DetectionHUD detections={mockResults} agentState="thinking" />);
         expect(getByText('THINKING...')).toBeTruthy();
     });
 });

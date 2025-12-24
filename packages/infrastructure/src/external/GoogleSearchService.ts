@@ -1,7 +1,6 @@
 import { injectable, inject } from 'inversify';
-import type { ILogger, IBillingService } from '@lemonade/core';
+import type { ILogger, IBillingService, IGoogleSearchService } from '@lemonade/core';
 import {
-    IGoogleSearchService,
     SearchRequest,
     SearchResponse,
     AppError,

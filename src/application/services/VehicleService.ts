@@ -37,8 +37,8 @@ export class VehicleService {
         return newVehicle;
     }
 
-    async getVehicle(id: string): Promise<Vehicle | null> {
-        return this.vehicleRepo.findById(id);
+    async getVehicle(id: string, userId: string): Promise<Vehicle | null> {
+        return this.vehicleRepo.findById(id, userId);
     }
     
     async getHistory(vehicleId: string): Promise<DiagnosticSession[]> {

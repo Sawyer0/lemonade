@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@lemonade/infrastructure';
 import {
-    AppError,
-    ErrorCode,
     ISessionRepository,
     DiagnosticSessionSchema,
-    DiagnosticSession
+    DiagnosticSession,
+    IEdgeSecurityService
 } from '@lemonade/core';
 import { createErrorResponse } from '@/application/utils/validateRequest';
 import { withContext } from '@/application/utils/apiHandler';
@@ -17,22 +15,20 @@ import {
     type SessionListResponseDTO,
 } from '@/application/dtos/session.dto';
 
-import { z } from 'zod'; // Added usage of z
+import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
 export const GET = withContext(async (req: NextRequest) => {
+    const security = container.get<IEdgeSecurityService>(TYPES.EdgeSecurityService);
     try {
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, 'Missing token');
+        const auth = await security.getAuthenticatedUser(req);
+        if (!auth) {
+            return NextResponse.json({ error: 'Unauthorized: Middleware bypass detected' }, { status: 401 });
         }
 
-        const token = authHeader.split('Bearer ')[1];
-        const decodedToken = await adminAuth.verifyIdToken(token);
-        const userId = decodedToken.uid;
-
+        const userId = auth.userId;
         const sessionRepo = container.get<ISessionRepository>(TYPES.SessionRepo);
-        const sessions = await sessionRepo.findByUserId(userId); // Changed from getSessionsByUserId
+        const sessions = await sessionRepo.findByUserId(userId); 
 
         // Validate sessions before returning
         const validatedSessions = z.array(DiagnosticSessionSchema).parse(sessions);
@@ -45,16 +41,14 @@ export const GET = withContext(async (req: NextRequest) => {
 });
 
 export const POST = withContext(async (req: NextRequest) => {
+    const security = container.get<IEdgeSecurityService>(TYPES.EdgeSecurityService);
     try {
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, 'Missing token');
+        const auth = await security.getAuthenticatedUser(req);
+        if (!auth) {
+            return NextResponse.json({ error: 'Unauthorized: Middleware bypass detected' }, { status: 401 });
         }
 
-        const token = authHeader.split('Bearer ')[1];
-        const decodedToken = await adminAuth.verifyIdToken(token);
-        const userId = decodedToken.uid;
-
+        const userId = auth.userId;
         const body = await req.json();
         const validatedBody = StartSessionRequestSchema.parse(body);
 

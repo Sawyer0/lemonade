@@ -183,24 +183,26 @@ function addMavenRepository(buildGradle) {
     return buildGradle;
   }
 
+  // Use Gradle properties or Env vars directly in the gradle file
   const mavenBlock = `
         maven {
-            url = uri("https://maven.pkg.github.com/facebook/meta-wearables-sdk")
+            url = uri("https://maven.pkg.github.com/facebook/meta-wearables-dat-android")
             credentials {
-                username = System.getenv("GITHUB_ACTOR") ?: "YOUR_USERNAME"
-                password = System.getenv("GITHUB_TOKEN") ?: "YOUR_TOKEN"
+                username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("GITHUB_TOKEN")
             }
         }`;
 
-  // Basic insertion finding the repositories block inside allprojects
-  if (buildGradle.includes('allprojects')) {
-      // Find the repositories block within allprojects
-      // This is a naive replacement, but sufficient for standard expo templates
-      return buildGradle.replace(/allprojects\s*{[\s\S]*?repositories\s*{/, match => `${match}${mavenBlock}\n`);
+  // Robust insertion into 'allprojects > repositories' or root 'repositories'
+  if (buildGradle.includes('allprojects {')) {
+      const regex = /(allprojects\s*{[\s\S]*?repositories\s*{)/;
+      if (regex.test(buildGradle)) {
+          return buildGradle.replace(regex, `$1\n${mavenBlock}`);
+      }
   }
   
-  // Fallback if allprojects structure is weird, just add to the first repositories block found
-  return buildGradle.replace(/repositories\s*{/, `repositories {${mavenBlock}\n`);
+  // Fallback to first repositories block
+  return buildGradle.replace(/repositories\s*{/, `repositories {\n${mavenBlock}`);
 }
 
 function addDependencies(appBuildGradle) {

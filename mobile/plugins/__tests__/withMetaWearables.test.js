@@ -35,7 +35,7 @@ describe('withMetaWearables', () => {
         modResults: { contents: 'allprojects {\n    repositories {\n        google()\n        jcenter()\n    }\n}', language: 'groovy' } 
     };
     const finalModConfig = action(initialModConfig);
-    expect(finalModConfig.modResults.contents).toContain('maven.pkg.github.com/facebook/meta-wearables-sdk');
+    expect(finalModConfig.modResults.contents).toContain('maven.pkg.github.com/facebook/meta-wearables-dat-android');
     expect(finalModConfig.modResults.contents).toContain('GITHUB_TOKEN');
   });
 

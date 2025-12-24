@@ -62,6 +62,17 @@ export interface IChatAssistantAI {
         additionalParts?: { inlineData?: { mimeType: string, data: string }, fileData?: { mimeType: string, fileUri: string } }[] // New: for multimodal chat
     ): Promise<string | MessagePart[]>;
 
+    generateReplyStream(
+        history: { role: string; content?: unknown }[],
+        message: string,
+        vehicleContext: string,
+        diagnosticContext: AIAnalysis | null,
+        userId: string,
+        sessionId: string,
+        reasoningEffort?: ReasoningEffort,
+        additionalParts?: { inlineData?: { mimeType: string, data: string }, fileData?: { mimeType: string, fileUri: string } }[]
+    ): AsyncGenerator<string, string | MessagePart[], unknown>;
+
     verifyHypothesis(
         request: VerificationRequest
     ): Promise<VerificationResponse>;

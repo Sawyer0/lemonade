@@ -8,16 +8,19 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@lemonade/core": "*",
     "@google-cloud/vertexai": "^1.10.0",
+    "@lemonade/core": "*",
+    "@upstash/ratelimit": "^2.0.7",
+    "@upstash/redis": "^1.35.8",
     "firebase-admin": "^13.6.0",
     "inversify": "^7.10.5",
+    "langsmith": "^0.3.67",
     "reflect-metadata": "^0.2.2",
-    "zod": "^3.23.8",
-    "langsmith": "^0.3.67"
+    "xstate": "^5.25.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   }
 }

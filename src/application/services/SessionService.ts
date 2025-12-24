@@ -19,7 +19,7 @@ export class SessionService implements ISessionService {
     ) { }
 
     async startSession(vehicleId: string, userId: string): Promise<string> {
-        const vehicle = await this.vehicleRepo.findById(vehicleId);
+        const vehicle = await this.vehicleRepo.findById(vehicleId, userId);
         if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
 
         if (vehicle.userId !== userId) {
@@ -51,7 +51,7 @@ export class SessionService implements ISessionService {
         const session = await this.sessionRepo.findById(sessionId);
         if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
 
-        const vehicle = await this.vehicleRepo.findById(session.vehicleId);
+        const vehicle = await this.vehicleRepo.findById(session.vehicleId, session.userId);
         if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
 
         return { session, vehicle };

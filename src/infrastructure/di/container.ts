@@ -28,7 +28,11 @@ import type {
     IReactiveSafetyService,
     ISessionService,
     IChatService,
-    ISummarizationService
+    ISummarizationService,
+    ISafetyAI,
+    IEdgeSecurityService,
+    IRateLimiter,
+    IComplaintIdentificationService
 } from "@lemonade/core";
 
 // Implementations (Shared Infrastructure)
@@ -50,7 +54,10 @@ import {
     SupermemoryService,
     ReactiveSafetyService,
     MechanicReasoningService,
-    VertexAISafetyAdapter
+    VertexAISafetyAdapter,
+    FunctionCallService,
+    EdgeSecurityService,
+    UpstashRateLimiter
 } from "@lemonade/infrastructure";
 
 // Implementations (Local / Web-specific)
@@ -121,6 +128,7 @@ container.bind<IMultimodalUploadAnalyzer>(TYPES.MultimodalUploadAI).to(GeminiFla
 container.bind<ILiveStreamAnalyzer>(TYPES.LiveStreamAI).to(GeminiFlashLiveStreamAdapter).inSingletonScope();
 container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(GoogleSearchService).inSingletonScope();
 container.bind<IMemoryService>(TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
+container.bind<FunctionCallService>(TYPES.FunctionCallService).to(FunctionCallService).inSingletonScope();
 
 // --- 3. Bind Core Services (The "Logic") ---
 container.bind<VehicleService>(TYPES.VehicleService)
@@ -148,7 +156,7 @@ container.bind<IVideoAnalysisService>(TYPES.VideoAnalysisService)
     .to(VideoAnalysisService)
     .inSingletonScope();
 
-container.bind<ComplaintIdentificationService>(TYPES.ComplaintIdentificationService)
+container.bind<IComplaintIdentificationService>(TYPES.ComplaintIdentificationService)
     .to(ComplaintIdentificationService)
     .inSingletonScope();
 
@@ -173,5 +181,7 @@ container.bind<IVectorRepository>(TYPES.VectorRepository).to(FirestoreVectorRepo
 
 container.bind<IMechanicReasoningService>(TYPES.MechanicReasoningService).to(MechanicReasoningService).inSingletonScope();
 
+container.bind<IEdgeSecurityService>(TYPES.EdgeSecurityService).to(EdgeSecurityService).inSingletonScope();
+container.bind<IRateLimiter>(TYPES.RateLimiter).to(UpstashRateLimiter).inSingletonScope();
 
 export { container };

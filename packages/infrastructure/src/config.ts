@@ -17,6 +17,13 @@ export const CONFIG = {
     LANGSMITH: {
         API_KEY: process.env.LANGSMITH_API_KEY || process.env.LANGCHAIN_API_KEY || '',
     },
+    UPSTASH: {
+        REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || '',
+        REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+    },
+    SECURITY: {
+        INTERNAL_SECRET: process.env.SECURITY_INTERNAL_SECRET || 'dev-internal-secret-lemonade',
+    },
     // Override GCLOUD with explicit env if needed, or rely on core's fallback
     GCLOUD_PROJECT: process.env.GCLOUD_PROJECT || SHARED_CONFIG.GCLOUD.PROJECT_ID,
     LOCATION: process.env.GCLOUD_LOCATION || 'us-central1',

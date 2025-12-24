@@ -48,6 +48,8 @@ yarn-error.log*
 .env*
 .env.local
 
+temp_aar/*
+
 # vercel
 .vercel
 
@@ -68,6 +70,9 @@ ui-debug.log*
 .idea/
 .vscode/
 
+# ExecuTorch docs
+execu-docs/
+
 # playwright
 /test-results/
 /playwright-report/
@@ -79,3 +84,14 @@ ui-debug.log*
 # gemini
 .gemini/
 conductor/
+
+# accidental build artifacts in src
+packages/core/src/**/*.d.ts
+packages/core/src/**/*.js
+
+# accidental build artifacts in src
+packages/core/src/**/*.d.ts
+packages/core/src/**/*.js
+lemonade-backend/
+com/
+*.class

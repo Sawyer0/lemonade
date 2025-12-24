@@ -1,7 +1,7 @@
 import { injectable, inject } from 'inversify';
-import { IMemoryService, MemorySearchOptions, MemorySearchResult, ILogger } from '@lemonade/core';
+import { IMemoryService, MemorySearchOptions, MemorySearchResult, type ILogger } from '@lemonade/core';
 import { TYPES } from '../di/types';
-import { IConfigProvider } from '../interfaces/IConfigProvider';
+import type { IConfigProvider } from '../interfaces/IConfigProvider';
 
 @injectable()
 export class SupermemoryService implements IMemoryService {

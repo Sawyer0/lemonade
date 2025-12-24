@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EvalRunner } from '../EvalRunner';
 import { ILogger, IMechanicReasoningService, EvalScenario } from '@lemonade/core';
-import { IConfigProvider } from '../../interfaces/IConfigProvider';
+import type { IConfigProvider } from '../../interfaces/IConfigProvider';
 import { Client } from 'langsmith';
 
 vi.mock('langsmith', () => {

@@ -1,20 +1,16 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@mobile/infrastructure/firebase/config';
+import { db, auth } from '@mobile/infrastructure/firebase/config';
 import { Vehicle } from '@lemonade/core';
 import { convertTimestamps } from '@lemonade/core';
 
-export function useVehicle(vehicleId: string | undefined) {
+export function useVehicle(vehicleId?: string) {
     const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!!vehicleId);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!vehicleId) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setLoading(false);
-            return;
-        }
+        if (!vehicleId) return;
 
         const unsub = onSnapshot(doc(db, 'vehicles', vehicleId), (docSnap) => {
             if (docSnap.exists()) {
@@ -33,5 +29,36 @@ export function useVehicle(vehicleId: string | undefined) {
         return () => unsub();
     }, [vehicleId]);
 
-    return { vehicle, loading, error };
+    const onboardVehicle = async (vin: string, userId: string): Promise<Vehicle> => {
+        setLoading(true);
+        setError(null);
+        try {
+            const idToken = await auth.currentUser?.getIdToken();
+            const API_URL = process.env.EXPO_PUBLIC_API_URL;
+            
+            const response = await fetch(`${API_URL}/api/vehicles/scan`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ vin, userId })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || 'Failed to onboard vehicle');
+            }
+
+            const { data } = await response.json();
+            return data as Vehicle;
+        } catch (err: any) {
+            setError(err.message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return { vehicle, onboardVehicle, loading, error };
 }

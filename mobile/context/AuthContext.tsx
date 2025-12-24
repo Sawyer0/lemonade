@@ -1,41 +1,52 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNativeAuth } from '../hooks/useNativeAuth';
+import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { db } from '../infrastructure/firebase/config';
 import { User, UserSchema } from '@lemonade/core';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
-interface UserContextType {
+interface AuthContextType {
     user: User | null;
     isLoading: boolean;
+    login: (email: string, password: string) => Promise<void>;
+    signup: (email: string, password: string, displayName: string) => Promise<void>;
+    signOut: () => Promise<void>;
+    signInWithGoogle: () => Promise<void>;
     updatePreferences: (prefs: Partial<User['preferences']>) => Promise<void>;
 }
 
-const UserContext = createContext<UserContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function UserProvider({ children }: { children: React.ReactNode }) {
-    const { userInfo } = useNativeAuth(); // idToken availability indicates signed in
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+    const { 
+        user: firebaseUser, 
+        loading: firebaseLoading, 
+        login, 
+        signup, 
+        signOut, 
+        signInWithGoogle 
+    } = useFirebaseAuth();
+    
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        if (!userInfo?.data?.user?.id) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (firebaseLoading) return;
+
+        if (!firebaseUser) {
             setUser(null);
             setIsLoading(false);
             return;
         }
 
-        const uid = userInfo.data.user.id;
-        const userRef = doc(db, 'users', uid);
+        const userRef = doc(db, 'users', firebaseUser.uid);
 
         const unsubscribe = onSnapshot(userRef, async (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
-                // Validate against schema, but be safe about dates
                 const parsed = UserSchema.safeParse({
                     ...data,
-                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-                    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
+                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+                    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
                 });
 
                 if (parsed.success) {
@@ -46,10 +57,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             } else {
                 // Create new user doc if it doesn't exist
                 const newUser: User = {
-                    id: uid,
-                    email: userInfo.data.user.email || '',
-                    displayName: userInfo.data.user.name || undefined,
-                    photoUrl: (userInfo.data.user.photo && /^(https?:\/\/.+\.(?:png|jpg|jpeg|gif|svg|webp))(?:\?.*)?$/i.test(userInfo.data.user.photo)) ? userInfo.data.user.photo : undefined,
+                    id: firebaseUser.uid,
+                    email: firebaseUser.email || '',
+                    displayName: firebaseUser.displayName || undefined,
+                    photoUrl: firebaseUser.photoURL || undefined,
                     tier: 'free',
                     preferences: { autoOpenCamera: false },
                     createdAt: new Date(),
@@ -65,13 +76,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         });
 
         return () => unsubscribe();
-    }, [userInfo]);
+    }, [firebaseUser, firebaseLoading]);
 
     const updatePreferences = async (prefs: Partial<User['preferences']>) => {
         if (!user) return;
         const userRef = doc(db, 'users', user.id);
-
-        // Merge preferences
         const updatedPrefs = { ...user.preferences, ...prefs };
 
         await setDoc(userRef, {
@@ -81,16 +90,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <UserContext.Provider value={{ user, isLoading, updatePreferences }}>
+        <AuthContext.Provider value={{ 
+            user, 
+            isLoading: isLoading || firebaseLoading, 
+            login, 
+            signup, 
+            signOut, 
+            signInWithGoogle,
+            updatePreferences 
+        }}>
             {children}
-        </UserContext.Provider>
+        </AuthContext.Provider>
     );
 }
 
 export function useAuth() {
-    const context = useContext(UserContext);
+    const context = useContext(AuthContext);
     if (context === undefined) {
-        throw new Error('useAuth must be used within a UserProvider');
+        throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;
 }

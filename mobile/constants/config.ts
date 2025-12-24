@@ -7,7 +7,12 @@ export const CONFIG = {
     ...SHARED_CONFIG, // Inherit all shared configurations
     API: {
         TIMEOUT: 30000,
-        // Using IP for local development if needed, or production URL
-        BASE_URL: 'http://localhost:3000', 
+        // Using network IP for Android emulator/device to reach dev server
+        BASE_URL: 'http://192.168.1.154:3000',
+    },
+    LOCAL_INFERENCE: {
+        GPU_LAYERS: 99,
+        CONTEXT_SIZE: 1024,
+        USE_FLASH_ATTN: true,
     },
 } as const;

@@ -28,3 +28,5 @@ export * from './ai/tools/displayContent';
 export * from './ai/tools/googleSearch';
 export * from './services/ReactiveSafetyService';
 export * from './services/MechanicReasoningService';
+export * from './security/EdgeSecurityService';
+export * from './security/UpstashRateLimiter';
