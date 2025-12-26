@@ -16,21 +16,14 @@ interface DetectionHUDProps {
 }
 
 export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentState }) => {
-    // If no detections, render nothing
-    if (detections.length === 0) return null;
-
-    // Use the highest confidence detection for the HUD
-    // Note: confidence is optional in new schema, default to 0 if missing
-    const bestDetection = detections.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
-    const { id, eval: evaluation, confidence } = bestDetection;
-    const confValue = confidence || 0;
-
-    // Cloud Override Logic
-    const isCloudActive = agentState !== 'idle';
-    const isLocked = confValue >= 0.8;
-
-    // Throbber Logic
+    // 1. Hooks - Always at the top
     const borderOpacity = useSharedValue(0.5);
+
+    const isCloudActive = agentState !== 'idle';
+    const bestDetection = detections.length > 0
+        ? [...detections].sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0]
+        : null;
+    const isLocked = bestDetection ? (bestDetection.confidence || 0) >= 0.8 : false;
 
     useEffect(() => {
         if (isCloudActive) {
@@ -57,13 +50,14 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
             // Solid for "Locked"
             borderOpacity.value = withTiming(1, { duration: 200 });
         }
-    }, [isLocked, isCloudActive]);
+    }, [isLocked, isCloudActive, borderOpacity]);
 
     const getStatusColor = () => {
         if (isCloudActive) return '#8A2BE2'; // BlueViolet
         if (!isLocked) return '#FFD700'; // Gold (Searching)
+        if (!bestDetection) return '#00EDA4';
 
-        switch (evaluation.stat) {
+        switch (bestDetection.eval.stat) {
             case 'CRITICAL': return '#FF4444'; // Red
             case 'CAUTION': return '#FFA500'; // Orange
             case 'UNCERTAIN': return '#A9A9A9'; // Gray
@@ -78,15 +72,21 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
         return {
             opacity: borderOpacity.value,
             borderColor: statusColor,
-            borderStyle: isCloudActive || isLocked ? 'solid' : 'dashed',
+            borderStyle: (isCloudActive || isLocked ? 'solid' : 'dashed') as 'solid' | 'dashed',
             borderWidth: isCloudActive ? 3 : 2,
         };
     });
 
+    // 2. Early return for UI only - AFTER all hooks
+    if (detections.length === 0 || !bestDetection) return null;
+
+    const { id, eval: evaluation, confidence } = bestDetection;
+    const confValue = confidence || 0;
+
     const getStatusText = () => {
         if (agentState === 'listening') return 'LISTENING...';
         if (agentState === 'thinking') return 'THINKING...';
-        
+
         const note = evaluation.note && evaluation.stat !== 'NORMAL' ? evaluation.note : evaluation.stat;
         return note.toUpperCase();
     };

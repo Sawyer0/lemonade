@@ -56,11 +56,9 @@ describe('GoogleSearchService', () => {
       }),
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    vi.mocked(fetch).mockResolvedValue(mockResponse as unknown as Response);
 
     const result = await service.search({
-      query: 'test query',
       limit: 1,
       userId: 'user-123',
       sessionId: 'session-456'
@@ -79,8 +77,7 @@ describe('GoogleSearchService', () => {
       json: () => Promise.resolve({}),
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    vi.mocked(fetch).mockResolvedValue(mockResponse as unknown as Response);
 
     const result = await service.search({ query: 'empty query', limit: 3 });
 
@@ -89,7 +86,7 @@ describe('GoogleSearchService', () => {
   });
 
   it('should throw error on fetch failure', async () => {
-    (global.fetch as any).mockRejectedValue(new Error('Network error'));
+    vi.mocked(fetch).mockRejectedValue(new Error('Network error'));
 
     await expect(service.search({ query: 'test', limit: 1 }))
       .rejects.toThrow('Google Search Request Failed');
@@ -102,8 +99,7 @@ describe('GoogleSearchService', () => {
       ok: true,
       json: () => Promise.resolve({ items: [] }),
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    vi.mocked(fetch).mockResolvedValue(mockResponse as unknown as Response);
 
     const query = '2022 Ford F-150 brake squeak TSB';
     await service.search({ query, limit: 3 });

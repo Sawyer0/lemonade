@@ -1,6 +1,6 @@
 import { injectable, inject } from 'inversify';
-import { GenerativeModel, SchemaType, Part } from '@google-cloud/vertexai';
-import type { ISessionRepository, IContextCacheService, IUserRepository, ILogger, IBillingService, IGoogleSearchService } from '@lemonade/core';
+import { GenerativeModel, SchemaType, Part, GenerateContentResult } from '@google-cloud/vertexai';
+import type { ISessionRepository, IContextCacheService, IUserRepository, ILogger, IBillingService } from '@lemonade/core';
 import {
     ILiveStreamAnalyzer,
     AIAnalysis,
@@ -13,7 +13,8 @@ import {
     AI_GENERATION_CONFIGS,
     AiGenerationConfig,
     MessagePart,
-    SHARED_CONFIG
+    SHARED_CONFIG,
+    LocalTriageResult
 } from '@lemonade/core';
 import { TracingService } from '../observability/TracingService';
 import { TYPES } from '../di/types';
@@ -187,21 +188,23 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
             const result = await this.tracer.traceAiCall({
                 name: 'video_diagnostic_structured',
                 inputs: { videoUrl, vehicleContext, mimeType },
-                exec: async () => model.generateContent(request) as any
+                exec: async () => model.generateContent(request)
             });
 
-            if ((result as any).response.usageMetadata && userId && sessionId) {
+            const vertexResult = result as unknown as GenerateContentResult;
+
+            if (vertexResult.response.usageMetadata && userId && sessionId) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: SHARED_CONFIG.AI_MODELS.CHAT_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            const responseText = (result as any).response?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const responseText = vertexResult.response?.candidates?.[0]?.content?.parts?.[0]?.text;
 
             if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response");
 
@@ -222,8 +225,8 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         userId: string,
         sessionId: string,
         inputTimestamp?: number,
-        localTriage?: any
-    ): Promise<any> {
+        localTriage?: LocalTriageResult
+    ): Promise<AIAnalysis | MessagePart[] | null> {
         this.logger.debug("Sending to Vertex AI (Structured Output) for Live Image Frame Analysis", { sessionId, mimeType, userId });
 
         if (!userId) {
@@ -316,18 +319,20 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                 exec: async () => chat.sendMessage(userParts)
             });
 
-            if ((result as any).response.usageMetadata) {
+            const vertexResult = result as unknown as GenerateContentResult;
+
+            if (vertexResult.response.usageMetadata) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: SHARED_CONFIG.AI_MODELS.CHAT_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            let response = (result as any).response;
+            let response = vertexResult.response;
             response = await this.functionCallService.handleFunctionCalls(
                 response,
                 chat,
@@ -383,7 +388,7 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         sessionId: string,
         audioChunkDurationSeconds: number,
         inputTimestamp?: number
-    ): Promise<any> {
+    ): Promise<AIAnalysis | MessagePart[] | null> {
         this.logger.debug("Sending to Vertex AI (Structured Output) for Live Audio Chunk Analysis", { sessionId, mimeType, userId, audioChunkDurationSeconds });
 
         if (!userId) {
@@ -476,18 +481,20 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                 exec: async () => chat.sendMessage(userParts)
             });
 
-            if ((result as any).response.usageMetadata) {
+            const vertexResult = result as unknown as GenerateContentResult;
+
+            if (vertexResult.response.usageMetadata) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: SHARED_CONFIG.AI_MODELS.LIVE_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            let response = (result as any).response;
+            let response = vertexResult.response;
             response = await this.functionCallService.handleFunctionCalls(
                 response,
                 chat,

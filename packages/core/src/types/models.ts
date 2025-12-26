@@ -79,7 +79,7 @@ export type Vehicle = z.infer<typeof VehicleSchema>;
 export type VehicleSpecs = Vehicle['specs'];
 
 export const MessagePartSchema = z.object({
-    type: z.enum(['text', 'image', 'audio', 'tool_result', 'tool-result', 'tool-call']),
+    type: z.enum(['text', 'image', 'audio', 'tool_result', 'tool-result', 'tool-call', 'fileData', 'image_url']),
     text: z.string().optional(),
     image: z.string().optional(),
     data: z.unknown().optional(),
@@ -88,6 +88,9 @@ export const MessagePartSchema = z.object({
     args: z.unknown().optional(),
     result: z.unknown().optional(),
     isError: z.boolean().optional(),
+    // Multimodal fields
+    fileData: z.object({ mimeType: z.string(), fileUri: z.string() }).optional(),
+    image_url: z.object({ url: z.string() }).optional(),
 });
 
 export type MessagePart = z.infer<typeof MessagePartSchema>;
@@ -99,7 +102,7 @@ export const DiagnosticSessionSchema = z.object({
     status: z.enum(['active', 'analyzing', 'waiting_user', 'completed']),
 
     // The "Medical Chart"
-    complaint: z.string().optional(),
+    complaint: z.string().nullable().optional(),
     obdCodes: z.array(z.string()).default([]),
 
     // Multimodal Data

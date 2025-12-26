@@ -27,7 +27,7 @@ export const GhostCard: React.FC<GhostCardProps> = ({ title, subtitle }) => {
             -1,
             true
         );
-    }, []);
+    }, [opacity]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         opacity: opacity.value

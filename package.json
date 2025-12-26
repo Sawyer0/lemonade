@@ -12,7 +12,9 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest",
-    "lint": "eslint"
+    "lint": "eslint",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.44",
@@ -37,9 +39,9 @@
     "konsta": "^5.0.6",
     "langsmith": "^0.3.67",
     "lucide-react": "^0.555.0",
-    "next": "16.0.7",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
+    "next": "^16.1.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "reflect-metadata": "^0.2.2",
     "server-only": "^0.0.1",
@@ -67,5 +69,9 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.15"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   }
 }

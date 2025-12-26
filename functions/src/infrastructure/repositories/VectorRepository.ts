@@ -1,27 +1,38 @@
 import { injectable } from 'inversify';
-import { IVectorRepository, VectorDocument, SimilarCase, VectorDocumentSchema } from '@lemonade/core';
+import { IVectorRepository, VectorDocument, SimilarCase, VectorDocumentSchema, EmbedContentResponse } from '@lemonade/core';
 import { getFirestore, FieldValue, Filter } from 'firebase-admin/firestore';
 import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
 import { CONFIG } from '../../config';
+
+/**
+ * Extension of GenerativeModel to include embedding methods 
+ * that are missing from the @google-cloud/vertexai types.
+ */
+interface EmbeddingModel extends GenerativeModel {
+    embedContent(request: string | object): Promise<EmbedContentResponse>;
+}
+
+interface FirestoreTimestamp {
+    toDate(): Date;
+}
 
 @injectable()
 export class VectorRepository implements IVectorRepository {
     private readonly COLLECTION = 'knowledge_base';
     private vertexAI: VertexAI;
-    private model: GenerativeModel;
+    private model: EmbeddingModel;
 
     constructor() {
         this.vertexAI = new VertexAI({
             project: CONFIG.GCLOUD.PROJECT_ID,
             location: CONFIG.LOCATION,
         });
-        this.model = this.vertexAI.getGenerativeModel({ model: CONFIG.AI_MODELS.EMBEDDING });
+        this.model = this.vertexAI.getGenerativeModel({ model: CONFIG.AI_MODELS.EMBEDDING }) as unknown as EmbeddingModel;
     }
 
     private async embedQuery(text: string): Promise<number[]> {
         try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const result = await (this.model as any).embedContent(text);
+            const result = await this.model.embedContent(text);
             const embedding = result.embedding?.values;
             if (!embedding) throw new Error("No embedding returned");
             return embedding;
@@ -97,10 +108,14 @@ export class VectorRepository implements IVectorRepository {
             return snapshot.docs.map(doc => {
                 const data = doc.data();
                 // Convert Firestore Timestamps to Dates
+                const createdAt = data.createdAt && typeof (data.createdAt as Record<string, unknown>).toDate === 'function'
+                    ? (data.createdAt as FirestoreTimestamp).toDate()
+                    : new Date(data.createdAt as string | number);
+
                 const docData = {
                     ...data,
                     id: doc.id, // Add id from doc
-                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+                    createdAt,
                     vector: data.embedding?.values,
                 };
 

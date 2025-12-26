@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MechanicReasoningService } from '../MechanicReasoningService';
-import { 
-    ILogger, 
-    IMultimodalUploadAnalyzer, 
-    IChatAssistantAI, 
-    INHTSAService, 
-    IEmbeddingService, 
-    IVectorRepository, 
+import {
+    ILogger,
+    IMultimodalUploadAnalyzer,
+    IChatAssistantAI,
+    INHTSAService,
+    IEmbeddingService,
+    IVectorRepository,
     IGoogleSearchService,
     IMemoryService,
     IReactiveSafetyService,
+    ISafetyMonitor,
     ITracingService,
     ReasoningInput
 } from '@lemonade/core';
@@ -29,7 +30,6 @@ describe('MechanicReasoningService', () => {
     let mockLogger: ILogger;
 
     beforeEach(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mockVideoAI = { 
             analyzeUploadedVideo: vi.fn().mockResolvedValue({
                 diagnosis: 'Test Diagnosis',
@@ -44,42 +44,41 @@ describe('MechanicReasoningService', () => {
                 visualConflictDetected: false,
                 detectedCondition: 'clean'
             }) 
-        } as any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as unknown as IMultimodalUploadAnalyzer;
+        
         mockChatAI = { 
             verifyHypothesis: vi.fn().mockResolvedValue({ isVerified: false, source: null, reasoning: '' }) 
-        } as any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as unknown as IChatAssistantAI;
+        
         mockNHTSA = { 
             checkRecalls: vi.fn().mockResolvedValue([]) 
-        } as any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mockEmbedding = { embed: vi.fn().mockResolvedValue(new Array(768).fill(0)) } as any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as unknown as INHTSAService;
+        
+        mockEmbedding = { embed: vi.fn().mockResolvedValue(new Array(768).fill(0)) } as unknown as IEmbeddingService;
+        
         mockVector = { 
             search: vi.fn().mockResolvedValue([]), 
             addCase: vi.fn().mockResolvedValue(undefined) 
-        } as any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as unknown as IVectorRepository;
+        
         mockSearch = { 
             search: vi.fn().mockResolvedValue({ results: [], queryUsed: '', totalFound: 0 }) 
-        } as any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as unknown as IGoogleSearchService;
+        
         mockMemory = { 
             search: vi.fn().mockResolvedValue([]), 
             addDocument: vi.fn().mockResolvedValue(undefined) 
-        } as any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mockReactive = { checkSafety: vi.fn().mockReturnValue(null) } as any;
+        } as unknown as IMemoryService;
+        
+        mockReactive = { checkSafety: vi.fn().mockReturnValue(null) } as unknown as IReactiveSafetyService;
         
         mockSafetyMonitor = {
             assess: vi.fn().mockResolvedValue({ intervention_required: false, hazards_detected: [] })
-        } as any;
+        } as unknown as ISafetyMonitor;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mockTracing = { traceAiCall: vi.fn(({ exec }) => exec()) } as any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mockLogger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as any;
+        mockTracing = { traceAiCall: vi.fn(({ exec }) => exec()) } as unknown as ITracingService;
+        
+        mockLogger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as ILogger;
 
         service = new MechanicReasoningService(
             mockVideoAI,
@@ -221,7 +220,7 @@ describe('MechanicReasoningService', () => {
         await service.diagnose(input);
 
         expect(mockMemory.search).toHaveBeenCalledWith(expect.stringContaining('VIN_HONDA'));
-        
+
         expect(mockVideoAI.analyzeUploadedVideo).toHaveBeenCalledWith(
             expect.any(String),
             expect.stringContaining('Alternator was replaced 2 months ago'),
@@ -231,5 +230,225 @@ describe('MechanicReasoningService', () => {
             expect.any(String),
             undefined
         );
+    });
+
+    describe('Error Propagation', () => {
+        const baseInput: ReasoningInput = {
+            sessionId: 'session-error',
+            userId: 'user-1',
+            vehicleContext: { year: 2020, make: 'Honda', model: 'Civic', vin: 'VIN_ERROR' },
+            userQuery: 'check engine light',
+            complaint: 'Check engine light',
+            videoUrl: 'http://example.com/video.mp4'
+        };
+
+        it('should stop immediately when reactive safety detects hazard', async () => {
+            mockReactive.checkSafety = vi.fn().mockReturnValue({
+                intervention_required: true,
+                hazards_detected: ['FUEL_LEAK'],
+                suggested_output: 'DANGER: Fuel leak detected. Stop immediately.'
+            });
+
+            const result = await service.diagnose(baseInput);
+
+            expect(result.finalDiagnosis.decision).toBe('STOP_DANGER');
+            expect(result.finalDiagnosis.userOutput).toContain('DANGER');
+            // Should NOT call any other services
+            expect(mockNHTSA.checkRecalls).not.toHaveBeenCalled();
+            expect(mockVideoAI.analyzeUploadedVideo).not.toHaveBeenCalled();
+        });
+
+        it('should stop when semantic safety detects hazard (after reactive passes)', async () => {
+            mockReactive.checkSafety = vi.fn().mockReturnValue(null); // Passes reactive
+            mockSafetyMonitor.assess = vi.fn().mockResolvedValue({
+                intervention_required: true,
+                hazards_detected: ['HIGH_VOLTAGE_SYSTEM'],
+                suggested_output: 'WARNING: High voltage system detected.'
+            });
+
+            const result = await service.diagnose(baseInput);
+
+            expect(result.finalDiagnosis.decision).toBe('STOP_DANGER');
+            // Uses the suggested_output from SafetyMonitor
+            expect(result.finalDiagnosis.userOutput).toContain('WARNING');
+            expect(result.finalDiagnosis.reasoningTrace).toContain('SEMANTIC_LAYER');
+            // Should NOT call downstream services
+            expect(mockVideoAI.analyzeUploadedVideo).not.toHaveBeenCalled();
+        });
+
+        it('should continue diagnosis even if NHTSA service fails', async () => {
+            mockNHTSA.checkRecalls = vi.fn().mockRejectedValue(new Error('NHTSA API unavailable'));
+
+            const result = await service.diagnose(baseInput);
+
+            // Should still complete diagnosis
+            expect(result).toBeDefined();
+            expect(result.finalDiagnosis).toBeDefined();
+            expect(mockLogger.warn).not.toHaveBeenCalledWith(
+                expect.stringContaining('NHTSA'),
+                expect.anything()
+            );
+        });
+
+        it('should continue diagnosis even if vector search fails', async () => {
+            mockVector.search = vi.fn().mockRejectedValue(new Error('Vector DB connection lost'));
+
+            const result = await service.diagnose(baseInput);
+
+            // Should still complete diagnosis
+            expect(result).toBeDefined();
+            expect(result.consensus.similarCasesFound).toBe(0);
+        });
+
+        it('should continue diagnosis even if Google search fails', async () => {
+            mockSearch.search = vi.fn().mockRejectedValue(new Error('Search quota exceeded'));
+
+            const result = await service.diagnose(baseInput);
+
+            expect(result).toBeDefined();
+            expect(result.finalDiagnosis).toBeDefined();
+        });
+
+        it('should continue diagnosis even if Supermemory fails', async () => {
+            mockMemory.search = vi.fn().mockRejectedValue(new Error('Memory service down'));
+
+            const result = await service.diagnose(baseInput);
+
+            expect(result).toBeDefined();
+            expect(result.finalDiagnosis).toBeDefined();
+        });
+
+        it('should handle video analysis failure gracefully', async () => {
+            mockVideoAI.analyzeUploadedVideo = vi.fn().mockRejectedValue(
+                new Error('Video processing failed')
+            );
+
+            const result = await service.diagnose(baseInput);
+
+            // Should still complete with degraded response
+            expect(result).toBeDefined();
+            expect(result.finalDiagnosis).toBeDefined();
+        });
+
+        it('should handle verification failure gracefully', async () => {
+            mockChatAI.verifyHypothesis = vi.fn().mockRejectedValue(
+                new Error('Verification service unavailable')
+            );
+
+            const result = await service.diagnose(baseInput);
+
+            expect(result).toBeDefined();
+            expect(result.verification.isVerified).toBe(false);
+        });
+
+        it('should handle ALL external services failing simultaneously', async () => {
+            mockNHTSA.checkRecalls = vi.fn().mockRejectedValue(new Error('NHTSA down'));
+            mockVector.search = vi.fn().mockRejectedValue(new Error('Vector down'));
+            mockSearch.search = vi.fn().mockRejectedValue(new Error('Search down'));
+            mockMemory.search = vi.fn().mockRejectedValue(new Error('Memory down'));
+            mockChatAI.verifyHypothesis = vi.fn().mockRejectedValue(new Error('Chat down'));
+
+            const result = await service.diagnose(baseInput);
+
+            // Should still complete with degraded diagnosis
+            expect(result).toBeDefined();
+            expect(result.finalDiagnosis).toBeDefined();
+            expect(result.authorityData.nhtsaRecalls).toEqual([]);
+            expect(result.consensus.similarCasesFound).toBe(0);
+        });
+    });
+
+    describe('Safety Gate Interactions', () => {
+        const baseInput: ReasoningInput = {
+            sessionId: 'session-safety',
+            userId: 'user-1',
+            vehicleContext: { year: 2020, make: 'Honda', model: 'Civic', vin: 'VIN_SAFETY' },
+            userQuery: 'test query',
+            complaint: 'Test complaint',
+            videoUrl: 'http://example.com/video.mp4'
+        };
+
+        it('should prioritize reactive safety over semantic safety', async () => {
+            // Both would trigger
+            mockReactive.checkSafety = vi.fn().mockReturnValue({
+                intervention_required: true,
+                hazards_detected: ['REACTIVE_HAZARD'],
+                suggested_output: 'Reactive stop'
+            });
+            mockSafetyMonitor.assess = vi.fn().mockResolvedValue({
+                intervention_required: true,
+                hazards_detected: ['SEMANTIC_HAZARD'],
+                suggested_output: 'Semantic stop'
+            });
+
+            const result = await service.diagnose(baseInput);
+
+            // Reactive should win (comes first)
+            expect(result.finalDiagnosis.reasoningTrace).toContain('REACTIVE_LAYER');
+            // Semantic should NOT be called since reactive already stopped
+            expect(mockSafetyMonitor.assess).not.toHaveBeenCalled();
+        });
+
+        it('should pass through when both safety gates allow', async () => {
+            mockReactive.checkSafety = vi.fn().mockReturnValue(null);
+            mockSafetyMonitor.assess = vi.fn().mockResolvedValue({
+                intervention_required: false,
+                hazards_detected: []
+            });
+
+            const result = await service.diagnose(baseInput);
+
+            expect(result.finalDiagnosis.decision).not.toBe('STOP_DANGER');
+            expect(mockVideoAI.analyzeUploadedVideo).toHaveBeenCalled();
+        });
+    });
+
+    describe('Edge Cases', () => {
+        it('should handle missing videoUrl', async () => {
+            const input: ReasoningInput = {
+                sessionId: 'session-no-video',
+                userId: 'user-1',
+                vehicleContext: { year: 2020, make: 'Honda', model: 'Civic', vin: 'VIN_NOVIDEO' },
+                userQuery: 'engine noise',
+                complaint: 'Engine noise'
+                // No videoUrl
+            };
+
+            const result = await service.diagnose(input);
+
+            expect(result).toBeDefined();
+            expect(result.finalDiagnosis).toBeDefined();
+        });
+
+        it('should handle empty vehicle context', async () => {
+            const input: ReasoningInput = {
+                sessionId: 'session-empty-ctx',
+                userId: 'user-1',
+                vehicleContext: { year: 0, make: '', model: '' },
+                userQuery: 'general question',
+                complaint: 'Unknown',
+                videoUrl: 'http://example.com/video.mp4'
+            };
+
+            const result = await service.diagnose(input);
+
+            expect(result).toBeDefined();
+        });
+
+        it('should handle very long user query', async () => {
+            const longQuery = 'a'.repeat(10000);
+            const input: ReasoningInput = {
+                sessionId: 'session-long-query',
+                userId: 'user-1',
+                vehicleContext: { year: 2020, make: 'Honda', model: 'Civic' },
+                userQuery: longQuery,
+                complaint: 'Test',
+                videoUrl: 'http://example.com/video.mp4'
+            };
+
+            const result = await service.diagnose(input);
+
+            expect(result).toBeDefined();
+        });
     });
 });

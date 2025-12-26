@@ -19,7 +19,7 @@ export class VertexAISafetyAdapter implements ISafetyAI {
             : undefined;
 
         const vertex = new VertexAI({
-            project: gcloudConfig.project,
+            project: gcloudConfig.projectId,
             location: gcloudConfig.location,
             googleAuthOptions: authOptions
         });

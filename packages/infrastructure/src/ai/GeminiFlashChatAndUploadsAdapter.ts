@@ -7,7 +7,6 @@ import type {
     ILogger,
     IBillingService,
     IContextCacheService,
-    IGoogleSearchService,
     ReasoningEffort,
     AiGenerationConfig,
     VerificationRequest,
@@ -22,8 +21,7 @@ import {
     AppError,
     ErrorCode,
     AI_GENERATION_CONFIGS,
-    VERIFICATION_PROMPTS,
-    SHARED_CONFIG // Use SHARED_CONFIG from core
+    VERIFICATION_PROMPTS
 } from '@lemonade/core';
 import { CONFIG } from '../config'; // Use local config
 import { TracingService } from '../observability/TracingService'; // Use TracingService class
@@ -32,6 +30,13 @@ import { TYPES } from '../di/types'; // Use local types
 import { FunctionCallService } from './FunctionCallHandler';
 import { GeminiCoreAdapter } from './GeminiCoreAdapter';
 
+
+interface GroundingChunk {
+    web?: {
+        title?: string;
+        uri?: string;
+    };
+}
 
 @injectable()
 export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMultimodalUploadAnalyzer {
@@ -203,18 +208,20 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                 exec: async () => this.model.generateContent(request)
             });
 
-            if ((result as any).response.usageMetadata && userId && sessionId) {
+            const vertexResult = result as unknown as GenerateContentResult;
+
+            if (vertexResult.response.usageMetadata && userId && sessionId) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: CONFIG.AI_MODELS.CHAT_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            const responseText = (result as any).response?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const responseText = vertexResult.response?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response for uploaded video analysis");
 
             const analysis = AIAnalysisSchema.parse(JSON.parse(responseText));
@@ -312,18 +319,20 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                 exec: async () => this.model.generateContent(request)
             });
 
-            if ((result as any).response.usageMetadata && userId && sessionId) {
+            const vertexResult = result as unknown as GenerateContentResult;
+
+            if (vertexResult.response.usageMetadata && userId && sessionId) {
                 await this.billingService.recordUsage({
                     userId: userId,
                     sessionId: sessionId,
-                    inputTokens: (result as any).response.usageMetadata.promptTokenCount || 0,
-                    outputTokens: (result as any).response.usageMetadata.candidatesTokenCount || 0,
+                    inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: CONFIG.AI_MODELS.CHAT_MODEL,
                     timestamp: new Date()
                 });
             }
 
-            const responseText = (result as any).response?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const responseText = vertexResult.response?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response for uploaded image analysis");
 
             const analysis = AIAnalysisSchema.parse(JSON.parse(responseText));
@@ -389,24 +398,18 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             userParts.push(...additionalParts);
         }
 
-        let currentInput: Part[] = userParts;
-        let loopCount = 0;
+        const currentInput: Part[] = userParts;
+        const loopCount = 0;
         const MAX_LOOPS = 3;
         let accumulatedText = "";
 
         while (loopCount < MAX_LOOPS) {
-            const result = await this.model.sendMessageStream(currentInput);
+            const result = await chat.sendMessageStream(currentInput);
             
-            let hasFunctionCall = false;
             for await (const chunk of result.stream) {
                 const parts = chunk.candidates?.[0]?.content?.parts || [];
-                
-                // Check for function calls in this chunk
-                if (parts.some(p => p.functionCall)) {
-                    hasFunctionCall = true;
-                    // We don't yield function calls as raw strings to the text stream.
-                    // We need the full response to handle them.
-                }
+                // We don't yield function calls as raw strings to the text stream.
+                // We need the full response to handle them.
 
                 const partText = parts.find(p => p.text)?.text || "";
                 if (partText) {
@@ -443,7 +446,6 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             
             // If tools were run, we might have missed streaming the final text turn.
             // Check if tools were actually run by comparing parts
-            const initialParts = finalResponse.candidates?.[0]?.content?.parts || [];
             const finalParts = nextResponse.candidates?.[0]?.content?.parts || [];
             
             if (nextResponse !== finalResponse) {
@@ -575,7 +577,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             }, traceId);
         }
 
-        let response = (result as any).response;
+        let response = result.response;
         response = await this.functionCallService.handleFunctionCalls(
             response,
             chat,
@@ -602,7 +604,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
 
         if (groundingMetadata && groundingMetadata.groundingChunks && groundingMetadata.groundingChunks.length > 0) {
             const sources: string[] = [];
-            groundingMetadata.groundingChunks.forEach((chunk: any, index: number) => {
+            (groundingMetadata.groundingChunks as GroundingChunk[]).forEach((chunk, index: number) => {
                 if (chunk.web) {
                     sources.push(`[${index + 1}] [${chunk.web.title}](${chunk.web.uri})`);
                 }

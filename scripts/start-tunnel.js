@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 const localtunnel = require('localtunnel');
 
 (async () => {

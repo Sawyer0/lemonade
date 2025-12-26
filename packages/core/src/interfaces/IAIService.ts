@@ -1,6 +1,8 @@
 import { AIAnalysis, MessagePart } from '../types/models';
 import { ReasoningEffort } from '../types/ai';
 import { VerificationRequest, VerificationResponse } from '../types/verification';
+import { LocalTriageResult } from '../types/localPerception';
+
 export interface IMultimodalUploadAnalyzer {
     analyzeUploadedVideo(
         videoUrl: string,
@@ -35,7 +37,7 @@ export interface ILiveStreamAnalyzer {
         userId: string,
         sessionId: string,
         inputTimestamp?: number,
-        localTriage?: any
+        localTriage?: LocalTriageResult
     ): Promise<AIAnalysis | MessagePart[] | null>;
 
     analyzeLiveAudioChunk(

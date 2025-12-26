@@ -2,7 +2,7 @@ import { LocalPerceptionService } from '../LocalPerceptionService';
 import { MobileLogger } from '../MobileLogger';
 import { PerformanceMonitor } from '../PerformanceMonitor';
 import { initLlama } from 'llama.rn';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 // Explicitly mock llama.rn for Jest
 jest.mock('llama.rn', () => ({
@@ -14,7 +14,7 @@ jest.mock('llama.rn', () => ({
 }));
 
 // Mock Expo FileSystem
-jest.mock('expo-file-system', () => ({
+jest.mock('expo-file-system/legacy', () => ({
     writeAsStringAsync: jest.fn(),
     cacheDirectory: 'file:///cache/',
     EncodingType: { Base64: 'base64' }
@@ -26,11 +26,11 @@ const mockLogger = {
     debug: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-} as any as MobileLogger;
+} as unknown as MobileLogger;
 
 const mockPerformanceMonitor = {
     getMetrics: jest.fn(() => ({ shouldThrottle: false })),
-} as any as PerformanceMonitor;
+} as unknown as PerformanceMonitor;
 
 describe('LocalPerceptionService', () => {
     let service: LocalPerceptionService;
@@ -54,7 +54,7 @@ describe('LocalPerceptionService', () => {
         await service.warmup();
         expect(FileSystem.writeAsStringAsync).toHaveBeenCalled();
         // Check if completion was called on the context
-        const context = await (initLlama as any).mock.results[0].value;
+        const context = await (initLlama as jest.Mock).mock.results[0].value;
         expect(context.completion).toHaveBeenCalled();
     });
 
@@ -62,7 +62,7 @@ describe('LocalPerceptionService', () => {
         await service.initialize('file:///model.gguf');
 
         // Mock completion response with VALID JSON
-        const context = await (initLlama as any).mock.results[0].value;
+        const context = await (initLlama as jest.Mock).mock.results[0].value;
         const validJson = JSON.stringify({
             id: { obj: 'Brake Rotor', cat: 'Braking' },
             eval: { stat: 'CRITICAL', risk: true, note: 'Deep surface rust visible' }
@@ -80,7 +80,7 @@ describe('LocalPerceptionService', () => {
 
     it('should handle invalid JSON by returning UNCERTAIN', async () => {
         await service.initialize('file:///model.gguf');
-        const context = await (initLlama as any).mock.results[0].value;
+        const context = await (initLlama as jest.Mock).mock.results[0].value;
         context.completion.mockResolvedValueOnce({ text: 'Not JSON' });
 
         const results = await service.triageFrame('file:///frame.jpg');
@@ -90,7 +90,7 @@ describe('LocalPerceptionService', () => {
     });
 
     it('should handle throttling', async () => {
-        (mockPerformanceMonitor.getMetrics as any).mockReturnValue({ shouldThrottle: true });
+        (mockPerformanceMonitor.getMetrics as jest.Mock).mockReturnValue({ shouldThrottle: true });
         await service.initialize('file:///model.gguf');
         const results = await service.triageFrame('file:///frame.jpg');
         expect(results).toEqual([]);

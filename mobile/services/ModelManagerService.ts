@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { ILogger, IModelManagerService, DownloadProgress } from '@lemonade/core';
 
 export class ModelManagerService implements IModelManagerService {
@@ -12,7 +12,7 @@ export class ModelManagerService implements IModelManagerService {
      * cacheDirectory is used on iOS because it is automatically excluded from iCloud backups,
      * which is a requirement for large model files.
      */
-    async ensureModelAvailable(modelUrl: string, modelName: string, checksum?: string): Promise<string> {
+    async ensureModelAvailable(modelUrl: string, modelName: string): Promise<string> {
         const localPath = `${FileSystem.cacheDirectory}${modelName}`;
         this.logger.debug(`Checking model availability at: ${localPath}`);
 

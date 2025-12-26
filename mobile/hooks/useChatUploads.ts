@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { storage } from '@mobile/infrastructure/firebase/config';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import * as FileSystem from 'expo-file-system';
 
 interface UploadResult {
     downloadUrl: string;
@@ -68,17 +67,19 @@ export function useChatUploads(sessionId: string) {
                                     path: storagePath
                                 }
                             });
-                        } catch (e: any) {
-                            setError(e.message);
+                        } catch (e: unknown) {
+                            const errorMsg = e instanceof Error ? e.message : 'Unknown download URL error';
+                            setError(errorMsg);
                             setUploading(false);
                             reject(e);
                         }
                     }
                 );
             });
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("File preparation failed:", err);
-            setError(err.message);
+            const errorMsg = err instanceof Error ? err.message : 'Unknown upload preparation error';
+            setError(errorMsg);
             setUploading(false);
             throw err;
         }

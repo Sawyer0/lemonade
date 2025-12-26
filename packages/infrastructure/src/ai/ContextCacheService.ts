@@ -32,7 +32,7 @@ export class ContextCacheService implements IContextCacheService {
         const gcloudConfig = config.getGoogleCloudConfig();
         
         this.vertex = new VertexAI({
-            project: gcloudConfig.project,
+            project: gcloudConfig.projectId,
             location: 'us', // Context Cache is typically strictly region-bound, often 'us-central1' or 'us'
             googleAuthOptions: { credentials }
         });

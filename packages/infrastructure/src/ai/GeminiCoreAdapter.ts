@@ -39,7 +39,7 @@ export class GeminiCoreAdapter {
             const gcloudConfig = this.config.getGoogleCloudConfig();
 
             this.vertex = new VertexAI({
-                project: gcloudConfig.project,
+                project: gcloudConfig.projectId,
                 location: gcloudConfig.location || 'us-central1',
                 googleAuthOptions: authOptions
             });

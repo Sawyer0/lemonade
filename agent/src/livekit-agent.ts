@@ -1,12 +1,9 @@
-import { type JobContext, defineAgent, voice, llm } from '@livekit/agents';
+import { type JobContext, defineAgent, voice } from '@livekit/agents';
 import * as google from '@livekit/agents-plugin-google';
-import * as deepgram from '@livekit/agents-plugin-deepgram';
 import * as resemble from '@livekit/agents-plugin-resemble';
 import * as silero from '@livekit/agents-plugin-silero';
 import { RoomEvent, RemoteParticipant, DataPacketKind } from '@livekit/rtc-node';
 import {
-    type ILogger,
-    SHARED_CONFIG,
     SYSTEM_PROMPTS,
 } from '@lemonade/core';
 import {
@@ -23,6 +20,14 @@ import {
     GoogleSearchService,
     MechanicReasoningService,
     ReactiveSafetyService,
+    VertexAIVideoAdapter,
+    GeminiFlashChatAndUploadsAdapter,
+    NHTSAService,
+    EmbeddingService,
+    VectorRepository,
+    SupermemoryService,
+    SafetyMonitor,
+    VertexAISafetyAdapter,
 } from '@lemonade/infrastructure';
 import { z } from 'zod';
 import { env } from './env';
@@ -51,13 +56,14 @@ const billingService = new BillingService(billingRepo);
 const googleSearchService = new GoogleSearchService(mainLogger, billingService, config);
 const reactiveSafetyService = new ReactiveSafetyService();
 
-const visualAnalyzer = new (google as any).beta.MultimodalUploadAnalyzer(mainLogger, config);
-const chatAI = new (google as any).beta.GeminiFlashChatAndUploadsAdapter(mainLogger, billingService, geminiCore, tracer, contextCache);
-const nhtsa = new (google as any).beta.NHTSAService(mainLogger, config);
-const embedding = new (google as any).beta.EmbeddingService(mainLogger, config);
-const vectorRepo = new (google as any).beta.VectorRepository(mainLogger);
-const memory = new (google as any).beta.SupermemoryService(mainLogger, config); // Mocking or injecting properly if available
-const safetyMonitor = new (google as any).beta.SafetyMonitor(mainLogger);
+const visualAnalyzer = new VertexAIVideoAdapter(mainLogger, config);
+const chatAI = new GeminiFlashChatAndUploadsAdapter(mainLogger, billingService, geminiCore, tracer, contextCache);
+const nhtsa = new NHTSAService(mainLogger);
+const embedding = new EmbeddingService(mainLogger, geminiCore);
+const vectorRepo = new VectorRepository(mainLogger, geminiCore);
+const memory = new SupermemoryService(mainLogger, config);
+const safetyAI = new VertexAISafetyAdapter(config);
+const safetyMonitor = new SafetyMonitor(safetyAI, mainLogger);
 
 const mechanicReasoningService = new MechanicReasoningService(
     visualAnalyzer,
@@ -91,13 +97,13 @@ export default defineAgent({
 
         // 1. Parse Metadata
         let vehicleContext = 'default-vehicle-context';
-        const participantIdentity = (ctx.job as any).participantIdentity;
+        const participantIdentity = ctx.job.participantIdentity;
         let userId = participantIdentity || 'unknown_participant';
         const sessionId = ctx.room.name;
 
-        if ((ctx.job as any).metadata) {
+        if (ctx.job.metadata) {
             try {
-                const metadata: JobMetadata = JSON.parse((ctx.job as any).metadata);
+                const metadata: JobMetadata = JSON.parse(ctx.job.metadata);
                 if (metadata.vehicleContext) vehicleContext = metadata.vehicleContext;
                 if (metadata.userId) userId = metadata.userId;
             } catch (e: unknown) {
@@ -106,63 +112,83 @@ export default defineAgent({
         }
 
         // 2. Initialize Pipeline Components
-        // STT: Deepgram (Ears)
-        const stt = new deepgram.STT({
-            apiKey: env.DEEPGRAM_API_KEY,
-            model: "nova-3-general"
-        });
-
-        // TTS: Resemble (Voice)
         const tts = new resemble.TTS({
             apiKey: env.RESEMBLE_API_KEY,
         });
 
-        // LLM: Google Gemini Flash (Brain) - Standard Text API
-        const model = new (google as any).LLM({
-            model: 'gemini-1.5-flash-002',
+        const model = new google.realtime.RealtimeModel({
+            model: "gemini-2.5-flash-native-audio-preview-09-2025",
+            temperature: 0.7,
+            modalities: [google.realtime.Modality.TEXT],
             apiKey: config.getGoogleCloudConfig().apiKey,
         });
 
         // 3. Define Tools
         const tools = {
-            start_video_stream: llm.tool({
-                description: 'Request a visual burst (high-res frames) to inspect a part.',
-                parameters: z.object({
+            start_video_stream: z.function()
+                .describe('Request a visual burst (high-res frames) to inspect a part.')
+                .args(z.object({
                     component: z.string().describe('The part to see (e.g. "engine belt", "brake rotor")'),
                     reason: z.string().describe('Why you need to see it')
-                }),
-                execute: async ({ component, reason }) => {
+                }))
+                .implementation(async ({ component, reason }) => {
                     mainLogger.info(`AI requesting visual burst`, { component, reason });
                     ctx.room.localParticipant?.publishData(
                         new TextEncoder().encode(JSON.stringify({ type: VISUAL_BURST_REQUEST, component, reason })),
                         { topic: VISUAL_BURST_REQUEST, reliable: true }
                     );
                     return `Requesting visual data for ${component}. Please point your camera at it.`;
-                }
-            })
+                })
         };
 
         // 4. Create Voice Agent (Pipeline)
         const systemInstructions = `${SYSTEM_PROMPTS.IDENTITY} ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
                    You are Lemonade, an AI Master Technician.
                    Current vehicle: ${vehicleContext}.
-                   Prioritize safety above all.`;
+                   Prioritize safety above all.
+                   Listen carefully to the engine and vehicle sounds.
+                   If you hear knocks, hisses, or grinding, ask the user about them.`;
 
         const agent = new voice.Agent({
             vad: await silero.VAD.load(),
-            stt: stt as any,
-            llm: model,
-            tts: tts as any,
-            tools: tools, // Use tools directly in Agent options
-            instructions: systemInstructions
+            llm: model, 
+            tts: tts,
+            fncCtx: {
+                tools: tools 
+            },
+            chatCtx: {
+                system: systemInstructions
+            }
         });
 
         // 5. Start Agent
-        // Use agent.session to start since Agent orchestrates but Session runs it
-        await agent.session.start({
-            agent,
-            room: ctx.room,
+        const session = await agent.start(ctx.room);
+
+        agent.on('synthesis_started', (event) => {
+            if (event.text) {
+                mainLogger.info('Agent speaking, sending text to client', { text: event.text });
+                ctx.room.localParticipant?.publishData(
+                    new TextEncoder().encode(JSON.stringify({
+                        type: 'chat',
+                        analysis: { diagnosis: event.text }
+                    })),
+                    { topic: 'ai_response', reliable: true }
+                );
+            }
         });
+
+        const sayAndSend = async (text: string) => {
+            session.chat.addToHistory({ role: 'assistant', content: text });
+            await session.response.say(text);
+            
+            ctx.room.localParticipant?.publishData(
+                new TextEncoder().encode(JSON.stringify({
+                    type: 'chat',
+                    analysis: { diagnosis: text }
+                })),
+                { topic: 'ai_response', reliable: true }
+            );
+        };
 
         // 6. Handle Semantic Bursts (Data Channel)
         ctx.room.on(RoomEvent.DataReceived, async (payload: Uint8Array, participant?: RemoteParticipant, kind?: DataPacketKind, topic?: string) => {
@@ -174,9 +200,8 @@ export default defineAgent({
                     const { detection } = ping;
                     mainLogger.info(`Received Proactive Ping`, { part: detection.id.obj, risk: detection.eval.risk });
                     
-                    // The agent can choose to acknowledge the ping verbally if it's high risk
                     if (detection.eval.risk) {
-                        agent.session.say(`I'm seeing something concerning with the ${detection.id.obj}. Analyzing now...`);
+                        await sayAndSend(`I'm seeing something concerning with the ${detection.id.obj}. Analyzing now...`);
                     }
                 } catch (e) {
                     mainLogger.warn('Failed to parse proactive ping', { error: e as Error });
@@ -199,13 +224,13 @@ export default defineAgent({
                     } : undefined;
 
                     // Trigger C: Complexity Triage check
-                    const hasComplexComponent = localTriage?.detections?.some((d: any) =>
+                    const hasComplexComponent = localTriage?.detections?.some((d: { objectId: string }) =>
                         ['abs', 'hybrid', 'transmission', 'ecu'].includes(d.objectId.toLowerCase())
                     );
 
                     if (hasComplexComponent) {
                         mainLogger.info('Triggering System 2: Complex component detected locally', { detections: localTriage?.detections });
-                        agent.session.say(`Scanning complex ${component} system. One moment...`); // Use session.say
+                        await sayAndSend(`Scanning complex ${component} system. One moment...`);
 
                         const diagnosis = await mechanicReasoningService.diagnose({
                             userQuery: `Analyze ${component} for issues.`,
@@ -215,7 +240,7 @@ export default defineAgent({
                             localTriage: localTriage
                         });
 
-                        agent.session.say(diagnosis.finalDiagnosis.userOutput); // Use session.say
+                        await sayAndSend(diagnosis.finalDiagnosis.userOutput);
                         return;
                     }
 
@@ -246,7 +271,7 @@ export default defineAgent({
                             }
                         } else {
                             // Handle standard Analysis
-                            agent.session.say(`I've analyzed the ${component}. ${analysis.diagnosis}`); // Use session.say
+                            await sayAndSend(`I've analyzed the ${component}. ${analysis.diagnosis}`);
                         }
                     }
                 }
@@ -255,6 +280,6 @@ export default defineAgent({
             }
         });
 
-        mainLogger.info('Master Tech Agent ready (VoicePipeline w/ Deepgram+Resemble)');
+        mainLogger.info('Master Tech Agent ready (Gemini Realtime + Resemble)');
     }
 });

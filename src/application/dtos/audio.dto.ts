@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AIAnalysisSchema } from '@lemonade/core';
+import { AIAnalysisSchema, MessagePartSchema } from '@lemonade/core';
 
 export const AudioChunkRequestSchema = z.object({
     audioData: z.string().startsWith('data:audio/', 'Audio data must be a base64 data URI.'),
@@ -12,7 +12,7 @@ export const AudioChunkRequestSchema = z.object({
 export type AudioChunkRequestDTO = z.infer<typeof AudioChunkRequestSchema>;
 
 export const AudioChunkResponseSchema = z.object({
-    analysis: AIAnalysisSchema.nullable(), // Null if rate-limited
+    analysis: z.union([AIAnalysisSchema, z.array(MessagePartSchema)]).nullable(), // Null if rate-limited
     message: z.string().optional(), // e.g., "Rate limit exceeded"
 });
 

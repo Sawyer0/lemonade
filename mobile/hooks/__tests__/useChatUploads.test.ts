@@ -1,6 +1,5 @@
-import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { renderHook, act } from '@testing-library/react-native';
 import { useChatUploads } from '../useChatUploads';
-import { storage } from '@mobile/infrastructure/firebase/config';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 // Mocks
@@ -34,7 +33,7 @@ describe('useChatUploads', () => {
         
         // Mock upload task behavior
         const mockUploadTask = {
-            on: jest.fn((event, onProgress, onError, onSuccess) => {
+            on: jest.fn((_event, _onProgress, _onError, onSuccess) => {
                 // Simulate success immediately
                 onSuccess();
             }),
@@ -70,7 +69,7 @@ describe('useChatUploads', () => {
         const mockError = new Error('Upload failed');
         
         const mockUploadTask = {
-            on: jest.fn((event, onProgress, onError, onSuccess) => {
+            on: jest.fn((_event, _onProgress, onError) => {
                 onError(mockError);
             })
         };

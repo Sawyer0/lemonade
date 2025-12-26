@@ -14,10 +14,10 @@ jest.mock('@expo/config-plugins', () => ({
   withAndroidManifest: jest.fn((config, action) => {
     return { ...config, _androidManifestAction: action };
   }),
-  withDangerousMod: jest.fn((config, [platform, action]) => {
+  withDangerousMod: jest.fn((config, [, action]) => {
     return { ...config, _dangerousModAction: action };
   }),
-  createRunOncePlugin: jest.fn((plugin, name, version) => plugin),
+  createRunOncePlugin: jest.fn((plugin) => plugin),
 }));
 
 describe('withMetaWearables', () => {

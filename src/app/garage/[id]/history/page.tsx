@@ -14,7 +14,7 @@ export default function HistoryPage({ params }: { params: Promise<{ id: string }
     const { id } = use(params);
     const { user, loading: authLoading } = useAuth();
 
-    const fetcher = async () => {
+    const fetcher = async (): Promise<{ vehicle: Vehicle | null; history: DiagnosticSession[] } | null> => {
         if (!user) return null;
         const vehicleService = clientContainer.get<VehicleService>(TYPES.VehicleService);
         const [vehicle, history] = await Promise.all([
@@ -28,6 +28,17 @@ export default function HistoryPage({ params }: { params: Promise<{ id: string }
         user ? `vehicle-history-${id}-${user.uid}` : null,
         fetcher
     );
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-black text-white p-6 flex items-center justify-center">
+                <div className="text-center text-red-500">
+                    <p className="font-bold text-xl">Failed to load history</p>
+                    <p className="text-sm text-zinc-400 mt-2">Please try again later.</p>
+                </div>
+            </div>
+        );
+    }
 
     if (authLoading || dataLoading) {
         return (

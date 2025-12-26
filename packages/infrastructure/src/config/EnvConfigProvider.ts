@@ -23,7 +23,21 @@ export class EnvConfigProvider implements IConfigProvider {
 
     getFirebaseConfig() {
         return {
+            apiKey: process.env.FIREBASE_API_KEY || '',
+            authDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
+            projectId: process.env.GCLOUD_PROJECT || SHARED_CONFIG.GCLOUD.PROJECT_ID,
+            storageBucket: process.env.GCLOUD_MEDIA_BUCKET || SHARED_CONFIG.GCLOUD.MEDIA_BUCKET,
+            messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '',
+            appId: process.env.FIREBASE_APP_ID || '',
             serviceAccountKey: process.env.FIREBASE_SERVICE_ACCOUNT_KEY || ''
+        };
+    }
+
+    getLiveKitConfig() {
+        return {
+            host: process.env.LIVEKIT_URL || '',
+            apiKey: process.env.LIVEKIT_API_KEY || '',
+            apiSecret: process.env.LIVEKIT_API_SECRET || '',
         };
     }
 
@@ -43,7 +57,7 @@ export class EnvConfigProvider implements IConfigProvider {
 
     getGoogleCloudConfig() {
         return {
-            project: process.env.GCLOUD_PROJECT || SHARED_CONFIG.GCLOUD.PROJECT_ID,
+            projectId: process.env.GCLOUD_PROJECT || SHARED_CONFIG.GCLOUD.PROJECT_ID,
             location: process.env.GCLOUD_LOCATION || 'us-central1',
             apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || ''
         };

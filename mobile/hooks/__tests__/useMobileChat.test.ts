@@ -1,11 +1,11 @@
-import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { renderHook, act } from '@testing-library/react-native';
 import { useMobileChat } from '../useMobileChat';
-import { auth, db } from '@mobile/infrastructure/firebase/config';
 import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
+import { auth } from '../../infrastructure/firebase/config';
 
 // Mocks
 jest.mock('firebase/firestore');
-jest.mock('@mobile/infrastructure/firebase/config', () => ({
+jest.mock('../../infrastructure/firebase/config', () => ({
     auth: {
         currentUser: {
             uid: 'test-user',
@@ -21,7 +21,7 @@ class MockTextDecoder {
         return String.fromCharCode.apply(null, Array.from(value));
     }
 }
-global.TextDecoder = MockTextDecoder as any;
+global.TextDecoder = MockTextDecoder as unknown as typeof TextDecoder;
 
 // Mock Stream Reader
 const mockStream = (chunks: string[]) => {
@@ -44,6 +44,14 @@ describe('useMobileChat', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+
+        // Reset auth.currentUser to a default valid state
+        // @ts-expect-error
+        auth.currentUser = {
+            uid: 'test-user',
+            getIdToken: jest.fn().mockResolvedValue('test-token')
+        };
+
         // Setup Firestore Mocks
         (doc as jest.Mock).mockReturnValue('test-doc-ref');
         (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
@@ -97,8 +105,10 @@ describe('useMobileChat', () => {
             'http://test-api/api/chat',
             expect.objectContaining({
                 method: 'POST',
+                headers: expect.objectContaining({
+                    'x-session-id': sessionId
+                }),
                 body: JSON.stringify({
-                    sessionId,
                     messages: [{ role: 'user', content: 'Hi AI' }]
                 })
             })
@@ -160,5 +170,285 @@ describe('useMobileChat', () => {
 
         expect(result.current.error).toBe('Server Error');
         expect(result.current.sending).toBe(false);
+    });
+
+    describe('Network Error Handling', () => {
+        it('should handle network timeout', async () => {
+            global.fetch = jest.fn().mockRejectedValue(new Error('Network request failed'));
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            expect(result.current.error).toBeDefined();
+            expect(result.current.sending).toBe(false);
+        });
+
+        it('should handle connection refused', async () => {
+            global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            expect(result.current.error).toBeDefined();
+        });
+
+        it('should handle 500 server error', async () => {
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: false,
+                status: 500,
+                json: () => Promise.resolve({ message: 'Internal Server Error' })
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            expect(result.current.error).toBe('Internal Server Error');
+        });
+
+        it('should handle 503 service unavailable', async () => {
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: false,
+                status: 503,
+                json: () => Promise.resolve({ message: 'Service Unavailable' })
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            expect(result.current.error).toBe('Service Unavailable');
+        });
+
+        it('should handle rate limiting (429)', async () => {
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: false,
+                status: 429,
+                json: () => Promise.resolve({ message: 'Too Many Requests' })
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            expect(result.current.error).toBe('Too Many Requests');
+        });
+
+        it('should handle malformed JSON response', async () => {
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: false,
+                json: () => Promise.reject(new SyntaxError('Unexpected token'))
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            expect(result.current.error).toBeDefined();
+        });
+    });
+
+    describe('Session Handling', () => {
+        it('should handle session not found (Firestore)', async () => {
+            (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
+                callback({
+                    exists: () => false,
+                    data: () => null
+                });
+                return jest.fn();
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            // Should not crash, messages should be empty
+            expect(result.current.messages).toEqual([]);
+        });
+
+        it('should handle Firestore snapshot error', async () => {
+            (onSnapshot as jest.Mock).mockImplementation((ref, onSuccess, onError) => {
+                onError(new Error('Permission denied'));
+                return jest.fn();
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            // Should handle error gracefully
+            expect(result.current.messages).toEqual([]);
+        });
+
+        it('should cleanup subscription on unmount', () => {
+            const mockUnsubscribe = jest.fn();
+            (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
+                callback({ exists: () => true, data: () => ({ messages: [] }) });
+                return mockUnsubscribe;
+            });
+
+            const { unmount } = renderHook(() => useMobileChat(sessionId));
+
+            unmount();
+
+            expect(mockUnsubscribe).toHaveBeenCalled();
+        });
+    });
+
+    describe('Auth Error Handling', () => {
+        it('should handle expired auth token', async () => {
+            (auth.currentUser?.getIdToken as jest.Mock).mockRejectedValue(new Error('Token expired'));
+
+            global.fetch = jest.fn();
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            expect(result.current.error).toBeDefined();
+            expect(global.fetch).not.toHaveBeenCalled();
+        });
+
+        it('should handle missing auth user', async () => {
+            const originalUser = auth.currentUser;
+            // @ts-expect-error - manual override for test
+            auth.currentUser = null;
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            expect(result.current.error).toBeDefined();
+
+            // Restore
+            // @ts-expect-error
+            auth.currentUser = originalUser;
+        });
+    });
+
+    describe('Edge Cases', () => {
+        it('should handle empty message', async () => {
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                body: mockStream(['Response'])
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('');
+            });
+
+            // Should NOT make the API call (client side validation)
+            expect(global.fetch).not.toHaveBeenCalled();
+        });
+
+        it('should handle very long message', async () => {
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                body: mockStream(['Response'])
+            });
+
+            const longMessage = 'a'.repeat(50000);
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage(longMessage);
+            });
+
+            expect(global.fetch).toHaveBeenCalled();
+        });
+
+        it('should handle special characters in message', async () => {
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                body: mockStream(['Response'])
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Message with émojis 🚗 and spëcial chars');
+            });
+
+            expect(global.fetch).toHaveBeenCalled();
+        });
+
+        it('should handle rapid consecutive messages', async () => {
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                body: mockStream(['Response'])
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                // Send multiple messages rapidly
+                result.current.sendMessage('Message 1');
+                result.current.sendMessage('Message 2');
+                result.current.sendMessage('Message 3');
+            });
+
+            // Should handle without crashing
+            expect(global.fetch).toHaveBeenCalled();
+        });
+
+        it('should handle stream reader error mid-stream', async () => {
+            let callCount = 0;
+            const erroringStream = {
+                getReader: () => ({
+                    read: jest.fn(async () => {
+                        callCount++;
+                        if (callCount === 1) {
+                            return { done: false, value: new TextEncoder().encode('Partial') };
+                        }
+                        throw new Error('Stream interrupted');
+                    })
+                })
+            };
+
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                body: erroringStream
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            expect(result.current.error).toBeDefined();
+        });
+
+        it('should handle null response body', async () => {
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                body: null
+            });
+
+            const { result } = renderHook(() => useMobileChat(sessionId));
+
+            await act(async () => {
+                await result.current.sendMessage('Hello');
+            });
+
+            // Should handle gracefully without crashing
+            expect(result.current.sending).toBe(false);
+        });
     });
 });

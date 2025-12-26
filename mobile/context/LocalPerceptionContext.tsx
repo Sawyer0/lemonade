@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { IModelManagerService, ILocalPerceptionService, DownloadProgress } from '@lemonade/core';
+import { IModelManagerService, ILocalPerceptionService } from '@lemonade/core';
 import { ModelManagerService } from '../services/ModelManagerService';
 import { LocalPerceptionService } from '../services/LocalPerceptionService';
 import { PerformanceMonitor } from '../services/PerformanceMonitor';

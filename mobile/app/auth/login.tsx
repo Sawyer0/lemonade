@@ -17,7 +17,7 @@ export default function LoginScreen() {
         try {
             await login(email, password);
             router.replace('/');
-        } catch (e) {
+        } catch {
             // Error handled by hook
         }
     };
@@ -27,8 +27,8 @@ export default function LoginScreen() {
             await signInWithGoogle();
             // Google login logic in useAuth will handle redirect via state change if needed, 
             // but usually we can just wait for user state to change.
-        } catch (e) {
-            console.error(e);
+        } catch (_e) {
+            console.error(_e);
         }
     };
 
@@ -97,7 +97,7 @@ export default function LoginScreen() {
                         </TouchableOpacity>
 
                         <View style={styles.footer}>
-                            <ThemedText>Don't have an account? </ThemedText>
+                            <ThemedText>Don&apos;t have an account? </ThemedText>
                             <Link href="/auth/signup" asChild>
                                 <TouchableOpacity>
                                     <ThemedText style={styles.linkText}>Sign Up</ThemedText>

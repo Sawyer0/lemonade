@@ -2,13 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FunctionCallService } from '../FunctionCallHandler';
 import { ILogger, IGoogleSearchService } from '@lemonade/core';
 import { TracingService } from '../../observability/TracingService';
+import { ChatSession, GenerateContentResponse } from '@google-cloud/vertexai';
 
 describe('FunctionCallService', () => {
     let service: FunctionCallService;
     let mockLogger: ILogger;
     let mockSearchService: IGoogleSearchService;
     let mockTracer: TracingService;
-    let mockChatSession: any;
+    let mockChatSession: ChatSession;
 
     beforeEach(() => {
         mockLogger = {
@@ -16,19 +17,19 @@ describe('FunctionCallService', () => {
             error: vi.fn(),
             info: vi.fn(),
             warn: vi.fn(),
-        } as any;
+        } as unknown as ILogger;
 
         mockSearchService = {
             search: vi.fn().mockResolvedValue({ results: [{ title: 'Test Result' }] }),
-        } as any;
+        } as unknown as IGoogleSearchService;
 
         mockTracer = {
             traceAiCall: vi.fn().mockImplementation(({ exec }) => exec()),
-        } as any;
+        } as unknown as TracingService;
 
         mockChatSession = {
             sendMessage: vi.fn(),
-        };
+        } as unknown as ChatSession;
 
         service = new FunctionCallService(mockLogger, mockSearchService, mockTracer);
     });
@@ -45,7 +46,7 @@ describe('FunctionCallService', () => {
                     }]
                 }
             }]
-        } as any;
+        } as unknown as GenerateContentResponse;
 
         const nextResponse = {
             candidates: [{
@@ -53,9 +54,9 @@ describe('FunctionCallService', () => {
                     parts: [{ text: 'Final Answer' }]
                 }
             }]
-        } as any;
+        } as unknown as GenerateContentResponse;
 
-        mockChatSession.sendMessage.mockResolvedValue({ response: nextResponse });
+        (mockChatSession.sendMessage as jest.Mock).mockResolvedValue({ response: nextResponse });
 
         const result = await service.handleFunctionCalls(initialResponse, mockChatSession, { userId: 'u1', sessionId: 's1' });
 
@@ -76,15 +77,15 @@ describe('FunctionCallService', () => {
                     }]
                 }
             }]
-        } as any;
+        } as unknown as GenerateContentResponse;
 
         const nextResponse = {
             candidates: [{
                 content: { parts: [{ text: 'Error handled' }] }
             }]
-        } as any;
+        } as unknown as GenerateContentResponse;
 
-        mockChatSession.sendMessage.mockResolvedValue({ response: nextResponse });
+        (mockChatSession.sendMessage as jest.Mock).mockResolvedValue({ response: nextResponse });
 
         await service.handleFunctionCalls(initialResponse, mockChatSession, { userId: 'u1', sessionId: 's1' });
 
@@ -111,15 +112,15 @@ describe('FunctionCallService', () => {
                     }]
                 }
             }]
-        } as any;
+        } as unknown as GenerateContentResponse;
 
         const nextResponse = {
             candidates: [{
                 content: { parts: [{ text: 'Safe check' }] }
             }]
-        } as any;
+        } as unknown as GenerateContentResponse;
 
-        mockChatSession.sendMessage.mockResolvedValue({ response: nextResponse });
+        (mockChatSession.sendMessage as jest.Mock).mockResolvedValue({ response: nextResponse });
 
         await service.handleFunctionCalls(initialResponse, mockChatSession, { userId: 'u1', sessionId: 's1' });
 

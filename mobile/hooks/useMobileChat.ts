@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { auth, db } from '@mobile/infrastructure/firebase/config';
 import { doc, onSnapshot, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
+import { MessagePart } from '@lemonade/core';
 
 export interface ChatMessage {
     role: 'user' | 'assistant' | 'system' | 'tool';
-    content: string | any[];
+    content: string | MessagePart[];
     timestamp: Date;
 }
 
 interface UseMobileChatResult {
     messages: ChatMessage[];
-    sendMessage: (content: string | any[]) => Promise<void>;
+    sendMessage: (content: string | MessagePart[]) => Promise<void>;
     sendMedia: (uri: string, gsUri: string, mimeType: string, text?: string) => Promise<void>;
     getResumeSummary: () => Promise<string>;
     sending: boolean;
@@ -36,7 +37,7 @@ export function useMobileChat(sessionId: string): UseMobileChatResult {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 if (data.messages && Array.isArray(data.messages)) {
-                    const loadedMessages = data.messages.map((msg: any) => ({
+                    const loadedMessages = data.messages.map((msg: ChatMessage) => ({
                         ...msg,
                         timestamp: msg.timestamp instanceof Timestamp ? msg.timestamp.toDate() : new Date(msg.timestamp)
                     }));
@@ -51,7 +52,7 @@ export function useMobileChat(sessionId: string): UseMobileChatResult {
         return () => unsubscribe();
     }, [sessionId]);
 
-    const sendMessage = async (content: string | any[]) => {
+    const sendMessage = async (content: string | MessagePart[]) => {
         const isText = typeof content === 'string';
         if (isText && !content.trim()) return;
         
@@ -84,10 +85,10 @@ export function useMobileChat(sessionId: string): UseMobileChatResult {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'x-session-id': sessionId
                 },
                 body: JSON.stringify({
-                    sessionId,
                     messages: [{ role: 'user', content: content }]
                 })
             });
@@ -115,9 +116,10 @@ export function useMobileChat(sessionId: string): UseMobileChatResult {
 
             setStreamingMessage(null);
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Chat Error:", err);
-            setError(err.message || "An unknown error occurred");
+            const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
+            setError(errorMessage);
             setStreamingMessage(null);
         } finally {
             setSending(false);
@@ -129,7 +131,7 @@ export function useMobileChat(sessionId: string): UseMobileChatResult {
      * Follows Vertex AI best practices for fileData.
      */
     const sendMedia = async (uri: string, gsUri: string, mimeType: string, text?: string) => {
-        const parts: any[] = [];
+        const parts: MessagePart[] = [];
         
         if (text) {
             parts.push({ type: 'text', text });
@@ -156,7 +158,7 @@ export function useMobileChat(sessionId: string): UseMobileChatResult {
         try {
             const API_URL = process.env.EXPO_PUBLIC_API_URL;
             const token = await auth.currentUser?.getIdToken();
-            const response = await fetch(`${API_URL}/api/sessions/${sessionId}/summarize`, {
+            const response = await fetch(`${API_URL}/api/session/${sessionId}/summarize`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GeminiFlashLiveStreamAdapter } from '../GeminiFlashLiveStreamAdapter';
-import { ILogger, IBillingService, IContextCacheService, IUserRepository, ISessionRepository } from '@lemonade/core';
+import { ILogger, IBillingService, IContextCacheService, IUserRepository, ISessionRepository, AIAnalysis } from '@lemonade/core';
 import { TracingService } from '../../observability/TracingService';
 import { GeminiCoreAdapter } from '../GeminiCoreAdapter';
 import { FunctionCallService } from '../FunctionCallHandler';
+import { GenerativeModel, ChatSession } from '@google-cloud/vertexai';
 
 describe('GeminiFlashLiveStreamAdapter', () => {
     let adapter: GeminiFlashLiveStreamAdapter;
@@ -15,36 +16,36 @@ describe('GeminiFlashLiveStreamAdapter', () => {
     let mockUserRepo: IUserRepository;
     let mockSessionRepo: ISessionRepository;
     let mockTracer: TracingService;
-    let mockModel: any;
-    let mockChat: any;
+    let mockModel: GenerativeModel;
+    let mockChat: ChatSession;
 
     beforeEach(() => {
-        mockLogger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as any;
-        mockBillingService = { recordUsage: vi.fn().mockResolvedValue(undefined) } as any;
+        mockLogger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as ILogger;
+        mockBillingService = { recordUsage: vi.fn().mockResolvedValue(undefined) } as unknown as IBillingService;
         
         mockFunctionCallService = { 
             handleFunctionCalls: vi.fn().mockImplementation((response) => Promise.resolve(response)) 
-        } as any;
+        } as unknown as FunctionCallService;
 
-        mockCacheService = { getCache: vi.fn().mockResolvedValue(null), createCache: vi.fn().mockResolvedValue(undefined) } as any;
-        mockUserRepo = { findById: vi.fn().mockResolvedValue({ tier: 'pro' }) } as any;
-        mockSessionRepo = { findById: vi.fn().mockResolvedValue({ cumulativeVideoDurationProcessedMinutes: 0 }), updateLastProcessedFrameTimestamp: vi.fn(), updateCumulativeVideoDuration: vi.fn() } as any;
-        mockTracer = { traceAiCall: vi.fn(({ exec }) => exec()) } as any;
+        mockCacheService = { getCache: vi.fn().mockResolvedValue(null), createCache: vi.fn().mockResolvedValue(undefined) } as unknown as IContextCacheService;
+        mockUserRepo = { findById: vi.fn().mockResolvedValue({ tier: 'pro' }) } as unknown as IUserRepository;
+        mockSessionRepo = { findById: vi.fn().mockResolvedValue({ cumulativeVideoDurationProcessedMinutes: 0 }), updateLastProcessedFrameTimestamp: vi.fn(), updateCumulativeVideoDuration: vi.fn() } as unknown as ISessionRepository;
+        mockTracer = { traceAiCall: vi.fn(({ exec }) => exec()) } as unknown as TracingService;
 
         mockChat = {
             sendMessage: vi.fn()
-        };
+        } as unknown as ChatSession;
 
         mockModel = {
             startChat: vi.fn().mockReturnValue(mockChat),
             generateContent: vi.fn()
-        };
+        } as unknown as GenerativeModel;
 
         mockCoreAdapter = {
             getGenerativeModel: vi.fn().mockReturnValue(mockModel),
             commonTools: [],
             commonSafetySettings: []
-        } as any;
+        } as unknown as GeminiCoreAdapter;
 
         adapter = new GeminiFlashLiveStreamAdapter(
             mockLogger,
@@ -74,7 +75,7 @@ describe('GeminiFlashLiveStreamAdapter', () => {
         };
 
         // 1. Initial call returns google_search
-        mockChat.sendMessage.mockResolvedValueOnce(responseWithToolCall);
+        (mockChat.sendMessage as jest.Mock).mockResolvedValueOnce(responseWithToolCall);
         
         // 2. Mock FunctionCallService to return final answer
         const finalResponse = {
@@ -86,12 +87,12 @@ describe('GeminiFlashLiveStreamAdapter', () => {
                 }]
             }
         };
-        (mockFunctionCallService.handleFunctionCalls as any).mockResolvedValue(finalResponse.response);
+        (mockFunctionCallService.handleFunctionCalls as jest.Mock).mockResolvedValue(finalResponse.response);
 
         const result = await adapter.analyzeLiveImageFrame('base64', 'image/jpeg', 'car', 'user-1', 'session-1');
 
         expect(mockFunctionCallService.handleFunctionCalls).toHaveBeenCalled();
         expect(result).toBeDefined();
-        expect((result as any).diagnosis).toBe('No recalls found');
+        expect((result as AIAnalysis).diagnosis).toBe('No recalls found');
     });
 });

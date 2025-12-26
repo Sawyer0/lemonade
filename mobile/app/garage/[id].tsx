@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Theme } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
@@ -7,12 +7,11 @@ import { ThemedView } from '../../components/themed-view';
 import { useVehicle } from '../../hooks/useVehicle';
 import { useGarage } from '../../hooks/useGarage';
 import { Ionicons } from '@expo/vector-icons';
-import { DiagnosticSession } from '@lemonade/core';
 
 export default function VehicleDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { vehicle, loading: vLoading } = useVehicle(id);
-    const { sessions, loading: sLoading } = useGarage();
+    const { vehicle } = useVehicle(id);
+    const { sessions } = useGarage();
     const router = useRouter();
 
     // Filter sessions for this vehicle
@@ -24,26 +23,11 @@ export default function VehicleDetailScreen() {
         router.push(`/session/new?vehicleId=${id}`);
     };
 
-    const renderSession = ({ item }: { item: DiagnosticSession }) => (
-        <TouchableOpacity 
-            style={styles.sessionItem}
-            onPress={() => router.push(`/session/${item.id}`)}
-        >
-            <View style={styles.sessionInfo}>
-                <ThemedText type="defaultSemiBold">
-                    {item.complaint || 'Diagnostic Check'}
-                </ThemedText>
-                <ThemedText style={styles.dateText}>
-                    {item.updatedAt.toLocaleDateString()}
-                </ThemedText>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Theme.textSecondary} />
-        </TouchableOpacity>
-    );
-
     return (
         <ThemedView style={styles.container}>
-            <Stack.Screen options={{ title: vehicle ? `${vehicle.specs.make} ${vehicle.specs.model}` : 'Vehicle' }} />
+            <Stack.Screen options={{ 
+                title: vehicle ? `${vehicle.specs.make} ${vehicle.specs.model}` : 'Vehicle' 
+            }} />
             
             <ScrollView>
                 {vehicle && (
@@ -64,7 +48,7 @@ export default function VehicleDetailScreen() {
                                 <ThemedText type="defaultSemiBold">{vehicle.activeIssuesCount}</ThemedText>
                                 <ThemedText style={styles.statLabel}>Issues</ThemedText>
                             </View>
-                        </ScrollView>
+                        </View>
                     </View>
                 )}
 

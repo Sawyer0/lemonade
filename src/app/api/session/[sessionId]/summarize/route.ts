@@ -34,8 +34,8 @@ export const POST = withContext(async (req: Request, { params }: { params: Promi
 
         // Prepare text for summarization
         const messagesText = session.messages.map(msg => {
-            const content = typeof msg.content === 'string' 
-                ? msg.content 
+            const content = typeof msg.content === 'string'
+                ? msg.content
                 : (msg.content as MessagePart[]).filter(p => p.type === 'text').map(p => p.text).join(' ');
             return `${msg.role.toUpperCase()}: ${content}`;
         }).join('\n');

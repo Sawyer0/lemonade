@@ -22,7 +22,7 @@ export class EdgeSecurityService implements IEdgeSecurityService {
         );
     }
 
-    async verifyToken(token: string): Promise<any> {
+    async verifyToken(token: string): Promise<Record<string, unknown> | null> {
         const projectId = CONFIG.GCLOUD.PROJECT_ID;
         if (!projectId) return null;
 
@@ -33,7 +33,7 @@ export class EdgeSecurityService implements IEdgeSecurityService {
                 algorithms: ['RS256'],
             });
             return payload;
-        } catch (error) {
+        } catch {
             return null;
         }
     }

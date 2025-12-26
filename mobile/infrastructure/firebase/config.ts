@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, initializeAuth } from "firebase/auth";
+import { getAuth, initializeAuth, Auth } from "firebase/auth";
 import { SHARED_CONFIG } from '@lemonade/core';
 // Manual implementation because firebase/auth/react-native export is missing in this version
 // Ported from @firebase/auth/dist/rn/index.js
@@ -62,14 +62,14 @@ const firebaseConfig = {
 // Singleton pattern
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Auth with persistence
+// Initialize Auth with persistence (handles hot reload gracefully)
 let auth: Auth;
 try {
     auth = initializeAuth(app, {
         persistence: getReactNativePersistence(AsyncStorage)
     });
-} catch (e: unknown) {
-    console.error("Firebase Auth initialization failed, possibly due to hot reload:", e);
+} catch {
+    // Expected during hot reload - auth already initialized, just get existing instance
     auth = getAuth(app);
 }
 

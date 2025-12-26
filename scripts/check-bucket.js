@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 const admin = require('firebase-admin');
 
 // Initialize with Application Default Credentials or from Env

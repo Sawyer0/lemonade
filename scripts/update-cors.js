@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 const { Storage } = require('@google-cloud/storage');
 const fs = require('fs');
 const path = require('path');

@@ -21,7 +21,8 @@ Lemonade provides accurate, safe, and instant mechanical diagnostics via video a
 | Storage    | Google Cloud Storage                |
 | AI         | Google Vertex AI (Gemini 2.5 Flash), Context Caching |
 | Real-Time  | LiveKit (WebRTC)                    |
-| Mobile     | React Native (Expo) + WebView Hybrid|
+| Mobile     | React Native (Expo) + WebView Hybrid, New Architecture (Fabric) |
+| On-Device AI| llama.rn (GGUF Inference)          |
 | Deployment | Google Cloud Run                    |
 
 ## Prerequisites
@@ -72,6 +73,9 @@ npm install
 
 # Install Firebase Functions dependencies
 cd functions && npm install && cd ..
+
+> **Important**: React 19.1.0 is required for react-native compatibility.
+> The root `package.json` pins this version via `overrides`. Do not manually upgrade React without verifying react-native support.
 ```
 
 ## Development
@@ -89,28 +93,53 @@ npx vitest run
 # Build for production
 npm run build
 
-# Start Mobile App
+# Start Mobile App (Android)
 cd mobile
-npx expo start
+npx expo run:android
 
+# Start Mobile App (iOS)
+cd mobile
+npx expo run:ios
 ```
+
+## Mobile Development
+
+### Prerequisites
+- **Android**: Android Studio with SDK 35/36.
+- **iOS**: Xcode (Mac only).
+- **Device**: Physical device recommended for Camera/AI features.
+
+### Key Configuration
+- **New Architecture (Fabric)**: Enabled via `newArchEnabled: true` in `app.json`.
+- **Async Routes**: Enabled (`asyncRoutes: true`) to prevent eager loading crashes with native modules.
+- **On-Device AI**: `llama.rn` is bundled for local inference. Verify GPU settings in `app.json`.
+
+### Platform-Specific Extensions
+We use the standard React Native pattern for platform separation:
+- `*.ts` / `*.tsx` : **Native** implementation (Android/iOS) - Defaults for Expo.
+- `*.web.ts` / `*.web.tsx` : **Web** mock/fallback implementation.
+
+*Note: For `meta-wearables`, `index.ts` is the native entry and `index.web.tsx` is the web mock.*
 
 ## Project Structure
 
 ```
 packages/
 ├── core/                 # Pure domain logic (entities, interfaces, types)
-└── infrastructure/       # Shared adapters (AI, Firebase, Logging)
+├── infrastructure/       # Shared adapters (AI, Firebase, Logging)
+└── ...
 src/
 ├── app/                  # Next.js App Router (API Routes & Pages)
 ├── application/          # Business logic orchestration
-│   └── services/         # DiagnosticService, ReactiveSafetyService, etc.
 ├── infrastructure/       # Web-specific implementations & DI container
 └── presentation/         # React UI layer (Components, Hooks)
 mobile/                   # React Native Application (Expo)
-├── app/                  # Native routing
+├── app/                  # Native routing (expo-router)
 ├── components/           # Native UI components
+├── modules/              # Custom native modules (MetaWearables)
 └── infrastructure/       # Native hardware implementations
+lemonade-backend/         # Backend models (GGUF files)
+
 ```
 
 ## Architecture

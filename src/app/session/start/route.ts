@@ -25,7 +25,7 @@ export const GET = withContext(async (req: NextRequest) => {
         
         // --- Security Check: Ownership ---
         const vehicleRepo = container.get<IVehicleRepository>(TYPES.VehicleRepo);
-        const vehicle = await vehicleRepo.findById(vehicleId);
+        const vehicle = await vehicleRepo.findById(vehicleId, userId);
         
         if (!vehicle) {
              return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });

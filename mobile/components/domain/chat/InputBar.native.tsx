@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Theme } from '@mobile/constants/theme';
-import { Send, Mic, Paperclip } from 'lucide-react-native';
+import { Send, Paperclip } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 interface InputBarProps {

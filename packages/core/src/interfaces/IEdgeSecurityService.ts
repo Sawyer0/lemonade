@@ -3,7 +3,7 @@ export interface IEdgeSecurityService {
      * Verifies a Firebase ID token at the Edge.
      * Returns the payload if valid, null otherwise.
      */
-    verifyToken(token: string): Promise<any>;
+    verifyToken(token: string): Promise<Record<string, unknown> | null>;
 
     /**
      * Signs data with HMAC for internal integrity.

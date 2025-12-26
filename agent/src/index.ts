@@ -2,9 +2,9 @@ import "reflect-metadata"; // Required for InversifyJS decorators
 import { Elysia } from 'elysia';
 import { AccessToken } from 'livekit-server-sdk';
 import { env } from './env';
+import { cli, ServerOptions } from '@livekit/agents';
 import LiveKitMasterTechAgent from './livekit-agent'; // default export of defineAgent
 import admin from 'firebase-admin';
-import type { ILogger } from '@lemonade/core';
 import { 
     EnvConfigProvider, 
     Logger, 
@@ -64,9 +64,16 @@ app.post('/livekit-agent/get-livekit-token', async ({ body, set, headers }) => {
     }
 });
 
+// Start Elysia server
 app.listen(env.PORT || 3001, () => {
     logger.info(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
-    // No explicit masterTechAgent.start() call here; defineAgent handles it
+    logger.info(`Environment: ${config.getGoogleCloudConfig().project}`);
 });
+
+// Start LiveKit Agent Worker
+// Using cli.runApp to manage the worker lifecycle
+if (LiveKitMasterTechAgent) {
+    cli.runApp(new ServerOptions({ agent: import.meta.filename }));
+}
 
 export default app;

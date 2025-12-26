@@ -1,4 +1,4 @@
-import { ChatSession, GenerateContentResponse } from '@google-cloud/vertexai';
+import { ChatSession, GenerateContentResponse, Part } from '@google-cloud/vertexai';
 import { injectable, inject } from 'inversify';
 import type { ILogger, IGoogleSearchService } from '@lemonade/core';
 import { GoogleSearchArgsSchema, VerifySafeSupportArgsSchema } from '@lemonade/core';
@@ -52,8 +52,7 @@ export class FunctionCallService {
                 functionCalls: functionCalls.map(f => f?.name)
             });
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const functionResponses: any[] = [];
+            const functionResponses: Part[] = [];
 
             for (const call of functionCalls) {
                 if (!call) continue;

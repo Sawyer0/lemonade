@@ -23,17 +23,17 @@ export const GET = withContext(async (req: NextRequest) => {
 
     try {
         // 1. Authenticate User (Airtight Signature Check)
-        const auth = await security.getAuthenticatedUser(req);
-        if (!auth) {
+        const authenticatedUser = await security.getAuthenticatedUser(req);
+        if (!authenticatedUser) {
             return NextResponse.json({ error: 'Unauthorized: Middleware bypass detected' }, { status: 401 });
         }
 
-        if (auth.tier !== 'pro') {
-            logger.warn(`Access Denied: Pro tier required for Live Mechanic session.`, { tier: auth.tier });
+        if (authenticatedUser.tier !== 'pro') {
+            logger.warn(`Access Denied: Pro tier required for Live Mechanic session.`, { tier: authenticatedUser.tier });
             return NextResponse.json({ error: 'Upgrade Required', code: 'PRO_REQUIRED' }, { status: 403 });
         }
 
-        const userId = auth.userId;
+        const userId = authenticatedUser.userId;
 
         // 2. Fetch Session Context (for Prompt Construction)
         // Client should pass sessionId query param
@@ -48,7 +48,7 @@ export const GET = withContext(async (req: NextRequest) => {
 
             if (session && session.userId === userId) {
                 const vehicleRepo = container.get<IVehicleRepository>(TYPES.VehicleRepo); // Resolve VehicleRepo
-                const vehicle = await vehicleRepo.findById(session.vehicleId); // Fetch Vehicle
+                const vehicle = await vehicleRepo.findById(session.vehicleId, userId); // Fetch Vehicle
 
                 if (!vehicle) {
                     throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Vehicle not found for session');

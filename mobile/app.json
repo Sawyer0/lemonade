@@ -38,7 +38,33 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      ["expo-router", { "root": "./app" }],
+      [
+        "expo-router",
+        {
+          "root": "./app",
+          "asyncRoutes": {
+            "android": true,
+            "ios": true,
+            "web": false
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#1a1a1a",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 29
+          }
+        }
+      ],
       "react-native-vision-camera",
       [
         "llama.rn",
@@ -47,6 +73,9 @@
           "use_metal": true
         }
       ]
-    ]
+    ],
+    "metro": {
+      "configFile": "./metro.config.cjs"
+    }
   }
 }

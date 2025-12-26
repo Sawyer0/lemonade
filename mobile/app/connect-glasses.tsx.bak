@@ -9,7 +9,7 @@ export default function ConnectGlassesScreen() {
   const [registrationState, setRegistrationState] = useState<string>('UNKNOWN');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamState, setStreamState] = useState<string>('STOPPED');
-  const [deviceId, setDeviceId] = useState<string>('mock-device-id');
+  const deviceId = 'mock-device-id';
 
   // Hardcoded for testing the integration
   const sessionId = 'meta-test-session';
@@ -27,16 +27,17 @@ export default function ConnectGlassesScreen() {
   } = useGeminiSession(sessionId, vehicle);
 
   useEffect(() => {
-    let initSuccess = false;
-
     try {
       MetaWearables.initialize();
-      initSuccess = true;
       // Only get registration state after successful initialization
       const state = MetaWearables.getRegistrationState();
-      setRegistrationState(state);
-    } catch (e) {
-      console.error('Failed to initialize MetaWearables:', e);
+      
+      // Use requestAnimationFrame to avoid synchronous state update in effect
+      requestAnimationFrame(() => {
+        setRegistrationState(state);
+      });
+    } catch (_e) {
+      console.error('Failed to initialize MetaWearables:', _e);
       setRegistrationState('SDK_ERROR');
     }
 
@@ -62,7 +63,7 @@ export default function ConnectGlassesScreen() {
   const handleRequestPermissions = async () => {
     try {
       await MetaWearables.requestPermission('CAMERA');
-    } catch (e) {
+    } catch (_e) {
       Alert.alert('Error', 'Failed to request permissions');
     }
   };
@@ -75,7 +76,7 @@ export default function ConnectGlassesScreen() {
       try {
         await MetaWearables.startStream(deviceId);
         setIsStreaming(true);
-      } catch (e) {
+      } catch (_e) {
         Alert.alert('Error', 'Failed to start stream');
       }
     }
@@ -97,7 +98,7 @@ export default function ConnectGlassesScreen() {
       } else {
         Alert.alert('Hardware Capture Success', `Photo saved to: ${uri}\n\n(AI not connected to receive it)`);
       }
-    } catch (e) {
+    } catch (_e) {
       Alert.alert('Error', 'Failed to capture photo');
     }
   };

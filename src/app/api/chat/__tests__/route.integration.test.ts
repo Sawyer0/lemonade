@@ -20,6 +20,9 @@ const mockBillingService = {
 const mockSessionService = {
     getSessionContext: vi.fn()
 };
+const mockChatService = {
+    handleChatInteractionStream: vi.fn()
+};
 
 vi.mock('ai', () => ({
     streamText: vi.fn().mockResolvedValue({
@@ -45,6 +48,11 @@ describe('Chat API Route Integration', () => {
             container.unbind(TYPES.SessionService);
         } catch {}
         container.bind(TYPES.SessionService).toConstantValue(mockSessionService);
+
+        try {
+            container.unbind(TYPES.ChatService);
+        } catch {}
+        container.bind(TYPES.ChatService).toConstantValue(mockChatService);
     });
 
     afterEach(() => {
@@ -73,6 +81,12 @@ describe('Chat API Route Integration', () => {
             traceId: 'trace-123'
         });
 
+        // Mock the stream generator
+        async function* mockStream() {
+            yield "AI Response Chunk";
+        }
+        mockChatService.handleChatInteractionStream.mockReturnValue(mockStream());
+
         const req = new Request('http://localhost/api/chat', {
             method: 'POST',
             headers: { 
@@ -88,6 +102,6 @@ describe('Chat API Route Integration', () => {
         const res = await POST(req);
 
         expect(res.status).toBe(200);
-        expect(await res.text()).toBe("AI Stream");
+        expect(await res.text()).toBe("AI Response Chunk");
     });
 });

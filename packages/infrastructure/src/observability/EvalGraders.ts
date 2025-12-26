@@ -1,4 +1,4 @@
-import { AI_GENERATION_CONFIGS, AIAnalysis, EvalScenario, NeurosymbolicState } from '@lemonade/core';
+import { EvalScenario, NeurosymbolicState } from '@lemonade/core';
 import { VertexAI, SchemaType } from '@google-cloud/vertexai';
 import type { IConfigProvider } from '../interfaces/IConfigProvider';
 
@@ -39,7 +39,7 @@ export class ReasoningEvaluator {
         const gcloudConfig = config.getGoogleCloudConfig();
 
         this.vertex = new VertexAI({
-            project: gcloudConfig.project,
+            project: gcloudConfig.projectId,
             location: gcloudConfig.location || 'us-central1',
             googleAuthOptions: { credentials }
         });

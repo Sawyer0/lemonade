@@ -1,8 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EvalRunner } from '../EvalRunner';
-import { ILogger, IMechanicReasoningService, EvalScenario } from '@lemonade/core';
+import { ILogger, IMechanicReasoningService } from '@lemonade/core';
 import type { IConfigProvider } from '../../interfaces/IConfigProvider';
-import { Client } from 'langsmith';
+
+vi.mock('@google-cloud/vertexai', () => {
+    class VertexAI {
+        getGenerativeModel = vi.fn().mockReturnValue({
+            generateContent: vi.fn(),
+        });
+        preview = {
+            cachedContents: {
+                create: vi.fn(),
+                get: vi.fn(),
+                update: vi.fn(),
+                delete: vi.fn(),
+                list: vi.fn(),
+            }
+        };
+    }
+    return { 
+        VertexAI,
+        SchemaType: {
+            OBJECT: 'OBJECT',
+            STRING: 'STRING',
+            NUMBER: 'NUMBER',
+        },
+    };
+});
 
 vi.mock('langsmith', () => {
     class Client {
@@ -20,12 +44,12 @@ describe('EvalRunner', () => {
     let mockConfig: IConfigProvider;
 
     beforeEach(() => {
-        mockReasoning = { diagnose: vi.fn() } as any;
-        mockLogger = { info: vi.fn(), error: vi.fn() } as any;
+        mockReasoning = { diagnose: vi.fn() } as unknown as IMechanicReasoningService;
+        mockLogger = { info: vi.fn(), error: vi.fn() } as unknown as ILogger;
         mockConfig = {
             getFirebaseConfig: vi.fn().mockReturnValue({ serviceAccountKey: '{}' }),
             getGoogleCloudConfig: vi.fn().mockReturnValue({ project: 'test', location: 'us-central1' }),
-        } as any;
+        } as unknown as IConfigProvider;
 
         runner = new EvalRunner(mockConfig, mockReasoning, mockLogger);
     });

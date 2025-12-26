@@ -11,11 +11,22 @@ export interface IConfigProvider {
         storageBucket: string;
         messagingSenderId: string;
         appId: string;
+        serviceAccountKey: string;
     };
     getLiveKitConfig(): {
         host: string;
         apiKey: string;
         apiSecret: string;
+    };
+    getGeminiModel(): string;
+    getOrThrow(key: string): string;
+    getSupermemoryConfig(): {
+        API_KEY: string;
+        SPACE_ID: string;
+    };
+    getLangSmithConfig(): {
+        enabled: boolean;
+        project: string;
     };
 }
 

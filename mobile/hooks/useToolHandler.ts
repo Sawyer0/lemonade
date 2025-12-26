@@ -32,12 +32,11 @@ export function useToolHandler(session: DiagnosticSession | null) {
                         router.push(`/live-mechanic?roomName=${session.id}&sessionId=${session.id}&tool=${toolCall.toolName}`);
                     }
                 } else if (toolCall.toolName === 'display_content') {
-                    const args = toolCall.args as any;
-                    if (args?.url) {
+                    const args = toolCall.args as Record<string, unknown>;
+                    if (args?.url && typeof args.url === 'string') {
                         console.log(`[Tool] Displaying content: ${args.title}`);
                         lastHandledMessageId.current = msgId;
-                        // Assuming we have a modal or webview for viewing documentation
-                        router.push(`/modal?url=${encodeURIComponent(args.url)}&title=${encodeURIComponent(args.title || 'Documentation')}`);
+                        router.push(`/modal?url=${encodeURIComponent(args.url)}&title=${encodeURIComponent((args.title as string) || 'Documentation')}`);
                     }
                 }
             }

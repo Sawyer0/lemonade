@@ -27,12 +27,13 @@ export class EvalRunner {
             const results: EvalResult[] = [];
 
             for await (const example of examples) {
+                const metadata = (example as unknown as { metadata: Record<string, unknown> }).metadata || {};
                 const scenario = {
-                    id: (example as any).metadata?.id || example.id,
-                    name: (example as any).metadata?.name || 'Unnamed Scenario',
+                    id: metadata.id as string || example.id,
+                    name: metadata.name as string || 'Unnamed Scenario',
                     input: example.inputs,
                     ground_truth: example.outputs,
-                    expected_behavior: (example as any).metadata?.expected_behavior
+                    expected_behavior: metadata.expected_behavior as string
                 } as unknown as EvalScenario;
 
                 this.logger.info(`Running scenario: ${scenario.name}`);

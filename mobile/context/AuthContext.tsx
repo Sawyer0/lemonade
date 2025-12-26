@@ -33,8 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (firebaseLoading) return;
 
         if (!firebaseUser) {
-            setUser(null);
-            setIsLoading(false);
+            setTimeout(() => {
+                setUser(null);
+                setIsLoading(false);
+            }, 0);
             return;
         }
 
@@ -52,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (parsed.success) {
                     setUser(parsed.data);
                 } else {
-                    console.error("User Schema Validation Failed", parsed.error);
+                    console.error("User Schema Validation Failed", parsed.error.message);
                 }
             } else {
                 // Create new user doc if it doesn't exist

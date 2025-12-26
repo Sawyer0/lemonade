@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthService } from '../AuthService';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, User, Auth } from 'firebase/auth';
 import { auth } from '@/infrastructure/firebase/config';
 
 vi.mock('firebase/auth', () => ({
@@ -32,14 +32,14 @@ describe('AuthService', () => {
     });
 
     it('should update currentUser when auth state changes', async () => {
-        let authCallback: any;
-        (onAuthStateChanged as any).mockImplementation((_auth: any, callback: any) => {
+        let authCallback: (user: User | null) => void = () => {};
+        vi.mocked(onAuthStateChanged).mockImplementation((_auth: Auth, callback: (user: User | null) => void) => {
             authCallback = callback;
             return vi.fn();
         });
 
         const service = new AuthService();
-        const mockUser = { uid: 'test-uid', email: 'test@example.com' } as any;
+        const mockUser = { uid: 'test-uid', email: 'test@example.com' } as unknown as User;
 
         // Trigger callback
         authCallback(mockUser);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '@mobile/infrastructure/firebase/config';
-import { Vehicle } from '@lemonade/core';
+import { Vehicle, AppError } from '@lemonade/core';
 import { convertTimestamps } from '@lemonade/core';
 
 export function useVehicle(vehicleId?: string) {
@@ -22,7 +22,7 @@ export function useVehicle(vehicleId?: string) {
             setLoading(false);
         }, (err) => {
             console.error("Vehicle Fetch Error:", err);
-            setError(err.message);
+            setError(AppError.fromError(err).message);
             setLoading(false);
         });
 
@@ -52,8 +52,8 @@ export function useVehicle(vehicleId?: string) {
 
             const { data } = await response.json();
             return data as Vehicle;
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(AppError.fromError(err).message);
             throw err;
         } finally {
             setLoading(false);

@@ -1,5 +1,5 @@
 import React from 'react';
-import ChatScreen from '@mobile/components/screens/ChatScreen.native';
+import ChatScreen from '../../components/screens/ChatScreen';
 
 export default function SessionRoute() {
     return <ChatScreen />;

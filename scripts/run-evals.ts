@@ -3,6 +3,7 @@ import { container } from '../src/infrastructure/di/container';
 import { TYPES } from '../src/infrastructure/di/types';
 import { EvalRunner } from '../packages/infrastructure/src/observability/EvalRunner';
 import dotenv from 'dotenv';
+import * as fs from 'fs';
 
 dotenv.config({ path: '.env.local' });
 
@@ -15,7 +16,6 @@ async function run() {
         const results = await runner.runSuite(datasetName);
         
         // Save to JSON file
-        const fs = require('fs');
         fs.writeFileSync('eval_results.json', JSON.stringify(results, null, 2));
         console.log('Results saved to eval_results.json');
 

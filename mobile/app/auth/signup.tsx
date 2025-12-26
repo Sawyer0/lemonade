@@ -18,7 +18,7 @@ export default function SignupScreen() {
         try {
             await signup(email, password, username);
             router.replace('/');
-        } catch (e) {
+        } catch {
             // Error handled by hook
         }
     };
@@ -26,8 +26,8 @@ export default function SignupScreen() {
     const handleGoogleLogin = async () => {
         try {
             await signInWithGoogle();
-        } catch (e) {
-            console.error(e);
+        } catch (_e) {
+            console.error(_e);
         }
     };
 

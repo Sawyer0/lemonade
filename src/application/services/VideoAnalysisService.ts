@@ -27,7 +27,7 @@ export class VideoAnalysisService implements IVideoAnalysisService {
                 throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
             }
 
-            const vehicle = await this.vehicleRepo.findById(session.vehicleId);
+            const vehicle = await this.vehicleRepo.findById(session.vehicleId, session.userId);
             if (!vehicle) {
                 this.logger.error('[VideoAnalysisService] Vehicle not found', { vehicleId: session.vehicleId });
                 throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
@@ -128,7 +128,7 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
             throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
         }
 
-        const vehicle = await this.vehicleRepo.findById(session.vehicleId);
+        const vehicle = await this.vehicleRepo.findById(session.vehicleId, session.userId);
         if (!vehicle) {
             this.logger.error('[VideoAnalysisService] Vehicle not found', { vehicleId: session.vehicleId });
             throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");

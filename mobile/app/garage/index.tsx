@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, FlatList, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, FlatList, TouchableOpacity, View, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Theme } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
@@ -45,11 +45,25 @@ export default function GarageScreen() {
             <Stack.Screen options={{ 
                 title: 'My Garage',
                 headerRight: () => (
-                    <TouchableOpacity onPress={signOut}>
+                    <TouchableOpacity 
+                        onPress={signOut}
+                        style={{ marginRight: 8 }}
+                    >
                         <Ionicons name="log-out-outline" size={24} color={Theme.text} />
                     </TouchableOpacity>
                 )
             }} />
+
+            <View style={styles.header}>
+                <ThemedText type="subtitle">Welcome, {user?.displayName || 'Mechanic'}</ThemedText>
+                <ThemedText style={styles.headerSub}>Manage your vehicles and diagnostic sessions.</ThemedText>
+            </View>
+
+            {error && (
+                <View style={styles.errorContainer}>
+                    <ThemedText style={styles.errorText}>{error}</ThemedText>
+                </View>
+            )}
 
             <FlatList
                 data={vehicles}
@@ -87,6 +101,15 @@ const styles = StyleSheet.create({
     list: {
         padding: 16,
         paddingBottom: 100,
+    },
+    header: {
+        padding: 16,
+        paddingBottom: 8,
+    },
+    headerSub: {
+        fontSize: 14,
+        color: Theme.textSecondary,
+        marginTop: 4,
     },
     card: {
         backgroundColor: Theme.card,
@@ -145,5 +168,15 @@ const styles = StyleSheet.create({
     emptySub: {
         color: Theme.textSecondary,
         marginTop: 8,
+    },
+    errorContainer: {
+        padding: 16,
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        margin: 16,
+        borderRadius: 8,
+    },
+    errorText: {
+        color: Theme.error,
+        textAlign: 'center',
     }
 });

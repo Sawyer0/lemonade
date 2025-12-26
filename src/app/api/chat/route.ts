@@ -5,6 +5,8 @@ import {
   IChatService,
   ILogger,
   IEdgeSecurityService,
+  VehicleContext,
+  AIAnalysis,
   MessagePart
 } from '@lemonade/core';
 import { withContext } from '@/application/utils/apiHandler';
@@ -26,15 +28,17 @@ export const POST = withContext(async function POST(req: Request): Promise<NextR
       return NextResponse.json({ error: 'Unauthorized: Middleware bypass detected' }, { status: 401 });
     }
 
-    const { messages, vehicleContext, diagnosticContext } = await req.json();
+    const { messages, vehicleContext, diagnosticContext } = await req.json() as { 
+        messages: { role: string; content: string | MessagePart[] }[]; 
+        vehicleContext?: VehicleContext;
+        diagnosticContext?: AIAnalysis;
+    };
     const sessionId = req.headers.get('x-session-id') || '00000000-0000-0000-0000-000000000000';
 
     // 3. Resolve Chat Service
     const chatService = container.get<IChatService>(TYPES.ChatService);
 
     // 4. Extract latest user message
-    // The mobile app sends the full history or just the latest? 
-    // useMobileChat sends: messages: [{ role: 'user', content: ... }] (just the new one usually)
     const latestMessage = messages[messages.length - 1];
     
     if (!latestMessage || latestMessage.role !== 'user') {
@@ -42,7 +46,13 @@ export const POST = withContext(async function POST(req: Request): Promise<NextR
     }
 
     // 5. Execute Logic via ChatService (Streaming)
-    const stream = chatService.handleChatInteractionStream(sessionId, latestMessage.content);
+    // Pass overrides if provided
+    const stream = chatService.handleChatInteractionStream(
+        sessionId, 
+        latestMessage.content,
+        vehicleContext as VehicleContext,
+        diagnosticContext as AIAnalysis
+    );
 
     // 6. Convert AsyncGenerator to ReadableStream for the response
     const readableStream = new ReadableStream({
@@ -67,9 +77,10 @@ export const POST = withContext(async function POST(req: Request): Promise<NextR
         }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(`Chat Failed`, error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 });
 

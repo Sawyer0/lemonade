@@ -15,6 +15,31 @@ export interface VerificationResult {
     reasoning: string;
 }
 
+/**
+ * Request for embedding content.
+ */
+export interface EmbedContentRequest {
+    content: { role: string; parts: { text: string }[] };
+    taskType?: 'RETRIEVAL_QUERY' | 'RETRIEVAL_DOCUMENT' | 'SEMANTIC_SIMILARITY' | 'CLASSIFICATION' | 'CLUSTERING';
+    title?: string;
+}
+
+/**
+ * Response for embedding content.
+ */
+export interface EmbedContentResponse {
+    embedding: {
+        values: number[];
+    };
+}
+
+/**
+ * Response for batch embedding content.
+ */
+export interface BatchEmbedContentsResponse {
+    embeddings: { values: number[] }[];
+}
+
 // Default configs as per the user's table
 
 export const AI_GENERATION_CONFIGS = {

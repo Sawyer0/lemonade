@@ -3,8 +3,8 @@ import * as Haptics from 'expo-haptics';
 
 // The sound file (bundled in assets)
 // Note: User must provide this file at mobile/assets/sounds/processing_chime.mp3
-// @ts-ignore
-const CHIME_SOURCE = require('../assets/sounds/processing_chime.mp3');
+// @ts-expect-error - Asset might not be resolved by TS but is valid for Metro
+const CHIME_SOURCE = require('../assets/sounds/processing_chime.mp3'); // eslint-disable-line @typescript-eslint/no-require-imports
 
 let soundObject: Audio.Sound | null = null;
 

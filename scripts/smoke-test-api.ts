@@ -22,7 +22,7 @@ async function runSmokeTest() {
     try {
         const res = await fetch(`${API_BASE}/vehicles?userId=test-user`);
         console.log(`Status: ${res.status} (Expected: 401)`);
-    } catch (e) {
+    } catch {
         console.log("❌ Server not running? Run 'npm run dev' first.");
         return;
     }

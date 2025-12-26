@@ -13,7 +13,7 @@ Lemonade is an AI-powered vehicle diagnostic platform designed to function as a 
 - **Database:** Firebase Firestore (NoSQL)
 - **Auth:** Firebase Authentication
 - **Storage:** Google Cloud Storage
-- **Mobile:** React Native (Expo) + WebView (Hybrid Architecture)
+- **Mobile:** React Native (Expo) + WebView (Hybrid Architecture, Fabric Enabled)
 - **State/Data:** SWR (Client), Anemic Domain Model (Server)
 - **DI:** InversifyJS
 
@@ -40,13 +40,14 @@ The project follows a strict **Feature-Sliced / Layered Architecture**:
 5.  **Interface Segregation**: Define interfaces in `Core` before implementing in `Infrastructure`.
 6.  **Configuration**: Access config ONLY via `src/infrastructure/config.ts`. No magic strings or direct `process.env`.
 7.  **Logging**: Use `ILogger` with structured JSON and `traceId`. No `console.log`.
+8.  **Native Modules**: Use `*.native.ts` for native implementations and `*.web.tsx` for web/mock fallbacks.
 
 ### Build & Run
 - **Dev Server**: `npm run dev`
 - **Build**: `npm run build`
 - **Test**: `npx vitest run`
 - **Lint**: `npm run lint`
-- **Mobile**: `cd mobile && npx expo start`
+- **Mobile**: `cd mobile && npx expo run:android` (or `run:ios`)
 
 ## Directory Structure
 - `src/app`: Next.js App Router pages and API routes.
@@ -58,4 +59,5 @@ The project follows a strict **Feature-Sliced / Layered Architecture**:
 ## Critical Files
 - `src/core/types/models.ts`: **Single Source of Truth** for Zod schemas.
 - `src/infrastructure/config.ts`: Centralized configuration.
+- `mobile/modules/meta-wearables/index.ts`: Native module entry.
 - `Agent.md`: Detailed architectural guidelines and rules.

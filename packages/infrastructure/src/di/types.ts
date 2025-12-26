@@ -14,6 +14,7 @@ export const TYPES = {
     SupermemoryService: Symbol.for('SupermemoryService'),
     MultimodalUploadAI: Symbol.for('MultimodalUploadAI'),
     ChatAI: Symbol.for('ChatAI'),
+    SafetyAI: Symbol.for('SafetyAI'),
     NHTSAService: Symbol.for('NHTSAService'),
     EmbeddingService: Symbol.for('EmbeddingService'),
     VectorRepository: Symbol.for('VectorRepository'),

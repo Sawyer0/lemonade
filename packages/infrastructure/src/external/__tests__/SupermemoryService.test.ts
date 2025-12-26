@@ -14,7 +14,7 @@ describe('SupermemoryService', () => {
             info: vi.fn(),
             warn: vi.fn(),
             error: vi.fn()
-        } as any;
+        } as unknown as ILogger;
 
         mockConfig = {
             getFirebaseConfig: vi.fn(),
@@ -24,7 +24,7 @@ describe('SupermemoryService', () => {
                 API_KEY: 'test-key',
                 SPACE_ID: 'test-space'
             })
-        } as any;
+        } as unknown as IConfigProvider;
 
         service = new SupermemoryService(mockLogger, mockConfig);
         
@@ -33,10 +33,10 @@ describe('SupermemoryService', () => {
     });
 
     it('should call Supermemory API to add a document', async () => {
-        (global.fetch as any).mockResolvedValue({
+        vi.mocked(fetch).mockResolvedValue({
             ok: true,
             json: async () => ({ status: 'success' })
-        });
+        } as unknown as Response);
 
         await service.addDocument('test content', ['tag1'], 'custom-space');
 
@@ -63,10 +63,10 @@ describe('SupermemoryService', () => {
                 { content: 'result 1', metadata: {} }
             ]
         };
-        (global.fetch as any).mockResolvedValue({
+        vi.mocked(fetch).mockResolvedValue({
             ok: true,
             json: async () => mockResponse
-        });
+        } as unknown as Response);
 
         const results = await service.search('test query', { spaceId: 'test-space' });
 
@@ -89,12 +89,12 @@ describe('SupermemoryService', () => {
     });
 
     it('should log an error if API call fails', async () => {
-        (global.fetch as any).mockResolvedValue({
+        vi.mocked(fetch).mockResolvedValue({
             ok: false,
             status: 401,
             statusText: 'Unauthorized',
             text: async () => 'Unauthorized access'
-        });
+        } as unknown as Response);
 
         await expect(service.addDocument('test')).rejects.toThrow('Supermemory API error: Unauthorized');
         expect(mockLogger.error).toHaveBeenCalled();

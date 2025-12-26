@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { auth } from '../../infrastructure/firebase/config';
 import { Theme } from '../../constants/theme';

@@ -4,10 +4,12 @@ import {
     AppError,
     ErrorCode,
     MessagePart,
+    AIAnalysis // Import AIAnalysis
 } from '@lemonade/core';
 import type {
     IReactiveSafetyService,
-    ISafetyMonitor
+    ISafetyMonitor,
+    VehicleContext // Import VehicleContext
 } from '@lemonade/core';
 import type {
     IChatService,
@@ -101,7 +103,12 @@ export class ChatService implements IChatService {
         return prunedHistory;
     }
 
-    async *handleChatInteractionStream(sessionId: string, userMessage: string | MessagePart[]): AsyncGenerator<string, void, unknown> {
+    async *handleChatInteractionStream(
+        sessionId: string,
+        userMessage: string | MessagePart[],
+        vehicleContextOverride?: VehicleContext,
+        diagnosticContextOverride?: AIAnalysis
+    ): AsyncGenerator<string, void, unknown> {
         const session = await this.sessionRepo.getHistory(sessionId);
         if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
 
@@ -129,9 +136,17 @@ export class ChatService implements IChatService {
             return;
         }
 
+        // Use override if provided, otherwise fallback to database vehicle
+        const year = vehicleContextOverride?.year || vehicle?.specs.year;
+        const make = vehicleContextOverride?.make || vehicle?.specs.make;
+        const model = vehicleContextOverride?.model || vehicle?.specs.model;
+        
+        // Use override if provided, otherwise fallback to session analysis
+        const diagnosis = diagnosticContextOverride || session.aiAnalysis;
+
         const vehicleContext = `
-      VEHICLE: ${vehicle?.specs.year} ${vehicle?.specs.make} ${vehicle?.specs.model}
-      LAST DIAGNOSIS: ${JSON.stringify(session.aiAnalysis)}
+      VEHICLE: ${year} ${make} ${model}
+      LAST DIAGNOSIS: ${JSON.stringify(diagnosis)}
     `;
 
         // System 1: Semantic Safety (SafetyMonitor)
@@ -160,7 +175,7 @@ export class ChatService implements IChatService {
             session.userId,
             sessionId,
             undefined,
-            additionalParts as any
+            additionalParts
         );
 
         let fullReplyText = "";

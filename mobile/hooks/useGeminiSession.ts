@@ -152,7 +152,7 @@ export function useGeminiSession(
     /**
      * Handoff logic
      */
-    const handoffToCloud = useCallback(async (reason: string, metadata?: any) => {
+    const handoffToCloud = useCallback(async (reason: string, metadata?: Record<string, unknown>) => {
         const currentRoom = livekitRoomRef.current;
         const currentParticipant = currentRoom?.localParticipant;
 
@@ -385,7 +385,7 @@ export function useGeminiSession(
         } finally {
             setLoading(false);
         }
-    }, [sessionId, vehicle, cameraPermissionGranted, requestCameraPermission, logger, handleAiResponseFromDataChannel, sendChatMessage, sendVisualBurst, sendToolResponse, LIVEKIT_AGENT_CONFIG.AGENT_IDENTITY, room]);
+    }, [sessionId, vehicle, cameraPermissionGranted, requestCameraPermission, logger, handleAiResponseFromDataChannel, sendVisualBurst, sendToolResponse, LIVEKIT_AGENT_CONFIG.AGENT_IDENTITY, room]);
 
     const disconnect = useCallback(() => {
         livekitRoomRef.current?.disconnect();
@@ -399,7 +399,6 @@ export function useGeminiSession(
     return {
         connect,
         disconnect,
-        sendMessage: sendChatMessage,
         isLive,
         loading,
         room,

@@ -2,7 +2,7 @@ import { CONFIG } from '../constants/config';
 import { initLlama, LlamaContext } from 'llama.rn';
 import { ILogger, ILocalPerceptionService, SemanticTriageResult, SemanticTriageResultSchema } from '@lemonade/core';
 import { PerformanceMonitor } from './PerformanceMonitor';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export class LocalPerceptionService implements ILocalPerceptionService {
     private context: LlamaContext | null = null;
@@ -44,12 +44,12 @@ export class LocalPerceptionService implements ILocalPerceptionService {
 
         try {
             this.logger.info('Starting Model Warmup (Dummy Inference)...');
-            const warmupPath = `${(FileSystem as any).cacheDirectory}warmup.jpg`;
+            const warmupPath = `${FileSystem.cacheDirectory}warmup.jpg`;
             // 1x1 Black Pixel (JPEG Base64)
             const dummyBase64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEGMkMAAAABABQRAP/EABQAAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AP/Z';
 
             await FileSystem.writeAsStringAsync(warmupPath, dummyBase64, {
-                encoding: (FileSystem as any).EncodingType.Base64
+                encoding: FileSystem.EncodingType.Base64
             });
 
             // Run a trivial completion to force tensor allocation

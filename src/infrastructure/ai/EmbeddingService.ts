@@ -1,26 +1,40 @@
 import { injectable, inject } from 'inversify';
 import { GenerativeModel } from '@google-cloud/vertexai';
 import type { ILogger } from '@lemonade/core';
-import { IEmbeddingService, AppError, ErrorCode } from '@lemonade/core';
+import { 
+    IEmbeddingService, 
+    AppError, 
+    ErrorCode,
+    EmbedContentResponse,
+    BatchEmbedContentsResponse
+} from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 import { CONFIG } from '@/infrastructure/config';
 import { GeminiCoreAdapter } from '@lemonade/infrastructure';
 
+/**
+ * Extension of GenerativeModel to include embedding methods 
+ * that are missing from the @google-cloud/vertexai types.
+ */
+interface EmbeddingModel extends GenerativeModel {
+    embedContent(request: string | object): Promise<EmbedContentResponse>;
+    batchEmbedContents(request: { requests: object[] }): Promise<BatchEmbedContentsResponse>;
+}
+
 @injectable()
 export class EmbeddingService implements IEmbeddingService {
-    private model: GenerativeModel;
+    private model: EmbeddingModel;
 
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
         @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter
     ) {
-        this.model = this.coreAdapter.getGenerativeModel(CONFIG.AI_MODELS.EMBEDDING);
+        this.model = this.coreAdapter.getGenerativeModel(CONFIG.AI_MODELS.EMBEDDING) as unknown as EmbeddingModel;
     }
 
     async embed(text: string): Promise<number[]> {
         try {
-            // Note: In Vertex AI SDK, embedding might need specific method or cast
-            const result = await (this.model as any).embedContent(text);
+            const result = await this.model.embedContent(text);
             const embedding = result.embedding?.values;
 
             if (!embedding) {
@@ -38,7 +52,7 @@ export class EmbeddingService implements IEmbeddingService {
         try {
             if (texts.length === 0) return [];
 
-            const response = await (this.model as any).batchEmbedContents({
+            const response = await this.model.batchEmbedContents({
                 requests: texts.map(t => ({
                     content: { role: 'user', parts: [{ text: t }] },
                     taskType: 'RETRIEVAL_DOCUMENT'
@@ -49,7 +63,7 @@ export class EmbeddingService implements IEmbeddingService {
                 throw new Error("No embeddings returned from batch request");
             }
 
-            return response.embeddings.map((e: any, index: number) => {
+            return response.embeddings.map((e, index: number) => {
                 if (!e.values) throw new Error(`Embedding missing for item ${index}`);
                 return e.values;
             });

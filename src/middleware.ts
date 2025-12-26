@@ -14,14 +14,13 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set('x-trace-id', traceId);
 
     const protectedPaths = [
-        '/api/analysis', 
-        '/api/chat', 
-        '/api/vehicles', 
-        '/api/upload', 
-        '/api/stripe/portal', 
-        '/api/sessions', 
-        '/api/voice', 
-        '/api/session/token'
+        '/api/analysis',
+        '/api/chat',
+        '/api/vehicles',
+        '/api/upload',
+        '/api/stripe/portal',
+        '/api/session',
+        '/api/voice'
     ];
 
     const pathname = request.nextUrl.pathname;

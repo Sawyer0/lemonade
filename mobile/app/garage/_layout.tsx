@@ -1,0 +1,18 @@
+import { Stack } from 'expo-router';
+import { Theme } from '../../constants/theme';
+
+export default function GarageLayout() {
+    return (
+        <Stack
+            screenOptions={{
+                headerShown: true,
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: Theme.text,
+                headerShadowVisible: false,
+                headerTitleStyle: {
+                    fontWeight: 'bold',
+                },
+            }}
+        />
+    );
+}

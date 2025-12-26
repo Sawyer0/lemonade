@@ -37,8 +37,8 @@ export function useFirebaseAuth() {
             setLoading(true);
             const credential = GoogleAuthProvider.credential(token);
             await signInWithCredential(auth, credential);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Google sign-in failed');
         } finally {
             setLoading(false);
         }
@@ -49,8 +49,8 @@ export function useFirebaseAuth() {
             setLoading(true);
             setError(null);
             await signInWithEmailAndPassword(auth, email, password);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Login failed');
             throw err;
         } finally {
             setLoading(false);
@@ -65,8 +65,8 @@ export function useFirebaseAuth() {
             if (userCredential.user) {
                 await updateProfile(userCredential.user, { displayName });
             }
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Signup failed');
             throw err;
         } finally {
             setLoading(false);
@@ -77,8 +77,8 @@ export function useFirebaseAuth() {
         try {
             setLoading(true);
             await firebaseSignOut(auth);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Sign out failed');
         } finally {
             setLoading(false);
         }

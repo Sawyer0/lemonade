@@ -38,7 +38,7 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
         // 1. Check Environmental Hazards (Always Trigger)
         for (const trigger of this.ENVIRONMENTAL_TRIGGERS) {
             if (trigger.regex.test(userMessage)) {
-                return this.createAssessment(trigger.hazard as any, trigger.message);
+                return this.createAssessment(trigger.hazard, trigger.message);
             }
         }
 
@@ -51,7 +51,7 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
 
                 // C. If NO Safe Verb -> BLOCK IT.
                 if (!hasSafeVerb) {
-                    return this.createAssessment(rule.hazard as any, rule.message);
+                    return this.createAssessment(rule.hazard, rule.message);
                 }
             }
         }
@@ -59,7 +59,7 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
         return null;
     }
 
-    private createAssessment(hazard: any, message: string): SafetyAssessment {
+    private createAssessment(hazard: "JACK_STAND_MISSING" | "HIGH_VOLTAGE" | "FUEL_LEAK" | "SAFETY_CHECK_FAILED" | "NONE", message: string): SafetyAssessment {
         return {
             safety_score: 0,
             hazards_detected: [hazard],

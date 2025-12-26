@@ -60,7 +60,7 @@ export const POST = withContext(async (req: NextRequest) => {
             userId: userId,
             vehicleId: validatedBody.vehicleId,
             status: 'active',
-            complaint: validatedBody.complaint,
+            complaint: validatedBody.complaint ?? null,
             obdCodes: [],
             messages: [],
             aiAnalysis: null,

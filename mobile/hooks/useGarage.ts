@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db, auth } from '@mobile/infrastructure/firebase/config';
 import { convertTimestamps, Vehicle, DiagnosticSession } from '@lemonade/core';
@@ -9,12 +9,14 @@ export function useGarage() {
     const [sessions, setSessions] = useState<DiagnosticSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const logger = useRef(new MobileLogger()).current;
+    const logger = useMemo(() => new MobileLogger(), []);
 
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) {
-            setLoading(false);
+            requestAnimationFrame(() => {
+                setLoading(false);
+            });
             return;
         }
 

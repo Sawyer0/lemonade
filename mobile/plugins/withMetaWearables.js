@@ -1,4 +1,4 @@
-const { createRunOncePlugin, withProjectBuildGradle, withAppBuildGradle, withAndroidManifest, withDangerousMod, AndroidConfig } = require('@expo/config-plugins');
+const { createRunOncePlugin, withProjectBuildGradle, withAppBuildGradle, withAndroidManifest, withDangerousMod } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 

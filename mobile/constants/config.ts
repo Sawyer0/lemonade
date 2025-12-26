@@ -15,4 +15,7 @@ export const CONFIG = {
         CONTEXT_SIZE: 1024,
         USE_FLASH_ATTN: true,
     },
+    AUTH: {
+        GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+    },
 } as const;

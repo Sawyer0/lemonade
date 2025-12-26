@@ -6,10 +6,9 @@ import { SemanticTriageResult } from '@lemonade/core';
 
 // Mock Reanimated
 jest.mock('react-native-reanimated', () => {
-    const Reanimated = require('react-native-reanimated/mock');
-    Reanimated.default.call = () => { };
+    const mockReanimated = require('react-native-reanimated/mock');
     return {
-        ...Reanimated,
+        ...mockReanimated,
         useSharedValue: jest.fn(() => ({ value: 0 })),
         useAnimatedStyle: jest.fn(() => ({})),
         withRepeat: jest.fn(),

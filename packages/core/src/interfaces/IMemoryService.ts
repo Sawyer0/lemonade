@@ -5,7 +5,7 @@ export interface MemorySearchOptions {
 
 export interface MemorySearchResult {
     content: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 export interface IMemoryService {

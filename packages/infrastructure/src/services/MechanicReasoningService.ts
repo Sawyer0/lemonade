@@ -31,6 +31,11 @@ import { mechanicMachine } from '@lemonade/core';
 import { createActor, waitFor, fromPromise } from 'xstate';
 import { TYPES } from '../di/types';
 
+interface LocalTriageDetection {
+    id?: { obj: string };
+    confidence?: number;
+}
+
 @injectable()
 export class MechanicReasoningService implements IMechanicReasoningService {
     constructor(
@@ -272,7 +277,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         recalls: SafetyRecall[],
         consensus: unknown[],
         verification: VerificationData,
-        localTriage?: any
+        localTriage?: { detections: LocalTriageDetection[] }
     ): NeurosymbolicState['finalDiagnosis'] {
         const decisionTrace: string[] = [];
         const activeRecalls = recalls || [];
@@ -280,9 +285,9 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         let actions = intuition.suggested_actions || [];
 
         if (localTriage?.detections?.length) {
-            const highConfDetections = localTriage.detections.filter((d: any) => (d.confidence || 0) > 0.8);
+            const highConfDetections = localTriage.detections.filter((d) => (d.confidence || 0) > 0.8);
             if (highConfDetections.length > 0) {
-                const parts = highConfDetections.map((d: any) => d.id?.obj || 'unknown').join(', ');
+                const parts = highConfDetections.map((d) => d.id?.obj || 'unknown').join(', ');
                 decisionTrace.push(`LOCAL GROUNDING: On-device triage confirmed ${parts} with high confidence.`);
             }
         }
@@ -373,7 +378,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         recalls: unknown[],
         consensus: unknown[],
         verification: VerificationData,
-        localTriage?: any,
+        localTriage?: { detections: LocalTriageDetection[] },
         hasRecallMatch: boolean = false
     ): number {
         let score = intuition.confidence * 0.5;
@@ -383,7 +388,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         if (hasRecallMatch) score += 0.3; // Significant boost for recall matches
 
         if (localTriage?.detections?.length && intuition.diagnosis) {
-            const match = localTriage.detections.find((d: any) =>
+            const match = localTriage.detections.find((d) =>
                 (d.confidence || 0) > 0.7 &&
                 d.id?.obj &&
                 intuition.diagnosis.toLowerCase().includes(d.id.obj.toLowerCase())
