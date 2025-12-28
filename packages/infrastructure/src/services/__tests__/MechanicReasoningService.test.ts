@@ -10,6 +10,7 @@ import {
     IGoogleSearchService,
     IMemoryService,
     IReactiveSafetyService,
+    ISessionRepository,
     ISafetyMonitor,
     ITracingService,
     ReasoningInput
@@ -25,12 +26,13 @@ describe('MechanicReasoningService', () => {
     let mockSearch: IGoogleSearchService;
     let mockMemory: IMemoryService;
     let mockReactive: IReactiveSafetyService;
+    let mockSessionRepo: ISessionRepository;
     let mockSafetyMonitor: ISafetyMonitor;
     let mockTracing: ITracingService;
     let mockLogger: ILogger;
 
     beforeEach(() => {
-        mockVideoAI = { 
+        mockVideoAI = {
             analyzeUploadedVideo: vi.fn().mockResolvedValue({
                 diagnosis: 'Test Diagnosis',
                 confidence: 0.9,
@@ -43,41 +45,46 @@ describe('MechanicReasoningService', () => {
                 isStock: true,
                 visualConflictDetected: false,
                 detectedCondition: 'clean'
-            }) 
+            })
         } as unknown as IMultimodalUploadAnalyzer;
-        
-        mockChatAI = { 
-            verifyHypothesis: vi.fn().mockResolvedValue({ isVerified: false, source: null, reasoning: '' }) 
+
+        mockChatAI = {
+            verifyHypothesis: vi.fn().mockResolvedValue({ isVerified: false, source: null, reasoning: '' })
         } as unknown as IChatAssistantAI;
-        
-        mockNHTSA = { 
-            checkRecalls: vi.fn().mockResolvedValue([]) 
+
+        mockNHTSA = {
+            checkRecalls: vi.fn().mockResolvedValue([])
         } as unknown as INHTSAService;
-        
+
         mockEmbedding = { embed: vi.fn().mockResolvedValue(new Array(768).fill(0)) } as unknown as IEmbeddingService;
-        
-        mockVector = { 
-            search: vi.fn().mockResolvedValue([]), 
-            addCase: vi.fn().mockResolvedValue(undefined) 
+
+        mockVector = {
+            search: vi.fn().mockResolvedValue([]),
+            addCase: vi.fn().mockResolvedValue(undefined)
         } as unknown as IVectorRepository;
-        
-        mockSearch = { 
-            search: vi.fn().mockResolvedValue({ results: [], queryUsed: '', totalFound: 0 }) 
+
+        mockSearch = {
+            search: vi.fn().mockResolvedValue({ results: [], queryUsed: '', totalFound: 0 })
         } as unknown as IGoogleSearchService;
-        
-        mockMemory = { 
-            search: vi.fn().mockResolvedValue([]), 
-            addDocument: vi.fn().mockResolvedValue(undefined) 
+
+        mockMemory = {
+            search: vi.fn().mockResolvedValue([]),
+            addDocument: vi.fn().mockResolvedValue(undefined)
         } as unknown as IMemoryService;
-        
+
         mockReactive = { checkSafety: vi.fn().mockReturnValue(null) } as unknown as IReactiveSafetyService;
-        
+
+        mockSessionRepo = {
+            saveXStateSnapshot: vi.fn().mockResolvedValue(undefined),
+            clearXStateSnapshot: vi.fn().mockResolvedValue(undefined)
+        } as unknown as ISessionRepository;
+
         mockSafetyMonitor = {
             assess: vi.fn().mockResolvedValue({ intervention_required: false, hazards_detected: [] })
         } as unknown as ISafetyMonitor;
 
         mockTracing = { traceAiCall: vi.fn(({ exec }) => exec()) } as unknown as ITracingService;
-        
+
         mockLogger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as ILogger;
 
         service = new MechanicReasoningService(
@@ -88,6 +95,7 @@ describe('MechanicReasoningService', () => {
             mockVector,
             mockSearch,
             mockMemory,
+            mockSessionRepo,
             mockReactive,
             mockSafetyMonitor,
             mockTracing,
@@ -219,7 +227,12 @@ describe('MechanicReasoningService', () => {
 
         await service.diagnose(input);
 
-        expect(mockMemory.search).toHaveBeenCalledWith(expect.stringContaining('VIN_HONDA'));
+        expect(mockMemory.search).toHaveBeenCalledWith(
+            expect.stringContaining('VIN_HONDA'),
+            expect.objectContaining({
+                tags: expect.arrayContaining(['user:user-1', 'vin:VIN_HONDA'])
+            })
+        );
 
         expect(mockVideoAI.analyzeUploadedVideo).toHaveBeenCalledWith(
             expect.any(String),

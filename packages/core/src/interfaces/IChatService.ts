@@ -1,4 +1,5 @@
 import { MessagePart, AIAnalysis } from '../types/models';
+import { StreamingEvent } from '../types/ai';
 import { VehicleContext } from './IRealtimeAIService';
 
 /**
@@ -12,5 +13,5 @@ export interface IChatService {
         userMessage: string | MessagePart[],
         vehicleContextOverride?: VehicleContext,
         diagnosticContextOverride?: AIAnalysis
-    ): AsyncGenerator<string, void, unknown>;
+    ): AsyncGenerator<StreamingEvent, void, unknown>;
 }

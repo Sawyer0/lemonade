@@ -1,0 +1,33 @@
+# Login Failure Flow - Test invalid credentials handling
+appId: com.dawan.lemonademvp
+---
+- launchApp:
+    clearState: false
+
+# Wait for login screen to load
+- extendedWaitUntil:
+    visible:
+        id: "login-submit-button"
+    timeout: 180000
+
+# Enter invalid credentials
+- tapOn:
+    id: "login-email-input"
+- inputText: "invalid@test.com"
+
+- tapOn:
+    id: "login-password-input"
+- inputText: "wrongpassword"
+
+# Submit login
+- tapOn:
+    id: "login-submit-button"
+
+# Wait and verify error is shown (stays on login screen)
+- extendedWaitUntil:
+    visible:
+        id: "login-submit-button"
+    timeout: 10000
+
+# Should still be on login screen
+- assertVisible: "Lemonade"

@@ -48,7 +48,7 @@ export const CONFIG = {
         ROUTES: {
             CHAT: '/api/chat',
             ANALYSIS_TRIGGER: '/api/analysis/trigger',
-            USER_ME: '/api/users/me',
+            PROFILE: '/api/profile',
             VEHICLES: '/api/vehicles',
             STRIPE_PORTAL: '/api/stripe/portal',
         }

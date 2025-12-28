@@ -10,7 +10,12 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "test:plugins": "jest --config jest.plugins.config.js"
+    "test:plugins": "jest --config jest.plugins.config.js",
+    "e2e": "maestro test .maestro/",
+    "e2e:smoke": "maestro test .maestro/smoke-test.yaml",
+    "e2e:auth": "maestro test .maestro/flows/auth/",
+    "e2e:garage": "maestro test .maestro/flows/garage/",
+    "e2e:session": "maestro test .maestro/flows/session/"
   },
   "dependencies": {
     "@expo/config-plugins": "^54.0.4",
@@ -24,6 +29,7 @@
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
+    "@xstate/react": "^6.0.0",
     "expo": "~54.0.27",
     "expo-av": "^16.0.8",
     "expo-build-properties": "~1.0.10",

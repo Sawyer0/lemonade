@@ -1,0 +1,21 @@
+# Add Vehicle Flow - Test adding a new vehicle via VIN
+appId: com.dawan.lemonademvp
+---
+# Login first (handles both logged-in and logged-out states)
+- runFlow: ../auth/login-success.yaml
+
+# Verify garage screen
+- extendedWaitUntil:
+    visible: "My Garage"
+    timeout: 5000
+
+# Tap add vehicle FAB
+- tapOn:
+    id: "add-vehicle-fab"
+
+# Wait for add vehicle screen
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# The add screen should show "Scan VIN" title
+- assertVisible: "Scan VIN"

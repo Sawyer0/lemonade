@@ -4,6 +4,11 @@ export const SHARED_CONFIG = {
         CHAT_MODEL: 'gemini-2.5-flash',
         LIVE_MODEL: 'gemini-live-2.5-flash-native-audio',
         EMBEDDING: 'text-embedding-004',
+        // Agent models (Mechanic System 2 reasoning)
+        AGENT: {
+            BRAIN: 'gemini-2.5-pro',      // Deep diagnostic reasoning (intuition state)
+            WORKER: 'gemini-2.5-flash'     // Simple tasks (gathering, investigating, synthesizing)
+        },
         // Start: Gemini 2.5 Flash Specs
         SPECS: {
             MAX_IMAGES_PER_PROMPT: 3000,

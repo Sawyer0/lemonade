@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FunctionCallService } from '../FunctionCallHandler';
-import { ILogger, IGoogleSearchService } from '@lemonade/core';
+import { ILogger, IGoogleSearchService, IMemoryService } from '@lemonade/core';
 import { TracingService } from '../../observability/TracingService';
 import { ChatSession, GenerateContentResponse } from '@google-cloud/vertexai';
 
@@ -8,6 +8,7 @@ describe('FunctionCallService', () => {
     let service: FunctionCallService;
     let mockLogger: ILogger;
     let mockSearchService: IGoogleSearchService;
+    let mockMemoryService: IMemoryService;
     let mockTracer: TracingService;
     let mockChatSession: ChatSession;
 
@@ -23,6 +24,11 @@ describe('FunctionCallService', () => {
             search: vi.fn().mockResolvedValue({ results: [{ title: 'Test Result' }] }),
         } as unknown as IGoogleSearchService;
 
+        mockMemoryService = {
+            addDocument: vi.fn().mockResolvedValue(undefined),
+            search: vi.fn().mockResolvedValue([])
+        } as unknown as IMemoryService;
+
         mockTracer = {
             traceAiCall: vi.fn().mockImplementation(({ exec }) => exec()),
         } as unknown as TracingService;
@@ -31,7 +37,7 @@ describe('FunctionCallService', () => {
             sendMessage: vi.fn(),
         } as unknown as ChatSession;
 
-        service = new FunctionCallService(mockLogger, mockSearchService, mockTracer);
+        service = new FunctionCallService(mockLogger, mockSearchService, mockMemoryService, mockTracer);
     });
 
     it('should handle google_search tool call', async () => {

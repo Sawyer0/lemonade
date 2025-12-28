@@ -93,3 +93,41 @@ export const AI_GENERATION_CONFIGS = {
         responseMimeType: "text/plain" as const,
     }
 };
+
+import { z } from 'zod';
+
+/**
+ * Unified event types for the agentic streaming protocol (NDJSON).
+ */
+export const StreamingEventSchema = z.discriminatedUnion('type', [
+    z.object({
+        type: z.literal('text'),
+        content: z.string(),
+    }),
+    z.object({
+        type: z.literal('thought'),
+        content: z.string(),
+    }),
+    z.object({
+        type: z.literal('tool_call'),
+        toolName: z.string(),
+        toolCallId: z.string(),
+        args: z.unknown(),
+    }),
+    z.object({
+        type: z.literal('tool_result'),
+        toolName: z.string(),
+        toolCallId: z.string(),
+        result: z.unknown(),
+    }),
+    z.object({
+        type: z.literal('error'),
+        message: z.string(),
+        code: z.string().optional(),
+    }),
+    z.object({
+        type: z.literal('done'),
+    }),
+]);
+
+export type StreamingEvent = z.infer<typeof StreamingEventSchema>;

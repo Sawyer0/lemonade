@@ -1,5 +1,5 @@
 import { injectable, inject } from 'inversify';
-import { IMultimodalUploadAnalyzer, AIAnalysis, AIAnalysisSchema, VIDEO_PROMPTS } from '@lemonade/core';
+import { IMultimodalUploadAnalyzer, AIAnalysis, AIAnalysisSchema, VideoPrompts } from '@lemonade/core';
 import { VertexAI, GenerativeModel } from '@google-cloud/vertexai';
 import { TracingService } from '../observability/TracingService';
 import type { IConfigProvider } from '../interfaces/IConfigProvider';
@@ -34,7 +34,7 @@ export class VertexAIVideoAdapter implements IMultimodalUploadAnalyzer {
     }
 
     async analyzeUploadedVideo(videoUri: string, context: string, mimeType?: string, userId?: string, sessionId?: string): Promise<AIAnalysis> {
-        const prompt = VIDEO_PROMPTS.ANALYSIS(context);
+        const prompt = VideoPrompts.analysis(context);
 
         const result = await this.tracer.traceAiCall({
             name: 'video_analysis_cloud_function',
@@ -67,7 +67,7 @@ export class VertexAIVideoAdapter implements IMultimodalUploadAnalyzer {
     }
 
     async analyzeUploadedImage(imageUrl: string, vehicleContext: string, mimeType?: string, userId?: string, sessionId?: string): Promise<AIAnalysis> {
-        const prompt = VIDEO_PROMPTS.IMAGE_ANALYSIS(vehicleContext);
+        const prompt = VideoPrompts.imageAnalysis(vehicleContext);
 
         const result = await this.tracer.traceAiCall({
             name: 'image_analysis_cloud_function',

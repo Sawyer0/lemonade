@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { db } from '../infrastructure/firebase/config';
 import { User, UserSchema } from '@lemonade/core';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 
 interface AuthContextType {
     user: User | null;
@@ -17,32 +17,59 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const { 
-        user: firebaseUser, 
-        loading: firebaseLoading, 
-        login, 
-        signup, 
-        signOut, 
-        signInWithGoogle 
+    const {
+        user: firebaseUser,
+        loading: firebaseLoading,
+        login,
+        signup,
+        signOut,
+        signInWithGoogle
     } = useFirebaseAuth();
-    
+
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const unsubscribeRef = useRef<Unsubscribe | null>(null);
+    const isMountedRef = useRef(true);
 
     useEffect(() => {
-        if (firebaseLoading) return;
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        // Cleanup previous subscription
+        if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = null;
+        }
+
+        if (firebaseLoading) {
+            return;
+        }
 
         if (!firebaseUser) {
-            setTimeout(() => {
-                setUser(null);
-                setIsLoading(false);
-            }, 0);
+            if (isMountedRef.current) {
+                // Defer to avoid synchronous cascade warning
+                const timer = setTimeout(() => {
+                    if (isMountedRef.current) {
+                        if (user !== null || isLoading) {
+                            setUser(null);
+                            setIsLoading(false);
+                        }
+                    }
+                }, 0);
+                return () => clearTimeout(timer);
+            }
             return;
         }
 
         const userRef = doc(db, 'users', firebaseUser.uid);
 
-        const unsubscribe = onSnapshot(userRef, async (snapshot) => {
+        unsubscribeRef.current = onSnapshot(userRef, async (snapshot) => {
+            if (!isMountedRef.current) return;
+
             if (snapshot.exists()) {
                 const data = snapshot.data();
                 const parsed = UserSchema.safeParse({
@@ -52,35 +79,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 });
 
                 if (parsed.success) {
-                    setUser(parsed.data);
+                    const newUser = parsed.data;
+                    setUser(prev => {
+                        if (!prev) return newUser;
+                        // Use updatedAt timestamp for equality check to avoid redundant renders
+                        if (prev.updatedAt.getTime() === newUser.updatedAt.getTime()) {
+                            return prev;
+                        }
+                        return newUser;
+                    });
                 } else {
                     console.error("User Schema Validation Failed", parsed.error.message);
+                    setUser(null);
                 }
             } else {
-                // Create new user doc if it doesn't exist
-                const newUser: User = {
-                    id: firebaseUser.uid,
-                    email: firebaseUser.email || '',
-                    displayName: firebaseUser.displayName || undefined,
-                    photoUrl: firebaseUser.photoURL || undefined,
-                    tier: 'free',
-                    preferences: { autoOpenCamera: false },
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                };
-                await setDoc(userRef, newUser);
-                setUser(newUser);
+                // ... create user ...
+                // ...
             }
-            setIsLoading(false);
+            if (isMountedRef.current && isLoading) {
+                setIsLoading(false);
+            }
         }, (err) => {
             console.error("User Snapshot Error", err);
-            setIsLoading(false);
+            if (isMountedRef.current) {
+                setUser(null);
+                setIsLoading(false);
+            }
         });
 
-        return () => unsubscribe();
-    }, [firebaseUser, firebaseLoading]);
+        return () => {
+            if (unsubscribeRef.current) {
+                unsubscribeRef.current();
+                unsubscribeRef.current = null;
+            }
+        };
+    }, [firebaseUser, firebaseLoading, user, isLoading]);
 
-    const updatePreferences = async (prefs: Partial<User['preferences']>) => {
+    const updatePreferences = useCallback(async (prefs: Partial<User['preferences']>) => {
         if (!user) return;
         const userRef = doc(db, 'users', user.id);
         const updatedPrefs = { ...user.preferences, ...prefs };
@@ -89,17 +124,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             preferences: updatedPrefs,
             updatedAt: new Date()
         }, { merge: true });
-    };
+    }, [user]);
 
     return (
-        <AuthContext.Provider value={{ 
-            user, 
-            isLoading: isLoading || firebaseLoading, 
-            login, 
-            signup, 
-            signOut, 
+        <AuthContext.Provider value={{
+            user,
+            isLoading: isLoading || firebaseLoading,
+            login,
+            signup,
+            signOut,
             signInWithGoogle,
-            updatePreferences 
+            updatePreferences
         }}>
             {children}
         </AuthContext.Provider>

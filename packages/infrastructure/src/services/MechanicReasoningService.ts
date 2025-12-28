@@ -8,6 +8,7 @@ import type {
     IGoogleSearchService,
     IMemoryService,
     IReactiveSafetyService,
+    ISessionRepository,
     ISafetyMonitor,
     ITracingService,
     IMultimodalUploadAnalyzer,
@@ -16,7 +17,6 @@ import type {
     ILogger,
     NeurosymbolicState,
     VerificationData,
-    VisionInput,
     NhtsaInput,
     VectorInput,
     SearchInput,
@@ -25,11 +25,18 @@ import type {
     SearchResponse,
     VerificationResponse,
     MemorySearchResult,
-    SafetyRecall
+    SafetyRecall,
+    IntuitionInput,
+    GatherAllContextInput,
+    VisionInput,
+    DeepPartial
 } from '@lemonade/core';
+import { MechanicPrompts, MemoryTags, getModelForState } from '@lemonade/core';
 import { mechanicMachine } from '@lemonade/core';
 import { createActor, waitFor, fromPromise } from 'xstate';
+import { createBrowserInspector } from '@statelyai/inspect';
 import { TYPES } from '../di/types';
+import { GeminiCoreAdapter } from '../ai/GeminiCoreAdapter';
 
 interface LocalTriageDetection {
     id?: { obj: string };
@@ -46,10 +53,12 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         @inject(TYPES.VectorRepository) private vectorRepo: IVectorRepository,
         @inject(TYPES.GoogleSearchService) private searchService: IGoogleSearchService,
         @inject(TYPES.SupermemoryService) private memoryService: IMemoryService,
+        @inject(TYPES.SessionRepository) private sessionRepo: ISessionRepository,
         @inject(TYPES.ReactiveSafetyService) private reactiveSafety: IReactiveSafetyService,
         @inject(TYPES.SafetyMonitor) private safetyMonitor: ISafetyMonitor,
         @inject(TYPES.TracingService) private tracer: ITracingService,
-        @inject(TYPES.Logger) private logger: ILogger
+        @inject(TYPES.Logger) private logger: ILogger,
+        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter
     ) { }
 
     async diagnose(input: ReasoningInput): Promise<NeurosymbolicState> {
@@ -78,7 +87,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             });
             return {
                 complaint: input.complaint,
-                intuition: { hypothesis: "Immediate Hazard", confidence: 1.0, reasoning: "Reactive Layer Triggered" },
+                intuition: { hypothesis: "Immediate Hazard", confidence: 1.0, reasoning: "Reactive Layer Triggered", investigationPlan: [] },
                 authorityData: { vin: input.vehicleContext.vin as string, nhtsaRecalls: [], manualSpecs: null, safetyAlerts: reactiveAssessment.hazards_detected },
                 visualGrounding: { engineDescription: "Gated", isStock: true, visualConflictDetected: false, detectedCondition: 'unknown' },
                 consensus: { similarCasesFound: 0, consensusFix: null, isKnownIssue: false },
@@ -103,7 +112,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             });
             return {
                 complaint: input.complaint,
-                intuition: { hypothesis: "Potential Hazard", confidence: 1.0, reasoning: "Semantic Layer Triggered" },
+                intuition: { hypothesis: "Potential Hazard", confidence: 1.0, reasoning: "Semantic Layer Triggered", investigationPlan: [] },
                 authorityData: { vin: input.vehicleContext.vin as string, nhtsaRecalls: [], manualSpecs: null, safetyAlerts: semanticAssessment.hazards_detected },
                 visualGrounding: { engineDescription: "Gated", isStock: true, visualConflictDetected: false, detectedCondition: 'unknown' },
                 consensus: { similarCasesFound: 0, consensusFix: null, isKnownIssue: false },
@@ -120,11 +129,25 @@ export class MechanicReasoningService implements IMechanicReasoningService {
 
         const actor = createActor(mechanicMachine.provide({
             actors: {
+                // New Actor: Generates Initial Hypothesis + Plan
+                generateIntuition: fromPromise(async ({ input }: { input: IntuitionInput }) => {
+                    return this.generateIntuition(
+                        input.userQuery,
+                        input.vehicleContext,
+                        input.nhtsaResults,
+                        input.vehicleHistory,
+                        input.userId,
+                        input.sessionId
+                    );
+                }),
+                // Vision Actor: Now mostly for verification/grounding
                 visionAnalysis: fromPromise(async ({ input }: { input: VisionInput }) => {
+                    if (!input.data.videoUrl) return Promise.resolve(input.data.visualAnalysis as AIAnalysis); // Skip if no video
+
                     const ctx = input.data;
                     const reasoningInput: ReasoningInput = {
                         videoUrl: ctx.videoUrl,
-                        vehicleContext: ctx.vehicleContext as { year: number; make: string; model: string; vin?: string },
+                        vehicleContext: ctx.vehicleContext,
                         sessionId: ctx.sessionId,
                         userId: ctx.userId,
                         userQuery: ctx.userQuery,
@@ -139,13 +162,20 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     );
                 }),
                 nhtsaCheck: fromPromise(async ({ input }: { input: NhtsaInput }) => {
+                    console.log('   [Actor] nhtsaCheck - STARTING');
                     const idx = input.data;
-                    return this.nhtsaService.checkRecalls(idx.year, idx.make, idx.model);
+                    const result = await this.nhtsaService.checkRecalls(idx.year, idx.make, idx.model);
+                    console.log('   [Actor] nhtsaCheck - COMPLETED with', result.length, 'recalls');
+                    return result;
                 }),
                 vectorSearch: fromPromise(async ({ input }: { input: VectorInput }) => {
+                    console.log('   [Actor] vectorSearch - STARTING');
                     try {
-                        return await this.vectorRepo.search(input.data.query, 3, { userId: input.data.userId });
+                        const result = await input.service.search(input.data.query, 3, { userId: input.data.userId });
+                        console.log('   [Actor] vectorSearch - COMPLETED with', result.length, 'results');
+                        return result;
                     } catch (e) {
+                        console.log('   [Actor] vectorSearch - FAILED', e);
                         this.logger.warn("Vector search failed", { error: e });
                         return [];
                     }
@@ -162,14 +192,72 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     return this.chatAI.verifyHypothesis(input.data);
                 }),
                 supermemorySearch: fromPromise(async ({ input }: { input: MemoryInput }) => {
+                    console.log('   [Actor] supermemorySearch - STARTING');
                     try {
                         const query = `Vehicle VIN: ${input.data.vin || 'Unknown'}. Component/Issue: ${input.data.query}`;
-                        return await this.memoryService.search(query);
+                        const result = await input.service.search(query, {
+                            tags: [MemoryTags.vin(input.data.vin || 'unknown')]
+                        });
+                        console.log('   [Actor] supermemorySearch - COMPLETED with', result.length, 'results');
+                        return result;
                     } catch (e) {
+
+                        console.log('   [Actor] supermemorySearch - FAILED', e);
                         this.logger.warn("Supermemory search failed", { error: e });
                         return [];
                     }
+                }),
+                // NEW: Combined actor for parallel context gathering (workaround for XState parallel state bug)
+                gatherAllContext: fromPromise(async ({ input }: { input: GatherAllContextInput }) => {
+                    console.log('   [Actor] gatherAllContext - STARTING (Promise.all)');
+                    const [recalls, history, vectors] = await Promise.all([
+                        // NHTSA Recalls
+                        (async () => {
+                            try {
+                                const { year, make, model } = input.vehicleContext;
+                                return await input.services.nhtsa.checkRecalls(
+                                    Number(year || 0),
+                                    String(make || ''),
+                                    String(model || '')
+                                );
+                            } catch (e) {
+                                console.log('   [gatherAllContext] NHTSA failed:', e);
+                                return [];
+                            }
+                        })(),
+                        // Supermemory History
+                        (async () => {
+                            try {
+                                const query = `Vehicle VIN: ${input.vehicleContext.vin || 'Unknown'}. Component/Issue: ${input.userQuery}`;
+                                return await input.services.memory.search(query, {
+                                    tags: MemoryTags.forVehicle(input.userId, String(input.vehicleContext.vin || 'unknown'))
+                                });
+                            } catch (e) {
+                                console.log('   [gatherAllContext] Memory failed:', e);
+                                return [];
+                            }
+                        })(),
+                        // Vector Search
+                        (async () => {
+                            try {
+                                return await input.services.vector.search(input.userQuery, 3, { userId: input.userId });
+                            } catch (e) {
+                                console.log('   [gatherAllContext] Vector failed:', e);
+                                return [];
+                            }
+                        })()
+                    ]);
+                    console.log('   [Actor] gatherAllContext - COMPLETED', { recalls: recalls.length, history: history.length, vectors: vectors.length });
+                    return { recalls, history, vectors };
                 })
+            },
+            actions: {
+                loadVisionModel: () => {
+                    this.logger.debug('Initializing Vision Analysis resources');
+                },
+                unloadVisionModel: () => {
+                    this.logger.debug('Releasing Vision Analysis resources');
+                }
             }
         }), {
             input: {
@@ -187,13 +275,23 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     search: this.searchService,
                     memory: this.memoryService
                 }
-            }
+            },
+            inspect: process.env.XSTATE_INSPECTOR === 'true' ? createBrowserInspector().inspect : undefined
         });
+
+        if (process.env.XSTATE_INSPECTOR === 'true') {
+            this.logger.info('[XState Inspector] Enabled - Connecting to Stately Studio', { sessionId: input.sessionId });
+        }
 
         actor.subscribe((state) => {
             this.logger.debug(`[MechanicMachine] State: ${JSON.stringify(state.value)}`, {
                 error: state.context.error
             });
+
+            // XState Persistence: Save snapshot on every transition
+            this.sessionRepo.saveXStateSnapshot(input.sessionId, state).catch(err =>
+                this.logger.warn('Failed to save XState snapshot', { error: err, sessionId: input.sessionId })
+            );
         });
 
         actor.start();
@@ -211,7 +309,13 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             localTriage: input.localTriage
         });
 
-        const finalState = await waitFor(actor, (state) => state.matches('synthesizing'), { timeout: 10000 });
+        const finalState = await waitFor(actor, (state) => state.matches('synthesizing'), { timeout: 120000 });
+
+        // Clear persistence on completion
+        await this.sessionRepo.clearXStateSnapshot(input.sessionId).catch(err =>
+            this.logger.warn('Failed to clear XState snapshot', { error: err, sessionId: input.sessionId })
+        );
+
         const ctx = finalState.context;
 
         const visual = ctx.visualAnalysis || {
@@ -225,7 +329,9 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             engineDescription: "No visual analysis performed",
             isStock: true,
             visualConflictDetected: false,
-            detectedCondition: 'unknown'
+            detectedCondition: 'unknown',
+            reasoning: "No analysis performed",
+            investigationPlan: []
         };
         const nhtsa = ctx.nhtsaResults || [];
         const similar = ctx.embeddingInfo || [];
@@ -255,7 +361,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
 
         const state: NeurosymbolicState = {
             complaint: input.complaint,
-            intuition: { hypothesis: visual.diagnosis, confidence: visual.confidence, reasoning: "XState Logic" },
+            intuition: { hypothesis: visual.diagnosis, confidence: visual.confidence, reasoning: "XState Logic", investigationPlan: [] },
             authorityData: { vin: input.vehicleContext.vin as string, nhtsaRecalls: (nhtsa as { Summary?: string }[]).map((r) => r.Summary || 'Unknown'), manualSpecs: null, safetyAlerts: [] },
             visualGrounding: { engineDescription: "Analyzed", isStock: true, visualConflictDetected: false, detectedCondition: 'unknown' },
             consensus: { similarCasesFound: similar.length, consensusFix: similar.length > 0 ? (similar[0] as { text: string }).text : null, isKnownIssue: similar.length > 1 },
@@ -264,12 +370,145 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         };
 
         if (state.intuition.confidence > 0.8 && state.finalDiagnosis.decision === 'PROCEED') {
-            this.saveToMemory(state.complaint || input.userQuery, state, input.userId).catch(err =>
+            this.saveToMemory(state.complaint || input.userQuery, state, input.userId, input.sessionId).catch(err =>
                 this.logger.error('Failed to save individual case to collective memory', err)
             );
         }
 
         return state;
+    }
+
+    private async generateIntuition(
+        query: string,
+        vehicleContext: ReasoningInput['vehicleContext'],
+        recalls: SafetyRecall[],
+        history: MemorySearchResult[],
+        userId: string,
+        sessionId: string
+    ): Promise<AIAnalysis> {
+        const selectedModel = getModelForState('intuition');
+        this.logger.info('[MechanicReasoning] Generating Intuition (System 2)', {
+            sessionId,
+            model: selectedModel,
+            modelReason: 'Deep diagnostic reasoning requires Pro model'
+        });
+
+        // 1. Construct ASE Master Tech Prompt with FULL Context
+        const recallText = recalls.length > 0
+            ? recalls.map(r => `- [${r.Component}] ${r.Summary} (Remedy: ${r.Remedy})`).join('\n')
+            : "No active recalls found.";
+
+        const historyText = history.length > 0
+            ? history.map(h => `- ${h.content}`).join('\n')
+            : "No relevant vehicle history.";
+
+        const prompt = `
+        You are an ASE Certified Master Technician with 20+ years of experience.
+        You are diagnosing a vehicle issue based on a User Query, Vehicle Context, Official Recalls, and Service History.
+
+        STEP 1: ANALYZE RECALLS
+        Check if the 'Official Recalls' list matches the symptoms in the 'User Query'. 
+        If there is a match, this is your primary hypothesis.
+
+        STEP 2: FORMULATE HYPOTHESIS
+        If no recall matches, use your expert knowledge of this specific Make/Model to form a hypothesis.
+        Consider common failure points for this vehicle (e.g., Ford F-150 IWEs, Cam Phasers).
+
+        STEP 3: CREATE DIAGNOSTIC PLAN
+        List 3-5 specific checks to verify your hypothesis.
+        - Physical checks (e.g., "Check vacuum lines")
+        - Research checks (e.g., "Search for TSB 12-34-56")
+
+        OUTPUT FORMAT: JSON ONLY
+        {
+            "diagnosis": "Short title of the issue",
+            "confidence": 0.0 to 1.0,
+            "reasoning": "Detailed explanation of why you suspect this.",
+            "investigationPlan": ["Step 1", "Step 2", ...],
+            "severity": "low" | "medium" | "high" | "critical",
+            "safety_alert": boolean,
+            "suggested_actions": ["Repair X", "Inspect Y"],
+            "engineDescription": "N/A",
+            "isStock": true,
+            "visualConflictDetected": false,
+            "detectedCondition": "unknown",
+            "visual_evidence": [],
+            "acoustic_evidence": []
+        }
+
+        DATA:
+        User Query: "${query}"
+        Vehicle: ${JSON.stringify(vehicleContext)}
+        Official Recalls:
+        ${recallText}
+        Service History:
+        ${historyText}
+        `;
+
+        try {
+            // 2. Get Pro model for deep reasoning (via ModelRouter)
+            const model = this.coreAdapter.getGenerativeModel(
+                selectedModel,
+                this.coreAdapter.commonTools,
+                this.coreAdapter.commonSafetySettings
+            );
+
+            // 3. Call with Thinking Config (High Reasoning Effort)
+            const generateConfig = {
+                thinkingConfig: {
+                    thinkingBudget: 10000,
+                    includeThoughts: false
+                },
+                temperature: 0.2,
+                responseMimeType: "application/json" as const
+            };
+
+            const response = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: generateConfig
+            });
+
+            // 4. Parse JSON from response
+            const text = response.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const result = JSON.parse(jsonStr);
+
+            // Validate/Fill defaults
+            return {
+                diagnosis: result.diagnosis || "Unknown Issue",
+                confidence: typeof result.confidence === 'number' ? result.confidence : 0.5,
+                reasoning: result.reasoning || "Analysis complete.",
+                investigationPlan: Array.isArray(result.investigationPlan) ? result.investigationPlan : ["Perform visual inspection"],
+                severity: result.severity || "low",
+                safety_alert: !!result.safety_alert,
+                suggested_actions: Array.isArray(result.suggested_actions) ? result.suggested_actions : [],
+                engineDescription: "N/A",
+                isStock: true,
+                visualConflictDetected: false,
+                detectedCondition: 'unknown',
+                visual_evidence: [],
+                acoustic_evidence: []
+            };
+
+        } catch (error) {
+            this.logger.error("Failed to generate intuition", error as Error);
+            // Fallback
+            return {
+                diagnosis: "Complex Issue",
+                confidence: 0.1,
+                reasoning: "Failed to generate detailed intuition.",
+                investigationPlan: ["Consult manual", "Check codes"],
+                severity: "low",
+                safety_alert: false,
+                suggested_actions: ["Consult human mechanic"],
+                engineDescription: "N/A",
+                isStock: true,
+                visualConflictDetected: false,
+                detectedCondition: 'unknown',
+                visual_evidence: [],
+                acoustic_evidence: []
+            };
+        }
     }
 
     private synthesizeReflexion(
@@ -322,7 +561,20 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         decisionTrace.push(`META-COGNITION: Final confidence calculated at ${(metaConfidence * 100).toFixed(1)}%`);
 
         // RELAXED THRESHOLDS: Only punt if absolutely zero grounding and very low confidence
-        if (metaConfidence < 0.20 && !recallMatch && !verification.isVerified) {
+        if (metaConfidence < 0.30 && !recallMatch && !verification.isVerified) {
+            // ITERATIVE FALLBACK: Request More Info instead of referring to human immediately
+            const typedIntuition = intuition as DeepPartial<AIAnalysis>;
+            if (typedIntuition.investigationPlan && typedIntuition.investigationPlan.length > 0) {
+                decisionTrace.push("LOW CONFIDENCE: Initiating iterative diagnosis request.");
+                return {
+                    decision: 'REQUEST_MORE_INFO',
+                    reasoningTrace: decisionTrace.join('\n'),
+                    userOutput: `I have a hypothesis (${diagnosis}), but I need you to check a few things to be sure:\n\n${typedIntuition.investigationPlan.map((step) => `- ${step}`).join('\n')}\n\nCan you perform these checks and tell me what you find?`,
+                    requiredActions: typedIntuition.investigationPlan as string[],
+                    metaConfidence: metaConfidence
+                };
+            }
+
             decisionTrace.push("LOW CONFIDENCE: No grounding found and initial intuition is extremely weak.");
             return {
                 decision: 'REFER_TO_HUMAN',
@@ -406,6 +658,44 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         vehicleHistory?: MemorySearchResult[],
         recalls: SafetyRecall[] = []
     ): Promise<AIAnalysis> {
+        // STEP 0: Check for Local Model Results (SmolVLM2 on-device triage)
+        if (input.localTriage && (input.localTriage.confidence || 0) > 0.7) {
+            const selectedModel = getModelForState('vision_verifying');
+            this.logger.info('[MechanicReasoning] Using Local Model Results (System 1)', {
+                sessionId: input.sessionId,
+                model: selectedModel,
+                modelReason: 'On-device triage with high confidence',
+                localConfidence: input.localTriage.confidence,
+                costSavings: '$0.00'
+            });
+
+            // Convert LocalTriageResult to AIAnalysis format
+            return {
+                diagnosis: input.localTriage.primaryIssue || "Unknown (Local)",
+                confidence: input.localTriage.confidence || 0.7,
+                reasoning: input.localTriage.reasoning || "Detected via local model",
+                investigationPlan: [],
+                severity: input.localTriage.safetyConcern ? 'high' : 'medium',
+                safety_alert: !!input.localTriage.safetyConcern,
+                suggested_actions: input.localTriage.componentsMentioned || [],
+                engineDescription: 'Analyzed via local model',
+                isStock: true,
+                visualConflictDetected: false,
+                detectedCondition: 'unknown',
+                visual_evidence: [],
+                acoustic_evidence: []
+            };
+        }
+
+        this.logger.info('[MechanicReasoning] Local triage unavailable or low confidence, using Cloud Flash', {
+            sessionId: input.sessionId,
+            model: 'gemini-2.5-flash',
+            modelReason: 'Fallback for vision analysis',
+            localTriageAvailable: !!input.localTriage,
+            localConfidence: input.localTriage?.confidence ?? 0
+        });
+
+        // STEP 1: Build Enhanced Context
         let enhancedContext = JSON.stringify(input.vehicleContext);
 
         if (vehicleHistory && vehicleHistory.length > 0) {
@@ -443,32 +733,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         context: string,
         verification?: VerificationResponse
     ): Promise<AIAnalysis> {
-        const prompt = `
-You are the Lemonade Master Technician.
-User Query: "${input.userQuery}"
-Vehicle Context: ${context}
-Verification Info: ${JSON.stringify(verification)}
-
-Task: Diagnose the issue based on the text description and context.
-- Prioritize SAFETY.
-- If an active recall matches the symptoms, that is the Primary Diagnosis.
-- If recalls are unrelated, diagnose based on symptoms.
-
-Output strictly valid JSON matching this schema:
-{
-    "diagnosis": "string",
-    "visual_evidence": [],
-    "acoustic_evidence": [],
-    "severity": "low" | "medium" | "high" | "critical",
-    "safety_alert": boolean,
-    "suggested_actions": ["action1", "action2"],
-    "engineDescription": "Text-based analysis",
-    "isStock": true,
-    "visualConflictDetected": false,
-    "detectedCondition": "unknown",
-    "confidence": number (0-1)
-}
-`;
+        const prompt = MechanicPrompts.textDiagnosis(input.userQuery, context, JSON.stringify(verification));
         try {
             const response = await this.chatAI.generateReply(
                 [{ role: 'user', content: prompt }],
@@ -496,12 +761,14 @@ Output strictly valid JSON matching this schema:
                 engineDescription: "Failed to analyze text",
                 isStock: true,
                 visualConflictDetected: false,
-                detectedCondition: 'unknown'
+                detectedCondition: 'unknown',
+                reasoning: "Text analysis failed",
+                investigationPlan: []
             };
         }
     }
 
-    private async saveToMemory(text: string, state: NeurosymbolicState, userId: string) {
+    private async saveToMemory(text: string, state: NeurosymbolicState, userId: string, sessionId: string) {
         const vector = await this.embeddingService.embed(text);
 
         await this.vectorRepo.addCase(text, vector, {
@@ -522,24 +789,59 @@ Required Actions: ${state.finalDiagnosis.requiredActions.join(', ')}
 Meta Confidence: ${state.finalDiagnosis.metaConfidence}
         `.trim();
 
+        const isolationTags = MemoryTags.forVehicle(userId, state.authorityData.vin || 'unknown');
+
         try {
-            await this.memoryService.addDocument(
-                diagnosticLog,
-                ['diagnostic', `vin:${state.authorityData.vin || 'unknown'}`, `user:${userId}`]
-            );
-            this.logger.info("Diagnostic session saved to Supermemory", { vin: state.authorityData.vin });
+            // 1. Save the text log
+            await this.memoryService.addDocument({
+                content: diagnosticLog,
+                tags: [
+                    MemoryTags.type('diagnostic'),
+                    ...isolationTags,
+                    ...(state.verification.isVerified ? [MemoryTags.status('verified')] : [MemoryTags.status('session')])
+                ],
+                metadata: {
+                    sessionId,
+                    isVerified: state.verification.isVerified
+                }
+            });
+
+            // 2. If verified, save multimedia artifacts
+            if (state.verification.isVerified) {
+                const session = await this.sessionRepo.findById(sessionId);
+                if (session) {
+                    // Save video if present
+                    if (session.videoUrl) {
+                        await this.memoryService.addDocument({
+                            url: session.videoUrl,
+                            tags: [MemoryTags.type('observation'), ...isolationTags, MemoryTags.status('verified')],
+                            metadata: { sessionId, artifactType: 'video' }
+                        }).catch(e => this.logger.warn('Failed to ingest session video', { error: e }));
+                    }
+
+                    // Save images from messages
+                    const imageUrls = new Set<string>();
+                    session.messages.forEach(msg => {
+                        if (Array.isArray(msg.content)) {
+                            msg.content.forEach(part => {
+                                if (part.type === 'image' && part.image) imageUrls.add(part.image);
+                            });
+                        }
+                    });
+
+                    for (const url of imageUrls) {
+                        await this.memoryService.addDocument({
+                            url,
+                            tags: [MemoryTags.type('observation'), ...isolationTags, MemoryTags.status('verified')],
+                            metadata: { sessionId, artifactType: 'image' }
+                        }).catch(e => this.logger.warn('Failed to ingest session image', { error: e, url }));
+                    }
+                }
+            }
+
+            this.logger.info("Diagnostic session saved to Supermemory", { vin: state.authorityData.vin, sessionId });
         } catch (error) {
             this.logger.error("Failed to save to Supermemory", error as Error);
-        }
-
-        if (state.verification.isVerified && state.intuition.confidence > 0.9) {
-            await this.vectorRepo.addCase(text, vector, {
-                isGlobal: true,
-                diagnosis: state.finalDiagnosis.userOutput,
-                vehicle_context: `${state.visualGrounding.engineDescription}`,
-                type: 'VERIFIED_SOLUTION',
-                timestamp: new Date().toISOString()
-            });
         }
     }
 }

@@ -2,7 +2,7 @@ import { injectable, inject } from 'inversify';
 import type { ISafetyAI, ILogger } from '@lemonade/core';
 import {
     ISafetyMonitor,
-    SAFETY_PROMPTS,
+    SafetyPrompts,
     SafetyAssessment
 } from '@lemonade/core';
 import { TYPES } from '../di/types';
@@ -17,7 +17,7 @@ export class SafetyMonitor implements ISafetyMonitor {
     async assess(userMessage: string, context: string): Promise<SafetyAssessment> {
         this.logger.info("Assessing safety", { userMessage, contextSnippet: context.substring(0, 50) });
 
-        const prompt = SAFETY_PROMPTS.SAFETY_ASSESSMENT(userMessage, context);
+        const prompt = SafetyPrompts.safetyAssessment(userMessage, context);
 
         try {
             const text = await this.safetyAI.assessSafety(prompt);

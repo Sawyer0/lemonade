@@ -1,0 +1,25 @@
+# Vehicle Detail Flow - Test viewing a specific vehicle
+# Requires test account to have at least one vehicle
+appId: com.dawan.lemonademvp
+---
+# Login first (handles both logged-in and logged-out states)
+- runFlow: ../auth/login-success.yaml
+
+# Verify garage screen
+- extendedWaitUntil:
+    visible: "My Garage"
+    timeout: 5000
+
+# Wait for vehicles to load
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Tap on test vehicle card - uses the year in the title
+- tapOn: "2017 Honda Civic"
+
+# Wait for vehicle detail to load
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Vehicle detail should show the VIN
+- assertVisible: "1HGBH41JXMN109186"

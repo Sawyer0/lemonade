@@ -4,7 +4,7 @@ import { DiagnosticSession } from '@lemonade/core';
 import { useDirectUpload } from '@/presentation/hooks/useDirectUpload';
 import { useTTS } from '@/presentation/hooks/useTTS';
 import { useToast } from '@/presentation/context';
-import { useChat } from '@ai-sdk/react';
+import { useGeminiChat, Message } from '@/presentation/hooks/useGeminiChat';
 import { CONFIG } from '@/infrastructure/config';
 import { Page, Navbar, Link, Block, BlockTitle, Button } from 'konsta/react';
 
@@ -12,8 +12,8 @@ import { SessionStatusHeader } from './SessionStatusHeader';
 import { ChatStream } from './ChatStream';
 import { AnalysisCard } from './AnalysisCard';
 import { InputBar } from './InputBar';
-import { useWorkspaceActions, Message } from './useWorkspaceActions';
-import { Video } from 'lucide-react';
+import { useWorkspaceActions } from './useWorkspaceActions';
+import { Video, Brain, Loader2 } from 'lucide-react';
 
 interface SessionWorkspaceProps {
     session: DiagnosticSession;
@@ -22,44 +22,21 @@ interface SessionWorkspaceProps {
 
 export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
 
-    // useChat v5: Input state is managed manually.
-    const chatResult = useChat({
+    const initialMessages: Message[] = (session.messages || []).map((m, index) => ({
+        id: `${new Date(m.timestamp).getTime()}-${index}`,
+        role: m.role as 'user' | 'assistant' | 'system' | 'tool',
+        content: m.content,
+        timestamp: new Date(m.timestamp).getTime()
+    }));
+
+    const chatHelpers = useGeminiChat({
         api: CONFIG.API.ROUTES.CHAT,
-        body: {
-            sessionId: session.id,
-            vehicleContext: session.context,
-            diagnosticContext: session.aiAnalysis
-        },
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'x-session-id': session.id
-        },
-        messages: (session.messages || []).map((m: Record<string, unknown>, index: number) => ({
-            id: `${(m.timestamp as Date).getTime()}-${index}`,
-            role: m.role as 'user' | 'assistant' | 'system',
-            content: m.content
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        })) as any
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+        sessionId: session.id,
+        token,
+        initialMessages
+    });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chatHelpers = chatResult as any;
-    const { messages, setMessages, isLoading } = chatHelpers;
-
-    // Fallback: Manually set messages if useChat didn't initialize correctly
-    useEffect(() => {
-        if (!session.messages) return;
-        if (session.messages.length > messages.length) {
-            const convertedMessages = session.messages.map((m: Record<string, unknown>, index: number) => ({
-                id: `${(m.timestamp as Date).getTime()}-${index}`,
-                role: m.role as 'user' | 'assistant' | 'system',
-                content: m.content
-            }));
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setMessages(convertedMessages as any);
-        }
-    }, [session.messages, messages.length, setMessages]);
+    const { messages, isLoading, currentThoughts, activeToolCalls } = chatHelpers;
 
     const [input, setInput] = useState('');
     const [voiceMode] = useState(false);
@@ -72,7 +49,6 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
 
     const { handleUpload, handleSendMessage, handleImageCapture } = useWorkspaceActions({
         sessionId: session.id,
-        token,
         uploadFile,
         chatHelpers,
         setInput,
@@ -81,12 +57,11 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
 
     useEffect(() => {
         if (!voiceMode || !messages || messages.length === 0) return;
-        const aiMessages = (messages as Message[]).filter((m: Message) => m.role === 'assistant');
+        const aiMessages = messages.filter(m => m.role === 'assistant');
         if (aiMessages.length === 0) return;
 
         const latestAiMessage = aiMessages[aiMessages.length - 1];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const content = (latestAiMessage as any).content;
+        const content = typeof latestAiMessage.content === 'string' ? latestAiMessage.content : '';
         if (content && content !== lastSpokenMessageRef.current) {
             lastSpokenMessageRef.current = content;
             speak(content);
@@ -137,7 +112,7 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
             {/* Chat Area */}
             <div className="flex-1 min-h-0 relative flex flex-col h-[calc(100vh-200px)]">
                 <ChatStream
-                    messages={messages as unknown as Message[]}
+                    messages={messages}
                     isVideoMode={false} // Permanently false in WebView
                     onImageCapture={handleImageCapture}
                     sessionId={session.id}
@@ -147,6 +122,22 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
 
             {/* Footer / Input */}
             <div className="fixed bottom-0 left-0 right-0 w-full bg-black pb-safe">
+                {/* Thinking / Tool Call Indicators */}
+                <div className="px-4 py-2 space-y-2 bg-black/80 backdrop-blur-sm">
+                    {currentThoughts.length > 0 && isLoading && (
+                        <div className="flex items-center gap-2 text-xs text-zinc-500 animate-pulse">
+                            <Brain size={14} className="text-purple-500" />
+                            <span>Thinking: {currentThoughts[currentThoughts.length - 1]}</span>
+                        </div>
+                    )}
+                    {activeToolCalls.map(tool => (
+                        <div key={tool.id} className="flex items-center gap-2 text-xs text-zinc-500">
+                            <Loader2 size={14} className="animate-spin text-blue-500" />
+                            <span>Invoking Tool: {tool.name}...</span>
+                        </div>
+                    ))}
+                </div>
+
                 <AnalysisCard
                     analysis={session.aiAnalysis}
                     isSafetyStop={isSafetyStop}

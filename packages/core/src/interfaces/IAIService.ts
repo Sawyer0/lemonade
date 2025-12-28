@@ -1,5 +1,5 @@
 import { AIAnalysis, MessagePart } from '../types/models';
-import { ReasoningEffort } from '../types/ai';
+import { ReasoningEffort, StreamingEvent } from '../types/ai';
 import { VerificationRequest, VerificationResponse } from '../types/verification';
 import { LocalTriageResult } from '../types/localPerception';
 
@@ -36,6 +36,7 @@ export interface ILiveStreamAnalyzer {
         vehicleContext: string,
         userId: string,
         sessionId: string,
+        vin?: string,
         inputTimestamp?: number,
         localTriage?: LocalTriageResult
     ): Promise<AIAnalysis | MessagePart[] | null>;
@@ -47,6 +48,7 @@ export interface ILiveStreamAnalyzer {
         userId: string,
         sessionId: string,
         audioChunkDurationSeconds: number,
+        vin?: string,
         inputTimestamp?: number
     ): Promise<AIAnalysis | MessagePart[] | null>;
 
@@ -60,6 +62,7 @@ export interface IChatAssistantAI {
         diagnosticContext: AIAnalysis | null,
         userId: string,
         sessionId: string,
+        vin?: string,
         reasoningEffort?: ReasoningEffort,
         additionalParts?: { inlineData?: { mimeType: string, data: string }, fileData?: { mimeType: string, fileUri: string } }[] // New: for multimodal chat
     ): Promise<string | MessagePart[]>;
@@ -71,9 +74,10 @@ export interface IChatAssistantAI {
         diagnosticContext: AIAnalysis | null,
         userId: string,
         sessionId: string,
+        vin?: string,
         reasoningEffort?: ReasoningEffort,
         additionalParts?: { inlineData?: { mimeType: string, data: string }, fileData?: { mimeType: string, fileUri: string } }[]
-    ): AsyncGenerator<string, string | MessagePart[], unknown>;
+    ): AsyncGenerator<StreamingEvent, void, unknown>;
 
     verifyHypothesis(
         request: VerificationRequest

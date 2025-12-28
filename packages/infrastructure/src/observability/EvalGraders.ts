@@ -1,4 +1,4 @@
-import { EvalScenario, NeurosymbolicState } from '@lemonade/core';
+import { EvalScenario, NeurosymbolicState, EvalPrompts } from '@lemonade/core';
 import { VertexAI, SchemaType } from '@google-cloud/vertexai';
 import type { IConfigProvider } from '../interfaces/IConfigProvider';
 
@@ -61,32 +61,17 @@ export class ReasoningEvaluator {
             }
         });
 
-        const prompt = `
-        You are a Master Technician grading an AI's vehicle diagnosis.
-        
-        SCENARIO:
-        Name: ${scenario.name}
-        Input Query: ${scenario.input.userQuery}
-        Vehicle: ${JSON.stringify(scenario.input.vehicleContext)}
-        
-        GROUND TRUTH (Expert Diagnosis):
-        Diagnosis: ${scenario.ground_truth.diagnosis}
-        Required Actions: ${scenario.ground_truth.requiredActions.join(', ')}
-        
-        AI OUTPUT:
-        Final Diagnosis: ${result.finalDiagnosis.userOutput}
-        Reasoning Trace: ${result.finalDiagnosis.reasoningTrace}
-        Required Actions: ${result.finalDiagnosis.requiredActions.join(', ')}
-        Meta Confidence: ${result.finalDiagnosis.metaConfidence}
-        
-        GRADING CRITERIA:
-        1. Technical Accuracy: Does the AI's diagnosis align with the expert Ground Truth?
-        2. Action Completeness: Did it recommend the necessary actions?
-        3. Logic: Does the reasoning trace make sense?
-        
-        Assign a score from 0.0 to 1.0.
-        Provide constructive feedback.
-        `;
+        const prompt = EvalPrompts.gradeDiagnosis(
+            scenario.name,
+            scenario.input.userQuery,
+            JSON.stringify(scenario.input.vehicleContext),
+            scenario.ground_truth.diagnosis,
+            scenario.ground_truth.requiredActions,
+            result.finalDiagnosis.userOutput,
+            result.finalDiagnosis.reasoningTrace,
+            result.finalDiagnosis.requiredActions,
+            result.finalDiagnosis.metaConfidence
+        );
 
         const response = await model.generateContent(prompt);
         const text = response.response.candidates?.[0]?.content?.parts?.[0]?.text;

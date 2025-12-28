@@ -6,7 +6,8 @@ import type {
     ILogger, 
     MessagePart
 } from '@lemonade/core';
-import { SUMMARIZATION_PROMPT } from '@lemonade/core';
+import { SummarizationPrompts } from '@lemonade/core';
+
 @injectable()
 export class SummarizationService implements ISummarizationService {
     constructor(
@@ -18,7 +19,7 @@ export class SummarizationService implements ISummarizationService {
         this.logger.debug('Summarizing text', { textLength: text.length });
 
         try {
-            const prompt = SUMMARIZATION_PROMPT.replace('{text}', text);
+            const prompt = SummarizationPrompts.summarize(text);
 
             const summary = await this.chatAI.generateReply(
                 [],

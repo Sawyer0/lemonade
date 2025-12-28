@@ -4,7 +4,7 @@ import * as resemble from '@livekit/agents-plugin-resemble';
 import * as silero from '@livekit/agents-plugin-silero';
 import { RoomEvent, RemoteParticipant, DataPacketKind } from '@livekit/rtc-node';
 import {
-    SYSTEM_PROMPTS,
+    SystemPrompts,
 } from '@lemonade/core';
 import {
     EnvConfigProvider,
@@ -142,7 +142,7 @@ export default defineAgent({
         };
 
         // 4. Create Voice Agent (Pipeline)
-        const systemInstructions = `${SYSTEM_PROMPTS.IDENTITY} ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        const systemInstructions = `${SystemPrompts.identity()} ${SystemPrompts.primeDirectives()}
                    You are Lemonade, an AI Master Technician.
                    Current vehicle: ${vehicleContext}.
                    Prioritize safety above all.
@@ -250,6 +250,7 @@ export default defineAgent({
                         vehicleContext,
                         userId,
                         sessionId || 'unknown-session',
+                        (typeof vehicleContext === 'string' ? JSON.parse(vehicleContext) : vehicleContext)?.vin,
                         Date.now(),
                         localTriage
                     );

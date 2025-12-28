@@ -14,6 +14,7 @@ export const TYPES = {
     SupermemoryService: Symbol.for('SupermemoryService'),
     MultimodalUploadAI: Symbol.for('MultimodalUploadAI'),
     ChatAI: Symbol.for('ChatAI'),
+    LiveStreamAI: Symbol.for('LiveStreamAI'),
     SafetyAI: Symbol.for('SafetyAI'),
     NHTSAService: Symbol.for('NHTSAService'),
     EmbeddingService: Symbol.for('EmbeddingService'),
@@ -23,10 +24,12 @@ export const TYPES = {
     MechanicReasoningService: Symbol.for('MechanicReasoningService'),
     EdgeSecurityService: Symbol.for('EdgeSecurityService'),
     RateLimiter: Symbol.for('RateLimiter'),
+    FieldTechAgent: Symbol.for('FieldTechAgent'),
 
     // Repositories
     UserRepo: Symbol.for('UserRepo'),
     SessionRepo: Symbol.for('SessionRepo'),
     VehicleRepo: Symbol.for('VehicleRepo'),
     BillingRepository: Symbol.for('BillingRepository'),
+    SessionRepository: Symbol.for('SessionRepo'), // Alias for consistency
 };

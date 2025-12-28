@@ -54,12 +54,12 @@ export const POST = withContext(async function POST(req: Request): Promise<NextR
         diagnosticContext as AIAnalysis
     );
 
-    // 6. Convert AsyncGenerator to ReadableStream for the response
+    // 6. Convert AsyncGenerator to NDJSON stream for the response
     const readableStream = new ReadableStream({
         async start(controller) {
             try {
-                for await (const chunk of stream) {
-                    controller.enqueue(new TextEncoder().encode(chunk));
+                for await (const event of stream) {
+                    controller.enqueue(new TextEncoder().encode(JSON.stringify(event) + '\n'));
                 }
                 controller.close();
             } catch (err) {
@@ -72,7 +72,7 @@ export const POST = withContext(async function POST(req: Request): Promise<NextR
     // Return as a stream response
     return new NextResponse(readableStream, {
         headers: {
-            'Content-Type': 'text/plain; charset=utf-8',
+            'Content-Type': 'application/x-ndjson',
             'x-trace-id': traceId
         }
     });

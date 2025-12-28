@@ -38,7 +38,7 @@ describe('SupermemoryService', () => {
             json: async () => ({ status: 'success' })
         } as unknown as Response);
 
-        await service.addDocument('test content', ['tag1'], 'custom-space');
+        await service.addDocument({ content: 'test content', tags: ['tag1'] }, 'custom-space');
 
         expect(global.fetch).toHaveBeenCalledWith(
             expect.stringContaining('api.supermemory.ai/v3/documents'),
@@ -57,10 +57,10 @@ describe('SupermemoryService', () => {
         );
     });
 
-    it('should call Supermemory API to search', async () => {
+    it('should call Supermemory API to search using v4', async () => {
         const mockResponse = {
             results: [
-                { content: 'result 1', metadata: {} }
+                { content: 'result 1', metadata: {}, score: 0.9 }
             ]
         };
         vi.mocked(fetch).mockResolvedValue({
@@ -68,10 +68,10 @@ describe('SupermemoryService', () => {
             json: async () => mockResponse
         } as unknown as Response);
 
-        const results = await service.search('test query', { spaceId: 'test-space' });
+        const results = await service.search('test query', { spaceId: 'test-space', includeForgotten: true, tags: ['tag1'] });
 
         expect(global.fetch).toHaveBeenCalledWith(
-            expect.stringContaining('api.supermemory.ai/v3/search'),
+            expect.stringContaining('api.supermemory.ai/v4/search'),
             expect.objectContaining({
                 method: 'POST',
                 headers: {
@@ -81,7 +81,12 @@ describe('SupermemoryService', () => {
                 body: JSON.stringify({
                     query: 'test query',
                     spaceId: 'test-space',
-                    top_k: 3
+                    top_k: 3,
+                    include: {
+                        forgottenMemories: true
+                    },
+                    filters: [],
+                    tags: ['tag1']
                 })
             })
         );
@@ -96,7 +101,7 @@ describe('SupermemoryService', () => {
             text: async () => 'Unauthorized access'
         } as unknown as Response);
 
-        await expect(service.addDocument('test')).rejects.toThrow('Supermemory API error: Unauthorized');
+        await expect(service.addDocument({ content: 'test' })).rejects.toThrow('Supermemory API error: Unauthorized');
         expect(mockLogger.error).toHaveBeenCalled();
     });
 });

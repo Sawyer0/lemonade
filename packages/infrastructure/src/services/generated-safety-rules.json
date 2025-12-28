@@ -1,0 +1,277 @@
+{
+  "generatedAt": "2025-12-26T20:27:15.602Z",
+  "version": "1.0.0",
+  "generator": "gemini-2.5-flash",
+  "environmentalTriggers": [
+    {
+      "id": "env-001",
+      "pattern": "\\b(car|engine|vehicle).*(running|on|idling).*(in|inside|indoors).*(garage|enclosed|building|structure)\\b",
+      "hazard": "CARBON_MONOXIDE",
+      "message": "Potential carbon monoxide hazard! Do not operate an internal combustion engine in an enclosed space without proper ventilation."
+    },
+    {
+      "id": "env-002",
+      "pattern": "\\bexhaust fumes.*(in|inside|indoors|confined space)\\b",
+      "hazard": "CARBON_MONOXIDE",
+      "message": "Exhaust fumes contain carbon monoxide. Ensure adequate ventilation when working near a running engine."
+    },
+    {
+      "id": "env-003",
+      "pattern": "\\bairbag.*(deployed|went off|exploded|powder|activated)\\b",
+      "hazard": "AIRBAG_DEPLOYMENT",
+      "message": "Airbags contain chemicals that can cause irritation. There is also a risk of secondary deployment. Do not touch or attempt to repair deployed airbags."
+    },
+    {
+      "id": "env-004",
+      "pattern": "\\bSRS.*(light|warning|fault).*after.*(collision|impact)\\b",
+      "hazard": "AIRBAG_DEPLOYMENT",
+      "message": "A warning light after a collision could indicate a compromised airbag system. Exercise extreme caution as an airbag may deploy unexpectedly."
+    },
+    {
+      "id": "env-005",
+      "pattern": "\\b(no|lost|failed|failing) brakes?\\b",
+      "hazard": "BRAKE_FAILURE",
+      "message": "Brake failure is a critical safety issue. Do not drive the vehicle. Seek immediate professional assistance."
+    },
+    {
+      "id": "env-006",
+      "pattern": "\\bbrake pedal.*(to floor|goes to floor|soft|spongy|mushy)\\b",
+      "hazard": "BRAKE_FAILURE",
+      "message": "A brake pedal going to the floor indicates a loss of hydraulic pressure. Do not drive the vehicle. This is a severe safety hazard."
+    },
+    {
+      "id": "env-007",
+      "pattern": "\\b(antifreeze|coolant|green fluid|red fluid|pink fluid).*(leak|leaking|puddle|dripping)\\b",
+      "hazard": "COOLANT_LEAK",
+      "message": "Coolant is toxic. Avoid skin contact and ingestion. Leaks can also indicate an overheating engine."
+    },
+    {
+      "id": "env-008",
+      "pattern": "\\boverheating.*(with|and).*low coolant\\b",
+      "hazard": "COOLANT_LEAK",
+      "message": "An overheating engine with low coolant suggests a leak or system failure. Do not open a hot radiator cap. Allow the engine to cool completely."
+    },
+    {
+      "id": "env-009",
+      "pattern": "\\b(battery|acid|sulfuric acid).*(spilling|leak|leaking|corroded|corrosion|on skin|eyes)\\b",
+      "hazard": "BATTERY_ACID",
+      "message": "Battery acid is highly corrosive. Avoid contact with skin and eyes. Wear appropriate PPE. Neutralize spills with baking soda."
+    },
+    {
+      "id": "env-010",
+      "pattern": "\\bwhite powder on battery terminals.*(acid|corrosion)\\b",
+      "hazard": "BATTERY_ACID",
+      "message": "White powder on battery terminals is typically corrosion from battery acid. Handle with care and wear eye protection."
+    },
+    {
+      "id": "env-011",
+      "pattern": "\\b(car|vehicle).*(fell off|slipped off|collapsed|dropped).*(jack|jack stand|lift)\\b",
+      "hazard": "UNSTABLE_VEHICLE",
+      "message": "A vehicle that has fallen off a jack or lift is extremely dangerous. Do not approach or work under an unstable vehicle. Seek professional help."
+    },
+    {
+      "id": "env-012",
+      "pattern": "\\bvehicle unstable on jacks?\\b",
+      "hazard": "UNSTABLE_VEHICLE",
+      "message": "An unstable vehicle on jacks can fall. Ensure the vehicle is properly secured and on level ground with appropriate jack stands before working underneath."
+    },
+    {
+      "id": "env-013",
+      "pattern": "\\b(gas|fuel).*(leak|leaking|spill|puddle|dripping)\\b",
+      "hazard": "FUEL_LEAK",
+      "message": "A fuel leak creates an immediate fire hazard. Avoid any ignition sources. Do not start the engine. Ensure adequate ventilation."
+    },
+    {
+      "id": "env-014",
+      "pattern": "\\bsmells like (gas|fuel)\\b",
+      "hazard": "FUEL_LEAK",
+      "message": "The smell of gasoline or fuel indicates a potential leak and fire risk. Investigate immediately with caution, avoiding sparks or open flames."
+    },
+    {
+      "id": "env-015",
+      "pattern": "\\b(smoke|fire|flames|burning smell|smells like burning|burning wires|aroma of burning)\\b",
+      "hazard": "FIRE_RISK",
+      "message": "Smoke or fire indicates an extreme hazard. Evacuate immediately and call emergency services. Do not attempt to extinguish if unsafe."
+    },
+    {
+      "id": "env-016",
+      "pattern": "\\bvisible flames from car\\b",
+      "hazard": "FIRE_RISK",
+      "message": "Visible flames mean an active fire. Prioritize safety, evacuate all occupants, and call emergency services immediately."
+    },
+    {
+      "id": "env-017",
+      "pattern": "\\b(sparking|electrical fire|burnt wire smell|melting wires|fuses blowing repeatedly)\\b",
+      "hazard": "ELECTRICAL_SHORT",
+      "message": "Sparking or a burnt wire smell indicates an electrical short circuit, which is a fire hazard. Disconnect the battery if safe to do so."
+    },
+    {
+      "id": "env-018",
+      "pattern": "\\bshort circuit.*(smell|smoke)\\b",
+      "hazard": "ELECTRICAL_SHORT",
+      "message": "A short circuit can cause overheating and fire. Do not continue to operate the vehicle. Investigate with caution after disconnecting power."
+    },
+    {
+      "id": "env-019",
+      "pattern": "\\b(AC|air conditioning|refrigerant|freon|HFC|R-134a).*(leak|leaking|hissing sound)\\b",
+      "hazard": "REFRIGERANT_LEAK",
+      "message": "Refrigerant can cause frostbite or chemical burns. Work in a well-ventilated area and avoid contact with skin and eyes."
+    },
+    {
+      "id": "env-020",
+      "pattern": "\\bwhite cloud from AC system\\b",
+      "hazard": "REFRIGERANT_LEAK",
+      "message": "A white cloud from the AC system can be refrigerant escaping under pressure. This is a chemical hazard. Do not inhale."
+    }
+  ],
+  "interactionHazards": [
+    {
+      "id": "int-001",
+      "nounPattern": "\\b(orange cable|HV battery|high voltage|electric motor cable|inverter cable)\\b",
+      "hazard": "HIGH_VOLTAGE",
+      "message": "High voltage components can cause severe injury or death. Do NOT touch or interact with these components without proper training and safety equipment."
+    },
+    {
+      "id": "int-002",
+      "nounPattern": "\\b(hybrid|EV|electric vehicle).*(battery|system|power train)\\b",
+      "hazard": "HIGH_VOLTAGE",
+      "message": "Hybrid and Electric Vehicles contain high voltage systems. Always follow manufacturer's safety procedures before servicing."
+    },
+    {
+      "id": "int-003",
+      "nounPattern": "\\b(fan blade|cooling fan|radiator fan|engine fan)\\b",
+      "hazard": "ROTATING_PARTS",
+      "message": "Cooling fans can activate unexpectedly, even when the engine is off. Keep hands and tools clear to prevent injury."
+    },
+    {
+      "id": "int-004",
+      "nounPattern": "\\b(serpentine belt|drive belt|accessory belt|pulley)\\b",
+      "hazard": "ROTATING_PARTS",
+      "message": "Belts and pulleys can cause severe injury if caught while the engine is running. Never work near rotating parts with the engine on."
+    },
+    {
+      "id": "int-005",
+      "nounPattern": "\\b(alternator|water pump|power steering pump).*pulley\\b",
+      "hazard": "ROTATING_PARTS",
+      "message": "Pulleys are rotating hazards. Keep clear while the engine is operating."
+    },
+    {
+      "id": "int-006",
+      "nounPattern": "\\b(exhaust manifold|turbocharger|catalytic converter|EGR pipe|muffler)\\b",
+      "hazard": "HOT_SURFACES",
+      "message": "These components become extremely hot and can cause severe burns. Allow the engine to cool completely before touching."
+    },
+    {
+      "id": "int-007",
+      "nounPattern": "\\bradiator cap\\b",
+      "hazard": "HOT_SURFACES",
+      "message": "Never open a radiator cap on a hot engine. Pressurized hot coolant can erupt and cause severe burns."
+    },
+    {
+      "id": "int-008",
+      "nounPattern": "\\b(hot engine|hot exhaust|tailpipe)\\b",
+      "hazard": "HOT_SURFACES",
+      "message": "Engine and exhaust components remain hot for a long time after operation. Risk of severe burns."
+    },
+    {
+      "id": "int-009",
+      "nounPattern": "\\b(AC|ac|a\\/c|A\\/C)\\s*(line|lines|system)|\\b(air conditioning|refrigerant)\\s*(line|lines)\\b",
+      "hazard": "PRESSURIZED_SYSTEM",
+      "message": "AC systems are under high pressure. Refrigerant can cause frostbite or chemical burns. Do not disconnect without proper tools and training."
+    },
+    {
+      "id": "int-010",
+      "nounPattern": "\\b(fuel rail|fuel line|high pressure fuel pump)\\b",
+      "hazard": "PRESSURIZED_SYSTEM",
+      "message": "Fuel systems are pressurized. Releasing pressure improperly can cause fuel to spray, creating a fire hazard and chemical exposure risk."
+    },
+    {
+      "id": "int-011",
+      "nounPattern": "\\b(brake line|power steering line)\\b",
+      "hazard": "PRESSURIZED_SYSTEM",
+      "message": "Brake and power steering lines contain pressurized fluids. Improper handling can lead to fluid leaks and system failure."
+    },
+    {
+      "id": "int-012",
+      "nounPattern": "\\b(airbag module|SRS module|occupant classification system)\\b",
+      "hazard": "AIRBAG_DEPLOYMENT",
+      "message": "Airbag modules contain explosives. Improper handling can lead to accidental deployment, causing severe injury. Always follow safety protocols."
+    },
+    {
+      "id": "int-013",
+      "nounPattern": "\\byellow connector\\b",
+      "hazard": "AIRBAG_DEPLOYMENT",
+      "message": "Yellow connectors typically indicate airbag (SRS) system wiring. These are safety-critical components. Do not disconnect or tamper with them without proper safety procedures."
+    },
+    {
+      "id": "int-014",
+      "nounPattern": "\\b(jacked vehicle|vehicle on jack|car on stands|raised car)\\b",
+      "hazard": "UNSTABLE_VEHICLE",
+      "message": "Working under a vehicle on a jack alone is dangerous. Always use sturdy jack stands on level ground, or a professional lift."
+    },
+    {
+      "id": "int-015",
+      "nounPattern": "\\b(under the car|under the vehicle|beneath the car|beneath the vehicle)\\b",
+      "hazard": "JACK_STAND_MISSING",
+      "message": "Do not go under a vehicle unless it is properly supported by jack stands or a certified lift. A jack alone is not sufficient for support."
+    }
+  ],
+  "safeVerbs": [
+    "see",
+    "seeing",
+    "saw",
+    "look",
+    "looking",
+    "looked",
+    "inspect",
+    "inspecting",
+    "inspected",
+    "check",
+    "checking",
+    "checked",
+    "test",
+    "testing",
+    "tested",
+    "examine",
+    "examining",
+    "examined",
+    "observe",
+    "observing",
+    "observed",
+    "scan",
+    "scanning",
+    "scanned",
+    "notice",
+    "noticing",
+    "noticed",
+    "find",
+    "finding",
+    "found",
+    "view",
+    "viewing",
+    "viewed",
+    "watch",
+    "watching",
+    "watched",
+    "read",
+    "reading",
+    "verify",
+    "verifying",
+    "verified",
+    "identify",
+    "identifying",
+    "identified",
+    "assess",
+    "assessing",
+    "assessed",
+    "evaluate",
+    "evaluating",
+    "evaluated",
+    "review",
+    "reviewing",
+    "reviewed",
+    "document",
+    "documenting",
+    "documented"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es2019",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        "baseUrl": "..",
+        "paths": {
+            "@lemonade/core": [
+                "packages/core/src/index.ts"
+            ],
+            "@infrastructure": [
+                "packages/infrastructure/src/index.ts"
+            ],
+            "@infrastructure/*": [
+                "packages/infrastructure/src/*"
+            ]
+        }
+    },
+    "ts-node": {
+        "transpileOnly": true
+    }
+}

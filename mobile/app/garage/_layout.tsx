@@ -12,7 +12,10 @@ export default function GarageLayout() {
                 headerTitleStyle: {
                     fontWeight: 'bold',
                 },
+                // freezeOnBlur helps with screen state preservation
+                freezeOnBlur: true,
             }}
         />
     );
 }
+

@@ -46,8 +46,7 @@ describe('useMobileChat', () => {
         jest.clearAllMocks();
 
         // Reset auth.currentUser to a default valid state
-        // @ts-expect-error
-        auth.currentUser = {
+        (auth as any).currentUser = {
             uid: 'test-user',
             getIdToken: jest.fn().mockResolvedValue('test-token')
         };
@@ -323,8 +322,7 @@ describe('useMobileChat', () => {
 
         it('should handle missing auth user', async () => {
             const originalUser = auth.currentUser;
-            // @ts-expect-error - manual override for test
-            auth.currentUser = null;
+            (auth as unknown as { currentUser: any }).currentUser = null;
 
             const { result } = renderHook(() => useMobileChat(sessionId));
 
@@ -335,8 +333,7 @@ describe('useMobileChat', () => {
             expect(result.current.error).toBeDefined();
 
             // Restore
-            // @ts-expect-error
-            auth.currentUser = originalUser;
+            (auth as unknown as { currentUser: any }).currentUser = originalUser;
         });
     });
 

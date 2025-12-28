@@ -22,7 +22,13 @@ export const LocalTriageResultSchema = z.object({
     detections: z.array(SemanticTriageResultSchema),
     bestFramePath: z.string().optional().describe("Path to the highest-confidence frame on local disk"),
     highestConfidenceId: z.string().optional(),
-    timestamp: z.number()
+    timestamp: z.number(),
+    // Diagnosis summary from local model (SmolVLM2)
+    confidence: z.number().min(0).max(1).optional().describe("Overall confidence in the local diagnosis"),
+    primaryIssue: z.string().optional().describe("Main issue detected by local model"),
+    reasoning: z.string().optional().describe("Local model's reasoning for the diagnosis"),
+    safetyConcern: z.boolean().optional().describe("True if any safety risk detected"),
+    componentsMentioned: z.array(z.string()).optional().describe("List of components mentioned in diagnosis")
 });
 
 export type LocalTriageResult = z.infer<typeof LocalTriageResultSchema>;

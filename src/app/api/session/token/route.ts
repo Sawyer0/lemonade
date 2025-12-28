@@ -8,8 +8,8 @@ import {
     DiagnosticSession,
     AppError,
     ErrorCode,
-    SYSTEM_PROMPTS,
-    SAFETY_INSTRUCTION_MASTER_TECH
+    SystemPrompts,
+    SafetyPrompts
 } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 
@@ -71,8 +71,8 @@ export const GET = withContext(async (req: NextRequest) => {
                 const vehicleStr = `${vehicle.specs.year} ${vehicle.specs.make} ${vehicle.specs.model} (${vehicle.specs.engine})`;
 
                 systemInstruction = `
-${SYSTEM_PROMPTS.IDENTITY}
-${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+${SystemPrompts.identity()}
+${SystemPrompts.primeDirectives()}
 
 CONTEXT:
 Vehicle: ${vehicleStr}
@@ -81,12 +81,12 @@ Active Recalls:
 ${recallSummary}
 History Summary: ${session.messages.slice(-3).map(m => (typeof m.content === 'string' ? m.content : 'multimodal content')).join(' | ')}
 
-${SAFETY_INSTRUCTION_MASTER_TECH}
+${SafetyPrompts.masterTechInstruction()}
 `;
             }
         } else {
             // Fallback generic prompt
-            systemInstruction = `${SYSTEM_PROMPTS.IDENTITY}\n${SAFETY_INSTRUCTION_MASTER_TECH}`;
+            systemInstruction = `${SystemPrompts.identity()}\n${SafetyPrompts.masterTechInstruction()}`;
         }
 
         // 3. Generate Google OAuth Token

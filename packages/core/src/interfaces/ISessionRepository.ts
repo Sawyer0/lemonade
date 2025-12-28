@@ -24,4 +24,9 @@ export interface ISessionRepository {
   updateLastProcessedFrameTimestamp(sessionId: string, timestamp: number): Promise<void>;
   updateCumulativeAudioDuration(sessionId: string, minutes: number): Promise<void>;
   updateLastProcessedAudioChunkTimestamp(sessionId: string, timestamp: number): Promise<void>;
+
+  // XState Persistence
+  saveXStateSnapshot(sessionId: string, snapshot: unknown): Promise<void>;
+  getXStateSnapshot(sessionId: string): Promise<unknown | null>;
+  clearXStateSnapshot(sessionId: string): Promise<void>;
 }

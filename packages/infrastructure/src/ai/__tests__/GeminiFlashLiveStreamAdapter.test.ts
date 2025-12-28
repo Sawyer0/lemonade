@@ -82,7 +82,21 @@ describe('GeminiFlashLiveStreamAdapter', () => {
             response: {
                 candidates: [{
                     content: {
-                        parts: [{ text: '{"diagnosis": "No recalls found", "confidence": 0.9, "visual_evidence": [], "acoustic_evidence": [], "severity": "low", "safety_alert": false, "suggested_actions": [], "engineDescription": "Stock", "isStock": true, "visualConflictDetected": false, "detectedCondition": "clean"}' }]
+                        parts: [{ text: JSON.stringify({
+                            diagnosis: "No recalls found",
+                            reasoning: "Search confirmed no open recalls.",
+                            investigationPlan: [],
+                            confidence: 0.9,
+                            visual_evidence: [],
+                            acoustic_evidence: [],
+                            severity: "low",
+                            safety_alert: false,
+                            suggested_actions: [],
+                            engineDescription: "Stock",
+                            isStock: true,
+                            visualConflictDetected: false,
+                            detectedCondition: "clean"
+                        }) }]
                     }
                 }]
             }

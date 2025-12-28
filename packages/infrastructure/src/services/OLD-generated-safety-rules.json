@@ -1,0 +1,246 @@
+{
+  "generatedAt": "2025-12-26T20:19:02.902Z",
+  "version": "1.0.0",
+  "generator": "gemini-2.5-flash",
+  "environmentalTriggers": [
+    {
+      "id": "env-001",
+      "pattern": "\\b(fuel|gas|petrol)\\s+(leak|spill)\\b",
+      "hazard": "FUEL_LEAK",
+      "message": "Immediate evacuation. Do not start engine. Ventilate area and contact emergency services."
+    },
+    {
+      "id": "env-002",
+      "pattern": "\\b(odor|smell)\\s+of\\s+(fuel|gas|petrol)\\b",
+      "hazard": "FUEL_LEAK",
+      "message": "Investigate source carefully. Ensure no ignition sources. Ventilate area."
+    },
+    {
+      "id": "env-003",
+      "pattern": "\\bpuddle\\s+of\\s+(fuel|gas|petrol)\\b",
+      "hazard": "FUEL_LEAK",
+      "message": "Do not approach with open flames or spark sources. Isolate area and report."
+    },
+    {
+      "id": "env-004",
+      "pattern": "\\b(smoke|fire)\\s+(under|from|near)\\s+hood\\b",
+      "hazard": "FIRE_RISK",
+      "message": "Do not open hood. Evacuate immediately and call emergency services. Use a fire extinguisher if safe to do so."
+    },
+    {
+      "id": "env-005",
+      "pattern": "\\bburning\\s+(smell|odor)\\b",
+      "hazard": "FIRE_RISK",
+      "message": "Safely pull over, turn off engine, and investigate the source without opening the hood if smoke is present."
+    },
+    {
+      "id": "env-006",
+      "pattern": "\\bflames\\b",
+      "hazard": "FIRE_RISK",
+      "message": "Immediate evacuation. Do not attempt to extinguish if large. Call emergency services."
+    },
+    {
+      "id": "env-007",
+      "pattern": "\\bbattery\\s+(fire|smoke|thermal\\s+event)\\b",
+      "hazard": "FIRE_RISK",
+      "message": "Evacuate. High voltage and thermal runaway risk. Call specialized EV emergency services."
+    },
+    {
+      "id": "env-008",
+      "pattern": "\\b(swollen|bulging)\\s+battery\\b",
+      "hazard": "FIRE_RISK",
+      "message": "Do not touch. Risk of rupture and fire. Disconnect from power if safe, otherwise call a specialist."
+    },
+    {
+      "id": "env-009",
+      "pattern": "\\b(coolant|antifreeze)\\s+leak\\b",
+      "hazard": "COOLANT_LEAK",
+      "message": "Do not allow pets near the spill. Avoid skin contact. Clean up with absorbent material."
+    },
+    {
+      "id": "env-010",
+      "pattern": "\\bpuddle\\s+of\\s+(coolant|antifreeze)\\b",
+      "hazard": "COOLANT_LEAK",
+      "message": "Identify the leak source. Contains toxic chemicals, wear gloves during cleanup."
+    },
+    {
+      "id": "env-011",
+      "pattern": "\\bexhaust\\s+fumes\\s+in\\s+(garage|enclosed\\s+space|cabin)\\b",
+      "hazard": "CARBON_MONOXIDE",
+      "message": "Immediately ventilate the area. Shut off engine. Evacuate and seek fresh air."
+    },
+    {
+      "id": "env-012",
+      "pattern": "\\b(carbon\\s+monoxide|CO)\\s+alarm\\b",
+      "hazard": "CARBON_MONOXIDE",
+      "message": "Evacuate immediately to fresh air. Do not re-enter until area is cleared and source identified."
+    },
+    {
+      "id": "env-013",
+      "pattern": "\\b(brake|transmission|power\\s+steering)\\s+fluid\\s+(leak|spill)\\b",
+      "hazard": "CHEMICAL_EXPOSURE",
+      "message": "Avoid skin and eye contact. Clean thoroughly with appropriate absorbents. Dispose of waste properly."
+    },
+    {
+      "id": "env-014",
+      "pattern": "\\bsulphuric\\s+acid\\s+spill\\b",
+      "hazard": "BATTERY_ACID",
+      "message": "Wear eye protection and gloves. Neutralize with baking soda. Rinse affected area with water."
+    },
+    {
+      "id": "env-015",
+      "pattern": "\\b(refrigerant|AC\\s+gas)\\s+leak\\b",
+      "hazard": "REFRIGERANT_LEAK",
+      "message": "Avoid inhaling. May cause frostbite on skin contact. Ventilate area."
+    },
+    {
+      "id": "env-016",
+      "pattern": "\\bengine\\s+running\\s+indoors\\b",
+      "hazard": "CARBON_MONOXIDE",
+      "message": "Ensure adequate ventilation. Carbon monoxide risk is high. Do not run engine in enclosed spaces."
+    },
+    {
+      "id": "env-017",
+      "pattern": "\\b(electrical\\s+spark|sparking|frayed\\s+wire|short\\s+circuit)\\b",
+      "hazard": "ELECTRICAL_SHORT",
+      "message": "Disconnect battery immediately if safe to do so. Do not touch bare wires. Fire risk."
+    },
+    {
+      "id": "env-018",
+      "pattern": "\\b(arc\\s+flash|melted\\s+wire)\\b",
+      "hazard": "ELECTRICAL_SHORT",
+      "message": "Do not approach. High risk of electrical shock and fire. Disconnect power if possible from a safe distance."
+    },
+    {
+      "id": "env-019",
+      "pattern": "\\bcorrosion\\s+on\\s+battery\\s+terminals\\b",
+      "hazard": "BATTERY_ACID",
+      "message": "Wear gloves and eye protection. Neutralize corrosion with baking soda solution."
+    },
+    {
+      "id": "env-020",
+      "pattern": "\\bburning\\s+plastic\\s+smell\\b",
+      "hazard": "FIRE_RISK",
+      "message": "Indicates potential electrical issue or overheating. Safely pull over, turn off engine, and investigate carefully."
+    }
+  ],
+  "interactionHazards": [
+    {
+      "id": "int-001",
+      "nounPattern": "\\b(orange\\s+cable|high\\s+voltage\\s+battery|HV\\s+component|inverter)\\b",
+      "hazard": "HIGH_VOLTAGE",
+      "message": "Do not touch. High voltage components carry lethal current. Ensure proper lockout/tagout procedures are followed."
+    },
+    {
+      "id": "int-002",
+      "nounPattern": "\\b(electric\\s+motor|traction\\s+battery)\\b",
+      "hazard": "HIGH_VOLTAGE",
+      "message": "Treat all electric vehicle powertrain components as high voltage. Consult EV specific safety procedures."
+    },
+    {
+      "id": "int-003",
+      "nounPattern": "\\b(fan\\s+blade|cooling\\s+fan)\\b",
+      "hazard": "ROTATING_PARTS",
+      "message": "Ensure engine is off and cool before working near fan blades. They can activate unexpectedly."
+    },
+    {
+      "id": "int-004",
+      "nounPattern": "\\b(serpentine\\s+belt|timing\\s+belt|pulley)\\b",
+      "hazard": "ROTATING_PARTS",
+      "message": "Keep hands and loose clothing clear of belts and pulleys when the engine is running or could start."
+    },
+    {
+      "id": "int-005",
+      "nounPattern": "\\b(crankshaft|camshaft)\\b",
+      "hazard": "ROTATING_PARTS",
+      "message": "Do not work near these components without disabling the engine. Risk of severe injury."
+    },
+    {
+      "id": "int-006",
+      "nounPattern": "\\b(exhaust\\s+manifold|turbocharger|catalytic\\s+converter|engine\\s+block)\\b",
+      "hazard": "HOT_SURFACES",
+      "message": "Allow engine to cool completely before touching these components. Risk of severe burns."
+    },
+    {
+      "id": "int-007",
+      "nounPattern": "\\b(radiator|radiator\\s+hose)\\b",
+      "hazard": "HOT_SURFACES",
+      "message": "Do not open radiator cap when engine is hot. Pressurized hot fluid can spray out."
+    },
+    {
+      "id": "int-008",
+      "nounPattern": "\\b(fuel\\s+rail|fuel\\s+line)\\b",
+      "hazard": "PRESSURIZED_SYSTEM",
+      "message": "Depressurize the fuel system before disconnecting any fuel lines. Fuel is highly flammable."
+    },
+    {
+      "id": "int-009",
+      "nounPattern": "\\b(AC\\s+line|refrigerant\\s+line)\\b",
+      "hazard": "PRESSURIZED_SYSTEM",
+      "message": "AC systems are under high pressure. Do not disconnect without proper tools and training to safely recover refrigerant."
+    },
+    {
+      "id": "int-010",
+      "nounPattern": "\\bbrake\\s+master\\s+cylinder\\b",
+      "hazard": "PRESSURIZED_SYSTEM",
+      "message": "Exercise caution around brake lines. Brake fluid is corrosive and the system is under pressure."
+    },
+    {
+      "id": "int-011",
+      "nounPattern": "\\b(airbag\\s+module|SRS\\s+sensor|yellow\\s+connector)\\b",
+      "hazard": "AIRBAG_DEPLOYMENT",
+      "message": "Disconnect the battery and wait for system discharge before working near airbag components. Risk of accidental deployment."
+    },
+    {
+      "id": "int-012",
+      "nounPattern": "\\b(seatbelt\\s+pretensioner|impact\\s+sensor)\\b",
+      "hazard": "AIRBAG_DEPLOYMENT",
+      "message": "Handle these components with extreme care. Accidental activation can cause injury."
+    },
+    {
+      "id": "int-013",
+      "nounPattern": "\\b(vehicle\\s+on\\s+jack|jacked\\s+up\\s+vehicle|vehicle\\s+lift)\\b",
+      "hazard": "UNSTABLE_VEHICLE",
+      "message": "Ensure vehicle is properly supported on jack stands on a level surface. Never work under a vehicle supported only by a jack."
+    },
+    {
+      "id": "int-014",
+      "nounPattern": "\\bjack\\s+stand\\b",
+      "hazard": "JACK_STAND_MISSING",
+      "message": "Always use at least two jack stands when working under a vehicle. Ensure they are placed on strong chassis points."
+    },
+    {
+      "id": "int-015",
+      "nounPattern": "\\b(raised\\s+vehicle|jacked\\s+vehicle)\\s+and\\s+(brake|wheel)\\b",
+      "hazard": "UNSTABLE_VEHICLE",
+      "message": "Verify vehicle stability before working on brake components on a raised vehicle. Ensure wheel chocks are in place."
+    }
+  ],
+  "safeVerbs": [
+    "see",
+    "looking",
+    "inspect",
+    "notice",
+    "observe",
+    "examine",
+    "check",
+    "monitor",
+    "view",
+    "watch",
+    "read",
+    "verify",
+    "identify",
+    "scan",
+    "detect",
+    "locate",
+    "assess",
+    "evaluate",
+    "review",
+    "document",
+    "record",
+    "photograph",
+    "analyze",
+    "diagnose",
+    "measure"
+  ]
+}

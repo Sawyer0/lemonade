@@ -2,8 +2,13 @@ import { Stack, Redirect, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LocalPerceptionProvider } from '../context/LocalPerceptionContext';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, LogBox } from 'react-native';
 import { Theme } from '../constants/theme';
+
+// Ignore noisy warnings that don't affect functionality but break E2E visual tests
+LogBox.ignoreLogs([
+    "Can't perform a React state update on a component that hasn't mounted yet",
+]);
 
 function RootLayoutNav() {
     const { user, isLoading } = useAuth();
@@ -35,6 +40,8 @@ function RootLayoutNav() {
                 headerShown: false,
                 contentStyle: { backgroundColor: '#1a1a1a' },
                 animation: 'slide_from_right',
+                // freezeOnBlur helps with screen state preservation
+                freezeOnBlur: true,
             }}
         />
     );

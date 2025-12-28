@@ -4,7 +4,8 @@ import {
     AppError,
     ErrorCode,
     MessagePart,
-    AIAnalysis // Import AIAnalysis
+    AIAnalysis,
+    StreamingEvent
 } from '@lemonade/core';
 import type {
     IReactiveSafetyService,
@@ -108,7 +109,7 @@ export class ChatService implements IChatService {
         userMessage: string | MessagePart[],
         vehicleContextOverride?: VehicleContext,
         diagnosticContextOverride?: AIAnalysis
-    ): AsyncGenerator<string, void, unknown> {
+    ): AsyncGenerator<StreamingEvent, void, unknown> {
         const session = await this.sessionRepo.getHistory(sessionId);
         if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
 
@@ -132,7 +133,8 @@ export class ChatService implements IChatService {
             const safetyReply = reactiveAssessment.suggested_output || "CRITICAL SAFETY STOP: Immediate hazard detected.";
             await this.sessionRepo.addMessage(sessionId, 'user', userMessage);
             await this.sessionRepo.addMessage(sessionId, 'assistant', safetyReply);
-            yield safetyReply;
+            yield { type: 'text', content: safetyReply };
+            yield { type: 'done' };
             return;
         }
 
@@ -156,7 +158,8 @@ export class ChatService implements IChatService {
             const safetyReply = semanticAssessment.suggested_output || "SAFETY STOP: Potential hazard detected. Please be careful.";
             await this.sessionRepo.addMessage(sessionId, 'user', userMessage);
             await this.sessionRepo.addMessage(sessionId, 'assistant', safetyReply);
-            yield safetyReply;
+            yield { type: 'text', content: safetyReply };
+            yield { type: 'done' };
             return;
         }
 
@@ -174,31 +177,24 @@ export class ChatService implements IChatService {
             session.aiAnalysis,
             session.userId,
             sessionId,
+            vehicle?.vin,
             undefined,
             additionalParts
         );
 
-        let fullReplyText = "";
-        let finalResult: string | MessagePart[] | undefined;
+        let accumulatedText = "";
 
-        // Iterate through the generator to yield chunks to the API
-        while (true) {
-            const { value, done } = await stream.next();
-            if (done) {
-                finalResult = value as string | MessagePart[];
-                break;
+        // Proxy events and accumulate text for history
+        for await (const event of stream) {
+            if (event.type === 'text') {
+                accumulatedText += event.content;
             }
-            if (typeof value === 'string') {
-                fullReplyText += value;
-                yield value;
-            }
+            yield event;
         }
 
         // Persist history after stream completes
-        // Use finalResult if it's structured (contains tool calls), otherwise use accumulated text
-        const assistantContent = finalResult || fullReplyText;
         await this.sessionRepo.addMessage(sessionId, 'user', userMessage);
-        await this.sessionRepo.addMessage(sessionId, 'assistant', assistantContent);
+        await this.sessionRepo.addMessage(sessionId, 'assistant', accumulatedText);
 
         this.complaintIdentificationService.identifyAndSetComplaint(sessionId, userText)
             .catch((error: unknown) => this.logger.error('Background complaint identification failed', error, { sessionId }));
@@ -270,6 +266,7 @@ export class ChatService implements IChatService {
             session.aiAnalysis,
             session.userId,
             sessionId,
+            vehicle?.vin,
             undefined, // reasoningEffort
             // Extract fileData parts for the 'additionalParts' argument if multimodal
             Array.isArray(userMessage) ? userMessage.filter(p => p.type === 'fileData' || p.type === 'image_url').map(p => {

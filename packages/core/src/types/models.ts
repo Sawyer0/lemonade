@@ -23,8 +23,10 @@ export type SafetyRecall = z.infer<typeof SafetyRecallSchema>;
 
 export const AIAnalysisSchema = z.object({
     diagnosis: z.string(),
-    visual_evidence: z.array(z.string()), 
-    acoustic_evidence: z.array(z.string()), 
+    reasoning: z.string().describe("Rationale for the diagnosis"),
+    investigationPlan: z.array(z.string()).describe("Diagnostic steps to verify hypothesis"),
+    visual_evidence: z.array(z.string()),
+    acoustic_evidence: z.array(z.string()),
     severity: z.enum(['low', 'medium', 'high', 'critical']),
     safety_alert: z.boolean().default(false),
     suggested_actions: z.array(z.string()),
@@ -106,8 +108,8 @@ export const DiagnosticSessionSchema = z.object({
     obdCodes: z.array(z.string()).default([]),
 
     // Multimodal Data
-    videoUrl: z.string().optional(), 
-    aiAnalysis: AIAnalysisSchema.nullable(), 
+    videoUrl: z.string().optional(),
+    aiAnalysis: AIAnalysisSchema.nullable(),
 
     messages: z.array(z.object({
         role: z.enum(['user', 'assistant', 'system', 'tool']),
@@ -121,7 +123,7 @@ export const DiagnosticSessionSchema = z.object({
 
     // Unified Session Context
     context: z.object({
-        activeCacheName: z.string().optional(), 
+        activeCacheName: z.string().optional(),
         cachedFileNames: z.array(z.string()).optional(),
         lastSummary: z.string().optional(),
         vin: z.string().optional()
@@ -132,9 +134,12 @@ export const DiagnosticSessionSchema = z.object({
     safety_reason: z.string().optional(),
 
     cumulativeVideoDurationProcessedMinutes: z.number().default(0),
-    lastProcessedFrameTimestamp: z.number().optional(), 
-    cumulativeAudioDurationProcessedMinutes: z.number().default(0), 
-    lastProcessedAudioChunkTimestamp: z.number().optional(), 
+    lastProcessedFrameTimestamp: z.number().optional(),
+    cumulativeAudioDurationProcessedMinutes: z.number().default(0),
+    lastProcessedAudioChunkTimestamp: z.number().optional(),
+
+    // Phase 3: XState Persistence - enables session recovery after app crash/restart
+    xstateSnapshot: z.unknown().optional(),
 
     updatedAt: z.date(),
     startedAt: z.date(),
@@ -150,8 +155,8 @@ export const AIUsageRecordSchema = z.object({
     outputTokens: z.number().int().min(0),
     model: z.string(),
     timestamp: z.date(),
-    sessionId: z.string().uuid().optional(), 
-    searchQueries: z.number().int().min(0).default(0).optional(), 
+    sessionId: z.string().uuid().optional(),
+    searchQueries: z.number().int().min(0).default(0).optional(),
     traceId: z.string().optional(),
 });
 

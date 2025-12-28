@@ -69,6 +69,7 @@ ui-debug.log*
 # IDE
 .idea/
 .vscode/
+.claude/
 
 # ExecuTorch docs
 execu-docs/
@@ -95,3 +96,4 @@ packages/core/src/**/*.js
 lemonade-backend/
 com/
 *.class
+.png

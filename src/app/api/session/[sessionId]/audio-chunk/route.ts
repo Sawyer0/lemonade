@@ -56,7 +56,9 @@ export const POST = withContext(async (req: NextRequest, context: unknown) => {
         const { audioData, mimeType, chunkDurationSeconds, audioTimestamp, vehicleContext } = AudioChunkRequestSchema.parse(body);
 
         // Optional: Further validate vehicleContext if needed, e.g., against DiagnosticSession's vehicle
-        const sanitizedVehicleContext = DiagnosticSessionSchema.pick({ vehicleId: true }).safeParse(JSON.parse(vehicleContext)).success ? vehicleContext : "{}";
+        const parsedContext = JSON.parse(vehicleContext);
+        const sanitizedVehicleContext = DiagnosticSessionSchema.pick({ vehicleId: true }).safeParse(parsedContext).success ? vehicleContext : "{}";
+        const vin = parsedContext?.vin;
 
         // 3. Call Live Stream Analyzer
         const liveStreamAI = container.get<ILiveStreamAnalyzer>(TYPES.LiveStreamAI);
@@ -68,6 +70,7 @@ export const POST = withContext(async (req: NextRequest, context: unknown) => {
             userId,
             sessionId,
             chunkDurationSeconds,
+            typeof vin === 'string' ? vin : undefined,
             audioTimestamp
         );
 

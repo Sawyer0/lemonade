@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
     signInWithEmailAndPassword, 
     createUserWithEmailAndPassword, 
@@ -11,76 +11,80 @@ import {
 } from 'firebase/auth';
 import { auth } from '../infrastructure/firebase/config';
 import { useNativeAuth } from './useNativeAuth';
+import { useIsMounted } from './useIsMounted';
 
 export function useFirebaseAuth() {
     const [user, setUser] = useState<User | null>(auth.currentUser);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { signIn: signInWithGoogleNative, idToken } = useNativeAuth();
+    const isMounted = useIsMounted();
+
+    const handleGoogleSignIn = useCallback(async (token: string) => {
+        try {
+            if (isMounted()) setLoading(true);
+            const credential = GoogleAuthProvider.credential(token);
+            await signInWithCredential(auth, credential);
+        } catch (err: unknown) {
+            if (isMounted()) setError(err instanceof Error ? err.message : 'Google sign-in failed');
+        } finally {
+            if (isMounted()) setLoading(false);
+        }
+    }, [isMounted]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
-            setLoading(false);
+            if (isMounted()) {
+                setUser(user);
+                setLoading(false);
+            }
         });
         return unsubscribe;
-    }, []);
+    }, [isMounted]);
 
     useEffect(() => {
         if (idToken) {
             handleGoogleSignIn(idToken);
         }
-    }, [idToken]);
-
-    const handleGoogleSignIn = async (token: string) => {
-        try {
-            setLoading(true);
-            const credential = GoogleAuthProvider.credential(token);
-            await signInWithCredential(auth, credential);
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Google sign-in failed');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [idToken, handleGoogleSignIn]);
 
     const login = async (email: string, password: string) => {
         try {
-            setLoading(true);
-            setError(null);
+            if (isMounted()) setLoading(true);
+            if (isMounted()) setError(null);
             await signInWithEmailAndPassword(auth, email, password);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Login failed');
+            if (isMounted()) setError(err instanceof Error ? err.message : 'Login failed');
             throw err;
         } finally {
-            setLoading(false);
+            if (isMounted()) setLoading(false);
         }
     };
 
     const signup = async (email: string, password: string, displayName: string) => {
         try {
-            setLoading(true);
-            setError(null);
+            if (isMounted()) setLoading(true);
+            if (isMounted()) setError(null);
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             if (userCredential.user) {
                 await updateProfile(userCredential.user, { displayName });
             }
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Signup failed');
+            if (isMounted()) setError(err instanceof Error ? err.message : 'Signup failed');
             throw err;
         } finally {
-            setLoading(false);
+            if (isMounted()) setLoading(false);
         }
     };
 
     const signOut = async () => {
         try {
-            setLoading(true);
+            if (isMounted()) setLoading(true);
             await firebaseSignOut(auth);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Sign out failed');
+            if (isMounted()) setError(err instanceof Error ? err.message : 'Sign out failed');
         } finally {
-            setLoading(false);
+            if (isMounted()) setLoading(false);
         }
     };
 

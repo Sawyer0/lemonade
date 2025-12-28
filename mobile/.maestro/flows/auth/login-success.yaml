@@ -1,0 +1,44 @@
+# Login Success Flow - Test successful authentication
+# Used by other flows to ensure logged-in state
+appId: com.dawan.lemonademvp
+---
+- launchApp:
+    clearState: true
+
+# Wait for login screen to load (app starts fresh)
+- extendedWaitUntil:
+    visible:
+        id: "login-submit-button"
+    timeout: 180000
+
+# Enter credentials
+- tapOn:
+    id: "login-email-input"
+- inputText: "e2e-test@lemonade.dev"
+
+- tapOn:
+    id: "login-password-input"
+- inputText: "TestPassword123!"
+
+- hideKeyboard
+
+# Submit login
+- tapOn:
+    id: "login-submit-button"
+
+# Handle Google Password Manager prompt (System UI)
+- scroll
+- runFlow:
+    when:
+        visible: "Not now"
+    commands:
+        - tapOn: "Not now"
+
+# Wait for navigation and verify garage screen
+- extendedWaitUntil:
+    visible:
+        id: "welcome-message"
+    timeout: 15000
+
+- assertVisible:
+    id: "welcome-message"

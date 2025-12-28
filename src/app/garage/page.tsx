@@ -34,7 +34,7 @@ export default function GaragePage() {
         return ApiClient.get<T>(url);
     };
 
-    const { data: userData } = useSWR<{ data: { tier: string } }>(user ? CONFIG.API.ROUTES.USER_ME : null, fetcher);
+    const { data: userData } = useSWR<{ data: { tier: string } }>(user ? CONFIG.API.ROUTES.PROFILE : null, fetcher);
     const userTier = userData?.data?.tier === 'pro' ? 'pro' : 'free';
 
     const { data: vehiclesData, isLoading, mutate } = useSWR<Vehicle[]>(user ? CONFIG.API.ROUTES.VEHICLES : null, fetcher);

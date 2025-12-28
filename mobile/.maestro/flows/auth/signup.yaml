@@ -1,0 +1,39 @@
+# Signup Flow - Test signup screen navigation
+appId: com.dawan.lemonademvp
+---
+- launchApp:
+    clearState: true
+
+# Wait for login screen to load
+- extendedWaitUntil:
+    visible:
+        id: "login-submit-button"
+    timeout: 180000
+
+# Navigate to signup
+- tapOn: "Sign Up"
+
+# Verify signup screen loads
+- extendedWaitUntil:
+    visible: "Create Account"
+    timeout: 10000
+
+- assertVisible: "Create Account"
+
+# Verify form elements
+- assertVisible:
+    id: "signup-username-input"
+- assertVisible:
+    id: "signup-email-input"
+- assertVisible:
+    id: "signup-password-input"
+- assertVisible:
+    id: "signup-submit-button"
+
+# Navigate back to login
+- tapOn: "Login"
+
+# Wait for login screen
+- extendedWaitUntil:
+    visible: "Lemonade"
+    timeout: 5000

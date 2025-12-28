@@ -5,7 +5,7 @@ export const ToolCallTypeSchema = z.enum([
     'start_video_stream',
     'display_content',
     'verify_safe_support',
-    'inspect_vehicle_component' // Deprecated in favor of unified
+    'save_to_memory'
 ]);
 
 export const GoogleSearchArgsSchema = z.object({
@@ -29,7 +29,15 @@ export const VerifySafeSupportArgsSchema = z.object({
     required_equipment: z.array(z.string()).optional()
 });
 
+export const SaveToMemoryArgsSchema = z.object({
+    content: z.string().optional(),
+    url: z.string().url().optional(),
+    tags: z.array(z.string()).optional(),
+    reason: z.string().describe('Why this is being saved')
+});
+
 export type GoogleSearchArgs = z.infer<typeof GoogleSearchArgsSchema>;
 export type StartVideoStreamArgs = z.infer<typeof StartVideoStreamArgsSchema>;
 export type DisplayContentArgs = z.infer<typeof DisplayContentArgsSchema>;
 export type VerifySafeSupportArgs = z.infer<typeof VerifySafeSupportArgsSchema>;
+export type SaveToMemoryArgs = z.infer<typeof SaveToMemoryArgsSchema>;

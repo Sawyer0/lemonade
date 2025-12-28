@@ -1,28 +1,23 @@
 import { Dispatch, SetStateAction } from 'react';
 import { ApiClient } from '@/infrastructure/api/ApiClient';
 import { CONFIG } from '@/infrastructure/config';
-import { AppError, ErrorCode } from '@lemonade/core';
-
-interface ToolInvocation {
-    toolName: string;
-    toolCallId: string;
-    state: 'call' | 'result';
-    result?: Record<string, unknown>;
-}
+import { MessagePart } from '@lemonade/core';
 
 export interface Message {
     id: string;
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-    toolInvocations?: ToolInvocation[];
+    role: 'user' | 'assistant' | 'system' | 'thought' | 'tool';
+    content: string | MessagePart[];
+    timestamp: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ChatHelpers = any;
+interface ChatHelpers {
+    append: (message: { role: 'user', content: string | MessagePart[] }) => Promise<void>;
+    messages: Message[];
+    setMessages: Dispatch<SetStateAction<Message[]>>;
+}
 
 interface UseWorkspaceActionsProps {
     sessionId: string;
-    token: string;
     uploadFile: (file: File, path: string) => Promise<string>;
     chatHelpers: ChatHelpers;
     setInput: Dispatch<SetStateAction<string>>;
@@ -31,13 +26,12 @@ interface UseWorkspaceActionsProps {
 
 export const useWorkspaceActions = ({
     sessionId,
-    token,
     uploadFile,
     chatHelpers,
     setInput,
     showToast,
 }: UseWorkspaceActionsProps) => {
-    const { sendMessage, addToolResult } = chatHelpers;
+    const { append } = chatHelpers;
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -62,28 +56,16 @@ export const useWorkspaceActions = ({
         // Optimistic UI: Clear input immediately
         setInput('');
 
-        const requestOptions = token ? {
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: { sessionId }
-        } : {
-            body: { sessionId }
-        };
-
         try {
-            if (typeof sendMessage === 'function') {
-                await sendMessage({
-                    role: 'user',
-                    content
-                }, requestOptions);
-            } else {
-                throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'sendMessage function is missing');
-            }
+            await append({
+                role: 'user',
+                content
+            });
 
-        } catch (error) {
+        } catch {
             showToast('Failed to send message. Please try again.', 'error');
             // If failed, restore input
             setInput(content);
-            throw error;
         }
     };
 
@@ -94,27 +76,8 @@ export const useWorkspaceActions = ({
             const isAudio = file.type.startsWith('audio/');
 
             if (toolCallId) {
-                // Multimodal Function Response (Camera tool)
-                addToolResult({
-                    toolCallId,
-                    result: {
-                        response: {
-                            success: true,
-                            image_output: { "$ref": "captured_image" }
-                        },
-                        parts: [
-                            {
-                                displayName: "captured_image",
-                                fileData: {
-                                    mimeType: file.type,
-                                    fileUri: publicUrl
-                                }
-                            }
-                        ]
-                    }
-                });
-
-                showToast('Image sent to AI analysis!', 'success');
+                // TODO: Support tool result injection in useGeminiChat if needed
+                showToast('Image captured, but tool results are not yet supported in this hook.', 'info');
             } else {
                 // File Upload (User initiated - video or audio)
                 if (isVideo || isAudio) {
@@ -128,26 +91,14 @@ export const useWorkspaceActions = ({
                     showToast('File uploaded. AI is analyzing...', 'success');
                 } else {
                     // Regular image file
-                    const requestOptions = token ? {
-                        headers: { 'Authorization': `Bearer ${token}` },
-                        body: { sessionId }
-                    } : {
-                        body: { sessionId }
-                    };
-
-                    if (typeof sendMessage === 'function') {
-                        await sendMessage({
-                            role: 'user',
-                            content: [
-                                { type: 'text', text: 'I have captured an image of the part.' },
-                                { type: 'image', image: publicUrl }
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            ] as any
-                        }, requestOptions);
-                        showToast('Image captured and sent!', 'success');
-                    } else {
-                        throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'sendMessage function is missing');
-                    }
+                    await append({
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: 'I have captured an image of the part.' },
+                            { type: 'image', image: publicUrl }
+                        ]
+                    });
+                    showToast('Image captured and sent!', 'success');
                 }
             }
 

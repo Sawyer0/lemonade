@@ -36,8 +36,9 @@ export function InputBar({ onSend, onMediaSelect, loading }: InputBarProps) {
     return (
         <View style={styles.container}>
             {/* Media Upload Button */}
-            <TouchableOpacity 
-                style={styles.iconButton} 
+            <TouchableOpacity
+                testID="chat-media-button"
+                style={styles.iconButton}
                 onPress={handlePickMedia}
                 disabled={loading}
             >
@@ -45,6 +46,7 @@ export function InputBar({ onSend, onMediaSelect, loading }: InputBarProps) {
             </TouchableOpacity>
 
             <TextInput
+                testID="chat-input"
                 style={styles.input}
                 placeholder="Ask Master Tech..."
                 placeholderTextColor={Theme.textSecondary}
@@ -55,6 +57,7 @@ export function InputBar({ onSend, onMediaSelect, loading }: InputBarProps) {
             />
 
             <TouchableOpacity
+                testID="chat-send-button"
                 style={[styles.sendButton, !text.trim() && styles.disabled]}
                 onPress={handleSend}
                 disabled={!text.trim() || loading}

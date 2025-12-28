@@ -4,7 +4,8 @@ import { z } from 'zod';
 export const IntuitionSchema = z.object({
     hypothesis: z.string().describe("The initial heuristic diagnosis based on the user's input/visuals."),
     confidence: z.number().min(0).max(1).describe("Confidence score of the initial intuition."),
-    reasoning: z.string().describe("Brief explanation of why this intuition was formed.")
+    reasoning: z.string().describe("Brief explanation of why this intuition was formed."),
+    investigationPlan: z.array(z.string()).describe("List of diagnostic steps (To-Do List) to verify the hypothesis.")
 });
 
 // Node 3: Authority (The Law)

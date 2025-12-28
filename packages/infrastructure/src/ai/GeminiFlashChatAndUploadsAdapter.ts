@@ -11,17 +11,18 @@ import type {
     AiGenerationConfig,
     VerificationRequest,
     VerificationResponse,
-    MessagePart
+    MessagePart,
+    StreamingEvent
 } from '@lemonade/core';
 import {
     AIAnalysisSchema,
-    SYSTEM_PROMPTS,
-    SAFETY_INSTRUCTION_MASTER_TECH,
-    VIDEO_PROMPTS,
+    SystemPrompts,
+    SafetyPrompts,
+    VideoPrompts,
     AppError,
     ErrorCode,
     AI_GENERATION_CONFIGS,
-    VERIFICATION_PROMPTS
+    VerificationPrompts
 } from '@lemonade/core';
 import { CONFIG } from '../config'; // Use local config
 import { TracingService } from '../observability/TracingService'; // Use TracingService class
@@ -79,7 +80,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             return existingCache as VerificationResponse;
         }
 
-        const prompt = VERIFICATION_PROMPTS.FACT_CHECKER(request.hypothesis, request.evidence);
+        const prompt = VerificationPrompts.factChecker(request.hypothesis, request.evidence);
 
         const apiRequest = {
             contents: [{
@@ -147,10 +148,10 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         }
 
         const fullPrompt = `
-        ${SYSTEM_PROMPTS.IDENTITY}
-        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        ${SystemPrompts.identity()}
+        ${SystemPrompts.primeDirectives()}
 
-        ${VIDEO_PROMPTS.ANALYSIS(vehicleContext)}
+        ${VideoPrompts.analysis(vehicleContext)}
         `;
 
         const genConfig = this.getGenerationConfigForChat(reasoningEffort);
@@ -258,10 +259,10 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         }
 
         const fullPrompt = `
-        ${SYSTEM_PROMPTS.IDENTITY}
-        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        ${SystemPrompts.identity()}
+        ${SystemPrompts.primeDirectives()}
 
-        ${VIDEO_PROMPTS.ANALYSIS(vehicleContext)}
+        ${VideoPrompts.analysis(vehicleContext)}
         `;
 
         const genConfig = this.getGenerationConfigForChat(reasoningEffort);
@@ -352,10 +353,11 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         diagnosticContext: AIAnalysis | null,
         userId: string,
         sessionId: string,
+        vin?: string,
         reasoningEffort?: ReasoningEffort,
         additionalParts?: Part[],
         traceId?: string
-    ): AsyncGenerator<string, string | MessagePart[], unknown> {
+    ): AsyncGenerator<StreamingEvent, void, unknown> {
         const genConfig = this.getGenerationConfigForChat(reasoningEffort);
 
         const chat = this.model.startChat({
@@ -383,14 +385,14 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         });
 
         const contextPrompt = `
-        ${SYSTEM_PROMPTS.IDENTITY}
-        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        ${SystemPrompts.identity()}
+        ${SystemPrompts.primeDirectives()}
 
         CONTEXT:
         Vehicle: ${vehicleContext}
         Current Diagnosis: ${diagnosticContext ? JSON.stringify(diagnosticContext) : 'None'}
         
-        ${SAFETY_INSTRUCTION_MASTER_TECH}
+        ${SafetyPrompts.masterTechInstruction()}
         `;
 
         const userParts: Part[] = [{ text: `${contextPrompt}\n\nUSER MESSAGE:\n${message}` }];
@@ -399,28 +401,32 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         }
 
         const currentInput: Part[] = userParts;
-        const loopCount = 0;
+        let loopCount = 0;
         const MAX_LOOPS = 3;
         let accumulatedText = "";
 
         while (loopCount < MAX_LOOPS) {
             const result = await chat.sendMessageStream(currentInput);
-            
-            for await (const chunk of result.stream) {
-                const parts = chunk.candidates?.[0]?.content?.parts || [];
-                // We don't yield function calls as raw strings to the text stream.
-                // We need the full response to handle them.
 
+            for await (const chunk of result.stream) {
+                // 1. Handle Thoughts (Reasoning Trace)
+                const parts = chunk.candidates?.[0]?.content?.parts || [];
+                const thoughtPart = parts.find((p) => 'thought' in p) as { thought?: string } | undefined;
+                if (thoughtPart && thoughtPart.thought) {
+                    yield { type: 'thought', content: thoughtPart.thought };
+                }
+
+                // 2. Handle Text Chunks
                 const partText = parts.find(p => p.text)?.text || "";
                 if (partText) {
                     accumulatedText += partText;
-                    yield partText;
+                    yield { type: 'text', content: partText };
                 }
             }
 
             const finalResponse = await result.response;
-            
-            // Handle Billing for this turn
+
+            // Handle Billing
             if (finalResponse.usageMetadata) {
                 await this.billingService.recordUsage({
                     userId, sessionId,
@@ -431,59 +437,46 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                 }, traceId);
             }
 
+            // 3. Handle Tool Calls
+            const finalParts = finalResponse.candidates?.[0]?.content?.parts || [];
+            const toolCalls = finalParts.filter(p => p.functionCall);
+
+            for (const call of toolCalls) {
+                if (call.functionCall) {
+                    yield {
+                        type: 'tool_call',
+                        toolName: call.functionCall.name,
+                        toolCallId: 'call_' + Math.random().toString(36).substr(2, 9),
+                        args: call.functionCall.args
+                    };
+                }
+            }
+
             // Orchestrate Tools
-            // We use the FunctionCallService to handle server-side loops
             const nextResponse = await this.functionCallService.handleFunctionCalls(
                 finalResponse,
                 chat,
-                { userId, sessionId }
+                { userId, sessionId, vin }
             );
 
-            // If handleFunctionCalls returned a DIFFERENT response, it means it ran a tool turn.
-            // But handleFunctionCalls is designed for blocking calls. 
-            // In a streaming context, if handleFunctionCalls ran server-side tools, 
-            // the 'nextResponse' it returns is the FINAL response after all tools.
-            
-            // If tools were run, we might have missed streaming the final text turn.
-            // Check if tools were actually run by comparing parts
-            const finalParts = nextResponse.candidates?.[0]?.content?.parts || [];
-            
             if (nextResponse !== finalResponse) {
-                // Tools were run! The final text is in finalParts.
-                // We need to yield any NEW text that wasn't in the initial stream.
-                const finalText = finalParts.find(p => p.text)?.text || "";
-                const newText = finalText.replace(accumulatedText, "");
+                // Tools were run!
+                const nextParts = nextResponse.candidates?.[0]?.content?.parts || [];
+                const nextText = nextParts.find(p => p.text)?.text || "";
+                const newText = nextText.replace(accumulatedText, "");
                 if (newText) {
                     accumulatedText += newText;
-                    yield newText;
+                    yield { type: 'text', content: newText };
                 }
-                // Loop ends here because handleFunctionCalls already exhausted the MAX_LOOPS
-                break; 
+                // Break after handling tool results for now to avoid infinite loops if not careful
+                break;
             } else {
-                // No more server-side tools to run.
-                // If there are client-side tools, we should return them as structured data.
-                const clientTools = finalParts.filter(p => p.functionCall);
-                if (clientTools.length > 0) {
-                    // How to return client tools in a text stream?
-                    // We return them in the final 'return' of the generator.
-                    const messageParts: MessagePart[] = [{ type: 'text', text: accumulatedText }];
-                    for (const call of clientTools) {
-                        if (call.functionCall) {
-                            messageParts.push({
-                                type: 'tool-call',
-                                toolName: call.functionCall.name,
-                                toolCallId: 'call_' + Math.random().toString(36).substr(2, 9),
-                                args: call.functionCall.args
-                            });
-                        }
-                    }
-                    return messageParts;
-                }
                 break;
             }
+            loopCount++;
         }
 
-        return accumulatedText;
+        yield { type: 'done' };
     }
 
     async generateReply(
@@ -493,13 +486,14 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         diagnosticContext: AIAnalysis | null,
         userId: string,
         sessionId: string,
+        vin?: string,
         reasoningEffort?: ReasoningEffort,
         additionalParts?: Part[],
         traceId?: string
     ): Promise<string | MessagePart[]> {
         const genConfig = this.getGenerationConfigForChat(reasoningEffort);
 
-        const cacheKeyData = { history, message, vehicleContext, diagnosticContext, genConfig, userId, sessionId, reasoningEffort, additionalParts };
+        const cacheKeyData = { history, message, vehicleContext, diagnosticContext, genConfig, userId, sessionId, vin, reasoningEffort, additionalParts };
         const cacheKey = `generateReply-${JSON.stringify(cacheKeyData)}`;
         const existingCache = await this.cacheService.getCache(cacheKey);
 
@@ -535,14 +529,14 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         });
 
         const contextPrompt = `
-        ${SYSTEM_PROMPTS.IDENTITY}
-        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        ${SystemPrompts.identity()}
+        ${SystemPrompts.primeDirectives()}
 
         CONTEXT:
         Vehicle: ${vehicleContext}
         Current Diagnosis: ${diagnosticContext ? JSON.stringify(diagnosticContext) : 'None'}
         
-        ${SAFETY_INSTRUCTION_MASTER_TECH}
+        ${SafetyPrompts.masterTechInstruction()}
         `;
 
         const userParts: Part[] = [{ text: `${contextPrompt}\n\nUSER MESSAGE:\n${message}` }];
@@ -583,7 +577,8 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             chat,
             {
                 userId,
-                sessionId
+                sessionId,
+                vin
             }
         );
 

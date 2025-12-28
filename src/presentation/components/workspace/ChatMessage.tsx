@@ -12,7 +12,7 @@ interface ToolInvocation {
 
 interface Message {
     id: string;
-    role: 'user' | 'assistant' | 'system';
+    role: 'user' | 'assistant' | 'system' | 'thought' | 'tool';
     content: unknown;
     toolInvocations?: ToolInvocation[];
 }

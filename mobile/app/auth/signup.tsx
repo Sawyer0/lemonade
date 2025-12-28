@@ -49,6 +49,7 @@ export default function SignupScreen() {
                         )}
 
                         <TextInput
+                            testID="signup-username-input"
                             style={styles.input}
                             placeholder="Username"
                             placeholderTextColor={Theme.textSecondary}
@@ -57,6 +58,7 @@ export default function SignupScreen() {
                         />
 
                         <TextInput
+                            testID="signup-email-input"
                             style={styles.input}
                             placeholder="Email"
                             placeholderTextColor={Theme.textSecondary}
@@ -67,6 +69,7 @@ export default function SignupScreen() {
                         />
 
                         <TextInput
+                            testID="signup-password-input"
                             style={styles.input}
                             placeholder="Password"
                             placeholderTextColor={Theme.textSecondary}
@@ -76,6 +79,7 @@ export default function SignupScreen() {
                         />
 
                         <TouchableOpacity
+                            testID="signup-submit-button"
                             style={[styles.button, styles.signupButton]}
                             onPress={handleSignup}
                             disabled={loading}

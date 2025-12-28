@@ -1,0 +1,15 @@
+# Maestro E2E Test Configuration
+# https://maestro.mobile.dev/
+
+appId: com.dawan.lemonademvp
+
+# Default timeouts
+timeout: 30000
+
+# Retry failed tests
+retries: 2
+
+# Generate JUnit reports for CI
+report:
+  format: junit
+  output: .maestro/reports/

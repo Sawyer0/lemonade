@@ -84,6 +84,8 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
 
             const analysisAdapter: AIAnalysis = {
                 diagnosis: finalVerdict.userOutput,
+                reasoning: reasoningState.intuition.reasoning,
+                investigationPlan: reasoningState.intuition.investigationPlan,
                 visual_evidence: reasoningState.intuition.reasoning.split('; '),
                 acoustic_evidence: [],
                 severity: (finalVerdict.decision === 'STOP_DANGER' ? 'critical' :
@@ -146,6 +148,8 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
 
         return {
             diagnosis: finalVerdict.userOutput,
+            reasoning: reasoningState.intuition.reasoning,
+            investigationPlan: reasoningState.intuition.investigationPlan,
             visual_evidence: reasoningState.intuition.reasoning.split('; '),
             acoustic_evidence: [],
             severity: (finalVerdict.decision === 'STOP_DANGER' ? 'critical' :

@@ -5,8 +5,8 @@ import {
     ILiveStreamAnalyzer,
     AIAnalysis,
     AIAnalysisSchema,
-    VIDEO_PROMPTS,
-    SYSTEM_PROMPTS,
+    VideoPrompts,
+    SystemPrompts,
     AppError,
     ErrorCode,
     ReasoningEffort,
@@ -129,10 +129,10 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         }
 
         const fullPrompt = `
-        ${SYSTEM_PROMPTS.IDENTITY}
-        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        ${SystemPrompts.identity()}
+        ${SystemPrompts.primeDirectives()}
 
-        ${VIDEO_PROMPTS.ANALYSIS(vehicleContext)}
+        ${VideoPrompts.analysis(vehicleContext)}
         `;
 
         const genConfig = this.getGenerationConfigForVideo(reasoningEffort);
@@ -224,6 +224,7 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         vehicleContext: string,
         userId: string,
         sessionId: string,
+        vin?: string,
         inputTimestamp?: number,
         localTriage?: LocalTriageResult
     ): Promise<AIAnalysis | MessagePart[] | null> {
@@ -265,10 +266,10 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         }
 
         const fullPrompt = `
-        ${SYSTEM_PROMPTS.IDENTITY}
-        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        ${SystemPrompts.identity()}
+        ${SystemPrompts.primeDirectives()}
 
-        ${VIDEO_PROMPTS.LIVE_IMAGE_ANALYSIS(vehicleContext)}
+        ${VideoPrompts.liveImageAnalysis(vehicleContext)}
 
         ${localTriage ? `\nLOCAL PERCEPTION GROUNDING:\n${JSON.stringify(localTriage, null, 2)}` : ''}
         `;
@@ -338,7 +339,8 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                 chat,
                 {
                     userId,
-                    sessionId
+                    sessionId,
+                    vin
                 }
             );
 
@@ -387,6 +389,7 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         userId: string,
         sessionId: string,
         audioChunkDurationSeconds: number,
+        vin?: string,
         inputTimestamp?: number
     ): Promise<AIAnalysis | MessagePart[] | null> {
         this.logger.debug("Sending to Vertex AI (Structured Output) for Live Audio Chunk Analysis", { sessionId, mimeType, userId, audioChunkDurationSeconds });
@@ -429,10 +432,10 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         }
 
         const fullPrompt = `
-        ${SYSTEM_PROMPTS.IDENTITY}
-        ${SYSTEM_PROMPTS.PRIME_DIRECTIVES}
+        ${SystemPrompts.identity()}
+        ${SystemPrompts.primeDirectives()}
 
-        ${VIDEO_PROMPTS.LIVE_AUDIO_ANALYSIS(vehicleContext)}
+        ${VideoPrompts.liveAudioAnalysis(vehicleContext)}
         `;
 
         const chat = this.model.startChat({
@@ -500,7 +503,8 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                 chat,
                 {
                     userId,
-                    sessionId
+                    sessionId,
+                    vin
                 }
             );
 

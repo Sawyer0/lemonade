@@ -203,4 +203,59 @@ export class FirestoreSessionRepository implements ISessionRepository {
             updatedAt: new Date()
         });
     }
+
+    // ========================================
+    // Phase 3: XState Persistence Methods
+    // ========================================
+
+    /**
+     * Save XState machine snapshot to enable session recovery after app crash/restart.
+     * Called after each state transition in MechanicReasoningService.
+     */
+    async saveXStateSnapshot(sessionId: string, snapshot: unknown): Promise<void> {
+        try {
+            await adminDb.collection('sessions').doc(sessionId).update({
+                xstateSnapshot: JSON.parse(JSON.stringify(snapshot)), // Ensure serializable
+                updatedAt: new Date()
+            });
+            this.logger.debug('XState snapshot saved', { sessionId });
+        } catch (error) {
+            this.logger.error('Failed to save XState snapshot', error as Error, { sessionId });
+            // Don't throw - snapshot save failure shouldn't break the session
+        }
+    }
+
+    /**
+     * Retrieve XState machine snapshot for session recovery.
+     * Returns null if no snapshot exists (new session or snapshot was cleared).
+     */
+    async getXStateSnapshot(sessionId: string): Promise<unknown | null> {
+        try {
+            const snap = await adminDb.collection('sessions').doc(sessionId).get();
+            if (!snap.exists) return null;
+
+            const data = snap.data();
+            return data?.xstateSnapshot ?? null;
+        } catch (error) {
+            this.logger.error('Failed to get XState snapshot', error as Error, { sessionId });
+            return null;
+        }
+    }
+
+    /**
+     * Clear XState snapshot after session completion.
+     * Called when session status changes to 'completed'.
+     */
+    async clearXStateSnapshot(sessionId: string): Promise<void> {
+        try {
+            await adminDb.collection('sessions').doc(sessionId).update({
+                xstateSnapshot: FieldValue.delete(),
+                updatedAt: new Date()
+            });
+            this.logger.debug('XState snapshot cleared', { sessionId });
+        } catch (error) {
+            this.logger.error('Failed to clear XState snapshot', error as Error, { sessionId });
+        }
+    }
 }
+

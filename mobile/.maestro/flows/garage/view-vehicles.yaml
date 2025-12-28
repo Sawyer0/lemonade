@@ -1,0 +1,20 @@
+# View Vehicles Flow - Test garage screen displays vehicles
+appId: com.dawan.lemonademvp
+---
+# Login first (handles both logged-in and logged-out states)
+- runFlow: ../auth/login-success.yaml
+
+# Verify garage screen
+- extendedWaitUntil:
+    visible: "My Garage"
+    timeout: 5000
+
+# Wait for vehicles to load
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Verify we can see the welcome message and FAB
+- assertVisible:
+    id: "welcome-message"
+- assertVisible:
+    id: "add-vehicle-fab"

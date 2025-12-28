@@ -15,7 +15,8 @@ export default function GarageScreen() {
     const router = useRouter();
 
     const renderVehicle = ({ item }: { item: Vehicle }) => (
-        <TouchableOpacity 
+        <TouchableOpacity
+            testID={`vehicle-card-${item.id}`}
             style={styles.card}
             onPress={() => router.push(`/garage/${item.id}`)}
         >
@@ -45,7 +46,8 @@ export default function GarageScreen() {
             <Stack.Screen options={{ 
                 title: 'My Garage',
                 headerRight: () => (
-                    <TouchableOpacity 
+                    <TouchableOpacity
+                        testID="logout-button"
                         onPress={signOut}
                         style={{ marginRight: 8 }}
                     >
@@ -55,7 +57,7 @@ export default function GarageScreen() {
             }} />
 
             <View style={styles.header}>
-                <ThemedText type="subtitle">Welcome, {user?.displayName || 'Mechanic'}</ThemedText>
+                <ThemedText testID="welcome-message" type="subtitle">Welcome, {user?.displayName || 'Mechanic'}</ThemedText>
                 <ThemedText style={styles.headerSub}>Manage your vehicles and diagnostic sessions.</ThemedText>
             </View>
 
@@ -79,7 +81,8 @@ export default function GarageScreen() {
                 contentContainerStyle={styles.list}
             />
 
-            <TouchableOpacity 
+            <TouchableOpacity
+                testID="add-vehicle-fab"
                 style={styles.fab}
                 onPress={() => router.push('/garage/add')}
             >

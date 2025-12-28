@@ -1,7 +1,7 @@
 import { injectable, inject } from 'inversify';
 import type { ISessionRepository, IChatAssistantAI, ILogger, IComplaintIdentificationService } from '@lemonade/core';
 import {
-    COMPLAINT_IDENTIFICATION_PROMPT,
+    ComplaintPrompts,
     MessagePart
 } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
@@ -28,7 +28,7 @@ export class ComplaintIdentificationService implements IComplaintIdentificationS
                 return;
             }
 
-            const prompt = COMPLAINT_IDENTIFICATION_PROMPT.replace('{message}', currentMessageContent);
+            const prompt = ComplaintPrompts.identification(currentMessageContent);
 
             const aiResponse = await this.chatAssistantAI.generateReply(
                 [],
