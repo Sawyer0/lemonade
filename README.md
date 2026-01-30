@@ -2,8 +2,6 @@
 
 AI-powered vehicle diagnostic platform. A "Master Technician" in your pocket.
 
-# CONFIDENTIAL - PROPRIETARY SOFTWARE
-
 ## Overview
 
 Lemonade provides accurate, safe, and instant mechanical diagnostics via video and chat. The platform utilizes a sophisticated **Neuro-symbolic 4-Layered Architecture** (System 2) combined with **Reactive Safety Gating** (System 0) to ensure grounded reasoning and absolute user safety.
