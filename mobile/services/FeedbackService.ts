@@ -1,54 +1,43 @@
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as Haptics from 'expo-haptics';
+import processingChime from '../assets/sounds/processing_chime.mp3';
 
-// The sound file (bundled in assets)
-// Note: User must provide this file at mobile/assets/sounds/processing_chime.mp3
-// @ts-expect-error - Asset might not be resolved by TS but is valid for Metro
-const CHIME_SOURCE = require('../assets/sounds/processing_chime.mp3'); // eslint-disable-line @typescript-eslint/no-require-imports
-
-let soundObject: Audio.Sound | null = null;
+let chime: Audio.Sound | null = null;
+let setupPromise: Promise<void> | null = null;
 
 /**
- * SETUP: Call this once in your App.tsx or a high-level provider
- * This prepares the audio session and pre-loads the sound into RAM.
+ * Configures the audio session to mix with LiveKit and preloads the chime.
+ * Safe to call more than once; later calls reuse the first setup.
  */
-export async function setupFeedbackService() {
-    try {
-        // A. Configure Audio Session to MIX with LiveKit
-        await Audio.setAudioModeAsync({
-            allowsRecordingIOS: false,
-            playsInSilentModeIOS: true,
-            interruptionModeIOS: Audio.InterruptionModeIOS.MixWithOthers,
-            interruptionModeAndroid: Audio.InterruptionModeAndroid.DuckOthers,
-            shouldDuckAndroid: true,
-            playThroughEarpieceAndroid: false,
-        });
-
-        // B. Pre-load the sound file
-        const { sound } = await Audio.Sound.createAsync(CHIME_SOURCE);
-        soundObject = sound;
-
-        console.log('Feedback Service: Ready');
-    } catch (error) {
-        // If file is missing, we catch it here and log.
-        // This allows the app to function without the physical mp3 during development.
-        console.warn('Feedback Service: Could not load chime asset. Is processing_chime.mp3 in assets/sounds?', error);
-    }
+export function setupFeedbackService(): Promise<void> {
+    setupPromise ??= (async () => {
+        try {
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: false,
+                playsInSilentModeIOS: true,
+                interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+                interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+                shouldDuckAndroid: true,
+                playThroughEarpieceAndroid: false,
+            });
+            const { sound } = await Audio.Sound.createAsync(processingChime);
+            chime = sound;
+        } catch (error) {
+            // Haptics still fire without audio, so a failed preload is not fatal.
+            console.warn('Feedback Service: could not prepare the processing chime', error);
+        }
+    })();
+    return setupPromise;
 }
 
 /**
- * TRIGGER: Call this when eval.risk === true
- * Plays sound and fires haptics simultaneously.
+ * Plays the "looking into it" cue: a haptic tap plus a short two-note chime.
+ * Fired when on-device triage escalates a detection to the Master Tech.
  */
-export async function triggerGhostFeedback() {
+export async function triggerGhostFeedback(): Promise<void> {
     try {
-        // A. Haptic Punch (Immediate physical feedback)
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        // B. Audio Chime
-        if (soundObject) {
-            await soundObject.replayAsync();
-        }
+        await chime?.replayAsync();
     } catch (error) {
         console.warn('Feedback trigger failed', error);
     }
