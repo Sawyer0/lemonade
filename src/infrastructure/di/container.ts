@@ -63,7 +63,6 @@ import { ServerAuthService } from '@/infrastructure/auth/ServerAuthService';
 import { StorageService } from '@/infrastructure/storage/StorageService';
 import { FirestoreVectorRepository } from '@/infrastructure/repositories/FirestoreVectorRepository';
 import { CONFIG } from '@/infrastructure/config';
-import { NHTSAVehicleInfoProvider } from '../external/NHTSAVehicleInfoProvider';
 
 // Services (Application)
 import { VehicleService } from '@/application/services/VehicleService';
@@ -101,7 +100,8 @@ container.bind<IUserRepository>(TYPES.UserRepo).to(FirestoreUserRepository).inSi
 
 container.bind<IServerAuthService>(TYPES.ServerAuthService).to(ServerAuthService).inSingletonScope();
 
-container.bind<IVehicleInfoProvider>(TYPES.VehicleInfoProvider).to(NHTSAVehicleInfoProvider).inSingletonScope();
+// NHTSAService decodes VINs through vPIC, so it also serves as the vehicle info provider.
+container.bind<IVehicleInfoProvider>(TYPES.VehicleInfoProvider).toService(TYPES.NHTSAService);
 
 container.bind<IBillingRepository>(TYPES.BillingRepository).to(BillingFirestoreRepository).inSingletonScope();
 
