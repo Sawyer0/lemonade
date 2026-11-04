@@ -17,6 +17,9 @@ const eslintConfig = defineConfig([
         'packages/infrastructure/dist/**',
         'packages/core/src/**/*.d.ts',
         'public/**',
+        'coverage/**',
+        'playwright-report/**',
+        'test-results/**',
     ]),
     {
         rules: {
