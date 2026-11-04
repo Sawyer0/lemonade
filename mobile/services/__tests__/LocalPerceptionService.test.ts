@@ -71,11 +71,19 @@ describe('LocalPerceptionService', () => {
             id: { obj: 'Brake Rotor', cat: 'Braking' },
             eval: { stat: 'CRITICAL', risk: true, note: 'Deep surface rust visible' },
         });
-        context.completion.mockResolvedValueOnce({ text: validJson });
+        context.completion.mockResolvedValueOnce({
+            text: validJson,
+            completion_probabilities: [
+                { content: '{', probs: [{ tok_str: '{', prob: 0.9 }] },
+                { content: 'CRITICAL', probs: [{ tok_str: 'CRITICAL', prob: 0.4 }] },
+            ],
+        });
 
         const results = await service.triageFrame('file:///frame.jpg');
 
         expect(results).toHaveLength(1);
+        expect(results[0].confidence).toBeCloseTo(0.6);
+        expect(context.completion).toHaveBeenLastCalledWith(expect.objectContaining({ n_probs: 1 }));
         expect(results[0]).toEqual(
             expect.objectContaining({
                 id: expect.objectContaining({ obj: 'Brake Rotor' }),
