@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ISessionRepository, DiagnosticSessionSchema, DiagnosticSession, IEdgeSecurityService } from '@lemonade/core';
-import { createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import {

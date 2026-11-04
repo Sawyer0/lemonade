@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { IChatService, ILogger, IEdgeSecurityService, VehicleContext, AIAnalysis, MessagePart } from '@lemonade/core';
-import { withContext } from '@/application/utils/apiHandler';
+import { withContext } from '@/application/http/withContext';
 import { RequestContext } from '@lemonade/infrastructure';
 
 export const maxDuration = 60; // Timeout handling

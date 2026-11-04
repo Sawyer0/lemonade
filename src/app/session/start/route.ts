@@ -3,7 +3,7 @@ import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { ILogger, IVehicleRepository } from '@lemonade/core';
 import { SessionService } from '@/application/services/SessionService';
-import { withContext } from '@/application/utils/apiHandler';
+import { withContext } from '@/application/http/withContext';
 
 export const GET = withContext(async (req: NextRequest) => {
     const searchParams = req.nextUrl.searchParams;

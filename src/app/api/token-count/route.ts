@@ -3,9 +3,9 @@ import { adminAuth } from '@lemonade/infrastructure';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { IMultimodalUploadAnalyzer, ILiveStreamAnalyzer, AppError, ErrorCode, ILogger } from '@lemonade/core';
-import { verifyApiKey } from '@/app/api/utils/auth';
-import { createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { verifyApiKey } from '@/infrastructure/auth/verifyApiKey';
+import { createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 
 export const POST = withContext(async (request: NextRequest) => {
     const logger = container.get<ILogger>(TYPES.Logger);

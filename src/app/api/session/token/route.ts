@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleAuth } from 'google-auth-library';
 import { CONFIG } from '@/infrastructure/config';
 import { container } from '@/infrastructure/di/container';
-import { withContext } from '@/application/utils/apiHandler';
+import { withContext } from '@/application/http/withContext';
 import type {
     ISessionRepository,
     IVehicleRepository,

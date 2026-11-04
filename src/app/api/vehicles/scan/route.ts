@@ -4,9 +4,9 @@ import { TYPES } from '@/infrastructure/di/types';
 import { VehicleService } from '@/application/services/VehicleService';
 import { ILogger } from '@lemonade/core';
 import { VehicleScanRequestSchema } from '@/application/dtos';
-import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
+import { validateRequest, validateResponse, createErrorResponse } from '@/application/http/validateRequest';
 import { VehicleScanResponseSchema } from '@/application/dtos/vehicle.dto';
-import { withContext } from '@/application/utils/apiHandler';
+import { withContext } from '@/application/http/withContext';
 
 export const POST = withContext(async (req: Request) => {
     try {

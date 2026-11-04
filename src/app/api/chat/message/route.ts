@@ -3,8 +3,8 @@ import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { ChatService } from '@/application/services/ChatService';
 import { ChatRequestSchema, ChatResponseSchema } from '@/application/dtos';
-import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { validateRequest, validateResponse, createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 
 export const POST = withContext(async (req: Request) => {
     try {

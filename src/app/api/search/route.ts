@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { IGoogleSearchService, SearchResponse, SearchRequestSchema } from '@lemonade/core';
-import { validateRequest, createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { validateRequest, createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 
 export const POST = withContext(async (req: Request) => {
     try {
