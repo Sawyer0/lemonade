@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EdgeSecurityService } from '../EdgeSecurityService';
 
 describe('EdgeSecurityService', () => {
@@ -81,5 +81,17 @@ describe('EdgeSecurityService', () => {
         expect(auth?.userId).toBe(userId);
         expect(auth?.tier).toBe(tier);
         expect(auth?.traceId).toBe(traceId);
+    });
+
+    it('refuses to seal headers in production without a secret', async () => {
+        vi.stubEnv('NODE_ENV', 'production');
+        vi.stubEnv('SECURITY_INTERNAL_SECRET', '');
+        try {
+            await expect(new EdgeSecurityService().signPayload({ 'x-user-id': 'u' })).rejects.toThrow(
+                'SECURITY_INTERNAL_SECRET is not set',
+            );
+        } finally {
+            vi.unstubAllEnvs();
+        }
     });
 });

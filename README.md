@@ -25,6 +25,9 @@ Request flow for chat (`POST /api/chat`, streamed as NDJSON):
 
 1. **Middleware** (`src/middleware.ts`) verifies the Firebase ID token, applies Upstash rate limits and Pro-tier gates,
    and seals the user identity into HMAC-signed headers. Route rules live in `src/infrastructure/security/routeAccess.ts`.
+   The HMAC key is `SECURITY_INTERNAL_SECRET`: production requires 32+ random characters and the server refuses to
+   start without it (`src/instrumentation.ts`); development falls back to a fixed dev-only key, and
+   `DEV_BYPASS_SECRET` is ignored in production.
 2. **System 0, reactive safety** (`ReactiveSafetyService`): regex rules for fuel leaks, battery fires, high-voltage
    parts and working under an unsupported car. Hand-written rules run first, then 35 generated rules; observation
    verbs ("I see orange cables") are allowed through. A match returns a fixed safety message and no model is called.

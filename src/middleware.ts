@@ -20,8 +20,8 @@ export async function middleware(request: NextRequest) {
         let userId: string | null = null;
         let userTier: 'free' | 'pro' = 'free';
 
-        // --- Secure Dev Bypass ---
-        const devBypassSecret = process.env.DEV_BYPASS_SECRET;
+        // --- Dev Bypass (never honored in production) ---
+        const devBypassSecret = process.env.NODE_ENV === 'production' ? undefined : process.env.DEV_BYPASS_SECRET;
         const providedBypass = request.headers.get('x-dev-bypass');
 
         if (devBypassSecret && providedBypass === devBypassSecret) {
