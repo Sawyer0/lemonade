@@ -4,7 +4,6 @@ export { bindAiProviders } from './di/aiBindings';
 export * from './interfaces/IConfigProvider';
 export * from './config/EnvConfigProvider';
 export * from './config';
-export * from './ai/VertexAIVideoAdapter';
 export * from './ai/VertexAISafetyAdapter';
 export * from './ai/GeminiChatAdapter';
 export * from './ai/gemini/GeminiMediaModel';
