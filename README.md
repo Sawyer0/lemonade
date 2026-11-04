@@ -21,6 +21,18 @@ mobile/         Expo / React Native app: camera, VIN scanner, live mechanic over
 agent/          LiveKit voice agent (the live Master Tech) and its room token server
 ```
 
+Dependencies point inward: apps depend on `core` interfaces, and only `infrastructure` talks to vendors.
+
+```
+ web (src/)   functions/   agent/   mobile/          entry points: routes, triggers, worker, screens
+      \           |          /         |
+       +---- packages/infrastructure    |            adapters + Inversify bindings (bindAiProviders)
+       |     Vertex | Groq | offline    |            LLM_PROVIDER picks the model adapters
+       |     Firestore, NHTSA, search   |
+       v                                v
+            packages/core                            domain types, ports (I*Service), XState machine
+```
+
 Request flow for chat (`POST /api/chat`, streamed as NDJSON):
 
 1. **Middleware** (`src/middleware.ts`) verifies the Firebase ID token, applies Upstash rate limits and Pro-tier gates,
@@ -40,7 +52,9 @@ hypothesis → search and fact-check it in parallel → check uploaded video →
 
 Services are bound in an Inversify container (`src/infrastructure/di/container.ts`) against interfaces from
 `packages/core`. The chat and safety models sit behind `IChatAssistantAI` / `ISafetyAI`: Vertex AI (Gemini) by
-default, or Groq's OpenAI-compatible API with `LLM_PROVIDER=groq`. Video, image and live-stream analysis need Vertex AI.
+default, Groq's OpenAI-compatible API with `LLM_PROVIDER=groq`, or scripted replies with `LLM_PROVIDER=offline`
+(no network, used by the demo and the smoke test). The web app, Cloud Functions and the agent all bind models
+through the same `bindAiProviders`, so the upload trigger and the live agent use the same media port as the web app.
 
 ## Quick start
 
@@ -88,7 +102,42 @@ firebase deploy --only firestore:rules,storage,functions
 
 Set `LLM_PROVIDER=groq` with `GROQ_API_KEY` to run chat and safety checks on Groq instead of Vertex AI.
 
-The mobile app is in `mobile/` (`npx expo run:android` or `run:ios` from that folder); see `mobile/README.md`.
+The mobile app is in `mobile/`. It uses native modules (LiveKit, VisionCamera, llama.rn), so it runs as a
+development build, not in Expo Go.
+
+#### iOS development build on your own iPhone (free Apple ID)
+
+Needs a Mac with Xcode, an iPhone on a cable and an Apple ID; no paid developer account.
+
+1. In Xcode, open **Settings → Accounts** and add your Apple ID. Xcode creates a free "Personal Team".
+2. Generate the native project and build to the phone:
+
+    ```bash
+    cd mobile
+    npx expo prebuild --platform ios     # writes mobile/ios (git-ignored)
+    npx expo run:ios --device            # pick your iPhone from the list
+    ```
+
+3. If signing fails, open `mobile/ios/*.xcworkspace`, select the app target → **Signing & Capabilities**, choose
+   your Personal Team and, if Xcode says the identifier is taken, change the bundle identifier (for example
+   `com.<you>.lemonade`) here and in `mobile/app.json`.
+4. On the phone, trust the certificate under **Settings → General → VPN & Device Management**, and turn on
+   **Developer Mode** (Settings → Privacy & Security) when iOS asks.
+
+Free-account builds expire after 7 days: run `npx expo run:ios --device` again to re-sign and reinstall. Free teams
+also cannot use paid-only capabilities such as push notifications.
+
+For Android, `npx expo run:android` from `mobile/` builds and installs on a connected device or emulator.
+
+#### Ray-Ban Meta glasses
+
+`mobile/modules/meta-wearables` wraps Meta's
+[Wearables Device Access Toolkit](https://github.com/facebook/meta-wearables-dat-android) (Maven Central,
+`com.meta.wearable:mwdat-*`) for Android: registration through the Meta AI app, the camera permission, a stream
+from the glasses and in-stream photo capture. Developer Mode in the Meta AI app works with the default `0`
+attestation values; for release builds set `META_WEARABLES_APPLICATION_ID` and `META_WEARABLES_CLIENT_TOKEN`
+from the Wearables Developer Center before `expo prebuild`. There is no iOS implementation yet, so on iOS the
+glasses screen reports the module as unavailable.
 
 ### Live voice agent
 
@@ -122,24 +171,55 @@ npm run format:check   # Prettier
 npm run typecheck      # tsc, strict mode (web + packages)
 npm run typecheck:mobile
 npm run typecheck:agent
-npm test               # Vitest: web app, packages and agent
+npm run typecheck:functions
+npm test               # Vitest: web app, packages, Cloud Functions and agent
+npm run test:coverage  # the same, with a v8 coverage report in coverage/
 npm run test:mobile    # Jest: mobile app
+npm --workspace mobile run test:plugins   # Expo config plugins
 npm run build          # Next.js production build
 ```
 
-GitHub Actions runs all of these on every pull request (`.github/workflows/ci.yml`). Tests use fakes for every model
-and cloud service. Tests that call Vertex AI or write to a real Firestore project run only with
-`RUN_LIVE_CLOUD_TESTS=true` and credentials in `.env.local`. Playwright end-to-end specs are in `e2e/`
-(`npx playwright test`, which starts the dev server).
+Unit tests use fakes for every model and cloud service. Notable suites: the Cloud Functions video pipeline and
+Stripe webhook (`functions/src/__tests__`), and the agent worker entry started against a fake LiveKit room and
+voice providers (`agent/test/worker.test.ts`). Tests that call Vertex AI or write to a real Firestore project run
+only with `RUN_LIVE_CLOUD_TESTS=true` and credentials in `.env.local`.
 
-The voice agent has an opt-in live end-to-end test (`agent/test/live/voiceAgent.live.test.ts`). It starts the agent
-worker, joins a fresh LiveKit room as a test participant, speaks a question (synthesised with Gemini TTS) and asserts
-that the agent answers with audio and a transcript. It is skipped unless the LiveKit and Google keys are set:
+### Smoke test
+
+`npm run test:smoke` boots the production build (`next start`) against the Firebase Auth and Firestore emulators,
+the offline model provider and a local NHTSA fixture server, then exercises pages, auth rejections, the garage,
+VIN scan, recalls, sessions, streamed chat and the safety gate over HTTP:
+
+```bash
+npm run build
+npx firebase-tools@14 emulators:exec --only auth,firestore --project demo-lemonade "npm run test:smoke"
+```
+
+The emulators need Java 21.
+
+### Live voice agent test
+
+`agent/test/live/voiceAgent.live.test.ts` starts the agent worker, joins a fresh LiveKit room as a test participant,
+speaks a question (synthesised with Gemini TTS) and asserts that the agent answers with audio and a transcript. It
+is skipped unless the LiveKit and Google keys are set:
 
 ```bash
 LIVEKIT_URL=wss://... LIVEKIT_API_KEY=... LIVEKIT_API_SECRET=... GOOGLE_API_KEY=... \
   npm --workspace agent run test:live    # sets RUN_LIVE_AGENT_TESTS=true
 ```
+
+In GitHub it runs only on demand: add those four as repository secrets and start **Live agent e2e**
+(`.github/workflows/live-agent.yml`) from the Actions tab.
+
+### CI
+
+`.github/workflows/ci.yml` runs on every pull request:
+
+- **checks**: lint, format, all four typechecks, Vitest with coverage (summary on the run page), mobile Jest and
+  config-plugin tests, the Cloud Functions build plus a load of the compiled entry, and the Next.js build
+- **smoke**: the smoke test above
+- **mobile bundle (ios, android)**: `npx expo export` for each platform
+- **android module**: `expo prebuild` and a Gradle compile of the Meta Wearables module
 
 ## API routes
 
