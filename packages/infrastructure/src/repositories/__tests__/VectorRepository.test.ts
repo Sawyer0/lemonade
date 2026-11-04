@@ -1,8 +1,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { VectorRepository } from '../VectorRepository';
-import type { ILogger } from '@lemonade/core';
-import { GeminiCoreAdapter } from '../../ai/GeminiCoreAdapter';
+import type { IEmbeddingService, ILogger } from '@lemonade/core';
 
 // Mock firebase-admin/firestore
 vi.mock('firebase-admin/firestore', () => {
@@ -30,13 +29,16 @@ const mockLogger: ILogger = {
 };
 
 const mockEmbedContent = vi.fn();
-const mockModel = {
-    embedContent: mockEmbedContent,
+/** Embedding service fake fed by the raw model reply each test queues. */
+const fakeEmbeddings: IEmbeddingService = {
+    embed: async (text: string) => {
+        const result = (await mockEmbedContent(text)) as { embedding?: { values?: number[] } | null };
+        const values = result?.embedding?.values;
+        if (!values) throw new Error('No embedding returned');
+        return values;
+    },
+    embedBatch: async () => [],
 };
-
-const mockCoreAdapter = {
-    getGenerativeModel: vi.fn().mockReturnValue(mockModel),
-} as unknown as GeminiCoreAdapter;
 
 describe('VectorRepository', () => {
     let repository: VectorRepository;
@@ -65,7 +67,7 @@ describe('VectorRepository', () => {
             embedding: { values: [0.1, 0.2, 0.3, 0.4, 0.5] },
         });
 
-        repository = new VectorRepository(mockLogger, mockCoreAdapter);
+        repository = new VectorRepository(mockLogger, fakeEmbeddings);
     });
 
     describe('search', () => {
