@@ -1,4 +1,5 @@
 export * from './di/types';
+export { createContainer } from './di/container';
 export * from './interfaces/IConfigProvider';
 export * from './config/EnvConfigProvider';
 export * from './config';

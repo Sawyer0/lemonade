@@ -2,32 +2,30 @@
   "name": "agent",
   "version": "1.0.0",
   "license": "Apache-2.0",
-  "description": "",
-  "main": "dist/index.js",
-  "module": "src/index.ts",
+  "description": "LiveKit voice agent (the live Master Tech) and its room token server",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --root .. agent",
+    "test:live": "RUN_LIVE_AGENT_TESTS=true vitest run --root .. agent/test/live",
     "dev": "bun run --watch src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "bun run src/index.ts"
   },
   "keywords": [],
   "author": "",
   "type": "module",
   "dependencies": {
+    "@google/genai": "^1.31.0",
     "@lemonade/core": "file:../packages/core",
     "@lemonade/infrastructure": "file:../packages/infrastructure",
     "@livekit/agents": "1.0.31",
-    "@livekit/agents-plugin-deepgram": "1.0.31",
-    "@livekit/agents-plugin-google": "^1.x",
+    "@livekit/agents-plugin-google": "1.0.31",
     "@livekit/agents-plugin-resemble": "1.0.31",
     "@livekit/agents-plugin-silero": "1.0.31",
-    "@livekit/rtc-node": "^0.9.0",
+    "@livekit/rtc-node": "^0.13.22",
     "elysia": "^1.4.19",
     "firebase-admin": "^13.6.0",
-    "livekit-client": "^2.16.1",
     "livekit-server-sdk": "^2.15.0",
-    "@sinclair/typebox": "^0.34.13"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^25.0.2",

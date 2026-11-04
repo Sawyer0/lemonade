@@ -1,28 +1,40 @@
-// functions/livekit-agent/src/env.ts
-// Centralized environment variables for the LiveKit agent server
-
-interface Env {
-    LIVEKIT_HOST: string;
+/**
+ * Environment for the LiveKit agent worker and its token server.
+ * LiveKit credentials fall back to the `livekit-server --dev` defaults only
+ * outside production, so a misconfigured deploy fails at startup.
+ */
+export interface AgentEnv {
+    LIVEKIT_URL: string;
     LIVEKIT_API_KEY: string;
     LIVEKIT_API_SECRET: string;
-    PORT?: string;
-    LIVEKIT_AGENT_AUDIO_CHUNK_INTERVAL_MS?: string;
-    LIVEKIT_AGENT_VIDEO_FRAME_INTERVAL_MS?: string;
-    MAIN_APP_BASE_URL: string; // New: Base URL for the main Next.js application API
-    MAIN_APP_API_KEY: string; // New: API Key for LiveKit Agent to authenticate with main app
-    DEEPGRAM_API_KEY?: string;
+    PORT: number;
+    /** Gemini API key used by the realtime voice model. */
+    GOOGLE_API_KEY?: string;
+    /** When set, Resemble speaks the agent's replies instead of Gemini's native voice. */
     RESEMBLE_API_KEY?: string;
+    RESEMBLE_VOICE_UUID?: string;
 }
 
-export const env: Env = {
-    LIVEKIT_HOST: process.env.LIVEKIT_HOST || 'http://localhost:7880', // Default to local LiveKit
-    LIVEKIT_API_KEY: process.env.LIVEKIT_API_KEY || 'devkey', // Default dev key
-    LIVEKIT_API_SECRET: process.env.LIVEKIT_API_SECRET || 'secret', // Default dev secret
-    PORT: process.env.PORT || '3001',
-    LIVEKIT_AGENT_AUDIO_CHUNK_INTERVAL_MS: process.env.LIVEKIT_AGENT_AUDIO_CHUNK_INTERVAL_MS,
-    LIVEKIT_AGENT_VIDEO_FRAME_INTERVAL_MS: process.env.LIVEKIT_AGENT_VIDEO_FRAME_INTERVAL_MS,
-    MAIN_APP_BASE_URL: process.env.MAIN_APP_BASE_URL || 'http://localhost:3000', // Default to main app dev server
-    MAIN_APP_API_KEY: process.env.MAIN_APP_API_KEY || 'super-secret-agent-key', // Default dev key
-    DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY,
-    RESEMBLE_API_KEY: process.env.RESEMBLE_API_KEY,
-};
+type Source = Record<string, string | undefined>;
+
+const DEV_DEFAULTS = { LIVEKIT_URL: 'ws://localhost:7880', LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'secret' };
+
+export function loadEnv(source: Source = process.env): AgentEnv {
+    const production = source.NODE_ENV === 'production';
+    const required = (name: keyof typeof DEV_DEFAULTS): string => {
+        const value = source[name];
+        if (value) return value;
+        if (production) throw new Error(`${name} must be set in production`);
+        return DEV_DEFAULTS[name];
+    };
+
+    return {
+        LIVEKIT_URL: source.LIVEKIT_URL || source.LIVEKIT_HOST || required('LIVEKIT_URL'),
+        LIVEKIT_API_KEY: required('LIVEKIT_API_KEY'),
+        LIVEKIT_API_SECRET: required('LIVEKIT_API_SECRET'),
+        PORT: Number(source.PORT || 3001),
+        GOOGLE_API_KEY: source.GOOGLE_API_KEY || source.GEMINI_API_KEY || undefined,
+        RESEMBLE_API_KEY: source.RESEMBLE_API_KEY || undefined,
+        RESEMBLE_VOICE_UUID: source.RESEMBLE_VOICE_UUID || undefined,
+    };
+}
