@@ -9,6 +9,16 @@ import {
 import { TYPES } from '../di/types';
 import type { IConfigProvider } from '../interfaces/IConfigProvider';
 
+interface GoogleSearchItem {
+    title: string;
+    link: string;
+    snippet: string;
+    displayLink: string;
+    pagemap?: {
+        metatags?: Array<Record<string, string | undefined>>;
+    };
+}
+
 @injectable()
 export class GoogleSearchService implements IGoogleSearchService {
     private readonly BASE_URL = 'https://www.googleapis.com/customsearch/v1';
@@ -52,12 +62,22 @@ export class GoogleSearchService implements IGoogleSearchService {
                 return { results: [], queryUsed: request.query, totalFound: 0 };
             }
 
-            const results = data.items.map((item: { title: string; link: string; snippet: string; displayLink: string }) => ({
-                title: item.title,
-                link: item.link,
-                snippet: item.snippet,
-                source: item.displayLink
-            }));
+            const results = (data.items as GoogleSearchItem[]).map((item) => {
+                const metatags = item.pagemap?.metatags?.[0] ?? {};
+                const date =
+                    metatags['article:published_time'] ??
+                    metatags['og:published_time'] ??
+                    metatags['date'] ??
+                    metatags['pubdate'];
+
+                return {
+                    title: item.title,
+                    link: item.link,
+                    snippet: item.snippet,
+                    source: item.displayLink,
+                    date: typeof date === 'string' ? date : undefined
+                };
+            });
 
             return {
                 results,
