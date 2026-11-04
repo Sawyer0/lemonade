@@ -12,8 +12,12 @@
 
 # mobile & build artifacts (global recursive)
 **/.expo/
-**/android/
-**/ios/
+# Generated native projects (expo prebuild). Local Expo modules keep their
+# native sources, e.g. mobile/modules/*/android.
+/android/
+/ios/
+/mobile/android/
+/mobile/ios/
 **/dist/
 **/web-build/
 **/build/
