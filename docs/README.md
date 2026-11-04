@@ -9,8 +9,6 @@ Central hub for all project documentation.
 ```
 docs/
 ├── sdk/           # SDK architecture & maintenance
-├── gemini-api/    # Google Gemini API reference
-├── livekit/       # LiveKit voice agent docs
 ├── platform/      # Lemonade platform features
 └── META/          # Project meta documentation
 ```
@@ -31,29 +29,13 @@ docs/
 
 ---
 
-## Gemini API Reference
+## Vendor References
 
-| Doc | Description |
-|-----|-------------|
-| [Batch API](./gemini-api/BATCH-API.md) | Batch processing API |
-| [Files API](./gemini-api/FILES-API.md) | File handling API |
-| [Models](./gemini-api/MODELS.md) | AI model configurations |
-| [Gemini Thinking](./gemini-api/GEMINI-THINKING.md) | Reasoning modes |
-| [Video Understanding](./gemini-api/VIDEO-UNDERSTANDING.md) | Video analysis |
-| [Long Context](./gemini-api/LONG-CONTEXT.md) | Context window usage |
+Lemonade builds on these upstream docs; follow the official sources rather than copies:
 
----
-
-## LiveKit Voice Agents
-
-| Doc | Description |
-|-----|-------------|
-| [Agent Session](./livekit/AGENT-SESSION.md) | Voice agent orchestration |
-| [Audio](./livekit/AUDIO.md) | Speech & audio capabilities |
-| [Live Sessions](./livekit/LIVE-SESSIONS.md) | Real-time session management |
-| [STT](./livekit/STT.md) | Speech-to-text |
-| [TTS](./livekit/TTS.md) | Text-to-speech |
-| [Real-Time](./livekit/REAL-TIME.md) | WebRTC streaming |
+- [Gemini API](https://ai.google.dev/gemini-api/docs) (models, Files API, video understanding, thinking)
+- [LiveKit Agents](https://docs.livekit.io/agents/) (voice agent sessions, STT/TTS, realtime models)
+- [ExecuTorch](https://pytorch.org/executorch/) (on-device inference)
 
 ---
 
@@ -65,9 +47,3 @@ docs/
 | [Server-Driven Gating](./platform/SERVERDRIVENGATING.md) | AI tool control |
 | [Tool Audit](./platform/TOOL-AUDIT.md) | Tool usage analysis |
 | [Evals](./platform/EVALS.md) | Evaluation framework |
-
----
-
-## Full ExecuTorch Docs
-
-For complete ExecuTorch documentation, see [execu-docs](../execu-docs/README.md).
