@@ -6,6 +6,18 @@ export default defineConfig({
         environment: 'node',
         globals: true,
         exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/*.spec.ts', 'mobile/**'],
+        coverage: {
+            provider: 'v8',
+            reporter: ['text-summary', 'json-summary', 'html'],
+            include: ['src/**/*.{ts,tsx}', 'packages/*/src/**/*.ts', 'agent/src/**/*.ts', 'functions/src/**/*.ts'],
+            exclude: [
+                '**/__tests__/**',
+                '**/*.test.ts',
+                '**/*.d.ts',
+                '**/scripts/**',
+                'packages/infrastructure/src/observability/data/**',
+            ],
+        },
     },
     resolve: {
         alias: {
