@@ -13,7 +13,7 @@ model-based safety check, and only then reaches the diagnostic assistant.
 src/            Next.js 16 web app (App Router): pages, API routes, application services, DI wiring
 packages/core   Domain types (Zod), service interfaces, prompts and the XState diagnostic state machine
 packages/infrastructure
-                Adapters: Vertex AI / Gemini, Groq, Firestore, NHTSA, Google Search, Supermemory, Stripe usage,
+                Adapters: Vertex AI / Gemini, Groq, Firestore, NHTSA, Google Search, Supermemory, usage billing,
                 edge auth + rate limiting, LangSmith tracing
 functions/      Firebase Cloud Functions: video analysis on upload, Stripe checkout and webhook
 mobile/         Expo / React Native app: camera, VIN scanner, LiveKit, on-device llama.rn, Meta wearables
