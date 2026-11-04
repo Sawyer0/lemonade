@@ -57,7 +57,8 @@ export class NHTSAService implements INHTSAService {
 
     async validateVin(vin: string): Promise<boolean> {
         try {
-            const url = `${this.BASE_URL}/vehicles/DecodeVin/${vin}?format=json`;
+            // DecodeVinValues returns one flat record per VIN, with ErrorCode '0' for a clean decode.
+            const url = `${this.BASE_URL}/vehicles/DecodeVinValues/${encodeURIComponent(vin)}?format=json`;
             const response = await fetch(url);
             if (!response.ok) return false;
 
