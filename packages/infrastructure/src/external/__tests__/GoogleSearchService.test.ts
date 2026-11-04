@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GoogleSearchService } from '../GoogleSearchService';
 import { ILogger, IBillingService } from '@lemonade/core';
+import type { IConfigProvider } from '../../interfaces/IConfigProvider';
 
 // Mock dependencies
 const mockLogger = {
@@ -14,22 +15,18 @@ const mockBillingService = {
   recordUsage: vi.fn().mockResolvedValue(undefined),
 } as unknown as IBillingService;
 
-// Mock CONFIG
-vi.mock('@/infrastructure/config', () => ({
-  CONFIG: {
-    GOOGLE: {
-      SEARCH_API_KEY: 'test-api-key',
-      SEARCH_CX: 'test-cx',
-    },
-  },
-}));
+const mockConfigProvider = {
+  getOrThrow: vi.fn((key: string) =>
+    key === 'GOOGLE_SEARCH_API_KEY' ? 'test-api-key' : 'test-cx',
+  ),
+} as unknown as IConfigProvider;
 
 describe('GoogleSearchService', () => {
   let service: GoogleSearchService;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new GoogleSearchService(mockLogger, mockBillingService);
+    service = new GoogleSearchService(mockLogger, mockBillingService, mockConfigProvider);
     global.fetch = vi.fn();
   });
 
