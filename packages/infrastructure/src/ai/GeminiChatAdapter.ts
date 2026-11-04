@@ -5,7 +5,7 @@ import type {
     AIAnalysis,
     ILogger,
     IBillingService,
-    IContextCacheService,
+    IResponseCache,
     ReasoningEffort,
     VerificationRequest,
     VerificationResponse,
@@ -37,7 +37,7 @@ export class GeminiChatAdapter implements IChatAssistantAI {
         @inject(TYPES.BillingService) billingService: IBillingService,
         @inject(TYPES.GeminiCoreAdapter) coreAdapter: GeminiCoreAdapter,
         @inject(TYPES.FunctionCallService) functionCallService: FunctionCallService,
-        @inject(TYPES.ContextCacheService) cacheService: IContextCacheService,
+        @inject(TYPES.ResponseCache) responseCache: IResponseCache,
         @inject(TYPES.TracingService) tracer: TracingService,
     ) {
         this.model = coreAdapter.getGenerativeModel(
@@ -49,11 +49,11 @@ export class GeminiChatAdapter implements IChatAssistantAI {
             this.model,
             billingService,
             functionCallService,
-            cacheService,
+            responseCache,
             tracer,
             logger,
         );
-        this.verifier = new GeminiHypothesisVerifier(this.model, cacheService, logger);
+        this.verifier = new GeminiHypothesisVerifier(this.model, responseCache, logger);
         this.logger.info(`GeminiChatAdapter initialized, using model: ${CONFIG.AI_MODELS.CHAT_MODEL}`);
     }
 

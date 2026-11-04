@@ -21,7 +21,7 @@ function containerWithSharedServices(): Container {
     const noop = {};
     for (const key of [
         TYPES.BillingService,
-        TYPES.ContextCacheService,
+        TYPES.ResponseCache,
         TYPES.TracingService,
         TYPES.UserRepo,
         TYPES.SessionRepo,

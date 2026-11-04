@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IBillingService, IContextCacheService, ILogger, IMediaAnalysisModel } from '@lemonade/core';
+import type { IBillingService, ILogger, IMediaAnalysisModel } from '@lemonade/core';
+import { InMemoryResponseCache } from '../../../cache/InMemoryResponseCache';
 import type { TracingService } from '../../../observability/TracingService';
 import { MediaUploadAnalyzer } from '../MediaUploadAnalyzer';
 import { CompletionMediaModel } from '../../llm/CompletionMediaModel';
@@ -9,7 +10,7 @@ import { FakeMediaModel, VALID_ANALYSIS } from './fakeMediaModel';
 describe('MediaUploadAnalyzer', () => {
     let model: FakeMediaModel;
     let billing: IBillingService;
-    let cache: IContextCacheService;
+    let cache: InMemoryResponseCache;
     let tracer: TracingService;
     let logger: ILogger;
 
@@ -18,10 +19,7 @@ describe('MediaUploadAnalyzer', () => {
     beforeEach(() => {
         model = new FakeMediaModel();
         billing = { recordUsage: vi.fn().mockResolvedValue(undefined) } as unknown as IBillingService;
-        cache = {
-            getCache: vi.fn().mockResolvedValue(null),
-            createCache: vi.fn().mockResolvedValue(undefined),
-        } as unknown as IContextCacheService;
+        cache = new InMemoryResponseCache();
         tracer = { traceAiCall: vi.fn(({ exec }) => exec()) } as unknown as TracingService;
         logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as ILogger;
     });
@@ -59,11 +57,7 @@ describe('MediaUploadAnalyzer', () => {
                 model: 'fake-media-model',
             }),
         );
-        expect(cache.createCache).toHaveBeenCalledWith(
-            [{ text: JSON.stringify(VALID_ANALYSIS) }],
-            3600,
-            expect.stringContaining('analyzeUploadedVideo-'),
-        );
+        expect(cache.size).toBe(1);
     });
 
     it('does not bill without a session', async () => {
@@ -73,10 +67,12 @@ describe('MediaUploadAnalyzer', () => {
     });
 
     it('returns a cached analysis without calling the model', async () => {
-        (cache.getCache as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify(VALID_ANALYSIS));
-        const analysis = await build().analyzeUploadedImage('gs://b/i.jpg', 'Civic', 'image/jpeg', 'user-1', 's');
+        model.reply(JSON.stringify(VALID_ANALYSIS));
+        const analyzer = build();
+        await analyzer.analyzeUploadedImage('gs://b/i.jpg', 'Civic', 'image/jpeg', 'user-1', 's');
+        const analysis = await analyzer.analyzeUploadedImage('gs://b/i.jpg', 'Civic', 'image/jpeg', 'user-1', 's');
         expect(analysis.diagnosis).toBe('Worn serpentine belt');
-        expect(model.requests).toHaveLength(0);
+        expect(model.requests).toHaveLength(1);
     });
 
     it('throws on an empty reply', async () => {

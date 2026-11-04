@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GeminiChatAdapter } from '../GeminiChatAdapter';
-import type { ILogger, IBillingService, IContextCacheService, MessagePart } from '@lemonade/core';
+import type { ILogger, IBillingService, MessagePart } from '@lemonade/core';
+import { InMemoryResponseCache } from '../../cache/InMemoryResponseCache';
 import type { TracingService } from '../../observability/TracingService';
 import { GeminiCoreAdapter } from '../GeminiCoreAdapter';
 import { FunctionCallService } from '../FunctionCallHandler';
@@ -12,7 +13,7 @@ describe('GeminiChatAdapter', () => {
     let mockBillingService: IBillingService;
     let mockCoreAdapter: GeminiCoreAdapter;
     let mockFunctionCallService: FunctionCallService;
-    let mockCacheService: IContextCacheService;
+    let responseCache: InMemoryResponseCache;
     let mockTracer: TracingService;
     let mockModel: GenerativeModel;
     let mockChat: ChatSession;
@@ -25,10 +26,7 @@ describe('GeminiChatAdapter', () => {
             handleFunctionCalls: vi.fn().mockImplementation((response) => Promise.resolve(response)),
         } as unknown as FunctionCallService;
 
-        mockCacheService = {
-            getCache: vi.fn().mockResolvedValue(null),
-            createCache: vi.fn().mockResolvedValue(undefined),
-        } as unknown as IContextCacheService;
+        responseCache = new InMemoryResponseCache();
         mockTracer = { traceAiCall: vi.fn(({ exec }) => exec()) } as unknown as TracingService;
 
         mockChat = {
@@ -52,7 +50,7 @@ describe('GeminiChatAdapter', () => {
             mockBillingService,
             mockCoreAdapter,
             mockFunctionCallService,
-            mockCacheService,
+            responseCache,
             mockTracer,
         );
     });
@@ -255,13 +253,16 @@ describe('GeminiChatAdapter', () => {
         });
 
         it('should use cache when available', async () => {
-            const cachedResponse = 'Cached response text';
-            (mockCacheService.getCache as ReturnType<typeof vi.fn>).mockResolvedValue(cachedResponse);
+            (mockChat.sendMessage as ReturnType<typeof vi.fn>).mockResolvedValue({
+                response: { candidates: [{ content: { parts: [{ text: 'Check the belt.' }] } }] },
+            });
 
-            const result = await adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1');
+            const first = await adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1');
+            const second = await adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1');
 
-            expect(result).toBe(cachedResponse);
-            expect(mockChat.sendMessage).not.toHaveBeenCalled();
+            expect(first).toBe('Check the belt.');
+            expect(second).toBe(first);
+            expect(mockChat.sendMessage).toHaveBeenCalledTimes(1);
         });
     });
 

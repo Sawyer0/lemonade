@@ -32,7 +32,7 @@ export const TYPES = {
 
     StorageService: Symbol.for('StorageService'),
     SafetyMonitor: Symbol.for('SafetyMonitor'),
-    ContextCacheService: Symbol.for('ContextCacheService'),
+    ResponseCache: Symbol.for('ResponseCache'),
     NHTSAService: Symbol.for('NHTSAService'),
     GoogleSearchService: Symbol.for('GoogleSearchService'),
     SupermemoryService: Symbol.for('SupermemoryService'),

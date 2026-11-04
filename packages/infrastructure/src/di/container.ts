@@ -15,7 +15,7 @@ import {
     IUserRepository,
     IBillingService,
     IBillingRepository,
-    IContextCacheService,
+    IResponseCache,
 } from '@lemonade/core';
 import { IConfigProvider } from '../interfaces/IConfigProvider';
 import { TYPES } from './types';
@@ -41,7 +41,7 @@ import { GeminiCoreAdapter } from '../ai/GeminiCoreAdapter';
 import { FunctionCallService } from '../ai/FunctionCallHandler';
 import { BillingService } from '../services/BillingService';
 import { BillingFirestoreRepository } from '../repositories/BillingFirestoreRepository';
-import { ContextCacheService } from '../ai/ContextCacheService';
+import { InMemoryResponseCache } from '../cache/InMemoryResponseCache';
 
 export function createContainer(): Container {
     const container = new Container();
@@ -56,7 +56,7 @@ export function createContainer(): Container {
 
     // Core Adapter for Vertex/Gemini
     container.bind<GeminiCoreAdapter>(TYPES.GeminiCoreAdapter).to(GeminiCoreAdapter).inSingletonScope();
-    container.bind<IContextCacheService>(TYPES.ContextCacheService).to(ContextCacheService).inSingletonScope();
+    container.bind<IResponseCache>(TYPES.ResponseCache).toConstantValue(new InMemoryResponseCache());
     container.bind<FunctionCallService>(TYPES.FunctionCallService).to(FunctionCallService).inSingletonScope();
 
     // Billing

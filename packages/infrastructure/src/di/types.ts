@@ -8,7 +8,7 @@ export const TYPES = {
     // Services
     BillingService: Symbol.for('BillingService'),
     GeminiCoreAdapter: Symbol.for('GeminiCoreAdapter'),
-    ContextCacheService: Symbol.for('ContextCacheService'),
+    ResponseCache: Symbol.for('ResponseCache'),
     FunctionCallService: Symbol.for('FunctionCallService'),
     GoogleSearchService: Symbol.for('GoogleSearchService'),
     SupermemoryService: Symbol.for('SupermemoryService'),
