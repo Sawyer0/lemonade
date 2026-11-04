@@ -16,12 +16,12 @@ import {
     MemorySearchResult,
     MemoryDocument,
     StreamingEvent,
-    VehicleSpecs,
     VectorDocument,
     SimilarCase,
     ReasoningEffort,
 } from '@lemonade/core';
-import { CONFIG } from '../constants/config';
+import { isValidVin } from '../domain/vin';
+import { authorizedFetch, postJson } from './authorizedFetch';
 
 // --- Vision Adapter ---
 export class MobileVisionAdapter implements IMultimodalUploadAnalyzer {
@@ -40,16 +40,12 @@ export class MobileVisionAdapter implements IMultimodalUploadAnalyzer {
         }
 
         try {
-            await fetch(`${CONFIG.API.BASE_URL}/api/analysis/trigger`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId,
-                    publicUrl: videoUrl,
-                    videoDurationMinutes: videoDurationMinutes || 1, // Use passed value or fallback
-                    vehicleContext,
-                    mimeType: mimeType || 'video/mp4',
-                }),
+            await postJson('/api/analysis/trigger', {
+                sessionId,
+                publicUrl: videoUrl,
+                videoDurationMinutes: videoDurationMinutes || 1, // Use passed value or fallback
+                vehicleContext,
+                mimeType: mimeType || 'video/mp4',
             });
 
             // Return pending state as analysis is async
@@ -128,32 +124,20 @@ export class MobileChatAdapter implements IChatAssistantAI {
 export class MobileNHTSAAdapter implements INHTSAService {
     async checkRecalls(year: number, make: string, model: string): Promise<SafetyRecall[]> {
         try {
-            const response = await fetch(
-                `${CONFIG.API.BASE_URL}/api/nhtsa/recalls?year=${year}&make=${make}&model=${model}`,
+            const response = await authorizedFetch(
+                `/api/nhtsa/recalls?${new URLSearchParams({ year: String(year), make, model })}`,
             );
             if (!response.ok) return [];
-            return await response.json();
+            const { recalls } = (await response.json()) as { recalls?: SafetyRecall[] };
+            return recalls ?? [];
         } catch (e) {
             console.error('[MobileNHTSAAdapter] Failed to fetch recalls', e);
             return [];
         }
     }
 
-    async getVehicleDetails(vin: string): Promise<VehicleSpecs | null> {
-        // This endpoint might not exist yet, assuming standard pattern
-        try {
-            const response = await fetch(`${CONFIG.API.BASE_URL}/api/nhtsa/vin/${vin}`);
-            if (!response.ok) return null;
-            return await response.json();
-        } catch (e) {
-            console.error('[MobileNHTSAAdapter] Failed to fetch VIN details', e);
-            return null;
-        }
-    }
-
     async validateVin(vin: string): Promise<boolean> {
-        // Standard VIN regex: 17 chars, alphanumeric, excluding I, O, Q
-        return /^[A-HJ-NPR-Z0-9]{17}$/.test(vin);
+        return isValidVin(vin);
     }
 }
 
@@ -161,15 +145,11 @@ export class MobileNHTSAAdapter implements INHTSAService {
 export class MobileVectorAdapter implements IVectorRepository {
     async search(query: string, limit?: number, filter?: Record<string, unknown>): Promise<VectorDocument[]> {
         try {
-            const response = await fetch(`${CONFIG.API.BASE_URL}/api/vector`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'search',
-                    query,
-                    limit,
-                    filter,
-                }),
+            const response = await postJson('/api/vector', {
+                action: 'search',
+                query,
+                limit,
+                filter,
             });
             if (!response.ok) return [];
             const data = await response.json();
@@ -182,15 +162,11 @@ export class MobileVectorAdapter implements IVectorRepository {
 
     async findSimilar(vector: number[], limit?: number, filter?: { userId?: string }): Promise<SimilarCase[]> {
         try {
-            const response = await fetch(`${CONFIG.API.BASE_URL}/api/vector`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'findSimilar',
-                    vector,
-                    limit,
-                    filter,
-                }),
+            const response = await postJson('/api/vector', {
+                action: 'findSimilar',
+                vector,
+                limit,
+                filter,
             });
             if (!response.ok) return [];
             const data = await response.json();
@@ -203,15 +179,11 @@ export class MobileVectorAdapter implements IVectorRepository {
 
     async addCase(text: string, vector: number[], metadata?: Record<string, unknown>): Promise<void> {
         try {
-            await fetch(`${CONFIG.API.BASE_URL}/api/vector`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'addCase',
-                    text,
-                    vector,
-                    metadata,
-                }),
+            await postJson('/api/vector', {
+                action: 'addCase',
+                text,
+                vector,
+                metadata,
             });
         } catch (e) {
             console.error('[MobileVectorAdapter] Add case failed', e);
@@ -223,11 +195,7 @@ export class MobileVectorAdapter implements IVectorRepository {
 export class MobileSearchAdapter implements IGoogleSearchService {
     async search(request: SearchRequest): Promise<SearchResponse> {
         try {
-            const response = await fetch(`${CONFIG.API.BASE_URL}/api/search`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(request),
-            });
+            const response = await postJson('/api/search', request);
             if (!response.ok) {
                 return { results: [], queryUsed: request.query, totalFound: 0 };
             }
@@ -243,14 +211,10 @@ export class MobileSearchAdapter implements IGoogleSearchService {
 export class MobileMemoryAdapter implements IMemoryService {
     async addDocument(doc: MemoryDocument, spaceId?: string): Promise<void> {
         try {
-            await fetch(`${CONFIG.API.BASE_URL}/api/memory`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'add',
-                    doc,
-                    spaceId,
-                }),
+            await postJson('/api/memory', {
+                action: 'add',
+                doc,
+                spaceId,
             });
         } catch (e) {
             console.error('[MobileMemoryAdapter] Add document failed', e);
@@ -259,14 +223,10 @@ export class MobileMemoryAdapter implements IMemoryService {
 
     async search(query: string, options?: MemorySearchOptions): Promise<MemorySearchResult[]> {
         try {
-            const response = await fetch(`${CONFIG.API.BASE_URL}/api/memory`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'search',
-                    query,
-                    options,
-                }),
+            const response = await postJson('/api/memory', {
+                action: 'search',
+                query,
+                options,
             });
             if (!response.ok) return [];
             const data = await response.json();
