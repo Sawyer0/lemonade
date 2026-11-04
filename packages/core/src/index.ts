@@ -10,7 +10,7 @@ export * from './interfaces/IBillingRepository';
 export * from './interfaces/IBillingService';
 export * from './interfaces/IChatService';
 export * from './interfaces/IComplaintIdentificationService';
-export * from './interfaces/IContextCacheService';
+export * from './interfaces/IResponseCache';
 export * from './interfaces/IEdgeSecurityService';
 export * from './interfaces/IEmbeddingService';
 export * from './interfaces/IGoogleSearchService';

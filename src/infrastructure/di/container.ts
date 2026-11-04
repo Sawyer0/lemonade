@@ -15,7 +15,7 @@ import type {
     IServerAuthService,
     IGoogleSearchService,
     IMemoryService,
-    IContextCacheService,
+    IResponseCache,
     ISafetyMonitor,
     INHTSAService,
     IEmbeddingService,
@@ -40,7 +40,7 @@ import {
     Logger,
     BillingFirestoreRepository,
     GoogleSearchService,
-    ContextCacheService,
+    InMemoryResponseCache,
     BillingService,
     EnvConfigProvider,
     TracingService,
@@ -142,7 +142,7 @@ container
 
 container.bind<ISafetyMonitor>(TYPES.SafetyMonitor).to(SafetyMonitor).inSingletonScope();
 
-container.bind<IContextCacheService>(TYPES.ContextCacheService).to(ContextCacheService).inSingletonScope();
+container.bind<IResponseCache>(TYPES.ResponseCache).toConstantValue(new InMemoryResponseCache());
 
 // --- 4. Bind Deep Tech Services (4-Layer Grounding) ---
 container.bind<INHTSAService>(TYPES.NHTSAService).to(NHTSAService).inSingletonScope();

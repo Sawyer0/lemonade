@@ -1,5 +1,5 @@
 import type { GenerationConfig, GenerativeModel } from '@google-cloud/vertexai';
-import type { IContextCacheService, ILogger, VerificationRequest, VerificationResponse } from '@lemonade/core';
+import type { IResponseCache, ILogger, VerificationRequest, VerificationResponse } from '@lemonade/core';
 import { VerificationPrompts } from '@lemonade/core';
 import { VERIFICATION_RESPONSE_SCHEMA } from './responseSchemas';
 
@@ -12,7 +12,7 @@ const CACHE_TTL_SECONDS = 3600;
 export class GeminiHypothesisVerifier {
     constructor(
         private readonly model: GenerativeModel,
-        private readonly cacheService: IContextCacheService,
+        private readonly responseCache: IResponseCache,
         private readonly logger: ILogger,
     ) {}
 
@@ -20,11 +20,10 @@ export class GeminiHypothesisVerifier {
         this.logger.debug('Verifying Hypothesis with Flash', { hypothesis: request.hypothesis, traceId });
 
         const cacheKey = `verifyHypothesis-${JSON.stringify(request)}`;
-        const existingCache = await this.cacheService.getCache(cacheKey);
-
-        if (existingCache) {
-            this.logger.info('Cache hit for verifyHypothesis', { cacheKey, traceId });
-            return existingCache as VerificationResponse;
+        const cached = await this.responseCache.get<VerificationResponse>(cacheKey);
+        if (cached) {
+            this.logger.info('Cache hit for verifyHypothesis', { traceId });
+            return cached;
         }
 
         const apiRequest = {
@@ -52,7 +51,7 @@ export class GeminiHypothesisVerifier {
                 source: parsed.source || null,
                 reasoning: parsed.reasoning || 'No reasoning provided.',
             };
-            await this.cacheService.createCache([{ text: JSON.stringify(response) }], CACHE_TTL_SECONDS, cacheKey);
+            await this.responseCache.set(cacheKey, response, CACHE_TTL_SECONDS);
             return response;
         } catch (error) {
             this.logger.error('Verification Logic Failed', error, { traceId });

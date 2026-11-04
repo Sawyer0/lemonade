@@ -11,7 +11,7 @@ export * from './ai/gemini/GeminiMediaModel';
 export * from './ai/media/MediaUploadAnalyzer';
 export * from './ai/media/LiveStreamAnalyzer';
 export * from './ai/GeminiCoreAdapter';
-export * from './ai/ContextCacheService';
+export * from './cache/InMemoryResponseCache';
 export * from './ai/FunctionCallHandler'; // Add FunctionCallHandler
 export * from './external/GoogleSearchService';
 export * from './external/SupermemoryService';

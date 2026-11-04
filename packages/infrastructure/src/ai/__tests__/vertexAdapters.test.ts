@@ -13,19 +13,11 @@ const vertex = vi.hoisted(() => ({
     models: [] as Array<Record<string, unknown>>,
     generateContent: vi.fn(),
     countTokens: vi.fn(),
-    caches: {
-        create: vi.fn(),
-        get: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        list: vi.fn(),
-    },
 }));
 
 vi.mock('@google-cloud/vertexai', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@google-cloud/vertexai')>();
     class FakeVertexAI {
-        readonly preview = { cachedContents: vertex.caches };
         constructor(readonly options: Record<string, unknown>) {
             vertex.clients.push(this);
         }
@@ -50,7 +42,6 @@ vi.mock('@google/genai', () => ({
 const { GeminiCoreAdapter } = await import('../GeminiCoreAdapter');
 const { VertexAISafetyAdapter } = await import('../VertexAISafetyAdapter');
 const { VertexAIVideoAdapter } = await import('../VertexAIVideoAdapter');
-const { ContextCacheService } = await import('../ContextCacheService');
 const { EmbeddingService, EMBEDDING_DIMENSIONS } = await import('../EmbeddingService');
 
 const SERVICE_ACCOUNT = JSON.stringify({ client_email: 'svc@example.iam.gserviceaccount.com', private_key: 'k' });
@@ -177,62 +168,6 @@ describe('VertexAIVideoAdapter', () => {
     it('counts tokens through the model', async () => {
         vertex.countTokens.mockResolvedValueOnce({ totalTokens: 42 });
         expect(await new VertexAIVideoAdapter(config(), tracer).countTokens('hello')).toBe(42);
-    });
-});
-
-describe('ContextCacheService', () => {
-    it('uses Application Default Credentials without a key and rejects a malformed one', () => {
-        new ContextCacheService(logger(), config());
-        expect(vertex.clients[0].options.googleAuthOptions).toBeUndefined();
-        expect(() => new ContextCacheService(logger(), config('{bad'))).toThrow(AppError);
-    });
-
-    it('creates a cache from text and file parts', async () => {
-        vertex.caches.create.mockResolvedValueOnce({ name: 'cachedContents/1' });
-        const service = new ContextCacheService(logger(), config());
-        const name = await service.createCache(
-            [{ text: 'manual' }, { fileData: { mimeType: 'video/mp4', fileUri: 'gs://b/v' } }],
-            600,
-            'session-1',
-        );
-        expect(name).toBe('cachedContents/1');
-        expect(vertex.caches.create.mock.calls[0][0]).toMatchObject({ ttl: '600s', displayName: 'session-1' });
-    });
-
-    it('wraps create failures and a missing resource name', async () => {
-        const service = new ContextCacheService(logger(), config());
-        vertex.caches.create.mockResolvedValueOnce({});
-        await expect(service.createCache([{ text: 'x' }])).rejects.toThrow('Context caching failed');
-        vertex.caches.create.mockRejectedValueOnce(new Error('quota'));
-        await expect(service.createCache([{ text: 'x' }])).rejects.toBeInstanceOf(AppError);
-    });
-
-    it('gets, updates, deletes and finds caches by display name', async () => {
-        const service = new ContextCacheService(logger(), config());
-        vertex.caches.get.mockResolvedValueOnce({ name: 'c/1' });
-        expect(await service.getCache('c/1')).toEqual({ name: 'c/1' });
-
-        await service.updateCache('c/1', 120);
-        expect(vertex.caches.update).toHaveBeenCalledWith({ name: 'c/1', ttl: '120s' }, ['ttl']);
-        await service.deleteCache('c/1');
-        expect(vertex.caches.delete).toHaveBeenCalledWith('c/1');
-
-        vertex.caches.list.mockResolvedValueOnce({ cachedContents: [{ name: 'c/2', displayName: 'session-2' }] });
-        expect(await service.findCacheByDisplayName('session-2')).toBe('c/2');
-        vertex.caches.list.mockResolvedValueOnce([]);
-        expect(await service.findCacheByDisplayName('nope')).toBeNull();
-        vertex.caches.list.mockRejectedValueOnce(new Error('down'));
-        expect(await service.findCacheByDisplayName('x')).toBeNull();
-    });
-
-    it('rethrows get, update and delete failures', async () => {
-        const service = new ContextCacheService(logger(), config());
-        vertex.caches.get.mockRejectedValueOnce(new Error('404'));
-        await expect(service.getCache('c/x')).rejects.toThrow('404');
-        vertex.caches.update.mockRejectedValueOnce(new Error('denied'));
-        await expect(service.updateCache('c/x', 1)).rejects.toThrow('denied');
-        vertex.caches.delete.mockRejectedValueOnce(new Error('gone'));
-        await expect(service.deleteCache('c/x')).rejects.toThrow('gone');
     });
 });
 

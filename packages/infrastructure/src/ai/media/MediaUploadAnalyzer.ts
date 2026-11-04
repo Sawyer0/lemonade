@@ -2,7 +2,7 @@ import { injectable, inject } from 'inversify';
 import type {
     AIAnalysis,
     IBillingService,
-    IContextCacheService,
+    IResponseCache,
     ILogger,
     IMediaAnalysisModel,
     IMultimodalUploadAnalyzer,
@@ -37,7 +37,7 @@ export class MediaUploadAnalyzer implements IMultimodalUploadAnalyzer {
     constructor(
         @inject(TYPES.MediaAnalysisModel) private model: IMediaAnalysisModel,
         @inject(TYPES.BillingService) private billingService: IBillingService,
-        @inject(TYPES.ContextCacheService) private cacheService: IContextCacheService,
+        @inject(TYPES.ResponseCache) private responseCache: IResponseCache,
         @inject(TYPES.TracingService) private tracer: TracingService,
         @inject(TYPES.Logger) private logger: ILogger,
     ) {}
@@ -112,11 +112,10 @@ export class MediaUploadAnalyzer implements IMultimodalUploadAnalyzer {
                   }
                 : { imageUrl: fileUrl, vehicleContext, mimeType, reasoningEffort };
         const cacheKey = `analyzeUploaded${title}-${JSON.stringify(cacheKeyData)}`;
-        const existingCache = await this.cacheService.getCache(cacheKey);
-
-        if (existingCache) {
-            this.logger.info(`Cache hit for analyzeUploaded${title}`, { cacheKey });
-            return AIAnalysisSchema.parse(JSON.parse(existingCache as string));
+        const cached = await this.responseCache.get<AIAnalysis>(cacheKey);
+        if (cached) {
+            this.logger.info(`Cache hit for analyzeUploaded${title}`);
+            return AIAnalysisSchema.parse(cached);
         }
 
         const prompt = `
@@ -142,7 +141,7 @@ export class MediaUploadAnalyzer implements IMultimodalUploadAnalyzer {
             if (sessionId) await billMediaUsage(this.billingService, result, userId, sessionId);
 
             const analysis = parseAnalysis(result, `AI returned empty response for uploaded ${kind} analysis`);
-            await this.cacheService.createCache([{ text: result.text ?? '' }], CACHE_TTL_SECONDS, cacheKey);
+            await this.responseCache.set(cacheKey, analysis, CACHE_TTL_SECONDS);
             return analysis;
         } catch (error) {
             this.logger.error(`Uploaded ${title} Analysis Failure`, error);

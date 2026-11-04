@@ -8,7 +8,7 @@ import type {
 import type {
     AIAnalysis,
     IBillingService,
-    IContextCacheService,
+    IResponseCache,
     ILogger,
     MessagePart,
     ReasoningEffort,
@@ -47,7 +47,7 @@ export class GeminiChatResponder {
         private readonly model: GenerativeModel,
         private readonly billingService: IBillingService,
         private readonly functionCallService: FunctionCallService,
-        private readonly cacheService: IContextCacheService,
+        private readonly responseCache: IResponseCache,
         private readonly tracer: TracingService,
         private readonly logger: ILogger,
     ) {}
@@ -144,11 +144,10 @@ export class GeminiChatResponder {
             reasoningEffort: turn.reasoningEffort,
             additionalParts: turn.additionalParts,
         })}`;
-        const existingCache = await this.cacheService.getCache(cacheKey);
-
-        if (existingCache) {
-            this.logger.info('Cache hit for generateReply', { cacheKey, traceId });
-            return existingCache as string | MessagePart[];
+        const cached = await this.responseCache.get<string | MessagePart[]>(cacheKey);
+        if (cached) {
+            this.logger.info('Cache hit for generateReply', { traceId });
+            return cached;
         }
 
         const chat = this.startChat(turn, true);
@@ -200,7 +199,7 @@ export class GeminiChatResponder {
 
         const finalResponse = messageParts.length > 1 ? messageParts : text;
 
-        await this.cacheService.createCache([{ text: JSON.stringify(finalResponse) }], CACHE_TTL_SECONDS, cacheKey);
+        await this.responseCache.set(cacheKey, finalResponse, CACHE_TTL_SECONDS);
         return finalResponse;
     }
 }
