@@ -21,12 +21,12 @@ import {
     CompletionSafetyAdapter,
     FakeChatCompletionClient,
     ReactiveSafetyService,
+    SafetyMonitor,
     createGroqClient,
     type ChatCompletionClient,
 } from '@lemonade/infrastructure';
 import { ChatService } from '@/application/services/ChatService';
 import { ComplaintIdentificationService } from '@/application/services/ComplaintIdentificationService';
-import { SafetyMonitor } from '@/application/services/SafetyMonitor';
 import { SummarizationService } from '@/application/services/SummarizationService';
 
 loadEnv({ path: '.env.local', quiet: true });
