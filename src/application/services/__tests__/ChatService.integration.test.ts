@@ -2,54 +2,54 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ChatService } from '../ChatService';
 import { TestFactory } from '../../../../packages/core/src/__tests__/helpers/TestFactory';
-import type { 
-    IChatAssistantAI, 
-    ISessionRepository, 
-    IVehicleRepository, 
-    ILogger, 
-    ISummarizationService, 
-    IReactiveSafetyService, 
-    ISafetyMonitor 
+import type {
+    IChatAssistantAI,
+    ISessionRepository,
+    IVehicleRepository,
+    ILogger,
+    ISummarizationService,
+    IReactiveSafetyService,
+    ISafetyMonitor,
 } from '@lemonade/core';
 import { ComplaintIdentificationService } from '@/application/services/ComplaintIdentificationService';
 
 // Mock dependencies
 const mockChatAI = {
     generateReply: vi.fn(),
-    countTokens: vi.fn().mockResolvedValue(10)
+    countTokens: vi.fn().mockResolvedValue(10),
 } as unknown as IChatAssistantAI;
 
 const mockSessionRepo = {
     getHistory: vi.fn(),
     addMessage: vi.fn(),
-    findById: vi.fn()
+    findById: vi.fn(),
 } as unknown as ISessionRepository;
 
 const mockVehicleRepo = {
-    findById: vi.fn()
+    findById: vi.fn(),
 } as unknown as IVehicleRepository;
 
 const mockComplaintIdService = {
-    identifyAndSetComplaint: vi.fn().mockResolvedValue(undefined)
+    identifyAndSetComplaint: vi.fn().mockResolvedValue(undefined),
 } as unknown as ComplaintIdentificationService;
 
 const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 } as unknown as ILogger;
 
 const mockSummarizationService = {
-    summarize: vi.fn()
+    summarize: vi.fn(),
 } as unknown as ISummarizationService;
 
 const mockReactiveSafety = {
-    checkSafety: vi.fn()
+    checkSafety: vi.fn(),
 } as unknown as IReactiveSafetyService;
 
 const mockSafetyMonitor = {
-    assess: vi.fn()
+    assess: vi.fn(),
 } as unknown as ISafetyMonitor;
 
 describe('ChatService Integration (Text-Based)', () => {
@@ -65,7 +65,7 @@ describe('ChatService Integration (Text-Based)', () => {
             mockLogger,
             mockSummarizationService,
             mockReactiveSafety,
-            mockSafetyMonitor
+            mockSafetyMonitor,
         );
     });
 
@@ -78,21 +78,21 @@ describe('ChatService Integration (Text-Based)', () => {
         // 2. Setup Mocks
         mockSessionRepo.getHistory.mockResolvedValue(session);
         mockVehicleRepo.findById.mockResolvedValue(vehicle);
-        
+
         // Safety Checks Pass
         mockReactiveSafety.checkSafety.mockReturnValue({ intervention_required: false });
         mockSafetyMonitor.assess.mockResolvedValue({ intervention_required: false });
 
         // AI Response
-        const aiResponse = "It sounds like a worn brake pad. Please inspect the rotor.";
+        const aiResponse = 'It sounds like a worn brake pad. Please inspect the rotor.';
         mockChatAI.generateReply.mockResolvedValue(aiResponse);
 
         // 3. Execution
-        const response = await service.handleChatInteraction(session.id, "I hear a grinding noise when braking");
+        const response = await service.handleChatInteraction(session.id, 'I hear a grinding noise when braking');
 
         // 4. Verification
         expect(response).toBe(aiResponse);
-        
+
         // Verify Safety Checks were called
         expect(mockReactiveSafety.checkSafety).toHaveBeenCalled();
         expect(mockSafetyMonitor.assess).toHaveBeenCalled();
@@ -118,13 +118,13 @@ describe('ChatService Integration (Text-Based)', () => {
         // Reactive Safety Trigger
         mockReactiveSafety.checkSafety.mockReturnValue({
             intervention_required: true,
-            suggested_output: "STOP! Do not touch that wire.",
-            hazards_detected: ["High Voltage"]
+            suggested_output: 'STOP! Do not touch that wire.',
+            hazards_detected: ['High Voltage'],
         });
 
         const response = await service.handleChatInteraction(session.id, "I'm cutting the orange wire");
 
-        expect(response).toContain("STOP");
+        expect(response).toContain('STOP');
         expect(mockChatAI.generateReply).not.toHaveBeenCalled(); // AI shouldn't be called
         expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('System 0 Safety'), expect.any(Object));
     });
@@ -147,13 +147,13 @@ describe('ChatService Integration (Text-Based)', () => {
 
                 mockReactiveSafety.checkSafety.mockReturnValue({
                     intervention_required: true,
-                    suggested_output: "DANGER: Fuel leak detected. Stop all work.",
-                    hazards_detected: ["FUEL_LEAK"]
+                    suggested_output: 'DANGER: Fuel leak detected. Stop all work.',
+                    hazards_detected: ['FUEL_LEAK'],
                 });
 
-                const response = await service.handleChatInteraction('session-1', "I smell fuel leaking from the line");
+                const response = await service.handleChatInteraction('session-1', 'I smell fuel leaking from the line');
 
-                expect(response).toContain("DANGER");
+                expect(response).toContain('DANGER');
                 expect(mockChatAI.generateReply).not.toHaveBeenCalled();
                 expect(mockSafetyMonitor.assess).not.toHaveBeenCalled(); // System 1 not called
             });
@@ -163,13 +163,13 @@ describe('ChatService Integration (Text-Based)', () => {
 
                 mockReactiveSafety.checkSafety.mockReturnValue({
                     intervention_required: true,
-                    suggested_output: "STOP: Never work under a vehicle on a jack alone.",
-                    hazards_detected: ["JACK_STAND_MISSING"]
+                    suggested_output: 'STOP: Never work under a vehicle on a jack alone.',
+                    hazards_detected: ['JACK_STAND_MISSING'],
                 });
 
                 const response = await service.handleChatInteraction('session-1', "I'm under the car on just the jack");
 
-                expect(response).toContain("STOP");
+                expect(response).toContain('STOP');
                 expect(mockChatAI.generateReply).not.toHaveBeenCalled();
             });
 
@@ -178,11 +178,14 @@ describe('ChatService Integration (Text-Based)', () => {
 
                 mockReactiveSafety.checkSafety.mockReturnValue({ intervention_required: false });
                 mockSafetyMonitor.assess.mockResolvedValue({ intervention_required: false });
-                mockChatAI.generateReply.mockResolvedValue("Normal response");
+                mockChatAI.generateReply.mockResolvedValue('Normal response');
 
-                const response = await service.handleChatInteraction('session-1', "What's the tire pressure for my car?");
+                const response = await service.handleChatInteraction(
+                    'session-1',
+                    "What's the tire pressure for my car?",
+                );
 
-                expect(response).toBe("Normal response");
+                expect(response).toBe('Normal response');
                 expect(mockReactiveSafety.checkSafety).toHaveBeenCalled();
                 expect(mockSafetyMonitor.assess).toHaveBeenCalled();
                 expect(mockChatAI.generateReply).toHaveBeenCalled();
@@ -196,13 +199,13 @@ describe('ChatService Integration (Text-Based)', () => {
                 mockReactiveSafety.checkSafety.mockReturnValue({ intervention_required: false });
                 mockSafetyMonitor.assess.mockResolvedValue({
                     intervention_required: true,
-                    suggested_output: "I detected a potential safety concern. Please consult a professional.",
-                    hazards_detected: ["IMPLICIT_ELECTRICAL_HAZARD"]
+                    suggested_output: 'I detected a potential safety concern. Please consult a professional.',
+                    hazards_detected: ['IMPLICIT_ELECTRICAL_HAZARD'],
                 });
 
-                const response = await service.handleChatInteraction('session-1', "Can I bypass the airbag sensor?");
+                const response = await service.handleChatInteraction('session-1', 'Can I bypass the airbag sensor?');
 
-                expect(response).toContain("safety concern");
+                expect(response).toContain('safety concern');
                 expect(mockChatAI.generateReply).not.toHaveBeenCalled();
             });
 
@@ -213,9 +216,9 @@ describe('ChatService Integration (Text-Based)', () => {
                 mockSafetyMonitor.assess.mockRejectedValue(new Error('Safety AI service down'));
 
                 // Current behavior: throws error (fail-safe - don't proceed if safety check fails)
-                await expect(
-                    service.handleChatInteraction('session-1', "Normal question")
-                ).rejects.toThrow('Safety AI service down');
+                await expect(service.handleChatInteraction('session-1', 'Normal question')).rejects.toThrow(
+                    'Safety AI service down',
+                );
 
                 // AI should NOT be called when safety check fails
                 expect(mockChatAI.generateReply).not.toHaveBeenCalled();
@@ -228,18 +231,18 @@ describe('ChatService Integration (Text-Based)', () => {
 
                 mockReactiveSafety.checkSafety.mockReturnValue({
                     intervention_required: true,
-                    suggested_output: "System 0 blocked this",
-                    hazards_detected: ["PATTERN_MATCH"]
+                    suggested_output: 'System 0 blocked this',
+                    hazards_detected: ['PATTERN_MATCH'],
                 });
                 mockSafetyMonitor.assess.mockResolvedValue({
                     intervention_required: true,
-                    suggested_output: "System 1 would have blocked this",
-                    hazards_detected: ["SEMANTIC_MATCH"]
+                    suggested_output: 'System 1 would have blocked this',
+                    hazards_detected: ['SEMANTIC_MATCH'],
                 });
 
-                const response = await service.handleChatInteraction('session-1', "Dangerous message");
+                const response = await service.handleChatInteraction('session-1', 'Dangerous message');
 
-                expect(response).toContain("System 0");
+                expect(response).toContain('System 0');
                 // System 1 should never be called since System 0 already blocked
                 expect(mockSafetyMonitor.assess).not.toHaveBeenCalled();
             });
@@ -252,13 +255,13 @@ describe('ChatService Integration (Text-Based)', () => {
                 // Semantic blocks
                 mockSafetyMonitor.assess.mockResolvedValue({
                     intervention_required: true,
-                    suggested_output: "Safety concern detected",
-                    hazards_detected: ["SEMANTIC_ONLY"]
+                    suggested_output: 'Safety concern detected',
+                    hazards_detected: ['SEMANTIC_ONLY'],
                 });
 
-                const response = await service.handleChatInteraction('session-1', "Implicit dangerous request");
+                const response = await service.handleChatInteraction('session-1', 'Implicit dangerous request');
 
-                expect(response).toContain("Safety concern");
+                expect(response).toContain('Safety concern');
                 expect(mockChatAI.generateReply).not.toHaveBeenCalled();
             });
         });
@@ -268,9 +271,7 @@ describe('ChatService Integration (Text-Based)', () => {
         it('should handle missing session gracefully', async () => {
             mockSessionRepo.getHistory.mockResolvedValue(null);
 
-            await expect(
-                service.handleChatInteraction('non-existent-session', 'test')
-            ).rejects.toThrow();
+            await expect(service.handleChatInteraction('non-existent-session', 'test')).rejects.toThrow();
         });
 
         it('should handle missing vehicle gracefully', async () => {
@@ -282,7 +283,7 @@ describe('ChatService Integration (Text-Based)', () => {
 
             mockReactiveSafety.checkSafety.mockReturnValue({ intervention_required: false });
             mockSafetyMonitor.assess.mockResolvedValue({ intervention_required: false });
-            mockChatAI.generateReply.mockResolvedValue("Response without vehicle context");
+            mockChatAI.generateReply.mockResolvedValue('Response without vehicle context');
 
             const response = await service.handleChatInteraction(session.id, 'test');
 
@@ -301,9 +302,7 @@ describe('ChatService Integration (Text-Based)', () => {
             mockSafetyMonitor.assess.mockResolvedValue({ intervention_required: false });
             mockChatAI.generateReply.mockRejectedValue(new Error('Gemini API unavailable'));
 
-            await expect(
-                service.handleChatInteraction(session.id, 'test')
-            ).rejects.toThrow('Gemini API unavailable');
+            await expect(service.handleChatInteraction(session.id, 'test')).rejects.toThrow('Gemini API unavailable');
         });
     });
 
@@ -333,7 +332,7 @@ describe('ChatService Integration (Text-Based)', () => {
             mockVehicleRepo.findById.mockResolvedValue(vehicle);
             mockReactiveSafety.checkSafety.mockReturnValue({ intervention_required: false });
             mockSafetyMonitor.assess.mockResolvedValue({ intervention_required: false });
-            mockChatAI.generateReply.mockResolvedValue("Got it.");
+            mockChatAI.generateReply.mockResolvedValue('Got it.');
 
             const longMessage = 'a'.repeat(50000);
             const response = await service.handleChatInteraction(session.id, longMessage);

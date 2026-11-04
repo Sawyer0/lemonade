@@ -11,7 +11,7 @@ export interface IMultimodalUploadAnalyzer {
         userId?: string,
         sessionId?: string,
         reasoningEffort?: ReasoningEffort,
-        videoDurationMinutes?: number
+        videoDurationMinutes?: number,
     ): Promise<AIAnalysis>;
 
     analyzeUploadedImage(
@@ -20,7 +20,7 @@ export interface IMultimodalUploadAnalyzer {
         mimeType?: string,
         userId?: string,
         sessionId?: string,
-        reasoningEffort?: ReasoningEffort
+        reasoningEffort?: ReasoningEffort,
     ): Promise<AIAnalysis>;
 
     countTokens(content: string | MessagePart[]): Promise<number>;
@@ -38,7 +38,7 @@ export interface ILiveStreamAnalyzer {
         sessionId: string,
         vin?: string,
         inputTimestamp?: number,
-        localTriage?: LocalTriageResult
+        localTriage?: LocalTriageResult,
     ): Promise<AIAnalysis | MessagePart[] | null>;
 
     analyzeLiveAudioChunk(
@@ -49,7 +49,7 @@ export interface ILiveStreamAnalyzer {
         sessionId: string,
         audioChunkDurationSeconds: number,
         vin?: string,
-        inputTimestamp?: number
+        inputTimestamp?: number,
     ): Promise<AIAnalysis | MessagePart[] | null>;
 
     countTokens(content: string | MessagePart[]): Promise<number>;
@@ -64,7 +64,10 @@ export interface IChatAssistantAI {
         sessionId: string,
         vin?: string,
         reasoningEffort?: ReasoningEffort,
-        additionalParts?: { inlineData?: { mimeType: string, data: string }, fileData?: { mimeType: string, fileUri: string } }[] // New: for multimodal chat
+        additionalParts?: {
+            inlineData?: { mimeType: string; data: string };
+            fileData?: { mimeType: string; fileUri: string };
+        }[], // New: for multimodal chat
     ): Promise<string | MessagePart[]>;
 
     generateReplyStream(
@@ -76,12 +79,13 @@ export interface IChatAssistantAI {
         sessionId: string,
         vin?: string,
         reasoningEffort?: ReasoningEffort,
-        additionalParts?: { inlineData?: { mimeType: string, data: string }, fileData?: { mimeType: string, fileUri: string } }[]
+        additionalParts?: {
+            inlineData?: { mimeType: string; data: string };
+            fileData?: { mimeType: string; fileUri: string };
+        }[],
     ): AsyncGenerator<StreamingEvent, void, unknown>;
 
-    verifyHypothesis(
-        request: VerificationRequest
-    ): Promise<VerificationResponse>;
+    verifyHypothesis(request: VerificationRequest): Promise<VerificationResponse>;
 
     countTokens(content: string): Promise<number>;
 }

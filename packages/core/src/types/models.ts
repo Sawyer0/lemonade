@@ -23,8 +23,8 @@ export type SafetyRecall = z.infer<typeof SafetyRecallSchema>;
 
 export const AIAnalysisSchema = z.object({
     diagnosis: z.string(),
-    reasoning: z.string().describe("Rationale for the diagnosis"),
-    investigationPlan: z.array(z.string()).describe("Diagnostic steps to verify hypothesis"),
+    reasoning: z.string().describe('Rationale for the diagnosis'),
+    investigationPlan: z.array(z.string()).describe('Diagnostic steps to verify hypothesis'),
     visual_evidence: z.array(z.string()),
     acoustic_evidence: z.array(z.string()),
     severity: z.enum(['low', 'medium', 'high', 'critical']),
@@ -32,29 +32,30 @@ export const AIAnalysisSchema = z.object({
     suggested_actions: z.array(z.string()),
 
     // Neuro-Symbolic Enhancements
-    engineDescription: z.string().describe("Description of the visual scene"),
-    isStock: z.boolean().describe("Does the part look like stock OEM?"),
-    visualConflictDetected: z.boolean().describe("Conflict between context and reality?"),
+    engineDescription: z.string().describe('Description of the visual scene'),
+    isStock: z.boolean().describe('Does the part look like stock OEM?'),
+    visualConflictDetected: z.boolean().describe('Conflict between context and reality?'),
     detectedCondition: z.enum(['clean', 'rust', 'leak', 'broken', 'modified', 'unknown']),
-    confidence: z.number().min(0).max(1).describe("AI confidence score 0-1"),
+    confidence: z.number().min(0).max(1).describe('AI confidence score 0-1'),
 
     // Layer 4 Verification
-    verification: z.object({
-        isVerified: z.boolean(),
-        verifiedSource: z.string().nullable(),
-        conflictingEvidence: z.string().nullable().optional()
-    }).optional()
+    verification: z
+        .object({
+            isVerified: z.boolean(),
+            verifiedSource: z.string().nullable(),
+            conflictingEvidence: z.string().nullable().optional(),
+        })
+        .optional(),
 });
-
 
 export type AIAnalysis = z.infer<typeof AIAnalysisSchema>;
 
 // --- Tool Result Value Objects ---
 
 export const DisplayContentToolResultSchema = z.object({
-    url: z.string().regex(/^(http|https):\/\//, "Invalid URL"),
+    url: z.string().regex(/^(http|https):\/\//, 'Invalid URL'),
     type: z.string(),
-    title: z.string().optional()
+    title: z.string().optional(),
 });
 
 export type DisplayContentToolResult = z.infer<typeof DisplayContentToolResultSchema>;
@@ -111,23 +112,24 @@ export const DiagnosticSessionSchema = z.object({
     videoUrl: z.string().optional(),
     aiAnalysis: AIAnalysisSchema.nullable(),
 
-    messages: z.array(z.object({
-        role: z.enum(['user', 'assistant', 'system', 'tool']),
-        // Content can be a string or array of message parts
-        content: z.union([
-            z.string(),
-            z.array(MessagePartSchema)
-        ]),
-        timestamp: z.date()
-    })),
+    messages: z.array(
+        z.object({
+            role: z.enum(['user', 'assistant', 'system', 'tool']),
+            // Content can be a string or array of message parts
+            content: z.union([z.string(), z.array(MessagePartSchema)]),
+            timestamp: z.date(),
+        }),
+    ),
 
     // Unified Session Context
-    context: z.object({
-        activeCacheName: z.string().optional(),
-        cachedFileNames: z.array(z.string()).optional(),
-        lastSummary: z.string().optional(),
-        vin: z.string().optional()
-    }).optional(),
+    context: z
+        .object({
+            activeCacheName: z.string().optional(),
+            cachedFileNames: z.array(z.string()).optional(),
+            lastSummary: z.string().optional(),
+            vin: z.string().optional(),
+        })
+        .optional(),
 
     // Safety intervention tracking (set by SafetyMonitor or Cloud Functions)
     safety_stop: z.boolean().default(false),
@@ -146,7 +148,6 @@ export const DiagnosticSessionSchema = z.object({
 });
 
 export type DiagnosticSession = z.infer<typeof DiagnosticSessionSchema>;
-
 
 // --- Billing ---
 export const AIUsageRecordSchema = z.object({
@@ -171,9 +172,11 @@ export const UserSchema = z.object({
     tier: z.enum(['free', 'pro']).default('free'),
     subscriptionId: z.string().optional(),
     stripeCustomerId: z.string().optional(),
-    preferences: z.object({
-        autoOpenCamera: z.boolean().default(false),
-    }).default({ autoOpenCamera: false }),
+    preferences: z
+        .object({
+            autoOpenCamera: z.boolean().default(false),
+        })
+        .default({ autoOpenCamera: false }),
     createdAt: z.date(),
     updatedAt: z.date(),
 });

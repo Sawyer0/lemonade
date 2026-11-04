@@ -18,10 +18,10 @@ export function FileDropZone({ onFileSelect, fileInputRef, acceptedTypes }: File
             // Robust Validation
             const fileType = file.type; // e.g. 'image/jpeg'
             const fileName = file.name.toLowerCase();
-            const allowedList = acceptedTypes.split(',').map(t => t.trim().toLowerCase());
+            const allowedList = acceptedTypes.split(',').map((t) => t.trim().toLowerCase());
 
             // Handle "image/*" wildcards, ".pdf" extensions, and exact MIMEs
-            const isValid = allowedList.some(pattern => {
+            const isValid = allowedList.some((pattern) => {
                 if (pattern.endsWith('/*')) {
                     const baseType = pattern.split('/')[0]; // 'image', 'video'
                     return fileType.startsWith(baseType + '/');
@@ -48,14 +48,9 @@ export function FileDropZone({ onFileSelect, fileInputRef, acceptedTypes }: File
             onClick={() => fileInputRef.current?.click()}
         >
             <Upload className="w-12 h-12 mx-auto mb-3 text-zinc-400" />
-            <p className="text-white font-semibold mb-1">
-                Drop file here or click to select
-            </p>
-            <p className="text-zinc-400 text-sm mb-3">
-                Video (MP4, MOV, WebM) or Audio (MP3, WAV, M4A)
-            </p>
+            <p className="text-white font-semibold mb-1">Drop file here or click to select</p>
+            <p className="text-zinc-400 text-sm mb-3">Video (MP4, MOV, WebM) or Audio (MP3, WAV, M4A)</p>
             <p className="text-zinc-500 text-xs">Max 500MB</p>
         </div>
     );
 }
-

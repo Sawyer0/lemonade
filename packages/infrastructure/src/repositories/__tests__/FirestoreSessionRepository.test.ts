@@ -12,10 +12,10 @@ vi.mock('../../firebase/admin', () => ({
                 update: vi.fn(),
                 get: vi.fn(),
                 set: vi.fn(),
-                delete: vi.fn()
-            }))
-        }))
-    }
+                delete: vi.fn(),
+            })),
+        })),
+    },
 }));
 
 describe('FirestoreSessionRepository Persistence', () => {
@@ -31,7 +31,7 @@ describe('FirestoreSessionRepository Persistence', () => {
             info: vi.fn(),
             error: vi.fn(),
             warn: vi.fn(),
-            debug: vi.fn()
+            debug: vi.fn(),
         } as unknown as ILogger;
 
         repository = new FirestoreSessionRepository(mockLogger);
@@ -40,18 +40,18 @@ describe('FirestoreSessionRepository Persistence', () => {
         mockUpdate = vi.fn().mockResolvedValue({} as unknown as WriteResult);
         mockGet = vi.fn().mockResolvedValue({
             exists: true,
-            data: vi.fn().mockReturnValue({})
+            data: vi.fn().mockReturnValue({}),
         } as unknown as DocumentSnapshot);
 
         const mockDoc = {
             update: mockUpdate,
             get: mockGet,
             set: vi.fn(),
-            delete: vi.fn()
+            delete: vi.fn(),
         };
 
         (adminDb.collection as unknown as Mock).mockReturnValue({
-            doc: vi.fn().mockReturnValue(mockDoc)
+            doc: vi.fn().mockReturnValue(mockDoc),
         });
     });
 
@@ -63,10 +63,12 @@ describe('FirestoreSessionRepository Persistence', () => {
             await repository.saveXStateSnapshot(sessionId, snapshot);
 
             expect(adminDb.collection).toHaveBeenCalledWith('sessions');
-            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-                xstateSnapshot: snapshot,
-                updatedAt: expect.any(Date)
-            }));
+            expect(mockUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    xstateSnapshot: snapshot,
+                    updatedAt: expect.any(Date),
+                }),
+            );
         });
 
         it('should handle circular references by JSON stringifying', async () => {
@@ -77,9 +79,11 @@ describe('FirestoreSessionRepository Persistence', () => {
             // We verify that it passes a clean object
             await repository.saveXStateSnapshot(sessionId, snapshot);
 
-            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-                xstateSnapshot: snapshot
-            }));
+            expect(mockUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    xstateSnapshot: snapshot,
+                }),
+            );
         });
 
         it('should log error but not throw if save fails', async () => {
@@ -95,7 +99,7 @@ describe('FirestoreSessionRepository Persistence', () => {
             const snapshot = { value: 'diagnosing' };
             mockGet.mockResolvedValue({
                 exists: true,
-                data: () => ({ xstateSnapshot: snapshot })
+                data: () => ({ xstateSnapshot: snapshot }),
             });
 
             const result = await repository.getXStateSnapshot('test-session');
@@ -112,7 +116,7 @@ describe('FirestoreSessionRepository Persistence', () => {
         it('should return null if snapshot field is missing', async () => {
             mockGet.mockResolvedValue({
                 exists: true,
-                data: () => ({ otherField: 'foo' })
+                data: () => ({ otherField: 'foo' }),
             });
 
             const result = await repository.getXStateSnapshot('test-session');
@@ -124,10 +128,12 @@ describe('FirestoreSessionRepository Persistence', () => {
         it('should delete snapshot field', async () => {
             await repository.clearXStateSnapshot('test-session');
 
-            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-                xstateSnapshot: FieldValue.delete(),
-                updatedAt: expect.any(Date)
-            }));
+            expect(mockUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    xstateSnapshot: FieldValue.delete(),
+                    updatedAt: expect.any(Date),
+                }),
+            );
         });
     });
 });

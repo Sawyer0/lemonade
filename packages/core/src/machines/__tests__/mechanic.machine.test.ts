@@ -5,36 +5,41 @@ import type { GatherAllContextOutput, MechanicInput, MechanicServices } from '..
 import type { AIAnalysis } from '../../types/models';
 
 describe('mechanicMachine', () => {
-    const createMockServices = (overrides: Partial<{
-        memory: { search: ReturnType<typeof vi.fn> };
-        nhtsa: { checkRecalls: ReturnType<typeof vi.fn> };
-        vector: { search: ReturnType<typeof vi.fn> };
-        search: { search: ReturnType<typeof vi.fn> };
-        chat: { verifyHypothesis: ReturnType<typeof vi.fn> };
-        vision: { analyzeUploadedVideo: ReturnType<typeof vi.fn> };
-    }> = {}): MechanicServices => ({
-        memory: { search: vi.fn().mockResolvedValue([]) },
-        nhtsa: { checkRecalls: vi.fn().mockResolvedValue([]) },
-        vector: { search: vi.fn().mockResolvedValue([]) },
-        search: { search: vi.fn().mockResolvedValue({ results: [], queryUsed: '', totalFound: 0 }) },
-        chat: { verifyHypothesis: vi.fn().mockResolvedValue({ isVerified: false, source: null, reasoning: '' }) },
-        vision: { analyzeUploadedVideo: vi.fn().mockResolvedValue({
-            diagnosis: 'Test',
-            reasoning: 'Test reasoning',
-            investigationPlan: [],
-            confidence: 0.9,
-            visual_evidence: [],
-            acoustic_evidence: [],
-            severity: 'low',
-            safety_alert: false,
-            suggested_actions: [],
-            engineDescription: 'Test engine',
-            isStock: true,
-            visualConflictDetected: false,
-            detectedCondition: 'unknown'
-        }) },
-        ...overrides
-    } as unknown as MechanicServices);
+    const createMockServices = (
+        overrides: Partial<{
+            memory: { search: ReturnType<typeof vi.fn> };
+            nhtsa: { checkRecalls: ReturnType<typeof vi.fn> };
+            vector: { search: ReturnType<typeof vi.fn> };
+            search: { search: ReturnType<typeof vi.fn> };
+            chat: { verifyHypothesis: ReturnType<typeof vi.fn> };
+            vision: { analyzeUploadedVideo: ReturnType<typeof vi.fn> };
+        }> = {},
+    ): MechanicServices =>
+        ({
+            memory: { search: vi.fn().mockResolvedValue([]) },
+            nhtsa: { checkRecalls: vi.fn().mockResolvedValue([]) },
+            vector: { search: vi.fn().mockResolvedValue([]) },
+            search: { search: vi.fn().mockResolvedValue({ results: [], queryUsed: '', totalFound: 0 }) },
+            chat: { verifyHypothesis: vi.fn().mockResolvedValue({ isVerified: false, source: null, reasoning: '' }) },
+            vision: {
+                analyzeUploadedVideo: vi.fn().mockResolvedValue({
+                    diagnosis: 'Test',
+                    reasoning: 'Test reasoning',
+                    investigationPlan: [],
+                    confidence: 0.9,
+                    visual_evidence: [],
+                    acoustic_evidence: [],
+                    severity: 'low',
+                    safety_alert: false,
+                    suggested_actions: [],
+                    engineDescription: 'Test engine',
+                    isStock: true,
+                    visualConflictDetected: false,
+                    detectedCondition: 'unknown',
+                }),
+            },
+            ...overrides,
+        }) as unknown as MechanicServices;
 
     const createDefaultInput = (overrides: Partial<MechanicInput> = {}): MechanicInput => ({
         sessionId: 'test-session',
@@ -43,7 +48,7 @@ describe('mechanicMachine', () => {
         userQuery: 'engine noise',
         videoUrl: 'http://example.com/video.mp4',
         services: createMockServices(),
-        ...overrides
+        ...overrides,
     });
 
     describe('state transitions', () => {
@@ -64,7 +69,7 @@ describe('mechanicMachine', () => {
                 userId: 'user-1',
                 sessionId: 'session-1',
                 vehicleContext: { year: 2020, make: 'Honda', model: 'Civic' },
-                userQuery: 'brake squeak'
+                userQuery: 'brake squeak',
             });
 
             // Fast transition through gathering_context to intuition
@@ -84,7 +89,7 @@ describe('mechanicMachine', () => {
                 userId: 'user-1',
                 sessionId: 'session-1',
                 vehicleContext: { year: 2020, make: 'Honda', model: 'Civic' },
-                userQuery: 'brake squeak'
+                userQuery: 'brake squeak',
             });
 
             await waitFor(actor, (s) => s.matches('synthesizing'), { timeout: 5000 });
@@ -99,17 +104,23 @@ describe('mechanicMachine', () => {
             const mockHistory = [{ content: 'history' }];
             const mockRecalls = [{ id: 'recall-1' }];
             const mockVectors = [{ id: 'doc-1' }];
-            
-            const actor = createActor(mechanicMachine.provide({
-                actors: {
-                    gatherAllContext: fromPromise(async () => ({
-                        history: mockHistory,
-                        recalls: mockRecalls,
-                        vectors: mockVectors
-                    }) as unknown as GatherAllContextOutput)
-                }
-            }), { input: createDefaultInput() });
-            
+
+            const actor = createActor(
+                mechanicMachine.provide({
+                    actors: {
+                        gatherAllContext: fromPromise(
+                            async () =>
+                                ({
+                                    history: mockHistory,
+                                    recalls: mockRecalls,
+                                    vectors: mockVectors,
+                                }) as unknown as GatherAllContextOutput,
+                        ),
+                    },
+                }),
+                { input: createDefaultInput() },
+            );
+
             actor.start();
             actor.send({ type: 'DIAGNOSE', userId: 'u1', sessionId: 's1', vehicleContext: {}, userQuery: 'q' });
 
@@ -138,19 +149,31 @@ describe('mechanicMachine', () => {
                 engineDescription: 'test',
                 isStock: true,
                 visualConflictDetected: false,
-                detectedCondition: 'unknown'
+                detectedCondition: 'unknown',
             };
-            
-            const actor = createActor(mechanicMachine.provide({
-                actors: {
-                    // Intuition must succeed for the machine to reach the vision step.
-                    generateIntuition: fromPromise(async () => ({ ...mockAnalysis, diagnosis: 'Initial hypothesis' }) as AIAnalysis),
-                    visionAnalysis: fromPromise(async () => mockAnalysis as AIAnalysis)
-                }
-            }), { input: createDefaultInput({ videoUrl: 'v' }) });
+
+            const actor = createActor(
+                mechanicMachine.provide({
+                    actors: {
+                        // Intuition must succeed for the machine to reach the vision step.
+                        generateIntuition: fromPromise(
+                            async () => ({ ...mockAnalysis, diagnosis: 'Initial hypothesis' }) as AIAnalysis,
+                        ),
+                        visionAnalysis: fromPromise(async () => mockAnalysis as AIAnalysis),
+                    },
+                }),
+                { input: createDefaultInput({ videoUrl: 'v' }) },
+            );
 
             actor.start();
-            actor.send({ type: 'DIAGNOSE', userId: 'u1', sessionId: 's1', vehicleContext: {}, userQuery: 'q', videoUrl: 'v' });
+            actor.send({
+                type: 'DIAGNOSE',
+                userId: 'u1',
+                sessionId: 's1',
+                vehicleContext: {},
+                userQuery: 'q',
+                videoUrl: 'v',
+            });
 
             await waitFor(actor, (s) => s.matches('synthesizing'), { timeout: 5000 });
             expect(actor.getSnapshot().context.visualAnalysis).toEqual(mockAnalysis);

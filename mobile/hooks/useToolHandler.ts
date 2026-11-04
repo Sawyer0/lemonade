@@ -14,12 +14,12 @@ export function useToolHandler(session: DiagnosticSession | null) {
         const lastMessage = session.messages[session.messages.length - 1];
 
         // Prevent duplicate handling
-        const msgId = lastMessage.timestamp.toString(); 
+        const msgId = lastMessage.timestamp.toString();
         if (lastHandledMessageId.current === msgId) return;
 
         // Only react to assistant messages that might contain tool calls
         if (lastMessage.role === 'assistant' && Array.isArray(lastMessage.content)) {
-            const toolCalls = (lastMessage.content as MessagePart[]).filter(p => p.type === 'tool-call');
+            const toolCalls = (lastMessage.content as MessagePart[]).filter((p) => p.type === 'tool-call');
 
             for (const toolCall of toolCalls) {
                 if (!toolCall.toolName) continue;
@@ -29,14 +29,18 @@ export function useToolHandler(session: DiagnosticSession | null) {
                     if (user?.preferences?.autoOpenCamera) {
                         console.log(`[Auto-Tool] Opening camera for ${toolCall.toolName}`);
                         lastHandledMessageId.current = msgId;
-                        router.push(`/live-mechanic?roomName=${session.id}&sessionId=${session.id}&tool=${toolCall.toolName}`);
+                        router.push(
+                            `/live-mechanic?roomName=${session.id}&sessionId=${session.id}&tool=${toolCall.toolName}`,
+                        );
                     }
                 } else if (toolCall.toolName === 'display_content') {
                     const args = toolCall.args as Record<string, unknown>;
                     if (args?.url && typeof args.url === 'string') {
                         console.log(`[Tool] Displaying content: ${args.title}`);
                         lastHandledMessageId.current = msgId;
-                        router.push(`/modal?url=${encodeURIComponent(args.url)}&title=${encodeURIComponent((args.title as string) || 'Documentation')}`);
+                        router.push(
+                            `/modal?url=${encodeURIComponent(args.url)}&title=${encodeURIComponent((args.title as string) || 'Documentation')}`,
+                        );
                     }
                 }
             }

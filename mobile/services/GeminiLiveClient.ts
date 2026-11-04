@@ -35,7 +35,7 @@ export class GeminiLiveClient implements IRealtimeAIService {
         onMessage: (data: unknown) => void,
         onError: (error: Error) => void,
         logger: ILogger,
-        traceId: string
+        traceId: string,
     ) {
         this.config = config;
         this.vehicleContext = vehicleContext;
@@ -43,8 +43,9 @@ export class GeminiLiveClient implements IRealtimeAIService {
         this.onError = onError;
         this.logger = logger;
         this.traceId = traceId;
-        // Base URL 
-        this.url = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent';
+        // Base URL
+        this.url =
+            'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent';
     }
 
     async connect(apiKey: string) {
@@ -67,7 +68,10 @@ export class GeminiLiveClient implements IRealtimeAIService {
                 if (typeof event.data === 'string') {
                     data = JSON.parse(event.data);
                 } else {
-                    this.logger.error('Received non-string message type from Gemini WebSocket', undefined, { type: typeof event.data, traceId: this.traceId });
+                    this.logger.error('Received non-string message type from Gemini WebSocket', undefined, {
+                        type: typeof event.data,
+                        traceId: this.traceId,
+                    });
                     this.onError(new Error('Received non-string message type from Gemini WebSocket'));
                     return;
                 }
@@ -75,18 +79,17 @@ export class GeminiLiveClient implements IRealtimeAIService {
             };
 
             this.ws.onerror = (e) => {
-                this.logger.error("WebSocket Error", e, { traceId: this.traceId });
-                this.onError(new Error("WebSocket Error"));
+                this.logger.error('WebSocket Error', e, { traceId: this.traceId });
+                this.onError(new Error('WebSocket Error'));
                 this.isConnectedVal = false;
             };
 
             this.ws.onclose = () => {
-                this.logger.info("Gemini Live Disconnected", { traceId: this.traceId });
+                this.logger.info('Gemini Live Disconnected', { traceId: this.traceId });
                 this.isConnectedVal = false;
             };
-
         } catch (e) {
-            this.logger.error("Connection Failed", e as Error, { traceId: this.traceId });
+            this.logger.error('Connection Failed', e as Error, { traceId: this.traceId });
             throw e;
         }
     }
@@ -112,76 +115,79 @@ export class GeminiLiveClient implements IRealtimeAIService {
                     {
                         functionDeclarations: [
                             {
-                                name: "start_video_stream",
+                                name: 'start_video_stream',
                                 description: "Opens the user's camera to see their vehicle/engine.",
                             },
                             {
-                                name: "checkRecalls",
-                                description: "Checks for active safety recalls for the specific vehicle (Year/Make/Model).",
+                                name: 'checkRecalls',
+                                description:
+                                    'Checks for active safety recalls for the specific vehicle (Year/Make/Model).',
                             },
                             {
-                                name: "googleSearch",
-                                description: "Search for vehicle resources using Google Search.",
+                                name: 'googleSearch',
+                                description: 'Search for vehicle resources using Google Search.',
                                 parameters: {
-                                    type: "OBJECT",
+                                    type: 'OBJECT',
                                     properties: {
-                                        query: { type: "STRING" }
+                                        query: { type: 'STRING' },
                                     },
-                                    required: ["query"]
-                                }
+                                    required: ['query'],
+                                },
                             },
-                        ]
-                    }
-                ]
-            }
+                        ],
+                    },
+                ],
+            },
         };
         this.ws?.send(JSON.stringify(msg));
     }
 
     sendRealtimeInput(chunks: { mimeType: string; data: string }[]) {
         if (!this.isConnected) {
-            this.logger.warn("Attempted to send Realtime Input while disconnected", { traceId: this.traceId });
-            throw new Error("Gemini Live Client is not connected.");
+            this.logger.warn('Attempted to send Realtime Input while disconnected', { traceId: this.traceId });
+            throw new Error('Gemini Live Client is not connected.');
         }
         const msg = {
             realtimeInput: {
-                mediaChunks: chunks
-            }
+                mediaChunks: chunks,
+            },
         };
         this.ws?.send(JSON.stringify(msg));
     }
 
     sendToolResponse(response: unknown) {
         if (!this.isConnected) {
-            this.logger.warn("Attempting to send tool response while disconnected", { traceId: this.traceId });
+            this.logger.warn('Attempting to send tool response while disconnected', { traceId: this.traceId });
             return;
         }
         const msg = {
-            toolResponse: response
+            toolResponse: response,
         };
         this.ws?.send(JSON.stringify(msg));
     }
 
     sendText(text: string) {
         if (!this.isConnected) {
-            this.logger.warn("Attempted to send Text while disconnected", { traceId: this.traceId });
-            throw new Error("Gemini Live Client is not connected.");
+            this.logger.warn('Attempted to send Text while disconnected', { traceId: this.traceId });
+            throw new Error('Gemini Live Client is not connected.');
         }
         const msg = {
             clientContent: {
-                turns: [{
-                    role: 'user',
-                    parts: [{ text }]
-                }],
-                turnComplete: true
-            }
+                turns: [
+                    {
+                        role: 'user',
+                        parts: [{ text }],
+                    },
+                ],
+                turnComplete: true,
+            },
         };
         this.ws?.send(JSON.stringify(msg));
     }
 
     send(data: string | object) {
         if (!this.isConnected) {
-            this.logger.warn("Attempted to send data while disconnected", { traceId: this.traceId });
+            this.logger.warn('Attempted to send data while disconnected', { traceId: this.traceId });
             return;
         }
         const payload = typeof data === 'string' ? data : JSON.stringify(data);

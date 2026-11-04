@@ -24,4 +24,3 @@ export const GET = withContext(async (req: Request) => {
         return createErrorResponse(error);
     }
 });
-

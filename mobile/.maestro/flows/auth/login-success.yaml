@@ -8,37 +8,37 @@ appId: com.dawan.lemonademvp
 # Wait for login screen to load (app starts fresh)
 - extendedWaitUntil:
     visible:
-        id: "login-submit-button"
+      id: 'login-submit-button'
     timeout: 180000
 
 # Enter credentials
 - tapOn:
-    id: "login-email-input"
-- inputText: "e2e-test@lemonade.dev"
+    id: 'login-email-input'
+- inputText: 'e2e-test@lemonade.dev'
 
 - tapOn:
-    id: "login-password-input"
-- inputText: "TestPassword123!"
+    id: 'login-password-input'
+- inputText: 'TestPassword123!'
 
 - hideKeyboard
 
 # Submit login
 - tapOn:
-    id: "login-submit-button"
+    id: 'login-submit-button'
 
 # Handle Google Password Manager prompt (System UI)
 - scroll
 - runFlow:
     when:
-        visible: "Not now"
+      visible: 'Not now'
     commands:
-        - tapOn: "Not now"
+      - tapOn: 'Not now'
 
 # Wait for navigation and verify garage screen
 - extendedWaitUntil:
     visible:
-        id: "welcome-message"
+      id: 'welcome-message'
     timeout: 15000
 
 - assertVisible:
-    id: "welcome-message"
+    id: 'welcome-message'

@@ -71,17 +71,16 @@ export const POST = withContext(async (req: Request) => {
             return NextResponse.json({ error: 'Missing publicUrl or imageData' }, { status: 400 });
         }
 
-
         const videoAnalysisService = container.get<VideoAnalysisService>(TYPES.VideoAnalysisService);
 
         // Fire and Forget - processVideoUpload signature is (sessionId, videoUrl, videoDurationMinutes?)
-        videoAnalysisService.processVideoUpload(sessionId, finalPublicUrl).catch(err => {
+        videoAnalysisService.processVideoUpload(sessionId, finalPublicUrl).catch((err) => {
             logger.error(`[Background Job Failed] Session: ${sessionId}`, err, { sessionId });
         });
 
         const responseData = {
             status: 'processing_started' as const,
-            message: 'The Master Tech is analyzing your image/video.'
+            message: 'The Master Tech is analyzing your image/video.',
         };
 
         const validatedResponse = validateResponse(responseData, AnalysisTriggerResponseSchema);

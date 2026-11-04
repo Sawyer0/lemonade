@@ -15,16 +15,16 @@ export const analyzeUploadedVideo = onObjectFinalized(
     },
     async (event) => {
         const traceId = uuidv4();
-        
+
         return RequestContext.run({ traceId }, async () => {
             // Presentation Layer: Trigger -> Service
             const service = container.get<VideoAnalysisService>(TYPES.VideoService);
-            
+
             await service.processEvent({
                 filePath: event.data.name,
                 contentType: event.data.contentType || 'application/octet-stream',
-                bucket: event.data.bucket
+                bucket: event.data.bucket,
             });
         });
-    }
+    },
 );

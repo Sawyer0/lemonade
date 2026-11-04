@@ -12,4 +12,3 @@ export const VoiceResponseSchema = z.object({
 });
 
 export type VoiceResponseDTO = z.infer<typeof VoiceResponseSchema>;
-

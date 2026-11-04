@@ -9,13 +9,13 @@ const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 };
 const mockSessionRepo = {
-    findById: vi.fn()
+    findById: vi.fn(),
 };
 const mockStorageService = {
-    generateSignedUrl: vi.fn()
+    generateSignedUrl: vi.fn(),
 };
 
 // Helper to create request
@@ -24,9 +24,9 @@ function createRequest(body: object, headers: Record<string, string> = {}) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            ...headers
+            ...headers,
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
     });
 }
 
@@ -37,20 +37,24 @@ describe('POST /api/upload/sign', () => {
         container.unbind(TYPES.Logger);
         container.bind(TYPES.Logger).toConstantValue(mockLogger);
 
-        try { container.unbind(TYPES.SessionRepo); } catch {}
+        try {
+            container.unbind(TYPES.SessionRepo);
+        } catch {}
         container.bind(TYPES.SessionRepo).toConstantValue(mockSessionRepo);
 
-        try { container.unbind(TYPES.StorageService); } catch {}
+        try {
+            container.unbind(TYPES.StorageService);
+        } catch {}
         container.bind(TYPES.StorageService).toConstantValue(mockStorageService);
 
         // Default mocks
         mockSessionRepo.findById.mockResolvedValue({
             id: '123e4567-e89b-12d3-a456-426614174000',
-            userId: 'user-123'
+            userId: 'user-123',
         });
         mockStorageService.generateSignedUrl.mockResolvedValue({
             uploadUrl: 'https://storage.example.com/upload',
-            publicUrl: 'https://storage.example.com/public'
+            publicUrl: 'https://storage.example.com/public',
         });
     });
 
@@ -63,7 +67,7 @@ describe('POST /api/upload/sign', () => {
         it('returns 401 when x-user-id header missing', async () => {
             const req = createRequest({
                 contentType: 'image/jpeg',
-                sessionId: '123e4567-e89b-12d3-a456-426614174000'
+                sessionId: '123e4567-e89b-12d3-a456-426614174000',
             });
             const res = await POST(req);
 
@@ -73,12 +77,12 @@ describe('POST /api/upload/sign', () => {
         it('returns 403 when user does not own session', async () => {
             mockSessionRepo.findById.mockResolvedValue({
                 id: '123e4567-e89b-12d3-a456-426614174000',
-                userId: 'different-user'
+                userId: 'different-user',
             });
 
             const req = createRequest(
                 { contentType: 'image/jpeg', sessionId: '123e4567-e89b-12d3-a456-426614174000' },
-                { 'x-user-id': 'user-123' }
+                { 'x-user-id': 'user-123' },
             );
             const res = await POST(req);
 
@@ -90,7 +94,7 @@ describe('POST /api/upload/sign', () => {
         it('returns 400 when contentType missing', async () => {
             const req = createRequest(
                 { sessionId: '123e4567-e89b-12d3-a456-426614174000' },
-                { 'x-user-id': 'user-123' }
+                { 'x-user-id': 'user-123' },
             );
             const res = await POST(req);
 
@@ -100,7 +104,7 @@ describe('POST /api/upload/sign', () => {
         it('returns 400 when sessionId not UUID format', async () => {
             const req = createRequest(
                 { contentType: 'image/jpeg', sessionId: 'not-uuid' },
-                { 'x-user-id': 'user-123' }
+                { 'x-user-id': 'user-123' },
             );
             const res = await POST(req);
 
@@ -112,7 +116,7 @@ describe('POST /api/upload/sign', () => {
         it('returns uploadUrl and publicUrl for image/jpeg', async () => {
             const req = createRequest(
                 { contentType: 'image/jpeg', sessionId: '123e4567-e89b-12d3-a456-426614174000' },
-                { 'x-user-id': 'user-123' }
+                { 'x-user-id': 'user-123' },
             );
             const res = await POST(req);
 
@@ -125,7 +129,7 @@ describe('POST /api/upload/sign', () => {
         it('returns uploadUrl and publicUrl for video/mp4', async () => {
             const req = createRequest(
                 { contentType: 'video/mp4', sessionId: '123e4567-e89b-12d3-a456-426614174000' },
-                { 'x-user-id': 'user-123' }
+                { 'x-user-id': 'user-123' },
             );
             const res = await POST(req);
 
@@ -139,7 +143,7 @@ describe('POST /api/upload/sign', () => {
 
             const req = createRequest(
                 { contentType: 'image/jpeg', sessionId: '123e4567-e89b-12d3-a456-426614174000' },
-                { 'x-user-id': 'user-123' }
+                { 'x-user-id': 'user-123' },
             );
             const res = await POST(req);
 
@@ -151,7 +155,7 @@ describe('POST /api/upload/sign', () => {
 
             const req = createRequest(
                 { contentType: 'image/jpeg', sessionId: '123e4567-e89b-12d3-a456-426614174000' },
-                { 'x-user-id': 'user-123' }
+                { 'x-user-id': 'user-123' },
             );
             const res = await POST(req);
 

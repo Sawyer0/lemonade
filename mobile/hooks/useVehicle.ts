@@ -12,19 +12,23 @@ export function useVehicle(vehicleId?: string) {
     useEffect(() => {
         if (!vehicleId) return;
 
-        const unsub = onSnapshot(doc(db, 'vehicles', vehicleId), (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                setVehicle(convertTimestamps(data) as Vehicle);
-            } else {
-                setError("Vehicle not found");
-            }
-            setLoading(false);
-        }, (err) => {
-            console.error("Vehicle Fetch Error:", err);
-            setError(AppError.fromError(err).message);
-            setLoading(false);
-        });
+        const unsub = onSnapshot(
+            doc(db, 'vehicles', vehicleId),
+            (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    setVehicle(convertTimestamps(data) as Vehicle);
+                } else {
+                    setError('Vehicle not found');
+                }
+                setLoading(false);
+            },
+            (err) => {
+                console.error('Vehicle Fetch Error:', err);
+                setError(AppError.fromError(err).message);
+                setLoading(false);
+            },
+        );
 
         return () => unsub();
     }, [vehicleId]);
@@ -35,14 +39,14 @@ export function useVehicle(vehicleId?: string) {
         try {
             const idToken = await auth.currentUser?.getIdToken();
             const API_URL = process.env.EXPO_PUBLIC_API_URL;
-            
+
             const response = await fetch(`${API_URL}/api/vehicles/scan`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
+                    Authorization: `Bearer ${idToken}`,
                 },
-                body: JSON.stringify({ vin, userId })
+                body: JSON.stringify({ vin, userId }),
             });
 
             if (!response.ok) {

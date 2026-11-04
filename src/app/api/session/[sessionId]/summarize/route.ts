@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
-import {
-    ISessionRepository,
-    ISummarizationService,
-    ILogger,
-    IEdgeSecurityService,
-    MessagePart
-} from '@lemonade/core';
+import { ISessionRepository, ISummarizationService, ILogger, IEdgeSecurityService, MessagePart } from '@lemonade/core';
 import { withContext } from '@/application/utils/apiHandler';
 
 export const POST = withContext(async (req: Request, { params }: { params: Promise<{ sessionId: string }> }) => {
@@ -33,12 +27,18 @@ export const POST = withContext(async (req: Request, { params }: { params: Promi
         }
 
         // Prepare text for summarization
-        const messagesText = session.messages.map(msg => {
-            const content = typeof msg.content === 'string'
-                ? msg.content
-                : (msg.content as MessagePart[]).filter(p => p.type === 'text').map(p => p.text).join(' ');
-            return `${msg.role.toUpperCase()}: ${content}`;
-        }).join('\n');
+        const messagesText = session.messages
+            .map((msg) => {
+                const content =
+                    typeof msg.content === 'string'
+                        ? msg.content
+                        : (msg.content as MessagePart[])
+                              .filter((p) => p.type === 'text')
+                              .map((p) => p.text)
+                              .join(' ');
+                return `${msg.role.toUpperCase()}: ${content}`;
+            })
+            .join('\n');
 
         if (!messagesText.trim()) {
             return NextResponse.json({ summary: 'No history to summarize.' });

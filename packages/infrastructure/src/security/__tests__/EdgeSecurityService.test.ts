@@ -12,7 +12,7 @@ describe('EdgeSecurityService', () => {
         const payload = {
             'x-user-id': 'user-123',
             'x-user-tier': 'pro',
-            'x-trace-id': 'trace-456'
+            'x-trace-id': 'trace-456',
         };
 
         const signature = await service.signPayload(payload);
@@ -26,14 +26,14 @@ describe('EdgeSecurityService', () => {
     it('should fail verification if payload is tampered', async () => {
         const payload = {
             'x-user-id': 'user-123',
-            'x-user-tier': 'pro'
+            'x-user-tier': 'pro',
         };
 
         const signature = await service.signPayload(payload);
-        
+
         const tamperedPayload = {
             'x-user-id': 'user-123',
-            'x-user-tier': 'free' // Tampered!
+            'x-user-tier': 'free', // Tampered!
         };
 
         const isValid = await service.verifyPayloadSignature(tamperedPayload, signature);
@@ -42,7 +42,7 @@ describe('EdgeSecurityService', () => {
 
     it('should fail verification if signature is tampered', async () => {
         const payload = {
-            'x-user-id': 'user-123'
+            'x-user-id': 'user-123',
         };
 
         const signature = await service.signPayload(payload);
@@ -56,11 +56,11 @@ describe('EdgeSecurityService', () => {
         const userId = 'user-789';
         const tier = 'pro';
         const traceId = 'trace-999';
-        
+
         const payload = {
             'x-user-id': userId,
             'x-user-tier': tier,
-            'x-trace-id': traceId
+            'x-trace-id': traceId,
         };
 
         const signature = await service.signPayload(payload);
@@ -72,11 +72,11 @@ describe('EdgeSecurityService', () => {
         headers.set('x-security-seal', signature);
 
         const req = {
-            headers: headers
+            headers: headers,
         } as unknown as Request;
 
         const auth = await service.getAuthenticatedUser(req);
-        
+
         expect(auth).not.toBeNull();
         expect(auth?.userId).toBe(userId);
         expect(auth?.tier).toBe(tier);

@@ -6,8 +6,8 @@ export const SHARED_CONFIG = {
         EMBEDDING: 'text-embedding-004',
         // Agent models (Mechanic System 2 reasoning)
         AGENT: {
-            BRAIN: 'gemini-2.5-pro',      // Deep diagnostic reasoning (intuition state)
-            WORKER: 'gemini-2.5-flash'     // Simple tasks (gathering, investigating, synthesizing)
+            BRAIN: 'gemini-2.5-pro', // Deep diagnostic reasoning (intuition state)
+            WORKER: 'gemini-2.5-flash', // Simple tasks (gathering, investigating, synthesizing)
         },
         // Start: Gemini 2.5 Flash Specs
         SPECS: {
@@ -20,35 +20,59 @@ export const SHARED_CONFIG = {
             SUPPORTED_MIME_TYPES: {
                 IMAGES: ['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'],
                 DOCS: ['application/pdf', 'text/plain'],
-                VIDEO: ['video/x-flv', 'video/quicktime', 'video/mpeg', 'video/mpegs', 'video/mpg', 'video/mp4', 'video/webm', 'video/wmv', 'video/3gpp'],
-                AUDIO: ['audio/x-aac', 'audio/flac', 'audio/mp3', 'audio/m4a', 'audio/mpeg', 'audio/mpga', 'audio/mp4', 'audio/ogg', 'audio/pcm', 'audio/wav', 'audio/webm']
+                VIDEO: [
+                    'video/x-flv',
+                    'video/quicktime',
+                    'video/mpeg',
+                    'video/mpegs',
+                    'video/mpg',
+                    'video/mp4',
+                    'video/webm',
+                    'video/wmv',
+                    'video/3gpp',
+                ],
+                AUDIO: [
+                    'audio/x-aac',
+                    'audio/flac',
+                    'audio/mp3',
+                    'audio/m4a',
+                    'audio/mpeg',
+                    'audio/mpga',
+                    'audio/mp4',
+                    'audio/ogg',
+                    'audio/pcm',
+                    'audio/wav',
+                    'audio/webm',
+                ],
             },
             DEFAULTS: {
                 TEMPERATURE: 1.0,
                 TOP_P: 0.95,
                 TOP_K: 64,
-                CANDIDATE_COUNT: 1
-            }
+                CANDIDATE_COUNT: 1,
+            },
         },
         // End: Gemini 2.5 Flash Specs
     },
 
     PRICING: {
         // per 1M tokens
-        STANDARD: { // Gemini 2.5 Flash
-            INPUT: 0.10, // Text, Image, Video
-            AUDIO_INPUT: 2.00,
-            OUTPUT: 0.40, // Text output
+        STANDARD: {
+            // Gemini 2.5 Flash
+            INPUT: 0.1, // Text, Image, Video
+            AUDIO_INPUT: 2.0,
+            OUTPUT: 0.4, // Text output
             CACHED_INPUT: 0.025,
-            CACHED_AUDIO: 0.50
+            CACHED_AUDIO: 0.5,
         },
-        LIVE: { // Gemini 2.5 Flash Live API
-            INPUT_TEXT: 0.60,
-            INPUT_AUDIO: 3.00,
-            INPUT_VIDEO: 3.00,
-            OUTPUT_TEXT: 2.00,
-            OUTPUT_AUDIO: 13.00
-        }
+        LIVE: {
+            // Gemini 2.5 Flash Live API
+            INPUT_TEXT: 0.6,
+            INPUT_AUDIO: 3.0,
+            INPUT_VIDEO: 3.0,
+            OUTPUT_TEXT: 2.0,
+            OUTPUT_AUDIO: 13.0,
+        },
     },
 
     SUBSCRIPTION: {

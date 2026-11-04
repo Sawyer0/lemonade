@@ -1,11 +1,11 @@
-import { 
-    IVectorRepository, 
-    VectorDocument, 
-    SimilarCase, 
-    VectorDocumentSchema, 
-    ILogger, 
+import {
+    IVectorRepository,
+    VectorDocument,
+    SimilarCase,
+    VectorDocumentSchema,
+    ILogger,
     SHARED_CONFIG,
-    EmbedContentResponse
+    EmbedContentResponse,
 } from '@lemonade/core';
 import { injectable, inject } from 'inversify';
 import { getFirestore, FieldValue, Filter, Timestamp } from 'firebase-admin/firestore';
@@ -24,16 +24,18 @@ export class VectorRepository implements IVectorRepository {
 
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
-        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter
+        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
     ) {
-        this.model = this.coreAdapter.getGenerativeModel(SHARED_CONFIG.AI_MODELS.EMBEDDING) as unknown as EmbeddingModel;
+        this.model = this.coreAdapter.getGenerativeModel(
+            SHARED_CONFIG.AI_MODELS.EMBEDDING,
+        ) as unknown as EmbeddingModel;
     }
 
     private async embedQuery(text: string): Promise<number[]> {
         try {
             const result = await this.model.embedContent(text);
             const values = result.embedding?.values;
-            if (!values) throw new Error("No embedding returned");
+            if (!values) throw new Error('No embedding returned');
             return values;
         } catch (error) {
             this.logger.error('[VectorRepository] Embedding generation failed', error);
@@ -67,12 +69,12 @@ export class VectorRepository implements IVectorRepository {
             limit: limit,
             distanceMeasure: 'COSINE',
             distanceResultField: '_distance',
-            ...(preFilter ? { filter: preFilter } : {})
+            ...(preFilter ? { filter: preFilter } : {}),
         });
 
         const snapshot = await vectorQuery.get();
 
-        return snapshot.docs.map(doc => {
+        return snapshot.docs.map((doc) => {
             const data = doc.data();
             const distance = (data._distance as number) || 0;
             return {
@@ -92,7 +94,9 @@ export class VectorRepository implements IVectorRepository {
 
             let preFilter;
             if (filter && Object.keys(filter).length > 0) {
-                const filters = Object.entries(filter).map(([key, value]) => Filter.where(`metadata.${key}`, '==', value));
+                const filters = Object.entries(filter).map(([key, value]) =>
+                    Filter.where(`metadata.${key}`, '==', value),
+                );
                 preFilter = filters.length > 1 ? Filter.and(...filters) : filters[0];
             }
 
@@ -102,30 +106,32 @@ export class VectorRepository implements IVectorRepository {
                 limit: limit,
                 distanceMeasure: 'COSINE',
                 distanceResultField: '_distance',
-                ...(preFilter ? { filter: preFilter } : {})
+                ...(preFilter ? { filter: preFilter } : {}),
             });
 
             const snapshot = await vectorQuery.get();
 
-            return snapshot.docs.map(doc => {
-                const data = doc.data();
-                const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt);
+            return snapshot.docs
+                .map((doc) => {
+                    const data = doc.data();
+                    const createdAt =
+                        data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt);
 
-                const docData = {
-                    ...data,
-                    id: doc.id,
-                    createdAt,
-                    vector: data.embedding?.values || [],
-                };
+                    const docData = {
+                        ...data,
+                        id: doc.id,
+                        createdAt,
+                        vector: data.embedding?.values || [],
+                    };
 
-                const result = VectorDocumentSchema.safeParse(docData);
-                if (!result.success) {
-                    this.logger.error(`VectorDocument data validation failed for doc ${doc.id}`, result.error);
-                    return null;
-                }
-                return result.data;
-            }).filter((doc): doc is VectorDocument => doc !== null);
-
+                    const result = VectorDocumentSchema.safeParse(docData);
+                    if (!result.success) {
+                        this.logger.error(`VectorDocument data validation failed for doc ${doc.id}`, result.error);
+                        return null;
+                    }
+                    return result.data;
+                })
+                .filter((doc): doc is VectorDocument => doc !== null);
         } catch (error) {
             this.logger.error('[VectorRepository] Search failed', error);
             return [];

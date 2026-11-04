@@ -19,7 +19,7 @@ import {
     VehicleSpecs,
     VectorDocument,
     SimilarCase,
-    ReasoningEffort
+    ReasoningEffort,
 } from '@lemonade/core';
 import { CONFIG } from '../constants/config';
 
@@ -32,7 +32,7 @@ export class MobileVisionAdapter implements IMultimodalUploadAnalyzer {
         _userId?: string,
         sessionId?: string,
         _reasoningEffort?: ReasoningEffort,
-        videoDurationMinutes?: number
+        videoDurationMinutes?: number,
     ): Promise<AIAnalysis> {
         if (!sessionId) {
             // Fallback if no session provided (shouldn't happen in normal flow)
@@ -48,8 +48,8 @@ export class MobileVisionAdapter implements IMultimodalUploadAnalyzer {
                     publicUrl: videoUrl,
                     videoDurationMinutes: videoDurationMinutes || 1, // Use passed value or fallback
                     vehicleContext,
-                    mimeType: mimeType || 'video/mp4'
-                })
+                    mimeType: mimeType || 'video/mp4',
+                }),
             });
 
             // Return pending state as analysis is async
@@ -74,14 +74,11 @@ export class MobileVisionAdapter implements IMultimodalUploadAnalyzer {
             isStock: true,
             visualConflictDetected: false,
             detectedCondition: 'unknown',
-            confidence: 0
+            confidence: 0,
         };
     }
 
-    async analyzeUploadedImage(
-        imageUrl: string,
-        _vehicleContext: string
-    ): Promise<AIAnalysis> {
+    async analyzeUploadedImage(imageUrl: string, _vehicleContext: string): Promise<AIAnalysis> {
         console.warn('[MobileVisionAdapter] analyzeUploadedImage delegated to server', imageUrl);
         return {
             diagnosis: 'Analysis pending server response',
@@ -96,7 +93,7 @@ export class MobileVisionAdapter implements IMultimodalUploadAnalyzer {
             isStock: true,
             visualConflictDetected: false,
             detectedCondition: 'unknown',
-            confidence: 0
+            confidence: 0,
         };
     }
 
@@ -109,17 +106,17 @@ export class MobileVisionAdapter implements IMultimodalUploadAnalyzer {
 // --- Chat Adapter ---
 export class MobileChatAdapter implements IChatAssistantAI {
     async generateReply(): Promise<string | MessagePart[]> {
-        return "Offline Mode: Chat is delegated to the server.";
+        return 'Offline Mode: Chat is delegated to the server.';
     }
 
     async *generateReplyStream(): AsyncGenerator<StreamingEvent, void, unknown> {
-        yield { type: 'text', content: "Offline Mode: Chat is delegated to the server." };
+        yield { type: 'text', content: 'Offline Mode: Chat is delegated to the server.' };
         yield { type: 'done' };
     }
 
     async verifyHypothesis(request: VerificationRequest): Promise<VerificationResponse> {
         console.log('[MobileChatAdapter] verifyHypothesis', request.hypothesis);
-        return { isVerified: false, source: null, reasoning: "Offline verification unavailable" };
+        return { isVerified: false, source: null, reasoning: 'Offline verification unavailable' };
     }
 
     async countTokens(): Promise<number> {
@@ -131,7 +128,9 @@ export class MobileChatAdapter implements IChatAssistantAI {
 export class MobileNHTSAAdapter implements INHTSAService {
     async checkRecalls(year: number, make: string, model: string): Promise<SafetyRecall[]> {
         try {
-            const response = await fetch(`${CONFIG.API.BASE_URL}/api/nhtsa/recalls?year=${year}&make=${make}&model=${model}`);
+            const response = await fetch(
+                `${CONFIG.API.BASE_URL}/api/nhtsa/recalls?year=${year}&make=${make}&model=${model}`,
+            );
             if (!response.ok) return [];
             return await response.json();
         } catch (e) {
@@ -169,8 +168,8 @@ export class MobileVectorAdapter implements IVectorRepository {
                     action: 'search',
                     query,
                     limit,
-                    filter
-                })
+                    filter,
+                }),
             });
             if (!response.ok) return [];
             const data = await response.json();
@@ -190,8 +189,8 @@ export class MobileVectorAdapter implements IVectorRepository {
                     action: 'findSimilar',
                     vector,
                     limit,
-                    filter
-                })
+                    filter,
+                }),
             });
             if (!response.ok) return [];
             const data = await response.json();
@@ -211,8 +210,8 @@ export class MobileVectorAdapter implements IVectorRepository {
                     action: 'addCase',
                     text,
                     vector,
-                    metadata
-                })
+                    metadata,
+                }),
             });
         } catch (e) {
             console.error('[MobileVectorAdapter] Add case failed', e);
@@ -227,7 +226,7 @@ export class MobileSearchAdapter implements IGoogleSearchService {
             const response = await fetch(`${CONFIG.API.BASE_URL}/api/search`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(request)
+                body: JSON.stringify(request),
             });
             if (!response.ok) {
                 return { results: [], queryUsed: request.query, totalFound: 0 };
@@ -250,8 +249,8 @@ export class MobileMemoryAdapter implements IMemoryService {
                 body: JSON.stringify({
                     action: 'add',
                     doc,
-                    spaceId
-                })
+                    spaceId,
+                }),
             });
         } catch (e) {
             console.error('[MobileMemoryAdapter] Add document failed', e);
@@ -266,8 +265,8 @@ export class MobileMemoryAdapter implements IMemoryService {
                 body: JSON.stringify({
                     action: 'search',
                     query,
-                    options
-                })
+                    options,
+                }),
             });
             if (!response.ok) return [];
             const data = await response.json();

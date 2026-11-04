@@ -1,9 +1,9 @@
-import { VectorDocument } from "../types/models";
+import { VectorDocument } from '../types/models';
 
 export interface SimilarCase {
     id: string;
     text: string;
-    score: number; 
+    score: number;
     metadata: Record<string, unknown>;
 }
 

@@ -9,14 +9,14 @@ import {
     DiagnosticSessionSchema,
     AIAnalysisSchema,
     AppError,
-    ErrorCode
+    ErrorCode,
 } from '@lemonade/core';
 import { TYPES } from '../di/types';
 import { convertTimestamps } from '../firestore/timestamps';
 
 @injectable()
 export class FirestoreSessionRepository implements ISessionRepository {
-    constructor(@inject(TYPES.Logger) private logger: ILogger) { }
+    constructor(@inject(TYPES.Logger) private logger: ILogger) {}
 
     async create(session: DiagnosticSession): Promise<void> {
         try {
@@ -42,7 +42,10 @@ export class FirestoreSessionRepository implements ISessionRepository {
 
         if (!result.success) {
             this.logger.error(`Session validation failed for ${id}`, result.error);
-            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Session data validation failed for ${id}: ${result.error.message}`);
+            throw new AppError(
+                ErrorCode.INTERNAL_SERVER_ERROR,
+                `Session data validation failed for ${id}: ${result.error.message}`,
+            );
         }
 
         return result.data;
@@ -55,7 +58,7 @@ export class FirestoreSessionRepository implements ISessionRepository {
             await adminDb.collection('sessions').doc(sessionId).update({
                 aiAnalysis: analysis,
                 status: 'waiting_user',
-                updatedAt: new Date()
+                updatedAt: new Date(),
             });
         } catch (error) {
             this.logger.error('Failed to update analysis', error as Error, { sessionId });
@@ -64,14 +67,17 @@ export class FirestoreSessionRepository implements ISessionRepository {
     }
 
     async addMessage(sessionId: string, role: 'user' | 'assistant' | 'system', content: unknown): Promise<void> {
-        await adminDb.collection('sessions').doc(sessionId).update({
-            messages: FieldValue.arrayUnion({
-                role,
-                content: JSON.parse(JSON.stringify(content)),
-                timestamp: new Date()
-            }),
-            updatedAt: new Date()
-        });
+        await adminDb
+            .collection('sessions')
+            .doc(sessionId)
+            .update({
+                messages: FieldValue.arrayUnion({
+                    role,
+                    content: JSON.parse(JSON.stringify(content)),
+                    timestamp: new Date(),
+                }),
+                updatedAt: new Date(),
+            });
     }
 
     async getHistory(sessionId: string): Promise<DiagnosticSession | null> {
@@ -90,7 +96,7 @@ export class FirestoreSessionRepository implements ISessionRepository {
         await adminDb.collection('sessions').doc(sessionId).update({
             safety_stop: true,
             safety_reason: reason,
-            updatedAt: new Date()
+            updatedAt: new Date(),
         });
     }
 
@@ -106,13 +112,14 @@ export class FirestoreSessionRepository implements ISessionRepository {
             this.logger.warn('SessionAdminRepository.findByVehicleId called with empty vehicleId');
             return [];
         }
-        const snapshot = await adminDb.collection('sessions')
+        const snapshot = await adminDb
+            .collection('sessions')
             .where('vehicleId', '==', vehicleId)
             .orderBy('startedAt', 'desc')
             .get();
 
         return snapshot.docs
-            .map(doc => {
+            .map((doc) => {
                 const data = convertTimestamps(doc.data());
 
                 if (!data.userId) {
@@ -134,13 +141,14 @@ export class FirestoreSessionRepository implements ISessionRepository {
             this.logger.warn('SessionAdminRepository.findByUserId called with empty userId');
             return [];
         }
-        const snapshot = await adminDb.collection('sessions')
+        const snapshot = await adminDb
+            .collection('sessions')
             .where('userId', '==', userId)
             .orderBy('startedAt', 'desc')
             .get();
 
         return snapshot.docs
-            .map(doc => {
+            .map((doc) => {
                 const data = convertTimestamps(doc.data());
                 const result = DiagnosticSessionSchema.safeParse(data);
                 if (!result.success) {
@@ -158,7 +166,7 @@ export class FirestoreSessionRepository implements ISessionRepository {
         }
         await adminDb.collection('sessions').doc(sessionId).update({
             complaint: complaint,
-            updatedAt: new Date()
+            updatedAt: new Date(),
         });
     }
 
@@ -172,14 +180,14 @@ export class FirestoreSessionRepository implements ISessionRepository {
 
         await adminDb.collection('sessions').doc(sessionId).update({
             cumulativeVideoDurationProcessedMinutes: newCumulativeDuration,
-            updatedAt: new Date()
+            updatedAt: new Date(),
         });
     }
 
     async updateLastProcessedFrameTimestamp(sessionId: string, timestamp: number): Promise<void> {
         await adminDb.collection('sessions').doc(sessionId).update({
             lastProcessedFrameTimestamp: timestamp,
-            updatedAt: new Date()
+            updatedAt: new Date(),
         });
     }
 
@@ -193,14 +201,14 @@ export class FirestoreSessionRepository implements ISessionRepository {
 
         await adminDb.collection('sessions').doc(sessionId).update({
             cumulativeAudioDurationProcessedMinutes: newCumulativeDuration,
-            updatedAt: new Date()
+            updatedAt: new Date(),
         });
     }
 
     async updateLastProcessedAudioChunkTimestamp(sessionId: string, timestamp: number): Promise<void> {
         await adminDb.collection('sessions').doc(sessionId).update({
             lastProcessedAudioChunkTimestamp: timestamp,
-            updatedAt: new Date()
+            updatedAt: new Date(),
         });
     }
 
@@ -214,10 +222,13 @@ export class FirestoreSessionRepository implements ISessionRepository {
      */
     async saveXStateSnapshot(sessionId: string, snapshot: unknown): Promise<void> {
         try {
-            await adminDb.collection('sessions').doc(sessionId).update({
-                xstateSnapshot: JSON.parse(JSON.stringify(snapshot)), // Ensure serializable
-                updatedAt: new Date()
-            });
+            await adminDb
+                .collection('sessions')
+                .doc(sessionId)
+                .update({
+                    xstateSnapshot: JSON.parse(JSON.stringify(snapshot)), // Ensure serializable
+                    updatedAt: new Date(),
+                });
             this.logger.debug('XState snapshot saved', { sessionId });
         } catch (error) {
             this.logger.error('Failed to save XState snapshot', error as Error, { sessionId });
@@ -250,7 +261,7 @@ export class FirestoreSessionRepository implements ISessionRepository {
         try {
             await adminDb.collection('sessions').doc(sessionId).update({
                 xstateSnapshot: FieldValue.delete(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
             });
             this.logger.debug('XState snapshot cleared', { sessionId });
         } catch (error) {
@@ -258,4 +269,3 @@ export class FirestoreSessionRepository implements ISessionRepository {
         }
     }
 }
-

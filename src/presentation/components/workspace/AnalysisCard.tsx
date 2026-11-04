@@ -23,4 +23,3 @@ export function AnalysisCard({ analysis, isSafetyStop }: AnalysisCardProps) {
         </div>
     );
 }
-

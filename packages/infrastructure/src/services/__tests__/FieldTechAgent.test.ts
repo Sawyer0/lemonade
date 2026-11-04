@@ -1,4 +1,3 @@
-
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FieldTechAgent } from '../FieldTechAgent';
@@ -8,7 +7,7 @@ import {
     ILogger,
     ReasoningInput,
     NeurosymbolicState,
-    AgentEvent
+    AgentEvent,
 } from '@lemonade/core';
 
 describe('FieldTechAgent', () => {
@@ -21,7 +20,12 @@ describe('FieldTechAgent', () => {
         complaint: 'test problem',
         intuition: { hypothesis: 'test', confidence: 0.9, reasoning: 'reason' },
         authorityData: { vin: '123', nhtsaRecalls: [], manualSpecs: null, safetyAlerts: [] },
-        visualGrounding: { engineDescription: '', isStock: true, visualConflictDetected: false, detectedCondition: 'unknown' },
+        visualGrounding: {
+            engineDescription: '',
+            isStock: true,
+            visualConflictDetected: false,
+            detectedCondition: 'unknown',
+        },
         consensus: { similarCasesFound: 0, consensusFix: null, isKnownIssue: false },
         verification: { isVerified: true, verifiedSource: 'manual', searchQueryUsed: null, conflictingEvidence: null },
         finalDiagnosis: {
@@ -29,13 +33,13 @@ describe('FieldTechAgent', () => {
             reasoningTrace: 'trace',
             userOutput: 'output',
             requiredActions: [],
-            metaConfidence: 0.9
-        }
+            metaConfidence: 0.9,
+        },
     };
 
     beforeEach(() => {
         mockReasoning = {
-            diagnose: vi.fn().mockResolvedValue(mockState)
+            diagnose: vi.fn().mockResolvedValue(mockState),
         } as unknown as IMechanicReasoningService;
 
         mockSessionRepo = {
@@ -46,7 +50,7 @@ describe('FieldTechAgent', () => {
             info: vi.fn(),
             error: vi.fn(),
             debug: vi.fn(),
-            warn: vi.fn()
+            warn: vi.fn(),
         } as unknown as ILogger;
 
         agent = new FieldTechAgent(mockReasoning, mockSessionRepo, mockLogger);
@@ -57,7 +61,7 @@ describe('FieldTechAgent', () => {
             userQuery: 'test query',
             sessionId: 'session-123',
             userId: 'user-1',
-            vehicleContext: { year: 2020, make: 'Ford', model: 'F-150' }
+            vehicleContext: { year: 2020, make: 'Ford', model: 'F-150' },
         };
 
         const result = await agent.diagnose(input);
@@ -74,7 +78,7 @@ describe('FieldTechAgent', () => {
             userQuery: 'test query',
             sessionId: 'session-123',
             userId: 'user-1',
-            vehicleContext: { year: 2020, make: 'Ford', model: 'F-150' }
+            vehicleContext: { year: 2020, make: 'Ford', model: 'F-150' },
         };
 
         await agent.diagnose(input);

@@ -16,7 +16,10 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
         setLoading(true);
         try {
             const functions = getFunctions();
-            const createCheckoutSession = httpsCallable<Record<string, unknown>, { url: string }>(functions, 'createCheckoutSession');
+            const createCheckoutSession = httpsCallable<Record<string, unknown>, { url: string }>(
+                functions,
+                'createCheckoutSession',
+            );
             const result = await createCheckoutSession({});
 
             if (result.data.url) {
@@ -89,18 +92,11 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
                         disabled={loading}
                         className="bg-gradient-to-r from-yellow-500 to-orange-500 !text-black font-bold h-14 !rounded-2xl"
                     >
-                        {loading ? (
-                            <Loader2 className="w-6 h-6 animate-spin" />
-                        ) : (
-                            'Upgrade Now'
-                        )}
+                        {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Upgrade Now'}
                     </Button>
-                    <p className="text-center text-xs text-zinc-500">
-                        Cancel anytime. Secure checkout via Stripe.
-                    </p>
+                    <p className="text-center text-xs text-zinc-500">Cancel anytime. Secure checkout via Stripe.</p>
                 </Block>
             </Page>
         </Sheet>
     );
 }
-

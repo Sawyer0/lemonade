@@ -1,5 +1,5 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, initializeAuth, Auth } from "firebase/auth";
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, initializeAuth, Auth } from 'firebase/auth';
 import { SHARED_CONFIG } from '@lemonade/core';
 // Manual implementation because firebase/auth/react-native export is missing in this version
 // Ported from @firebase/auth/dist/rn/index.js
@@ -21,9 +21,10 @@ const getReactNativePersistence = (storage: ReactNativeStorage) => {
                 await storage.setItem('__sak', '1');
                 await storage.removeItem('__sak');
                 return true;
-            } catch { return false; }
+            } catch {
+                return false;
+            }
         }
-
 
         _set(key: string, value: unknown) {
             return storage.setItem(key, JSON.stringify(value));
@@ -38,15 +39,15 @@ const getReactNativePersistence = (storage: ReactNativeStorage) => {
             return storage.removeItem(key);
         }
 
-        _addListener() { }
-        _removeListener() { }
+        _addListener() {}
+        _removeListener() {}
     }
 
     return ReactNativePersistence;
 };
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { getStorage, connectStorageEmulator } from "firebase/storage";
-import { connectAuthEmulator } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { connectAuthEmulator } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Expo uses EXPO_PUBLIC_ prefix for environment variables
@@ -66,7 +67,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 let auth: Auth;
 try {
     auth = initializeAuth(app, {
-        persistence: getReactNativePersistence(AsyncStorage)
+        persistence: getReactNativePersistence(AsyncStorage),
     });
 } catch {
     // Expected during hot reload - auth already initialized, just get existing instance
@@ -80,7 +81,7 @@ const storage = getStorage(app);
 if (__DEV__ && process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
     const EMULATOR_HOST = process.env.EXPO_PUBLIC_EMULATOR_HOST || '10.0.2.2'; // Android Emulator localhost
     console.log(`[Firebase] Connecting to Emulators at ${EMULATOR_HOST}...`);
-    
+
     try {
         connectAuthEmulator(auth, `http://${EMULATOR_HOST}:9099`);
         connectFirestoreEmulator(db, EMULATOR_HOST, 8080);

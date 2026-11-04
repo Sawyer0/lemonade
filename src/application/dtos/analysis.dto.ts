@@ -13,4 +13,3 @@ export const AnalysisTriggerResponseSchema = z.object({
 });
 
 export type AnalysisTriggerResponseDTO = z.infer<typeof AnalysisTriggerResponseSchema>;
-

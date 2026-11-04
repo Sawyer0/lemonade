@@ -1,4 +1,4 @@
-export { };
+export {};
 
 declare global {
     interface Window {
@@ -8,4 +8,3 @@ declare global {
         handleNativeGoogleLogin?: (token: string) => void;
     }
 }
-

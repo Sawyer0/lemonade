@@ -15,15 +15,20 @@ import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
 import { Plus, LogOut } from 'lucide-react';
 
-const AddVehicleModal = dynamic(() => import('@/presentation/components/garage/AddVehicleModal').then(mod => mod.AddVehicleModal), {
-    ssr: false,
-    loading: () => null,
-});
-const UpgradeModal = dynamic(() => import('@/presentation/components/modals/UpgradeModal').then(mod => mod.UpgradeModal), {
-    ssr: false,
-    loading: () => null,
-});
-
+const AddVehicleModal = dynamic(
+    () => import('@/presentation/components/garage/AddVehicleModal').then((mod) => mod.AddVehicleModal),
+    {
+        ssr: false,
+        loading: () => null,
+    },
+);
+const UpgradeModal = dynamic(
+    () => import('@/presentation/components/modals/UpgradeModal').then((mod) => mod.UpgradeModal),
+    {
+        ssr: false,
+        loading: () => null,
+    },
+);
 
 export default function GaragePage() {
     const { user, loading: authLoading } = useAuth();
@@ -37,7 +42,11 @@ export default function GaragePage() {
     const { data: userData } = useSWR<{ data: { tier: string } }>(user ? CONFIG.API.ROUTES.PROFILE : null, fetcher);
     const userTier = userData?.data?.tier === 'pro' ? 'pro' : 'free';
 
-    const { data: vehiclesData, isLoading, mutate } = useSWR<Vehicle[]>(user ? CONFIG.API.ROUTES.VEHICLES : null, fetcher);
+    const {
+        data: vehiclesData,
+        isLoading,
+        mutate,
+    } = useSWR<Vehicle[]>(user ? CONFIG.API.ROUTES.VEHICLES : null, fetcher);
     const vehicles: Vehicle[] = vehiclesData || [];
 
     const { showToast } = useToast();
@@ -150,12 +159,7 @@ export default function GaragePage() {
                 />
             )}
 
-            {showUpgrade && (
-                <UpgradeModal
-                    isOpen={showUpgrade}
-                    onClose={() => setShowUpgrade(false)}
-                />
-            )}
+            {showUpgrade && <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} />}
         </Page>
     );
 }

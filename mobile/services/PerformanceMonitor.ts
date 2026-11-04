@@ -10,7 +10,7 @@ export class PerformanceMonitor {
     private fps: number = 60;
     private isThermalThrottled: boolean = false;
 
-    constructor(private logger: ILogger) { }
+    constructor(private logger: ILogger) {}
 
     /**
      * Returns current performance metrics.
@@ -22,14 +22,14 @@ export class PerformanceMonitor {
         if (shouldThrottle) {
             this.logger.warn('Performance degraded. Throttling active.', {
                 fps: this.fps,
-                isThermalThrottled: this.isThermalThrottled
+                isThermalThrottled: this.isThermalThrottled,
             });
         }
 
         return {
             fps: this.fps,
             isThermalThrottled: this.isThermalThrottled,
-            shouldThrottle
+            shouldThrottle,
         };
     }
 

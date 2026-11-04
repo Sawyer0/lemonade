@@ -32,7 +32,7 @@ export const CONFIG = {
                 console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY', error);
                 return undefined;
             }
-        }
+        },
     },
 
     // Payments
@@ -51,8 +51,6 @@ export const CONFIG = {
             PROFILE: '/api/profile',
             VEHICLES: '/api/vehicles',
             STRIPE_PORTAL: '/api/stripe/portal',
-        }
+        },
     },
 } as const;
-
-

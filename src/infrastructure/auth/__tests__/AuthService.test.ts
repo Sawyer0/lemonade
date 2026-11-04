@@ -52,9 +52,9 @@ describe('AuthService', () => {
     it('should allow subscribing to auth state changes', () => {
         const service = new AuthService();
         const callback = vi.fn();
-        
+
         service.onAuthStateChange(callback);
-        
+
         expect(onAuthStateChanged).toHaveBeenCalled();
     });
 

@@ -6,8 +6,9 @@ import { PerformanceMonitor } from '../services/PerformanceMonitor';
 import { MobileLogger } from '../services/MobileLogger';
 
 // SmoVLM2 GGUF - Recommended 4-bit quantized version
-const MODEL_URL = "https://huggingface.co/bartowski/SmolVLM2-2.2B-Instruct-GGUF/resolve/main/SmolVLM2-2.2B-Instruct-Q4_K_M.gguf";
-const MODEL_NAME = "SmolVLM2-2.2B-Instruct-Q4_K_M.gguf";
+const MODEL_URL =
+    'https://huggingface.co/bartowski/SmolVLM2-2.2B-Instruct-GGUF/resolve/main/SmolVLM2-2.2B-Instruct-Q4_K_M.gguf';
+const MODEL_NAME = 'SmolVLM2-2.2B-Instruct-Q4_K_M.gguf';
 
 interface LocalPerceptionContextType {
     isReady: boolean;
@@ -39,29 +40,32 @@ export function LocalPerceptionProvider({ children }: { children: React.ReactNod
         setServices({ modelManager, localPerception });
 
         // Check if model exists on start to enable local mode immediately if available
-        modelManager.isModelDownloaded(MODEL_NAME).then(async (downloaded) => {
-            if (downloaded) {
-                try {
-                    const path = await modelManager.getModelPath(MODEL_NAME);
-                    if (path) {
-                        await localPerception.initialize(path);
-                        await localPerception.warmup();
+        modelManager
+            .isModelDownloaded(MODEL_NAME)
+            .then(async (downloaded) => {
+                if (downloaded) {
+                    try {
+                        const path = await modelManager.getModelPath(MODEL_NAME);
+                        if (path) {
+                            await localPerception.initialize(path);
+                            await localPerception.warmup();
+                            setIsReady(true);
+                        }
+                    } catch (e) {
+                        logger.error('Failed to auto-initialize local LLM', e);
+                        // Allow app to continue even if LLM fails
                         setIsReady(true);
+                        setError('Local AI unavailable - running in cloud mode');
                     }
-                } catch (e) {
-                    logger.error('Failed to auto-initialize local LLM', e);
-                    // Allow app to continue even if LLM fails
+                } else {
+                    // Model not downloaded - app can still run
                     setIsReady(true);
-                    setError('Local AI unavailable - running in cloud mode');
                 }
-            } else {
-                // Model not downloaded - app can still run
+            })
+            .catch((e) => {
+                logger.error('Model check failed', e);
                 setIsReady(true);
-            }
-        }).catch((e) => {
-            logger.error('Model check failed', e);
-            setIsReady(true);
-        });
+            });
 
         return () => {
             localPerception.dispose();
@@ -92,14 +96,16 @@ export function LocalPerceptionProvider({ children }: { children: React.ReactNod
     };
 
     return (
-        <LocalPerceptionContext.Provider value={{
-            isReady,
-            isDownloading,
-            downloadProgress,
-            error,
-            ensureModel,
-            localPerception: services?.localPerception || null
-        }}>
+        <LocalPerceptionContext.Provider
+            value={{
+                isReady,
+                isDownloading,
+                downloadProgress,
+                error,
+                ensureModel,
+                localPerception: services?.localPerception || null,
+            }}
+        >
             {children}
         </LocalPerceptionContext.Provider>
     );
@@ -107,6 +113,6 @@ export function LocalPerceptionProvider({ children }: { children: React.ReactNod
 
 export function useLocalPerception() {
     const context = useContext(LocalPerceptionContext);
-    if (!context) throw new Error("useLocalPerception must be used within LocalPerceptionProvider");
+    if (!context) throw new Error('useLocalPerception must be used within LocalPerceptionProvider');
     return context;
 }

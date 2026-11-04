@@ -24,10 +24,12 @@ export const createCheckoutSession = onCall(async (request): Promise<CreateCheck
         const session = await stripe.checkout.sessions.create({
             mode: 'subscription',
             payment_method_types: ['card'],
-            line_items: [{
-                price: priceId,
-                quantity: 1,
-            }],
+            line_items: [
+                {
+                    price: priceId,
+                    quantity: 1,
+                },
+            ],
             customer_email: userEmail,
             client_reference_id: userId,
             metadata: {
@@ -75,12 +77,15 @@ export const stripeWebhook = onRequest(async (req, res) => {
 
                 if (userId) {
                     logger.info(`Upgrading user ${userId} to PRO`);
-                    await db.collection('users').doc(userId).set({
-                        tier: 'pro',
-                        subscriptionId: session.subscription,
-                        stripeCustomerId: session.customer,
-                        updatedAt: new Date(),
-                    }, { merge: true });
+                    await db.collection('users').doc(userId).set(
+                        {
+                            tier: 'pro',
+                            subscriptionId: session.subscription,
+                            stripeCustomerId: session.customer,
+                            updatedAt: new Date(),
+                        },
+                        { merge: true },
+                    );
                 }
                 break;
             }

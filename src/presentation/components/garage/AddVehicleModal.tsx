@@ -49,7 +49,7 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
         if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SCAN_VIN' }));
         } else {
-            alert("Scanner only available on mobile app. Please enter manually.");
+            alert('Scanner only available on mobile app. Please enter manually.');
             setMode('manual');
         }
     };
@@ -80,7 +80,9 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
                     // SUCCESS STATE
                     <Block className="text-center space-y-4 pt-12">
                         <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
                         </div>
                         <BlockTitle className="text-2xl font-bold text-center !text-white !m-0">
                             Vehicle Identified!
@@ -106,7 +108,9 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
                             <div className="flex flex-col h-full pt-10 px-6">
                                 <div className="text-center mb-8">
                                     <h3 className="text-2xl font-bold text-white mb-2">Scan VIN Barcode</h3>
-                                    <p className="text-zinc-400">Locate the barcode on your driver&apos;s door jamb or dashboard.</p>
+                                    <p className="text-zinc-400">
+                                        Locate the barcode on your driver&apos;s door jamb or dashboard.
+                                    </p>
                                 </div>
 
                                 <button
@@ -158,11 +162,7 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
                                         {status === 'processing' ? 'Decoding DNA...' : 'Decode VIN'}
                                     </Button>
 
-                                    <Button
-                                        clear
-                                        onClick={() => setMode('scan')}
-                                        className="mt-2"
-                                    >
+                                    <Button clear onClick={() => setMode('scan')} className="mt-2">
                                         Back to Scanner
                                     </Button>
                                 </Block>
@@ -174,4 +174,3 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
         </Sheet>
     );
 }
-

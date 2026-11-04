@@ -1,7 +1,12 @@
 import { ChatSession, GenerateContentResponse, Part } from '@google-cloud/vertexai';
 import { injectable, inject } from 'inversify';
 import type { ILogger, IGoogleSearchService, IMemoryService } from '@lemonade/core';
-import { GoogleSearchArgsSchema, VerifySafeSupportArgsSchema, SaveToMemoryArgsSchema, MemoryTags } from '@lemonade/core';
+import {
+    GoogleSearchArgsSchema,
+    VerifySafeSupportArgsSchema,
+    SaveToMemoryArgsSchema,
+    MemoryTags,
+} from '@lemonade/core';
 import { TracingService } from '../observability/TracingService';
 import { TYPES } from '../di/types';
 
@@ -17,13 +22,13 @@ export class FunctionCallService {
         @inject(TYPES.Logger) private logger: ILogger,
         @inject(TYPES.GoogleSearchService) private searchService: IGoogleSearchService,
         @inject(TYPES.SupermemoryService) private memoryService: IMemoryService,
-        @inject(TYPES.TracingService) private tracer: TracingService
-    ) { }
+        @inject(TYPES.TracingService) private tracer: TracingService,
+    ) {}
 
     async handleFunctionCalls(
         initialResponse: GenerateContentResponse,
         chat: ChatSession,
-        context: FunctionCallContext
+        context: FunctionCallContext,
     ): Promise<GenerateContentResponse> {
         let response = initialResponse;
         let loopCount = 0;
@@ -34,7 +39,7 @@ export class FunctionCallService {
         while (loopCount < MAX_LOOPS) {
             const candidate = response.candidates?.[0];
             const parts = candidate?.content?.parts || [];
-            const functionCalls = parts.filter(p => p.functionCall).map(p => p.functionCall);
+            const functionCalls = parts.filter((p) => p.functionCall).map((p) => p.functionCall);
 
             if (!functionCalls || functionCalls.length === 0) {
                 break;
@@ -42,16 +47,16 @@ export class FunctionCallService {
 
             // If any of the tools are client-side, we MUST stop and return the whole response
             // because we cannot partially respond to tool calls in a turn.
-            const hasClientTool = functionCalls.some(f => f && !SERVER_TOOLS.includes(f.name));
+            const hasClientTool = functionCalls.some((f) => f && !SERVER_TOOLS.includes(f.name));
             if (hasClientTool) {
                 this.logger.debug('Client-side tool detected, stopping server-side loop', {
-                    tools: functionCalls.map(f => f?.name)
+                    tools: functionCalls.map((f) => f?.name),
                 });
                 break;
             }
 
             this.logger.debug(`Gemini requested server-side function calls`, {
-                functionCalls: functionCalls.map(f => f?.name)
+                functionCalls: functionCalls.map((f) => f?.name),
             });
 
             const functionResponses: Part[] = [];
@@ -73,10 +78,10 @@ export class FunctionCallService {
                                     content: {
                                         safe: false,
                                         status: 'verification_required',
-                                        message: 'User must show jack stands via camera to proceed.'
-                                    }
-                                }
-                            }
+                                        message: 'User must show jack stands via camera to proceed.',
+                                    },
+                                },
+                            },
                         });
                     } catch (error) {
                         this.logger.error('Verify Safe Support Tool Validation Failed', error as Error);
@@ -85,12 +90,11 @@ export class FunctionCallService {
                                 name: 'verify_safe_support',
                                 response: {
                                     name: 'verify_safe_support',
-                                    content: { error: error instanceof Error ? error.message : 'Validation failed' }
-                                }
-                            }
+                                    content: { error: error instanceof Error ? error.message : 'Validation failed' },
+                                },
+                            },
                         });
                     }
-
                 } else if (call.name === 'google_search') {
                     const args = call.args as Record<string, unknown>;
                     this.logger.debug('Executing google_search', { query: args['query'] });
@@ -101,7 +105,7 @@ export class FunctionCallService {
                             query: validatedArgs.query,
                             limit: 3,
                             userId: context.userId,
-                            sessionId: context.sessionId
+                            sessionId: context.sessionId,
                         });
                         functionResponses.push({
                             functionResponse: {
@@ -109,10 +113,10 @@ export class FunctionCallService {
                                 response: {
                                     name: 'google_search',
                                     content: {
-                                        results: results.results
-                                    }
-                                }
-                            }
+                                        results: results.results,
+                                    },
+                                },
+                            },
                         });
                     } catch (error) {
                         this.logger.error('Google Search Tool Failed', error as Error);
@@ -121,9 +125,9 @@ export class FunctionCallService {
                                 name: 'google_search',
                                 response: {
                                     name: 'google_search',
-                                    content: { error: error instanceof Error ? error.message : 'Search failed' }
-                                }
-                            }
+                                    content: { error: error instanceof Error ? error.message : 'Search failed' },
+                                },
+                            },
                         });
                     }
                 } else if (call.name === 'save_to_memory') {
@@ -137,7 +141,7 @@ export class FunctionCallService {
                         const tags = [
                             MemoryTags.user(context.userId),
                             ...(context.vin ? [MemoryTags.vin(context.vin)] : []),
-                            ...(validatedArgs.tags || [])
+                            ...(validatedArgs.tags || []),
                         ];
 
                         await this.memoryService.addDocument({
@@ -146,8 +150,8 @@ export class FunctionCallService {
                             tags,
                             metadata: {
                                 reason: validatedArgs.reason,
-                                sessionId: context.sessionId
-                            }
+                                sessionId: context.sessionId,
+                            },
                         });
 
                         functionResponses.push({
@@ -157,10 +161,10 @@ export class FunctionCallService {
                                     name: 'save_to_memory',
                                     content: {
                                         success: true,
-                                        message: 'Successfully saved to vehicle memory.'
-                                    }
-                                }
-                            }
+                                        message: 'Successfully saved to vehicle memory.',
+                                    },
+                                },
+                            },
                         });
                     } catch (error) {
                         this.logger.error('Save to Memory Tool Failed', error as Error);
@@ -169,9 +173,9 @@ export class FunctionCallService {
                                 name: 'save_to_memory',
                                 response: {
                                     name: 'save_to_memory',
-                                    content: { error: error instanceof Error ? error.message : 'Save failed' }
-                                }
-                            }
+                                    content: { error: error instanceof Error ? error.message : 'Save failed' },
+                                },
+                            },
                         });
                     }
                 }
@@ -181,7 +185,7 @@ export class FunctionCallService {
                 const loopResult = await this.tracer.traceAiCall({
                     name: `function_loop_${loopCount}`,
                     inputs: { functionResponses },
-                    exec: () => chat.sendMessage(functionResponses)
+                    exec: () => chat.sendMessage(functionResponses),
                 });
                 response = loopResult.response;
                 loopCount++;

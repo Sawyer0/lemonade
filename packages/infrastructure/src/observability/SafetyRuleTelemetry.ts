@@ -1,6 +1,6 @@
 /**
  * SafetyRuleTelemetry.ts
- * 
+ *
  * Logs safety rule firing events for analysis and refinement.
  * Part of Phase 2: Feedback Loop for Constraint Refinement.
  */
@@ -61,9 +61,7 @@ const COLLECTION_NAME = 'safety_rule_events';
 
 @injectable()
 export class SafetyRuleTelemetry implements ISafetyRuleTelemetry {
-    constructor(
-        @inject(TYPES.Logger) private readonly logger: ILogger
-    ) { }
+    constructor(@inject(TYPES.Logger) private readonly logger: ILogger) {}
 
     /**
      * Log a safety rule firing event to Firestore.
@@ -110,13 +108,16 @@ export class SafetyRuleTelemetry implements ISafetyRuleTelemetry {
                 return null;
             }
 
-            const events = snapshot.docs.map(doc => doc.data() as RuleFiringEvent);
-            const overriddenCount = events.filter(e => e.wasOverriddenByUser).length;
+            const events = snapshot.docs.map((doc) => doc.data() as RuleFiringEvent);
+            const overriddenCount = events.filter((e) => e.wasOverriddenByUser).length;
 
             // Extract common phrases (simple word frequency)
             const phraseCounts = new Map<string, number>();
             for (const event of events) {
-                const words = event.userQuery.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+                const words = event.userQuery
+                    .toLowerCase()
+                    .split(/\s+/)
+                    .filter((w) => w.length > 3);
                 for (const word of words) {
                     phraseCounts.set(word, (phraseCounts.get(word) || 0) + 1);
                 }
@@ -148,11 +149,7 @@ export class SafetyRuleTelemetry implements ISafetyRuleTelemetry {
     async getAllRuleSummaries(limit: number = 50): Promise<RuleTelemetrySummary[]> {
         try {
             // Get unique rule IDs from recent events
-            const snapshot = await adminDb
-                .collection(COLLECTION_NAME)
-                .orderBy('timestamp', 'desc')
-                .limit(1000)
-                .get();
+            const snapshot = await adminDb.collection(COLLECTION_NAME).orderBy('timestamp', 'desc').limit(1000).get();
 
             if (snapshot.empty) {
                 return [];
@@ -170,7 +167,7 @@ export class SafetyRuleTelemetry implements ISafetyRuleTelemetry {
             // Build summaries
             const summaries: RuleTelemetrySummary[] = [];
             for (const [ruleId, events] of eventsByRule.entries()) {
-                const overriddenCount = events.filter(e => e.wasOverriddenByUser).length;
+                const overriddenCount = events.filter((e) => e.wasOverriddenByUser).length;
 
                 summaries.push({
                     ruleId,
@@ -182,9 +179,7 @@ export class SafetyRuleTelemetry implements ISafetyRuleTelemetry {
             }
 
             // Sort by firing count and limit
-            return summaries
-                .sort((a, b) => b.totalFirings - a.totalFirings)
-                .slice(0, limit);
+            return summaries.sort((a, b) => b.totalFirings - a.totalFirings).slice(0, limit);
         } catch (error) {
             this.logger.error('Failed to get all rule summaries', {
                 error: error instanceof Error ? error.message : String(error),

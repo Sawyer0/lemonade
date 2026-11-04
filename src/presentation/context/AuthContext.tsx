@@ -1,8 +1,8 @@
-"use client";
-import { createContext, useContext, useEffect, useState } from "react";
-import type { User } from "firebase/auth";
-import { clientContainer } from "@/infrastructure/di/clientContainer";
-import { TYPES } from "@/infrastructure/di/types";
+'use client';
+import { createContext, useContext, useEffect, useState } from 'react';
+import type { User } from 'firebase/auth';
+import { clientContainer } from '@/infrastructure/di/clientContainer';
+import { TYPES } from '@/infrastructure/di/types';
 import type { IAuthService, ILogger } from '@lemonade/core';
 
 interface AuthContextType {
@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        let unsubscribe: () => void = () => { };
+        let unsubscribe: () => void = () => {};
 
         const initAuth = async () => {
             try {
@@ -41,12 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         await authService.signInWithGoogleIdToken(token);
                     } catch (error) {
                         const logger = clientContainer.get<ILogger>(TYPES.Logger);
-                        logger.error("Native Bridge Sign-In Failed:", error);
+                        logger.error('Native Bridge Sign-In Failed:', error);
                     }
                 };
             } catch (error) {
                 const logger = clientContainer.get<ILogger>(TYPES.Logger);
-                logger.error("Failed to initialize Auth Service:", error);
+                logger.error('Failed to initialize Auth Service:', error);
                 setLoading(false);
             }
         };
@@ -58,12 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
-    return (
-        <AuthContext.Provider value={{ user, loading }}>
-            {children}
-        </AuthContext.Provider>
-    );
+    return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);
-

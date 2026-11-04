@@ -3,28 +3,13 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@mobile/*": [
-        "./*"
-      ],
-      "@core/*": [
-        "../packages/core/src/*"
-      ],
-      "@lemonade/core": [
-        "../packages/core/src/index.ts"
-      ],
-      "@infrastructure/*": [
-        "../src/infrastructure/*"
-      ],
-      "@web-shared-hooks/*": [
-        "../src/presentation/hooks/*"
-      ],
-      "@/*": [
-        "../src/*"
-      ]
+      "@mobile/*": ["./*"],
+      "@core/*": ["../packages/core/src/*"],
+      "@lemonade/core": ["../packages/core/src/index.ts"],
+      "@infrastructure/*": ["../src/infrastructure/*"],
+      "@web-shared-hooks/*": ["../src/presentation/hooks/*"],
+      "@/*": ["../src/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ]
+  "include": ["**/*.ts", "**/*.tsx"]
 }

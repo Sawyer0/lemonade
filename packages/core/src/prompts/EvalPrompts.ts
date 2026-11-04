@@ -1,19 +1,19 @@
 export class EvalPrompts {
-  /**
-   * Generates the prompt for grading an AI's vehicle diagnosis.
-   */
-  static gradeDiagnosis(
-    scenarioName: string,
-    inputQuery: string,
-    vehicleContext: string,
-    groundTruthDiagnosis: string,
-    groundTruthActions: string[],
-    aiDiagnosis: string,
-    aiReasoning: string,
-    aiActions: string[],
-    aiConfidence: number
-  ): string {
-    return `
+    /**
+     * Generates the prompt for grading an AI's vehicle diagnosis.
+     */
+    static gradeDiagnosis(
+        scenarioName: string,
+        inputQuery: string,
+        vehicleContext: string,
+        groundTruthDiagnosis: string,
+        groundTruthActions: string[],
+        aiDiagnosis: string,
+        aiReasoning: string,
+        aiActions: string[],
+        aiConfidence: number,
+    ): string {
+        return `
 You are a Master Technician grading an AI's vehicle diagnosis.
 
 SCENARIO:
@@ -39,5 +39,5 @@ GRADING CRITERIA:
 Assign a score from 0.0 to 1.0.
 Provide constructive feedback.
 `.trim();
-  }
+    }
 }

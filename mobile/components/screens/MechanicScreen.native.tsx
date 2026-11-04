@@ -8,14 +8,13 @@ import { useGeminiSession } from '@mobile/hooks/useGeminiSession';
 import { useVehicle } from '@mobile/hooks/useVehicle';
 import { Camera } from 'react-native-vision-camera';
 
-
 import { useNativeAuth } from '@mobile/hooks/useNativeAuth';
 import { DetectionHUD } from '../camera/DetectionHUD';
 import { GhostCard } from '../ui/GhostCard';
 
 export default function MechanicScreenNative() {
     const router = useRouter();
-    const { sessionId, vehicleContext } = useLocalSearchParams<{ sessionId: string, vehicleContext: string }>();
+    const { sessionId, vehicleContext } = useLocalSearchParams<{ sessionId: string; vehicleContext: string }>();
 
     // Vehicle Context Resolution
     const vehicleId = typeof vehicleContext === 'string' ? vehicleContext : undefined;
@@ -24,53 +23,67 @@ export default function MechanicScreenNative() {
 
     // Refs to hold mutable camera state/functions without triggering useCallback/useEffect dependencies
     const cameraActiveRef = useRef<boolean>(false);
-    const toggleCameraRef = useRef<() => void>(() => { });
+    const toggleCameraRef = useRef<() => void>(() => {});
 
     // Tool Handler for Server-Driven Gating
     // Use useCallback to memoize, ensuring it only recreates if its dependencies (the refs) change
-    const handleToolCall = useCallback((toolCall: { name: string; args: Record<string, unknown> }, { sendResponse }: { sendResponse: (response: unknown) => void }) => {
-        console.log("[MechanicScreen] Tool Call:", toolCall.name);
+    const handleToolCall = useCallback(
+        (
+            toolCall: { name: string; args: Record<string, unknown> },
+            { sendResponse }: { sendResponse: (response: unknown) => void },
+        ) => {
+            console.log('[MechanicScreen] Tool Call:', toolCall.name);
 
-        // Access current values via refs
-        const currentCameraActive = cameraActiveRef.current;
-        const currentToggleCamera = toggleCameraRef.current;
+            // Access current values via refs
+            const currentCameraActive = cameraActiveRef.current;
+            const currentToggleCamera = toggleCameraRef.current;
 
-        if (toolCall.name === 'start_video_stream') {
-            if (!currentCameraActive) {
-                currentToggleCamera(); // Toggle camera active state
-                sendResponse({
-                    functionResponses: [{
-                        name: 'start_video_stream',
-                        response: { result: "Camera Opened. Streaming video..." }
-                    }]
-                });
-            } else {
-                sendResponse({
-                    functionResponses: [{
-                        name: 'start_video_stream',
-                        response: { result: "Camera is already open and streaming." }
-                    }]
-                });
+            if (toolCall.name === 'start_video_stream') {
+                if (!currentCameraActive) {
+                    currentToggleCamera(); // Toggle camera active state
+                    sendResponse({
+                        functionResponses: [
+                            {
+                                name: 'start_video_stream',
+                                response: { result: 'Camera Opened. Streaming video...' },
+                            },
+                        ],
+                    });
+                } else {
+                    sendResponse({
+                        functionResponses: [
+                            {
+                                name: 'start_video_stream',
+                                response: { result: 'Camera is already open and streaming.' },
+                            },
+                        ],
+                    });
+                }
+            } else if (toolCall.name === 'stop_video_stream') {
+                if (currentCameraActive) {
+                    currentToggleCamera(); // Toggle camera active state
+                    sendResponse({
+                        functionResponses: [
+                            {
+                                name: 'stop_video_stream',
+                                response: { result: 'Camera Closed.' },
+                            },
+                        ],
+                    });
+                } else {
+                    sendResponse({
+                        functionResponses: [
+                            {
+                                name: 'stop_video_stream',
+                                response: { result: 'Camera is already closed.' },
+                            },
+                        ],
+                    });
+                }
             }
-        } else if (toolCall.name === 'stop_video_stream') {
-            if (currentCameraActive) {
-                currentToggleCamera(); // Toggle camera active state
-                sendResponse({
-                    functionResponses: [{
-                        name: 'stop_video_stream',
-                        response: { result: "Camera Closed." }
-                    }]
-                });
-            } else {
-                sendResponse({
-                    functionResponses: [{
-                        name: 'stop_video_stream',
-                        response: { result: "Camera is already closed." }
-                    }]
-                });
-            }
-        }
-    }, []); // Empty dependency array because it accesses mutable refs
+        },
+        [],
+    ); // Empty dependency array because it accesses mutable refs
 
     // Connect to Gemini (now LiveKit via Agent)
     const {
@@ -146,25 +159,33 @@ export default function MechanicScreenNative() {
                     frameProcessor={frameProcessor}
                 />
             ) : (
-                <View style={[styles.fullScreenVideo, { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }]}>
+                <View
+                    style={[
+                        styles.fullScreenVideo,
+                        { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' },
+                    ]}
+                >
                     <Ionicons name="eye-off-outline" size={64} color="#333" />
                     <Text style={{ color: '#666', marginTop: 10 }}>Waiting for AI to request vision...</Text>
                 </View>
             )}
 
             {/* AI HUD Overlay */}
-            {cameraActive && (
-                <DetectionHUD detections={currentDetections} agentState={agentState} />
-            )}
+            {cameraActive && <DetectionHUD detections={currentDetections} agentState={agentState} />}
 
             <SafeAreaView style={styles.hudOverlay} pointerEvents="box-none">
-
                 {/* Top Status Bar */}
                 <View style={styles.topStatus}>
                     <View style={styles.statusBadge}>
                         <View style={[styles.statusDot, { backgroundColor: isLive ? '#00EDA4' : '#666' }]} />
                         <Text style={styles.statusText}>
-                            {loading ? 'CONNECTING...' : (isLive ? (cameraActive ? 'LIVE VISION ACTIVE' : 'LIVE CONNECTED') : 'STANDBY')}
+                            {loading
+                                ? 'CONNECTING...'
+                                : isLive
+                                  ? cameraActive
+                                      ? 'LIVE VISION ACTIVE'
+                                      : 'LIVE CONNECTED'
+                                  : 'STANDBY'}
                         </Text>
                     </View>
                 </View>
@@ -186,7 +207,9 @@ export default function MechanicScreenNative() {
                     {aiResponses.map((response, index) => (
                         <View key={index} style={styles.aiResponseMessage}>
                             <Text style={styles.aiResponseMessageText}>{response.analysis?.diagnosis}</Text>
-                            <Text style={styles.aiResponseTime}>{response.type} - {new Date().toLocaleTimeString()}</Text>
+                            <Text style={styles.aiResponseTime}>
+                                {response.type} - {new Date().toLocaleTimeString()}
+                            </Text>
                         </View>
                     ))}
                 </ScrollView>
@@ -226,7 +249,7 @@ export default function MechanicScreenNative() {
                         style={[styles.buttonSnapshot, { borderColor: cameraActive ? '#00EDA4' : 'gray' }]}
                         onPress={toggleCamera}
                     >
-                        <Ionicons name={cameraActive ? "videocam" : "videocam-off"} size={32} color="white" />
+                        <Ionicons name={cameraActive ? 'videocam' : 'videocam-off'} size={32} color="white" />
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
@@ -268,7 +291,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 24,
         borderRadius: 8,
-        marginBottom: 20
+        marginBottom: 20,
     },
     permissionButtonText: {
         color: 'white',

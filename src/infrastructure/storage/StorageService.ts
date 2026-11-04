@@ -10,7 +10,9 @@ export class StorageService {
 
     constructor(projectId: string, bucketName: string, logger?: ILogger) {
         this.logger = logger;
-        const storageOptions: { projectId: string; credentials?: { client_email: string; private_key: string } } = { projectId };
+        const storageOptions: { projectId: string; credentials?: { client_email: string; private_key: string } } = {
+            projectId,
+        };
 
         // Use Service Account from Env if available (Development/Production)
         const serviceAccount = CONFIG.FIREBASE.SERVICE_ACCOUNT;
@@ -25,7 +27,7 @@ export class StorageService {
         this.bucket = storage.bucket(bucketName);
     }
 
-    async generateSignedUrl(filename: string, contentType: string): Promise<{ uploadUrl: string, publicUrl: string }> {
+    async generateSignedUrl(filename: string, contentType: string): Promise<{ uploadUrl: string; publicUrl: string }> {
         const file = this.bucket.file(filename);
 
         const [url] = await file.getSignedUrl({
@@ -37,7 +39,7 @@ export class StorageService {
 
         return {
             uploadUrl: url,
-            publicUrl: `gs://${this.bucket.name}/${filename}`
+            publicUrl: `gs://${this.bucket.name}/${filename}`,
         };
     }
 }

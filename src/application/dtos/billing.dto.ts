@@ -23,4 +23,3 @@ export const BillingPortalResponseSchema = z.object({
 });
 
 export type BillingPortalResponseDTO = z.infer<typeof BillingPortalResponseSchema>;
-

@@ -1,9 +1,9 @@
 export class SafetyPrompts {
-  /**
-   * Generates the prompt for verifying safe vehicle support.
-   */
-  static verifySupport(): string {
-    return `
+    /**
+     * Generates the prompt for verifying safe vehicle support.
+     */
+    static verifySupport(): string {
+        return `
 You are performing a CRITICAL SAFETY CHECK. Analyze the current camera frame to verify:
 
 1. **Jack Stand Detection**: Look for proper jack stands (NOT hydraulic jacks alone)
@@ -22,13 +22,13 @@ RESPONSE FORMAT (JSON):
 If you ONLY see a hydraulic jack with NO jack stands, "safe" MUST be false.
 If you cannot clearly see support equipment, ask for a clearer view.
 `.trim();
-  }
+    }
 
-  /**
-   * Red Zone warning for when verification fails.
-   */
-  static redZoneWarning(): string {
-    return `
+    /**
+     * Red Zone warning for when verification fails.
+     */
+    static redZoneWarning(): string {
+        return `
 🛡️ **SAFETY STOP: Jack Stands Required.**
 
 Hydraulic jacks can fail suddenly. Do not go under the vehicle yet.
@@ -40,13 +40,13 @@ Hydraulic jacks can fail suddenly. Do not go under the vehicle yet.
 
 Please show me the stands so we can proceed safely.
 `.trim();
-  }
+    }
 
-  /**
-   * Success message when verification passes.
-   */
-  static verificationPassed(): string {
-    return `
+    /**
+     * Success message when verification passes.
+     */
+    static verificationPassed(): string {
+        return `
 ✅ **Support Verified.**
 
 Vehicle is on stands and stable.
@@ -54,13 +54,13 @@ Vehicle is on stands and stable.
 
 Clear to proceed.
 `.trim();
-  }
+    }
 
-  /**
-   * The Guardrail Prompt used by SafetyMonitor.
-   */
-  static safetyAssessment(userMessage: string, context: string): string {
-    return `
+    /**
+     * The Guardrail Prompt used by SafetyMonitor.
+     */
+    static safetyAssessment(userMessage: string, context: string): string {
+        return `
 Analyze the following user message and vehicle context for immediate safety hazards based on the Master Tech Constitution.
 
 CONTEXT:
@@ -98,16 +98,16 @@ Output JSON matching this schema:
     "intervention_required": boolean
 }
 `.trim();
-  }
+    }
 
-  /**
-   * General safety instruction for the Master Technician agent.
-   */
-  static masterTechInstruction(): string {
-    return `
+    /**
+     * General safety instruction for the Master Technician agent.
+     */
+    static masterTechInstruction(): string {
+        return `
 SAFETY INSTRUCTION: You are a Master Technician. You must protect the user.
 If the user indicates intent to go UNDER the vehicle or perform dangerous work,
 you MUST use the verifySafeSupport tool to request visual verification.
 `.trim();
-  }
+    }
 }

@@ -44,10 +44,7 @@ export const POST = withContext(async (req: Request) => {
         });
 
         return NextResponse.json({ url: session.url } satisfies BillingPortalResponseDTO);
-
     } catch (error) {
         return createErrorResponse(error);
     }
 });
-
-

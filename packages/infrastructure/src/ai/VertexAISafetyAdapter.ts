@@ -8,9 +8,7 @@ import { TYPES } from '../di/types';
 export class VertexAISafetyAdapter implements ISafetyAI {
     private model: GenerativeModel;
 
-    constructor(
-        @inject(TYPES.ConfigProvider) private config: IConfigProvider
-    ) {
+    constructor(@inject(TYPES.ConfigProvider) private config: IConfigProvider) {
         const fbConfig = this.config.getFirebaseConfig();
         const gcloudConfig = this.config.getGoogleCloudConfig();
 
@@ -21,20 +19,20 @@ export class VertexAISafetyAdapter implements ISafetyAI {
         const vertex = new VertexAI({
             project: gcloudConfig.projectId,
             location: gcloudConfig.location,
-            googleAuthOptions: authOptions
+            googleAuthOptions: authOptions,
         });
 
         this.model = vertex.getGenerativeModel({
             model: this.config.getGeminiModel(),
             generationConfig: { responseMimeType: 'application/json' },
             safetySettings: [
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
-            ]
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            ],
         });
     }
 
     async assessSafety(prompt: string): Promise<string> {
         const result = await this.model.generateContent(prompt);
-        return result.response.candidates?.[0].content.parts[0].text || "";
+        return result.response.candidates?.[0].content.parts[0].text || '';
     }
 }

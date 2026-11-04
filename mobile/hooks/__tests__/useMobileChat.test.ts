@@ -9,10 +9,10 @@ jest.mock('../../infrastructure/firebase/config', () => ({
     auth: {
         currentUser: {
             uid: 'test-user',
-            getIdToken: jest.fn().mockResolvedValue('test-token')
-        }
+            getIdToken: jest.fn().mockResolvedValue('test-token'),
+        },
     },
-    db: {}
+    db: {},
 }));
 
 // Mock TextDecoder
@@ -34,8 +34,8 @@ const mockStream = (chunks: string[]) => {
                     return { done: false, value };
                 }
                 return { done: true, value: undefined };
-            })
-        })
+            }),
+        }),
     };
 };
 
@@ -48,7 +48,7 @@ describe('useMobileChat', () => {
         // Reset auth.currentUser to a default valid state
         (auth as unknown as { currentUser: unknown }).currentUser = {
             uid: 'test-user',
-            getIdToken: jest.fn().mockResolvedValue('test-token')
+            getIdToken: jest.fn().mockResolvedValue('test-token'),
         };
 
         // Setup Firestore Mocks
@@ -57,7 +57,7 @@ describe('useMobileChat', () => {
             // Initial snapshot with no messages
             callback({
                 exists: () => true,
-                data: () => ({ messages: [] })
+                data: () => ({ messages: [] }),
             });
             return jest.fn(); // unsubscribe
         });
@@ -66,11 +66,11 @@ describe('useMobileChat', () => {
 
     it('should subscribe to messages on mount', () => {
         const mockMessages = [{ role: 'user', content: 'hello', timestamp: new Date() }];
-        
+
         (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
             callback({
                 exists: () => true,
-                data: () => ({ messages: mockMessages })
+                data: () => ({ messages: mockMessages }),
             });
             return jest.fn();
         });
@@ -84,7 +84,7 @@ describe('useMobileChat', () => {
     it('should send text message and stream response', async () => {
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
-            body: mockStream(['Hello', ' World'])
+            body: mockStream(['Hello', ' World']),
         });
 
         const { result } = renderHook(() => useMobileChat(sessionId));
@@ -94,10 +94,9 @@ describe('useMobileChat', () => {
         });
 
         // Verify Firestore update
-        expect(updateDoc).toHaveBeenCalledWith(
-            'test-doc-ref',
-            { messages: arrayUnion(expect.objectContaining({ role: 'user', content: 'Hi AI' })) }
-        );
+        expect(updateDoc).toHaveBeenCalledWith('test-doc-ref', {
+            messages: arrayUnion(expect.objectContaining({ role: 'user', content: 'Hi AI' })),
+        });
 
         // Verify API Call
         expect(fetch).toHaveBeenCalledWith(
@@ -105,16 +104,16 @@ describe('useMobileChat', () => {
             expect.objectContaining({
                 method: 'POST',
                 headers: expect.objectContaining({
-                    'x-session-id': sessionId
+                    'x-session-id': sessionId,
                 }),
                 body: JSON.stringify({
-                    messages: [{ role: 'user', content: 'Hi AI' }]
-                })
-            })
+                    messages: [{ role: 'user', content: 'Hi AI' }],
+                }),
+            }),
         );
 
         // Verify Streaming State (it's fast in test, but should have happened)
-        // We can't easily check intermediate states without fake timers, 
+        // We can't easily check intermediate states without fake timers,
         // but we can check if streamingMessage was reset at the end
         expect(result.current.streamingMessage).toBeNull();
         expect(result.current.error).toBeNull();
@@ -123,7 +122,7 @@ describe('useMobileChat', () => {
     it('should send media message with fileData', async () => {
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
-            body: mockStream(['Analysis complete'])
+            body: mockStream(['Analysis complete']),
         });
 
         const { result } = renderHook(() => useMobileChat(sessionId));
@@ -140,8 +139,8 @@ describe('useMobileChat', () => {
         expect(fetch).toHaveBeenCalledWith(
             'http://test-api/api/chat',
             expect.objectContaining({
-                body: expect.stringContaining(gsUri) // Ensure gsUri is in the payload
-            })
+                body: expect.stringContaining(gsUri), // Ensure gsUri is in the payload
+            }),
         );
 
         // Check specific payload structure
@@ -158,7 +157,7 @@ describe('useMobileChat', () => {
     it('should handle API errors', async () => {
         global.fetch = jest.fn().mockResolvedValue({
             ok: false,
-            json: () => Promise.resolve({ message: 'Server Error' })
+            json: () => Promise.resolve({ message: 'Server Error' }),
         });
 
         const { result } = renderHook(() => useMobileChat(sessionId));
@@ -201,7 +200,7 @@ describe('useMobileChat', () => {
             global.fetch = jest.fn().mockResolvedValue({
                 ok: false,
                 status: 500,
-                json: () => Promise.resolve({ message: 'Internal Server Error' })
+                json: () => Promise.resolve({ message: 'Internal Server Error' }),
             });
 
             const { result } = renderHook(() => useMobileChat(sessionId));
@@ -217,7 +216,7 @@ describe('useMobileChat', () => {
             global.fetch = jest.fn().mockResolvedValue({
                 ok: false,
                 status: 503,
-                json: () => Promise.resolve({ message: 'Service Unavailable' })
+                json: () => Promise.resolve({ message: 'Service Unavailable' }),
             });
 
             const { result } = renderHook(() => useMobileChat(sessionId));
@@ -233,7 +232,7 @@ describe('useMobileChat', () => {
             global.fetch = jest.fn().mockResolvedValue({
                 ok: false,
                 status: 429,
-                json: () => Promise.resolve({ message: 'Too Many Requests' })
+                json: () => Promise.resolve({ message: 'Too Many Requests' }),
             });
 
             const { result } = renderHook(() => useMobileChat(sessionId));
@@ -248,7 +247,7 @@ describe('useMobileChat', () => {
         it('should handle malformed JSON response', async () => {
             global.fetch = jest.fn().mockResolvedValue({
                 ok: false,
-                json: () => Promise.reject(new SyntaxError('Unexpected token'))
+                json: () => Promise.reject(new SyntaxError('Unexpected token')),
             });
 
             const { result } = renderHook(() => useMobileChat(sessionId));
@@ -266,7 +265,7 @@ describe('useMobileChat', () => {
             (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
                 callback({
                     exists: () => false,
-                    data: () => null
+                    data: () => null,
                 });
                 return jest.fn();
             });
@@ -341,7 +340,7 @@ describe('useMobileChat', () => {
         it('should handle empty message', async () => {
             global.fetch = jest.fn().mockResolvedValue({
                 ok: true,
-                body: mockStream(['Response'])
+                body: mockStream(['Response']),
             });
 
             const { result } = renderHook(() => useMobileChat(sessionId));
@@ -357,7 +356,7 @@ describe('useMobileChat', () => {
         it('should handle very long message', async () => {
             global.fetch = jest.fn().mockResolvedValue({
                 ok: true,
-                body: mockStream(['Response'])
+                body: mockStream(['Response']),
             });
 
             const longMessage = 'a'.repeat(50000);
@@ -373,7 +372,7 @@ describe('useMobileChat', () => {
         it('should handle special characters in message', async () => {
             global.fetch = jest.fn().mockResolvedValue({
                 ok: true,
-                body: mockStream(['Response'])
+                body: mockStream(['Response']),
             });
 
             const { result } = renderHook(() => useMobileChat(sessionId));
@@ -388,7 +387,7 @@ describe('useMobileChat', () => {
         it('should handle rapid consecutive messages', async () => {
             global.fetch = jest.fn().mockResolvedValue({
                 ok: true,
-                body: mockStream(['Response'])
+                body: mockStream(['Response']),
             });
 
             const { result } = renderHook(() => useMobileChat(sessionId));
@@ -414,13 +413,13 @@ describe('useMobileChat', () => {
                             return { done: false, value: new TextEncoder().encode('Partial') };
                         }
                         throw new Error('Stream interrupted');
-                    })
-                })
+                    }),
+                }),
             };
 
             global.fetch = jest.fn().mockResolvedValue({
                 ok: true,
-                body: erroringStream
+                body: erroringStream,
             });
 
             const { result } = renderHook(() => useMobileChat(sessionId));
@@ -435,7 +434,7 @@ describe('useMobileChat', () => {
         it('should handle null response body', async () => {
             global.fetch = jest.fn().mockResolvedValue({
                 ok: true,
-                body: null
+                body: null,
             });
 
             const { result } = renderHook(() => useMobileChat(sessionId));

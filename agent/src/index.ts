@@ -1,14 +1,11 @@
-import "reflect-metadata"; // Required for InversifyJS decorators
+import 'reflect-metadata'; // Required for InversifyJS decorators
 import { Elysia } from 'elysia';
 import { AccessToken } from 'livekit-server-sdk';
 import { env } from './env';
 import { cli, ServerOptions } from '@livekit/agents';
 import LiveKitMasterTechAgent from './livekit-agent'; // default export of defineAgent
 import admin from 'firebase-admin';
-import { 
-    EnvConfigProvider, 
-    Logger, 
-} from '@lemonade/infrastructure';
+import { EnvConfigProvider, Logger } from '@lemonade/infrastructure';
 
 // Initialize Firebase Admin (The 'adminDb' import in repositories will trigger initialization in 'infrastructure/src/firebase/admin.ts'.)
 // We rely on 'infrastructure/src/firebase/admin.ts' to handle the 'initializeApp' with proper credentials.

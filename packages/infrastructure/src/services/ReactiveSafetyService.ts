@@ -55,14 +55,16 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
             id: 'hc-env-001',
             regex: /\b((leaking|leak|smell|spilling)\s+(gas|fuel|gasoline|diesel|petrol)|(gas|fuel|gasoline|diesel|petrol)\s+(smell|leak|leaking|spilling))\b/i,
             hazard: 'FUEL_LEAK',
-            message: 'CRITICAL SAFETY STOP: Fuel leak detected. Extinguish all smoking materials, do not use electronic devices near the vehicle, and evacuate the area immediately.'
+            message:
+                'CRITICAL SAFETY STOP: Fuel leak detected. Extinguish all smoking materials, do not use electronic devices near the vehicle, and evacuate the area immediately.',
         },
         {
             id: 'hc-env-002',
             regex: /\b(smoke|fire|flames|burning|sparking)\s+.*\b(battery|hv|high voltage|electric)\b/i,
             hazard: 'HIGH_VOLTAGE',
-            message: 'CRITICAL SAFETY STOP: Battery fire or thermal event suspected. Do not attempt to extinguish with water. Evacuate to a safe distance and call emergency services.'
-        }
+            message:
+                'CRITICAL SAFETY STOP: Battery fire or thermal event suspected. Do not attempt to extinguish with water. Evacuate to a safe distance and call emergency services.',
+        },
     ];
 
     private readonly HARDCODED_INTERACTION_HAZARDS: InteractionHazard[] = [
@@ -70,14 +72,16 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
             id: 'hc-int-001',
             nounRegex: /\b(orange\s+cables?|hv\s+battery|high\s+voltage)\b/i,
             hazard: 'HIGH_VOLTAGE',
-            message: 'CRITICAL SAFETY STOP: High voltage hazard. Do not touch or handle these components without certified HV training.'
+            message:
+                'CRITICAL SAFETY STOP: High voltage hazard. Do not touch or handle these components without certified HV training.',
         },
         {
             id: 'hc-int-002',
             nounRegex: /\b(under\s+the\s+(car|vehicle|truck|suv))\b/i,
             hazard: 'JACK_STAND_MISSING',
-            message: 'SAFETY STOP: Jack stands required. Do not go under the vehicle without verified jack stand support.'
-        }
+            message:
+                'SAFETY STOP: Jack stands required. Do not go under the vehicle without verified jack stand support.',
+        },
     ];
 
     // ========================================
@@ -97,9 +101,7 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
     // Optional telemetry service (Phase 2)
     private readonly telemetry?: ISafetyRuleTelemetry;
 
-    constructor(
-        @inject(SAFETY_TELEMETRY_TYPE) @optional() telemetry?: ISafetyRuleTelemetry
-    ) {
+    constructor(@inject(SAFETY_TELEMETRY_TYPE) @optional() telemetry?: ISafetyRuleTelemetry) {
         this.telemetry = telemetry;
 
         // Parse generated environmental triggers with explicit typing
@@ -108,7 +110,7 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
             id: rule.id,
             regex: new RegExp(rule.pattern, 'i'),
             hazard: rule.hazard as HazardType,
-            message: rule.message
+            message: rule.message,
         }));
 
         // Parse generated interaction hazards with explicit typing
@@ -117,28 +119,43 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
             id: rule.id,
             nounRegex: new RegExp(rule.nounPattern, 'i'),
             hazard: rule.hazard as HazardType,
-            message: rule.message
+            message: rule.message,
         }));
 
         // Combine rules: hardcoded take priority (are checked first)
         this.ALL_ENVIRONMENTAL_TRIGGERS = [
             ...this.HARDCODED_ENVIRONMENTAL_TRIGGERS,
-            ...this.GENERATED_ENVIRONMENTAL_TRIGGERS
+            ...this.GENERATED_ENVIRONMENTAL_TRIGGERS,
         ];
 
-        this.ALL_INTERACTION_HAZARDS = [
-            ...this.HARDCODED_INTERACTION_HAZARDS,
-            ...this.GENERATED_INTERACTION_HAZARDS
-        ];
+        this.ALL_INTERACTION_HAZARDS = [...this.HARDCODED_INTERACTION_HAZARDS, ...this.GENERATED_INTERACTION_HAZARDS];
 
         // Build safe verbs regex from generated list + core verbs
         const safeVerbs = new Set([
             // Core verbs (always included)
-            'see', 'look', 'looking', 'inspected', 'inspect', 'check', 'checking', 'checked',
-            'scan', 'scanning', 'scanned', 'read', 'reading', 'notice', 'noticed',
-            'find', 'finding', 'finds', 'saw', 'observe', 'observed',
+            'see',
+            'look',
+            'looking',
+            'inspected',
+            'inspect',
+            'check',
+            'checking',
+            'checked',
+            'scan',
+            'scanning',
+            'scanned',
+            'read',
+            'reading',
+            'notice',
+            'noticed',
+            'find',
+            'finding',
+            'finds',
+            'saw',
+            'observe',
+            'observed',
             // Generated verbs
-            ...generatedRules.safeVerbs
+            ...generatedRules.safeVerbs,
         ]);
 
         const verbPattern = Array.from(safeVerbs).join('|');
@@ -153,23 +170,24 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
      * Check safety with optional telemetry logging.
      * Use this method when you have session context for telemetry.
      */
-    async checkSafetyWithTelemetry(
-        userMessage: string,
-        sessionId: string
-    ): Promise<SafetyAssessmentWithRule | null> {
+    async checkSafetyWithTelemetry(userMessage: string, sessionId: string): Promise<SafetyAssessmentWithRule | null> {
         const result = this.checkSafetyInternal(userMessage);
 
         if (result.assessment && result.ruleId && this.telemetry) {
             // Log the rule firing (fire-and-forget)
-            this.telemetry.logRuleFiring({
-                ruleId: result.ruleId,
-                hazardType: result.assessment.hazards_detected[0] || 'UNKNOWN',
-                userQuery: userMessage,
-                timestamp: new Date(),
-                wasOverriddenByUser: false, // Will be updated if user proceeds
-                sessionId,
-                safetyMessage: result.assessment.suggested_output,
-            }).catch(() => { /* Telemetry errors should not affect safety */ });
+            this.telemetry
+                .logRuleFiring({
+                    ruleId: result.ruleId,
+                    hazardType: result.assessment.hazards_detected[0] || 'UNKNOWN',
+                    userQuery: userMessage,
+                    timestamp: new Date(),
+                    wasOverriddenByUser: false, // Will be updated if user proceeds
+                    sessionId,
+                    safetyMessage: result.assessment.suggested_output,
+                })
+                .catch(() => {
+                    /* Telemetry errors should not affect safety */
+                });
         }
 
         if (!result.assessment) return null;
@@ -186,7 +204,7 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
             if (trigger.regex.test(userMessage)) {
                 return {
                     assessment: this.createAssessment(trigger.hazard, trigger.message),
-                    ruleId: trigger.id
+                    ruleId: trigger.id,
                 };
             }
         }
@@ -202,7 +220,7 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
                 if (!hasSafeVerb) {
                     return {
                         assessment: this.createAssessment(rule.hazard, rule.message),
-                        ruleId: rule.id
+                        ruleId: rule.id,
                     };
                 }
             }
@@ -226,7 +244,7 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
         return {
             environmental: this.ALL_ENVIRONMENTAL_TRIGGERS.length,
             interaction: this.ALL_INTERACTION_HAZARDS.length,
-            totalRules: this.ALL_ENVIRONMENTAL_TRIGGERS.length + this.ALL_INTERACTION_HAZARDS.length
+            totalRules: this.ALL_ENVIRONMENTAL_TRIGGERS.length + this.ALL_INTERACTION_HAZARDS.length,
         };
     }
 }

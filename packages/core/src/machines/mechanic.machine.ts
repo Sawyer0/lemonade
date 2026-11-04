@@ -9,12 +9,33 @@ import type { AIAnalysis, SafetyRecall, VectorDocument } from '../types/models';
 import type { VerificationRequest, VerificationResponse, SearchRequest, SearchResponse } from '../types/verification';
 import type { LocalTriageResult } from '../types/localPerception';
 
-export interface VisionInput { service: IMultimodalUploadAnalyzer; data: MechanicContext & { searchContext: SearchResponse | undefined; verificationContext: VerificationResponse | undefined } }
-export interface NhtsaInput { service: INHTSAService; data: { year: number; make: string; model: string } }
-export interface VectorInput { service: IVectorRepository; data: { query: string; userId: string } }
-export interface SearchInput { service: IGoogleSearchService; data: SearchRequest }
-export interface VerificationInput { service: IChatAssistantAI; data: VerificationRequest }
-export interface MemoryInput { service: IMemoryService; data: { query: string; userId: string; vin?: string } }
+export interface VisionInput {
+    service: IMultimodalUploadAnalyzer;
+    data: MechanicContext & {
+        searchContext: SearchResponse | undefined;
+        verificationContext: VerificationResponse | undefined;
+    };
+}
+export interface NhtsaInput {
+    service: INHTSAService;
+    data: { year: number; make: string; model: string };
+}
+export interface VectorInput {
+    service: IVectorRepository;
+    data: { query: string; userId: string };
+}
+export interface SearchInput {
+    service: IGoogleSearchService;
+    data: SearchRequest;
+}
+export interface VerificationInput {
+    service: IChatAssistantAI;
+    data: VerificationRequest;
+}
+export interface MemoryInput {
+    service: IMemoryService;
+    data: { query: string; userId: string; vin?: string };
+}
 export interface GatherAllContextInput {
     services: MechanicServices;
     vehicleContext: Record<string, unknown>;
@@ -60,7 +81,16 @@ export interface MechanicServices {
 }
 
 export type MechanicEvent =
-    | { type: 'DIAGNOSE'; userId: string; sessionId: string; vehicleContext: Record<string, unknown>; userQuery: string; videoUrl?: string; videoDuration?: number; localTriage?: LocalTriageResult }
+    | {
+          type: 'DIAGNOSE';
+          userId: string;
+          sessionId: string;
+          vehicleContext: Record<string, unknown>;
+          userQuery: string;
+          videoUrl?: string;
+          videoDuration?: number;
+          localTriage?: LocalTriageResult;
+      }
     | { type: 'UPDATE_SERVICES'; services: MechanicServices };
 
 export interface IntuitionInput {
@@ -80,13 +110,27 @@ export const mechanicMachine = setup({
         input: {} as MechanicInput,
     },
     actions: {
-        loadVisionModel: () => { },  // Conceptual: Implementation provided by consumer (Server/Client)
-        unloadVisionModel: () => { } // Conceptual: Implementation provided by consumer (Server/Client)
+        loadVisionModel: () => {}, // Conceptual: Implementation provided by consumer (Server/Client)
+        unloadVisionModel: () => {}, // Conceptual: Implementation provided by consumer (Server/Client)
     },
     actors: {
-        generateIntuition: fromPromise<AIAnalysis, IntuitionInput>(async () => { throw new Error('generateIntuition implementation missing'); }), // To be provided in service
-        visionAnalysis: fromPromise(async ({ input }: { input: VisionInput }) => input.service.analyzeUploadedVideo(input.data.videoUrl!, JSON.stringify(input.data.vehicleContext), 'video/mp4', input.data.userId, input.data.sessionId, undefined, input.data.videoDuration)),
-        nhtsaCheck: fromPromise(async ({ input }: { input: NhtsaInput }) => input.service.checkRecalls(input.data.year, input.data.make, input.data.model)),
+        generateIntuition: fromPromise<AIAnalysis, IntuitionInput>(async () => {
+            throw new Error('generateIntuition implementation missing');
+        }), // To be provided in service
+        visionAnalysis: fromPromise(async ({ input }: { input: VisionInput }) =>
+            input.service.analyzeUploadedVideo(
+                input.data.videoUrl!,
+                JSON.stringify(input.data.vehicleContext),
+                'video/mp4',
+                input.data.userId,
+                input.data.sessionId,
+                undefined,
+                input.data.videoDuration,
+            ),
+        ),
+        nhtsaCheck: fromPromise(async ({ input }: { input: NhtsaInput }) =>
+            input.service.checkRecalls(input.data.year, input.data.make, input.data.model),
+        ),
         vectorSearch: fromPromise(async ({ input }: { input: VectorInput }) => {
             return input.service.search(input.data.query, 3, { userId: input.data.userId });
         }),
@@ -97,14 +141,17 @@ export const mechanicMachine = setup({
             return input.service.verifyHypothesis(input.data);
         }),
         supermemorySearch: fromPromise(async ({ input }: { input: MemoryInput }) => {
-            return input.service.search(`Vehicle VIN: ${input.data.vin || 'Unknown'}. Component/Issue: ${input.data.query}`, {
-                tags: [`user:${input.data.userId}`, `vin:${input.data.vin || 'unknown'}`]
-            });
+            return input.service.search(
+                `Vehicle VIN: ${input.data.vin || 'Unknown'}. Component/Issue: ${input.data.query}`,
+                {
+                    tags: [`user:${input.data.userId}`, `vin:${input.data.vin || 'unknown'}`],
+                },
+            );
         }),
         gatherAllContext: fromPromise<GatherAllContextOutput, GatherAllContextInput>(async () => {
             throw new Error('gatherAllContext implementation missing'); // To be provided in service
-        })
-    }
+        }),
+    },
 }).createMachine({
     id: 'mechanic',
     initial: 'idle',
@@ -135,11 +182,11 @@ export const mechanicMachine = setup({
                                 userQuery: event.userQuery,
                                 videoUrl: event.videoUrl,
                                 videoDuration: event.videoDuration,
-                                localTriage: event.localTriage
+                                localTriage: event.localTriage,
                             };
                         }
                         return {};
-                    })
+                    }),
                 },
                 UPDATE_SERVICES: {
                     actions: assign(({ event }) => {
@@ -147,19 +194,20 @@ export const mechanicMachine = setup({
                             return { services: event.services };
                         }
                         return {};
-                    })
-                }
-            }
+                    }),
+                },
+            },
         },
         gathering_context: {
-            description: "Step 1: Gather Facts (Recalls & History) BEFORE Intuition - Using Promise.all workaround for XState parallel bug",
+            description:
+                'Step 1: Gather Facts (Recalls & History) BEFORE Intuition - Using Promise.all workaround for XState parallel bug',
             invoke: {
                 src: 'gatherAllContext',
                 input: ({ context }: { context: MechanicContext }) => ({
                     services: context.services,
                     vehicleContext: context.vehicleContext,
                     userQuery: context.userQuery,
-                    userId: context.userId
+                    userId: context.userId,
                 }),
                 onDone: {
                     target: 'intuition',
@@ -168,21 +216,21 @@ export const mechanicMachine = setup({
                         assign({
                             nhtsaResults: ({ event }) => event.output.recalls,
                             vehicleHistory: ({ event }) => event.output.history,
-                            embeddingInfo: ({ event }) => event.output.vectors
-                        })
-                    ]
+                            embeddingInfo: ({ event }) => event.output.vectors,
+                        }),
+                    ],
                 },
                 onError: {
-                    target: 'intuition',  // Continue even on error
+                    target: 'intuition', // Continue even on error
                     actions: [
                         () => console.log('   [XState] gathering_context.onError -> intuition'),
-                        assign({ error: ({ event }) => String(event.error) })
-                    ]
-                }
-            }
+                        assign({ error: ({ event }) => String(event.error) }),
+                    ],
+                },
+            },
         },
         intuition: {
-            description: "Step 2: Formulate Hypothesis (ASE Master Tech) using gathered context",
+            description: 'Step 2: Formulate Hypothesis (ASE Master Tech) using gathered context',
             invoke: {
                 // This actor is defined in MechanicReasoningService.ts
                 src: 'generateIntuition',
@@ -193,25 +241,25 @@ export const mechanicMachine = setup({
                     vehicleHistory: context.vehicleHistory,
                     videoUrl: context.videoUrl,
                     userId: context.userId,
-                    sessionId: context.sessionId
+                    sessionId: context.sessionId,
                 }),
                 onDone: {
                     target: 'investigating',
                     actions: assign({
-                        // We store the intuition result (AIAnalysis format) in visualAnalysis for now, 
-                        // or we could add a specific 'intuitionResult' to context. 
+                        // We store the intuition result (AIAnalysis format) in visualAnalysis for now,
+                        // or we could add a specific 'intuitionResult' to context.
                         // For minimal schema changes, reusing visualAnalysis (which holds diagnosis/confidence) acts as our 'Current Belief'.
-                        visualAnalysis: ({ event }) => event.output
-                    })
+                        visualAnalysis: ({ event }) => event.output,
+                    }),
                 },
                 onError: {
                     target: 'synthesizing', // Fail safe
-                    actions: assign({ error: ({ event }) => String(event.error) })
-                }
-            }
+                    actions: assign({ error: ({ event }) => String(event.error) }),
+                },
+            },
         },
         investigating: {
-            description: "Step 3: Verify Hypothesis (Search & Web)",
+            description: 'Step 3: Verify Hypothesis (Search & Web)',
             type: 'parallel',
             states: {
                 search: {
@@ -223,9 +271,10 @@ export const mechanicMachine = setup({
                                 input: ({ context }: { context: MechanicContext }) => {
                                     // INTUITION-DRIVEN SEARCH:
                                     const intuition = context.visualAnalysis;
-                                    const query = intuition?.diagnosis && intuition.diagnosis !== 'Unknown'
-                                        ? `${intuition.diagnosis} ${JSON.stringify(context.vehicleContext)}`
-                                        : `${context.userQuery} ${JSON.stringify(context.vehicleContext)}`;
+                                    const query =
+                                        intuition?.diagnosis && intuition.diagnosis !== 'Unknown'
+                                            ? `${intuition.diagnosis} ${JSON.stringify(context.vehicleContext)}`
+                                            : `${context.userQuery} ${JSON.stringify(context.vehicleContext)}`;
 
                                     return {
                                         service: context.services.search,
@@ -233,16 +282,22 @@ export const mechanicMachine = setup({
                                             query,
                                             limit: 3,
                                             userId: context.userId,
-                                            sessionId: context.sessionId
-                                        }
+                                            sessionId: context.sessionId,
+                                        },
                                     };
                                 },
-                                onDone: { target: 'completed', actions: assign({ searchResults: ({ event }) => event.output }) },
-                                onError: { target: 'completed', actions: assign({ error: ({ event }) => String(event.error) }) }
-                            }
+                                onDone: {
+                                    target: 'completed',
+                                    actions: assign({ searchResults: ({ event }) => event.output }),
+                                },
+                                onError: {
+                                    target: 'completed',
+                                    actions: assign({ error: ({ event }) => String(event.error) }),
+                                },
+                            },
                         },
-                        completed: { type: 'final' }
-                    }
+                        completed: { type: 'final' },
+                    },
                 },
                 verification: {
                     initial: 'verifying',
@@ -257,24 +312,30 @@ export const mechanicMachine = setup({
                                         evidence: JSON.stringify({
                                             vehicle: context.vehicleContext,
                                             recalls: context.nhtsaResults,
-                                            history: context.vehicleHistory
+                                            history: context.vehicleHistory,
                                         }),
-                                        sessionId: context.sessionId
-                                    }
+                                        sessionId: context.sessionId,
+                                    },
                                 }),
-                                onDone: { target: 'completed', actions: assign({ verificationResult: ({ event }) => event.output }) },
-                                onError: { target: 'completed', actions: assign({ error: ({ event }) => String(event.error) }) }
-                            }
+                                onDone: {
+                                    target: 'completed',
+                                    actions: assign({ verificationResult: ({ event }) => event.output }),
+                                },
+                                onError: {
+                                    target: 'completed',
+                                    actions: assign({ error: ({ event }) => String(event.error) }),
+                                },
+                            },
                         },
-                        completed: { type: 'final' }
-                    }
-                }
+                        completed: { type: 'final' },
+                    },
+                },
             },
-            onDone: 'vision_verifying'
+            onDone: 'vision_verifying',
         },
         vision_verifying: {
-            description: "Step 4: Vision Check (if applicable) to anchor Reality",
-            entry: 'loadVisionModel',  // Optimized Resource Management
+            description: 'Step 4: Vision Check (if applicable) to anchor Reality',
+            entry: 'loadVisionModel', // Optimized Resource Management
             exit: 'unloadVisionModel', // Release memory immediately
             invoke: {
                 src: 'visionAnalysis',
@@ -283,8 +344,8 @@ export const mechanicMachine = setup({
                     data: {
                         ...context,
                         searchContext: context.searchResults,
-                        verificationContext: context.verificationResult
-                    }
+                        verificationContext: context.verificationResult,
+                    },
                 }),
                 onDone: {
                     target: 'synthesizing',
@@ -295,17 +356,17 @@ export const mechanicMachine = setup({
                             return { visualAnalysis: event.output };
                         }
                         return {};
-                    })
+                    }),
                 },
                 onError: {
                     target: 'synthesizing',
-                    actions: assign({ error: ({ event }) => String(event.error) })
-                }
-            }
+                    actions: assign({ error: ({ event }) => String(event.error) }),
+                },
+            },
         },
         synthesizing: {
-            description: "Step 5: Final Synthesis (Reflexion)",
-            type: 'final'
-        }
-    }
+            description: 'Step 5: Final Synthesis (Reflexion)',
+            type: 'final',
+        },
+    },
 });

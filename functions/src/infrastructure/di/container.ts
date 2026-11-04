@@ -1,24 +1,24 @@
 import 'reflect-metadata';
 import { Container, interfaces } from 'inversify';
 import { TYPES } from './types';
-import { 
-    ISessionRepository, 
-    IVehicleRepository, 
-    IMultimodalUploadAnalyzer, 
+import {
+    ISessionRepository,
+    IVehicleRepository,
+    IMultimodalUploadAnalyzer,
     ISafetyAI,
     INHTSAService,
     IVectorRepository,
     ISafetyMonitor,
-    ILogger 
+    ILogger,
 } from '@lemonade/core';
-import { 
-    VertexAIVideoAdapter, 
-    VertexAISafetyAdapter, 
+import {
+    VertexAIVideoAdapter,
+    VertexAISafetyAdapter,
     Logger,
     EnvConfigProvider,
     TracingService,
     FirestoreSessionRepository,
-    TYPES as INFRA_TYPES
+    TYPES as INFRA_TYPES,
 } from '@lemonade/infrastructure';
 
 import { FirestoreVehicleRepository } from '../repositories/FirestoreVehicleRepository';
@@ -39,13 +39,16 @@ container.bind(INFRA_TYPES.ConfigProvider).to(EnvConfigProvider).inSingletonScop
 container.bind(INFRA_TYPES.TracingService).to(TracingService).inSingletonScope();
 
 // Logger Binding
-container.bind<ILogger>(TYPES.Logger).toDynamicValue((context: interfaces.Context) => {
-    // Resolve RemoteLogTransport if it's bound, otherwise pass undefined
-    const remoteTransport = context.container.isBound(TYPES.RemoteLogTransport)
-        ? (context.container as Container).get<RemoteTransport>(TYPES.RemoteLogTransport)
-        : undefined;
-    return new Logger(remoteTransport);
-}).inSingletonScope();
+container
+    .bind<ILogger>(TYPES.Logger)
+    .toDynamicValue((context: interfaces.Context) => {
+        // Resolve RemoteLogTransport if it's bound, otherwise pass undefined
+        const remoteTransport = context.container.isBound(TYPES.RemoteLogTransport)
+            ? (context.container as Container).get<RemoteTransport>(TYPES.RemoteLogTransport)
+            : undefined;
+        return new Logger(remoteTransport);
+    })
+    .inSingletonScope();
 
 container.bind<ISessionRepository>(TYPES.SessionRepo).to(FirestoreSessionRepository).inSingletonScope();
 container.bind<IVehicleRepository>(TYPES.VehicleRepo).to(FirestoreVehicleRepository).inSingletonScope();

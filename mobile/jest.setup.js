@@ -15,15 +15,19 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
 }));
 
 // Silence the Expo Winter runtime error
-jest.mock('expo/src/winter/runtime.native.ts', () => ({
-    install: jest.fn(),
-}), { virtual: true });
+jest.mock(
+    'expo/src/winter/runtime.native.ts',
+    () => ({
+        install: jest.fn(),
+    }),
+    { virtual: true },
+);
 
 import 'react-native-gesture-handler/jestSetup';
 
 jest.mock('react-native-reanimated', () => {
     const Reanimated = require('react-native-reanimated/mock');
-    Reanimated.default.call = () => { };
+    Reanimated.default.call = () => {};
     return Reanimated;
 });
 
@@ -51,7 +55,9 @@ jest.mock('firebase/firestore', () => {
         }
         static fromDate = jest.fn((date) => new MockTimestamp(date.getTime() / 1000, 0));
         static now = jest.fn(() => new MockTimestamp(Date.now() / 1000, 0));
-        toDate() { return new Date(this.seconds * 1000); }
+        toDate() {
+            return new Date(this.seconds * 1000);
+        }
     }
     return {
         getFirestore: jest.fn(),
@@ -72,7 +78,7 @@ jest.mock('firebase/storage', () => ({
         on: jest.fn((event, progress, error, success) => {
             if (success) success();
         }),
-        snapshot: { ref: {} }
+        snapshot: { ref: {} },
     })),
     getDownloadURL: jest.fn(() => Promise.resolve('https://mock-url.com')),
 }));
@@ -95,7 +101,7 @@ jest.mock('react-native-vision-camera', () => ({
     useCameraDevice: jest.fn(() => ({ id: 'test-device' })),
     useCameraPermission: jest.fn(() => ({ hasPermission: true, requestPermission: jest.fn() })),
     useFrameProcessor: jest.fn(),
-    useCameraDevices: jest.fn(() => ([{ position: 'back' }])),
+    useCameraDevices: jest.fn(() => [{ position: 'back' }]),
 }));
 
 jest.mock('vision-camera-resize-plugin', () => ({
@@ -103,10 +109,12 @@ jest.mock('vision-camera-resize-plugin', () => ({
 }));
 
 jest.mock('llama.rn', () => ({
-    initLlama: jest.fn(() => Promise.resolve({
-        completion: jest.fn(() => Promise.resolve({ text: 'part: state' })),
-        release: jest.fn(),
-    })),
+    initLlama: jest.fn(() =>
+        Promise.resolve({
+            completion: jest.fn(() => Promise.resolve({ text: 'part: state' })),
+            release: jest.fn(),
+        }),
+    ),
     LlamaContext: jest.fn(),
 }));
 
@@ -126,6 +134,6 @@ jest.mock('./context/LocalPerceptionContext', () => ({
         localPerception: {
             triageFrame: jest.fn(),
             isReady: jest.fn().mockReturnValue(true),
-        }
+        },
     })),
 }));

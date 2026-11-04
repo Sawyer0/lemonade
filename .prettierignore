@@ -12,6 +12,6 @@ package-lock.json
 bun.lock
 docs/
 *.md
-!README.md
+!/README.md
 *.png
 *.mp3

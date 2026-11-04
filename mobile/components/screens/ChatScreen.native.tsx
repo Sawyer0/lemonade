@@ -1,10 +1,19 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import {
+    View,
+    StyleSheet,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    ActivityIndicator,
+    Text,
+    TouchableOpacity,
+} from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { Theme } from '@mobile/constants/theme';
 import { ThemedText } from '@mobile/components/themed-text';
 import { ThemedView } from '@mobile/components/themed-view';
-import { useMobileChat } from '@mobile/hooks/useMobileChat'; 
+import { useMobileChat } from '@mobile/hooks/useMobileChat';
 import { useChatUploads } from '@mobile/hooks/useChatUploads'; // Import the upload hook
 import { useGeminiSession } from '@mobile/hooks/useGeminiSession';
 import { ChatBubble } from '../domain/chat/ChatBubble.native';
@@ -13,15 +22,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 
-
 export default function ChatScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const sessionId = id;
-    
+
     // Use the robust Firestore-based chat hook
-    const { messages, sendMessage, sendMedia, getResumeSummary, sending, streamingMessage, error: chatError } = useMobileChat(sessionId);
+    const {
+        messages,
+        sendMessage,
+        sendMedia,
+        getResumeSummary,
+        sending,
+        streamingMessage,
+        error: chatError,
+    } = useMobileChat(sessionId);
     const { uploadFile, uploading: fileUploading } = useChatUploads(sessionId);
-    
+
     const [showResumeSummary, setShowResumeSummary] = useState(false);
     const [summaryText, setSummaryText] = useState<string | null>(null);
     const [loadingSummary, setLoadingSummary] = useState(false);
@@ -30,7 +46,8 @@ export default function ChatScreen() {
 
     useEffect(() => {
         const checkResume = async () => {
-            if (messages.length > 2) { // Only summarize if there's actual history
+            if (messages.length > 2) {
+                // Only summarize if there's actual history
                 setLoadingSummary(true);
                 const summary = await getResumeSummary();
                 setSummaryText(summary);
@@ -57,29 +74,31 @@ export default function ChatScreen() {
     const handleMediaSelect = async (uri: string, type: 'image' | 'video') => {
         try {
             const result = await uploadFile(uri, type);
-            await sendMedia(result.downloadUrl, result.gsUri, result.metadata.contentType, "Analyze this media:");
+            await sendMedia(result.downloadUrl, result.gsUri, result.metadata.contentType, 'Analyze this media:');
         } catch (err) {
-            console.error("Media send failed:", err);
+            console.error('Media send failed:', err);
         }
     };
 
     // Tool Handler Logic (kept from original)
-    const handleToolCall = (toolCall: { name: string; args: Record<string, unknown> }, { sendResponse }: { sendResponse: (response: unknown) => void }) => {
+    const handleToolCall = (
+        toolCall: { name: string; args: Record<string, unknown> },
+        { sendResponse }: { sendResponse: (response: unknown) => void },
+    ) => {
         // ... (Tool handling logic remains same) ...
-        console.log("Tool Call Received:", toolCall.name);
+        console.log('Tool Call Received:', toolCall.name);
         // Use sendResponse to satisfy linter if logic is omitted for brevity
-        sendResponse({ status: "acknowledged", tool: toolCall.name });
-    }
+        sendResponse({ status: 'acknowledged', tool: toolCall.name });
+    };
 
     // Connect to LiveKit only if camera is active or for background events
     const { connect, client } = useGeminiSession(sessionId, null, handleToolCall);
 
     useEffect(() => {
-        // Optional: Connect to LiveKit only when needed to save resources, 
+        // Optional: Connect to LiveKit only when needed to save resources,
         // or connect on mount if that's the desired UX.
-        // connect(); 
+        // connect();
     }, [connect]);
-
 
     // Camera Frame Loop
     useEffect(() => {
@@ -92,16 +111,18 @@ export default function ChatScreen() {
                         const photo = await cameraRef.current.takePictureAsync({
                             base64: true,
                             quality: 0.5,
-                            skipProcessing: true
+                            skipProcessing: true,
                         });
                         if (photo?.base64 && client.isConnected) {
-                            client.sendRealtimeInput([{
-                                mimeType: 'image/jpeg',
-                                data: photo.base64
-                            }]);
+                            client.sendRealtimeInput([
+                                {
+                                    mimeType: 'image/jpeg',
+                                    data: photo.base64,
+                                },
+                            ]);
                         }
                     } catch (err) {
-                        console.warn("Frame capture skipped:", err);
+                        console.warn('Frame capture skipped:', err);
                     } finally {
                         isProcessing = false;
                     }
@@ -134,12 +155,12 @@ export default function ChatScreen() {
         displayMessages.push({
             role: 'assistant',
             content: streamingMessage,
-            timestamp: new Date()
+            timestamp: new Date(),
         });
     }
 
     if (!messages && !chatError) {
-         return (
+        return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Theme.tint} />
             </View>
@@ -148,23 +169,27 @@ export default function ChatScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <Stack.Screen options={{
-                title: cameraActive ? "Live Vision" : `Diagnostic Session`,
-                headerStyle: { backgroundColor: Theme.background },
-                headerTintColor: Theme.text,
-                headerRight: () => (
-                    <TouchableOpacity onPress={() => setCameraActive(!cameraActive)}>
-                        <Ionicons name={cameraActive ? "videocam-off" : "videocam"} size={24} color={Theme.tint} />
-                    </TouchableOpacity>
-                )
-            }} />
+            <Stack.Screen
+                options={{
+                    title: cameraActive ? 'Live Vision' : `Diagnostic Session`,
+                    headerStyle: { backgroundColor: Theme.background },
+                    headerTintColor: Theme.text,
+                    headerRight: () => (
+                        <TouchableOpacity onPress={() => setCameraActive(!cameraActive)}>
+                            <Ionicons name={cameraActive ? 'videocam-off' : 'videocam'} size={24} color={Theme.tint} />
+                        </TouchableOpacity>
+                    ),
+                }}
+            />
 
             <View style={{ flex: 1 }}>
                 {/* Resume Summary Overlay */}
                 {showResumeSummary && (
                     <View style={styles.summaryOverlay}>
                         <ThemedView style={styles.summaryCard}>
-                            <ThemedText type="defaultSemiBold" style={styles.summaryTitle}>Where we left off...</ThemedText>
+                            <ThemedText type="defaultSemiBold" style={styles.summaryTitle}>
+                                Where we left off...
+                            </ThemedText>
                             {loadingSummary ? (
                                 <ActivityIndicator color={Theme.tint} />
                             ) : (
@@ -190,11 +215,7 @@ export default function ChatScreen() {
                                 <Text>Enable Camera</Text>
                             </TouchableOpacity>
                         ) : (
-                            <CameraView
-                                ref={cameraRef}
-                                style={StyleSheet.absoluteFill}
-                                facing="back"
-                            />
+                            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
                         )}
                         <TouchableOpacity style={styles.closeCam} onPress={() => setCameraActive(false)}>
                             <Ionicons name="close-circle" size={40} color="white" />
@@ -217,10 +238,10 @@ export default function ChatScreen() {
                         contentContainerStyle={styles.listContent}
                     />
 
-                    <InputBar 
-                        onSend={sendMessage} 
+                    <InputBar
+                        onSend={sendMessage}
                         onMediaSelect={handleMediaSelect}
-                        loading={sending || fileUploading} 
+                        loading={sending || fileUploading}
                     />
                 </KeyboardAvoidingView>
             </View>
@@ -252,14 +273,14 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'white'
+        backgroundColor: 'white',
     },
     closeCam: {
         position: 'absolute',
         top: 20,
         right: 20,
         backgroundColor: 'rgba(0,0,0,0.5)',
-        borderRadius: 25
+        borderRadius: 25,
     },
     summaryOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -311,5 +332,5 @@ const styles = StyleSheet.create({
     freshButtonText: {
         color: Theme.textSecondary,
         fontWeight: 'bold',
-    }
+    },
 });

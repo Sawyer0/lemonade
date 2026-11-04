@@ -8,7 +8,7 @@ const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
 if (!admin.apps.length) {
     admin.initializeApp({
         credential: serviceAccount ? admin.credential.cert(serviceAccount) : undefined,
-        storageBucket: 'lemonade-3c4e7.firebasestorage.app'
+        storageBucket: 'lemonade-3c4e7.firebasestorage.app',
     });
 }
 

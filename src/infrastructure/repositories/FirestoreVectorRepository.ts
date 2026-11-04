@@ -10,8 +10,8 @@ export class FirestoreVectorRepository implements IVectorRepository {
 
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
-        @inject(TYPES.EmbeddingService) private embeddingService: IEmbeddingService
-    ) { }
+        @inject(TYPES.EmbeddingService) private embeddingService: IEmbeddingService,
+    ) {}
 
     async search(query: string, limit: number = 5, filter?: Record<string, unknown>): Promise<VectorDocument[]> {
         try {
@@ -22,7 +22,7 @@ export class FirestoreVectorRepository implements IVectorRepository {
             if (filter?.userId) {
                 preFilter = Filter.or(
                     Filter.where('metadata.userId', '==', filter.userId),
-                    Filter.where('metadata.isGlobal', '==', true)
+                    Filter.where('metadata.isGlobal', '==', true),
                 );
             }
 
@@ -32,22 +32,21 @@ export class FirestoreVectorRepository implements IVectorRepository {
                 limit: limit,
                 distanceMeasure: 'COSINE',
                 distanceResultField: '_distance',
-                ...(preFilter ? { filter: preFilter } : {})
+                ...(preFilter ? { filter: preFilter } : {}),
             });
 
             const snapshot = await vectorQuery.get();
 
-            return snapshot.docs.map(doc => {
+            return snapshot.docs.map((doc) => {
                 const data = doc.data();
                 return {
                     id: doc.id,
                     text: data.text,
                     createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
                     vector: data.vector?.values || [],
-                    metadata: data.metadata || {}
+                    metadata: data.metadata || {},
                 } as VectorDocument;
             });
-
         } catch (error) {
             this.logger.error('[FirestoreVectorRepository] Semantic Search failed', error as Error);
             return [];
@@ -60,7 +59,7 @@ export class FirestoreVectorRepository implements IVectorRepository {
                 text,
                 vector: FieldValue.vector(vector), // Using Firestore's native vector type
                 metadata: { isGlobal: false, ...metadata }, // Ensure field exists for querying
-                createdAt: new Date()
+                createdAt: new Date(),
             });
             this.logger.info('[FirestoreVectorRepository] Added case to collective memory');
         } catch (error) {
@@ -79,7 +78,7 @@ export class FirestoreVectorRepository implements IVectorRepository {
             if (filter?.userId) {
                 preFilter = Filter.or(
                     Filter.where('metadata.userId', '==', filter.userId),
-                    Filter.where('metadata.isGlobal', '==', true)
+                    Filter.where('metadata.isGlobal', '==', true),
                 );
             } else {
                 // If no user context, search only global
@@ -93,12 +92,12 @@ export class FirestoreVectorRepository implements IVectorRepository {
                 limit: limit,
                 distanceMeasure: 'COSINE',
                 distanceResultField: '_distance',
-                ...(preFilter ? { filter: preFilter } : {})
+                ...(preFilter ? { filter: preFilter } : {}),
             });
 
             const snapshot = await vectorQuery.get();
 
-            return snapshot.docs.map(doc => {
+            return snapshot.docs.map((doc) => {
                 const data = doc.data();
                 // COSINE distance is (1 - cosine_similarity) for normalized vectors.
                 // We convert back to similarity score (0 to 1).
@@ -109,7 +108,7 @@ export class FirestoreVectorRepository implements IVectorRepository {
                     id: doc.id,
                     text: data.text,
                     score: 1.0 - distance, // Real calculated score
-                    metadata: data.metadata
+                    metadata: data.metadata,
                 };
             });
         } catch (error) {

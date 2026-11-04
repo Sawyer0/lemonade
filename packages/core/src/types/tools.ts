@@ -5,35 +5,35 @@ export const ToolCallTypeSchema = z.enum([
     'start_video_stream',
     'display_content',
     'verify_safe_support',
-    'save_to_memory'
+    'save_to_memory',
 ]);
 
 export const GoogleSearchArgsSchema = z.object({
-    query: z.string()
+    query: z.string(),
 });
 
 export const StartVideoStreamArgsSchema = z.object({
     reason: z.string(),
     targetComponent: z.string().optional(),
-    focusArea: z.enum(['engine_bay', 'undercarriage', 'interior', 'exterior', 'specific_component'])
+    focusArea: z.enum(['engine_bay', 'undercarriage', 'interior', 'exterior', 'specific_component']),
 });
 
 export const DisplayContentArgsSchema = z.object({
     title: z.string(),
     url: z.string().url(),
-    type: z.enum(['image', 'pdf', 'html'])
+    type: z.enum(['image', 'pdf', 'html']),
 });
 
 export const VerifySafeSupportArgsSchema = z.object({
     reason: z.string(),
-    required_equipment: z.array(z.string()).optional()
+    required_equipment: z.array(z.string()).optional(),
 });
 
 export const SaveToMemoryArgsSchema = z.object({
     content: z.string().optional(),
     url: z.string().url().optional(),
     tags: z.array(z.string()).optional(),
-    reason: z.string().describe('Why this is being saved')
+    reason: z.string().describe('Why this is being saved'),
 });
 
 export type GoogleSearchArgs = z.infer<typeof GoogleSearchArgsSchema>;

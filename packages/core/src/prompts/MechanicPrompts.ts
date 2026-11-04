@@ -1,14 +1,14 @@
 import { Vehicle } from '../types/models';
 
 export class MechanicPrompts {
-  /**
-   * Generates the reasoning protocol for the Master Technician.
-   * This is the "System 2" thinking process that guides the AI's diagnostic logic.
-   */
-  static reasoning(vehicle: Vehicle): string {
-    const { year, make, model } = vehicle.specs;
-    
-    return `
+    /**
+     * Generates the reasoning protocol for the Master Technician.
+     * This is the "System 2" thinking process that guides the AI's diagnostic logic.
+     */
+    static reasoning(vehicle: Vehicle): string {
+        const { year, make, model } = vehicle.specs;
+
+        return `
 ROLE: You are the Senior Master Technician for Lemonade. You are diagnosing complex mechanical issues for a **${year} ${make} ${model}** (VIN: ${vehicle.vin}) using a combination of **Uploaded Service Manuals (Context)** and **Real-Time Web Search (Grounding)**.
 
 **CORE PROTOCOL: THE HIERARCHY OF TRUTH**
@@ -56,13 +56,13 @@ You must strictly follow this **5-Step Cognitive Process** before outputting a d
 If you used Search to update the Manual, you must state it clearly:
 *"⚠️ **UPDATE FOUND:** The ${year} Service Manual states [X], but TSB [Y] released in 2021 updates this procedure to [Z]. I recommend following the TSB."*
 `;
-  }
+    }
 
-  /**
-   * Generates the prompt for text-only diagnosis.
-   */
-  static textDiagnosis(userQuery: string, context: string, verificationInfo: string): string {
-    return `
+    /**
+     * Generates the prompt for text-only diagnosis.
+     */
+    static textDiagnosis(userQuery: string, context: string, verificationInfo: string): string {
+        return `
 You are the Lemonade Master Technician.
 User Query: "${userQuery}"
 Vehicle Context: ${context}
@@ -88,5 +88,5 @@ Output strictly valid JSON matching this schema:
     "confidence": number (0-1)
 }
 `.trim();
-  }
+    }
 }

@@ -21,19 +21,18 @@ interface SessionWorkspaceProps {
 }
 
 export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
-
     const initialMessages: Message[] = (session.messages || []).map((m, index) => ({
         id: `${new Date(m.timestamp).getTime()}-${index}`,
         role: m.role as 'user' | 'assistant' | 'system' | 'tool',
         content: m.content,
-        timestamp: new Date(m.timestamp).getTime()
+        timestamp: new Date(m.timestamp).getTime(),
     }));
 
     const chatHelpers = useGeminiChat({
         api: CONFIG.API.ROUTES.CHAT,
         sessionId: session.id,
         token,
-        initialMessages
+        initialMessages,
     });
 
     const { messages, isLoading, currentThoughts, activeToolCalls } = chatHelpers;
@@ -52,12 +51,12 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
         uploadFile,
         chatHelpers,
         setInput,
-        showToast
+        showToast,
     });
 
     useEffect(() => {
         if (!voiceMode || !messages || messages.length === 0) return;
-        const aiMessages = messages.filter(m => m.role === 'assistant');
+        const aiMessages = messages.filter((m) => m.role === 'assistant');
         if (aiMessages.length === 0) return;
 
         const latestAiMessage = aiMessages[aiMessages.length - 1];
@@ -94,7 +93,7 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
                 <Block className="bg-red-900/50 border border-red-500 rounded-lg m-4 p-4 animate-pulse">
                     <BlockTitle className="text-red-500 font-bold mb-2">SAFETY STOP ACTIVE</BlockTitle>
                     <p className="text-white text-sm mb-4">
-                        {session.safety_reason || "Hazard detected. Verification required."}
+                        {session.safety_reason || 'Hazard detected. Verification required.'}
                     </p>
                     <Button onClick={handleGoLive} className="bg-red-600 w-full">
                         Open Camera to Verify
@@ -103,11 +102,7 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
             )}
 
             {/* Session Status */}
-            <SessionStatusHeader
-                sessionId={session.id}
-                vehicleId={session.vehicleId}
-                status={session.status}
-            />
+            <SessionStatusHeader sessionId={session.id} vehicleId={session.vehicleId} status={session.status} />
 
             {/* Chat Area */}
             <div className="flex-1 min-h-0 relative flex flex-col h-[calc(100vh-200px)]">
@@ -130,7 +125,7 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
                             <span>Thinking: {currentThoughts[currentThoughts.length - 1]}</span>
                         </div>
                     )}
-                    {activeToolCalls.map(tool => (
+                    {activeToolCalls.map((tool) => (
                         <div key={tool.id} className="flex items-center gap-2 text-xs text-zinc-500">
                             <Loader2 size={14} className="animate-spin text-blue-500" />
                             <span>Invoking Tool: {tool.name}...</span>
@@ -138,10 +133,7 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
                     ))}
                 </div>
 
-                <AnalysisCard
-                    analysis={session.aiAnalysis}
-                    isSafetyStop={isSafetyStop}
-                />
+                <AnalysisCard analysis={session.aiAnalysis} isSafetyStop={isSafetyStop} />
 
                 <InputBar
                     input={input}
@@ -155,4 +147,3 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
         </Page>
     );
 }
-

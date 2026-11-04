@@ -9,10 +9,14 @@ interface StatusPillProps {
 export function StatusPill({ status }: StatusPillProps) {
     const getStatusColor = () => {
         switch (status) {
-            case 'connected': return Theme.success;
-            case 'connecting': return Theme.tint;
-            case 'error': return Theme.error;
-            default: return Theme.textSecondary;
+            case 'connected':
+                return Theme.success;
+            case 'connecting':
+                return Theme.tint;
+            case 'error':
+                return Theme.error;
+            default:
+                return Theme.textSecondary;
         }
     };
 
@@ -43,5 +47,5 @@ const styles = StyleSheet.create({
     text: {
         fontSize: 12,
         fontWeight: 'bold',
-    }
+    },
 });

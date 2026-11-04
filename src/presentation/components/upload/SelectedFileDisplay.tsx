@@ -22,12 +22,7 @@ export function SelectedFileDisplay({ selectedFile, onClearSelection, isUploadin
             <div className="flex items-center gap-3">
                 {selectedFile.type.startsWith('video/') ? (
                     <div className="flex-shrink-0 w-10 h-10 rounded bg-blue-500/20 flex items-center justify-center">
-                        <svg
-                            className="w-6 h-6 text-blue-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
+                        <svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -44,12 +39,7 @@ export function SelectedFileDisplay({ selectedFile, onClearSelection, isUploadin
                     </div>
                 ) : (
                     <div className="flex-shrink-0 w-10 h-10 rounded bg-green-500/20 flex items-center justify-center">
-                        <svg
-                            className="w-6 h-6 text-green-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
+                        <svg className="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -60,12 +50,8 @@ export function SelectedFileDisplay({ selectedFile, onClearSelection, isUploadin
                     </div>
                 )}
                 <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold truncate">
-                        {selectedFile.name}
-                    </p>
-                    <p className="text-zinc-400 text-sm">
-                        {formatFileSize(selectedFile.size)}
-                    </p>
+                    <p className="text-white font-semibold truncate">{selectedFile.name}</p>
+                    <p className="text-zinc-400 text-sm">{formatFileSize(selectedFile.size)}</p>
                 </div>
                 <button
                     onClick={onClearSelection}
@@ -78,4 +64,3 @@ export function SelectedFileDisplay({ selectedFile, onClearSelection, isUploadin
         </div>
     );
 }
-

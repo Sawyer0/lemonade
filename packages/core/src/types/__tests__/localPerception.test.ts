@@ -5,14 +5,14 @@ describe('SemanticTriageResultSchema', () => {
     it('validates a correct lean JSON object', () => {
         const validData = {
             id: {
-                obj: "Brake Rotor",
-                cat: "Braking"
+                obj: 'Brake Rotor',
+                cat: 'Braking',
             },
             eval: {
-                stat: "CRITICAL",
+                stat: 'CRITICAL',
                 risk: true,
-                note: "Deep surface rust visible"
-            }
+                note: 'Deep surface rust visible',
+            },
         };
         const result = SemanticTriageResultSchema.safeParse(validData);
         expect(result.success).toBe(true);
@@ -21,14 +21,14 @@ describe('SemanticTriageResultSchema', () => {
     it('rejects invalid enum values', () => {
         const invalidData = {
             id: {
-                obj: "Brake Rotor",
-                cat: "Braking"
+                obj: 'Brake Rotor',
+                cat: 'Braking',
             },
             eval: {
-                stat: "INVALID_STATUS", // Should be NORMAL | CAUTION | CRITICAL | UNCERTAIN
+                stat: 'INVALID_STATUS', // Should be NORMAL | CAUTION | CRITICAL | UNCERTAIN
                 risk: true,
-                note: "Deep surface rust visible"
-            }
+                note: 'Deep surface rust visible',
+            },
         };
         const result = SemanticTriageResultSchema.safeParse(invalidData);
         expect(result.success).toBe(false);

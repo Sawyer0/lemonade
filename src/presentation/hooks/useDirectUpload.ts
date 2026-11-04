@@ -13,24 +13,27 @@ export function useDirectUpload() {
 
         try {
             const token = await auth.currentUser?.getIdToken();
-            if (!token) throw new AppError(ErrorCode.UNAUTHORIZED, "User not authenticated");
+            if (!token) throw new AppError(ErrorCode.UNAUTHORIZED, 'User not authenticated');
 
             // 1. Get Signed URL
             const signRes = await fetch('/api/upload/sign', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
                     contentType: file.type,
-                    sessionId
+                    sessionId,
                 }),
             });
 
             if (!signRes.ok) {
                 const errorText = await signRes.text().catch(() => 'No details');
-                throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Failed to get upload permit: ${signRes.status} ${signRes.statusText} - ${errorText}`);
+                throw new AppError(
+                    ErrorCode.INTERNAL_SERVER_ERROR,
+                    `Failed to get upload permit: ${signRes.status} ${signRes.statusText} - ${errorText}`,
+                );
             }
             const { uploadUrl, publicUrl } = await signRes.json();
 
@@ -51,14 +54,26 @@ export function useDirectUpload() {
                         logger.info('[useDirectUpload] Upload success', { status: xhr.status });
                         resolve(true);
                     } else {
-                        const uploadError = new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `Upload failed with status ${xhr.status}`);
-                        logger.error('[useDirectUpload] XHR Failed', uploadError, { status: xhr.status, response: xhr.response });
+                        const uploadError = new AppError(
+                            ErrorCode.INTERNAL_SERVER_ERROR,
+                            `Upload failed with status ${xhr.status}`,
+                        );
+                        logger.error('[useDirectUpload] XHR Failed', uploadError, {
+                            status: xhr.status,
+                            response: xhr.response,
+                        });
                         reject(uploadError);
                     }
                 };
                 xhr.onerror = () => {
-                    const networkError = new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Network error - Check CORS/Tunnel');
-                    logger.error('[useDirectUpload] Network Error (CORS?)', networkError, { status: xhr.status, readyState: xhr.readyState });
+                    const networkError = new AppError(
+                        ErrorCode.INTERNAL_SERVER_ERROR,
+                        'Network error - Check CORS/Tunnel',
+                    );
+                    logger.error('[useDirectUpload] Network Error (CORS?)', networkError, {
+                        status: xhr.status,
+                        readyState: xhr.readyState,
+                    });
                     reject(networkError);
                 };
                 xhr.send(file);
@@ -66,7 +81,6 @@ export function useDirectUpload() {
 
             setUploading(false);
             return publicUrl;
-
         } catch (error) {
             logger.error('Upload failed', error as Error);
             setUploading(false);
@@ -76,4 +90,3 @@ export function useDirectUpload() {
 
     return { uploadFile, uploading, progress };
 }
-

@@ -12,7 +12,7 @@ import type {
     VerificationRequest,
     VerificationResponse,
     MessagePart,
-    StreamingEvent
+    StreamingEvent,
 } from '@lemonade/core';
 import {
     AIAnalysisSchema,
@@ -22,7 +22,7 @@ import {
     AppError,
     ErrorCode,
     AI_GENERATION_CONFIGS,
-    VerificationPrompts
+    VerificationPrompts,
 } from '@lemonade/core';
 import { CONFIG } from '../config'; // Use local config
 import { TracingService } from '../observability/TracingService'; // Use TracingService class
@@ -30,7 +30,6 @@ import { RequestContext } from '../context/request-context'; // Import RequestCo
 import { TYPES } from '../di/types'; // Use local types
 import { FunctionCallService } from './FunctionCallHandler';
 import { GeminiCoreAdapter } from './GeminiCoreAdapter';
-
 
 interface GroundingChunk {
     web?: {
@@ -51,26 +50,32 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
         @inject(TYPES.FunctionCallService) private functionCallService: FunctionCallService,
         @inject(TYPES.ContextCacheService) private cacheService: IContextCacheService,
-        @inject(TYPES.TracingService) private tracer: TracingService // Inject TracingService
+        @inject(TYPES.TracingService) private tracer: TracingService, // Inject TracingService
     ) {
         this.safetyTools = coreAdapter.commonTools;
-        this.model = coreAdapter.getGenerativeModel(CONFIG.AI_MODELS.CHAT_MODEL, this.safetyTools, coreAdapter.commonSafetySettings);
+        this.model = coreAdapter.getGenerativeModel(
+            CONFIG.AI_MODELS.CHAT_MODEL,
+            this.safetyTools,
+            coreAdapter.commonSafetySettings,
+        );
         this.logger.info(`GeminiFlashChatAndUploadsAdapter initialized, using model: ${CONFIG.AI_MODELS.CHAT_MODEL}`);
     }
 
     private getGenerationConfigForChat(effort?: ReasoningEffort): AiGenerationConfig {
-        if (!effort || effort === "low") return AI_GENERATION_CONFIGS.CHAT_BOT;
-        if (effort === "none") return { thinkingConfig: { thinkingBudget: 0, includeThoughts: false }, temperature: 0.1, responseMimeType: "text/plain" };
-        if (effort === "moderate") return AI_GENERATION_CONFIGS.CHAT_MODERATE;
-        if (effort === "high") return AI_GENERATION_CONFIGS.CHAT_HIGH;
+        if (!effort || effort === 'low') return AI_GENERATION_CONFIGS.CHAT_BOT;
+        if (effort === 'none')
+            return {
+                thinkingConfig: { thinkingBudget: 0, includeThoughts: false },
+                temperature: 0.1,
+                responseMimeType: 'text/plain',
+            };
+        if (effort === 'moderate') return AI_GENERATION_CONFIGS.CHAT_MODERATE;
+        if (effort === 'high') return AI_GENERATION_CONFIGS.CHAT_HIGH;
         return AI_GENERATION_CONFIGS.CHAT_BOT;
     }
 
-    async verifyHypothesis(
-        request: VerificationRequest,
-        traceId?: string
-    ): Promise<VerificationResponse> {
-        this.logger.debug("Verifying Hypothesis with Flash", { hypothesis: request.hypothesis, traceId });
+    async verifyHypothesis(request: VerificationRequest, traceId?: string): Promise<VerificationResponse> {
+        this.logger.debug('Verifying Hypothesis with Flash', { hypothesis: request.hypothesis, traceId });
 
         const cacheKey = `verifyHypothesis-${JSON.stringify(request)}`;
         const existingCache = await this.cacheService.getCache(cacheKey);
@@ -83,10 +88,12 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         const prompt = VerificationPrompts.factChecker(request.hypothesis, request.evidence);
 
         const apiRequest = {
-            contents: [{
-                role: 'user',
-                parts: [{ text: prompt }]
-            }],
+            contents: [
+                {
+                    role: 'user',
+                    parts: [{ text: prompt }],
+                },
+            ],
             generationConfig: {
                 responseMimeType: 'application/json',
                 responseSchema: {
@@ -94,32 +101,31 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                     properties: {
                         isVerified: { type: SchemaType.BOOLEAN },
                         source: { type: SchemaType.STRING, nullable: true },
-                        reasoning: { type: SchemaType.STRING }
+                        reasoning: { type: SchemaType.STRING },
                     },
-                    required: ['isVerified', 'reasoning']
-                }
-            } as unknown as import('@google-cloud/vertexai').GenerationConfig
+                    required: ['isVerified', 'reasoning'],
+                },
+            } as unknown as import('@google-cloud/vertexai').GenerationConfig,
         };
 
         try {
             const result = await this.model.generateContent(apiRequest);
             const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
 
-            if (!text) throw new Error("Empty verification response");
+            if (!text) throw new Error('Empty verification response');
 
             const parsed = JSON.parse(text);
             const response: VerificationResponse = {
                 isVerified: !!parsed.isVerified,
                 source: parsed.source || null,
-                reasoning: parsed.reasoning || "No reasoning provided."
+                reasoning: parsed.reasoning || 'No reasoning provided.',
             };
             await this.cacheService.createCache([{ text: JSON.stringify(response) }], this.CACHE_TTL_SECONDS, cacheKey);
             return response;
-
         } catch (error) {
-            this.logger.error("Verification Logic Failed", error, { traceId });
+            this.logger.error('Verification Logic Failed', error, { traceId });
             // Fail safe: Inconclusive
-            return { isVerified: false, source: null, reasoning: "Verification failed due to internal error." };
+            return { isVerified: false, source: null, reasoning: 'Verification failed due to internal error.' };
         }
     }
 
@@ -130,12 +136,16 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         userId?: string,
         sessionId?: string,
         reasoningEffort?: ReasoningEffort,
-        videoDurationMinutes?: number
+        videoDurationMinutes?: number,
     ): Promise<AIAnalysis> {
-        this.logger.debug("Sending to Vertex AI (Structured Output) for Uploaded Video Analysis", { videoUrl, mimeType, videoDurationMinutes });
+        this.logger.debug('Sending to Vertex AI (Structured Output) for Uploaded Video Analysis', {
+            videoUrl,
+            mimeType,
+            videoDurationMinutes,
+        });
 
         if (!userId) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, "User ID is required for uploaded video analysis billing.");
+            throw new AppError(ErrorCode.UNAUTHORIZED, 'User ID is required for uploaded video analysis billing.');
         }
 
         const cacheKeyData = { videoUrl, vehicleContext, mimeType, reasoningEffort, videoDurationMinutes };
@@ -157,18 +167,20 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         const genConfig = this.getGenerationConfigForChat(reasoningEffort);
 
         const request = {
-            contents: [{
-                role: 'user',
-                parts: [
-                    {
-                        fileData: {
-                            mimeType: mimeType,
-                            fileUri: videoUrl
-                        }
-                    },
-                    { text: fullPrompt }
-                ]
-            }],
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        {
+                            fileData: {
+                                mimeType: mimeType,
+                                fileUri: videoUrl,
+                            },
+                        },
+                        { text: fullPrompt },
+                    ],
+                },
+            ],
             generationConfig: {
                 responseMimeType: 'application/json',
                 thinkingConfig: genConfig.thinkingConfig,
@@ -185,28 +197,43 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                         engineDescription: { type: SchemaType.STRING },
                         isStock: { type: SchemaType.BOOLEAN },
                         visualConflictDetected: { type: SchemaType.BOOLEAN },
-                        detectedCondition: { type: SchemaType.STRING, enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'] },
+                        detectedCondition: {
+                            type: SchemaType.STRING,
+                            enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'],
+                        },
                         confidence: { type: SchemaType.NUMBER },
                         verification: {
                             type: SchemaType.OBJECT,
                             properties: {
                                 isVerified: { type: SchemaType.BOOLEAN },
                                 verifiedSource: { type: SchemaType.STRING, nullable: true },
-                                conflictingEvidence: { type: SchemaType.STRING, nullable: true }
+                                conflictingEvidence: { type: SchemaType.STRING, nullable: true },
                             },
-                            required: ['isVerified']
-                        }
+                            required: ['isVerified'],
+                        },
                     },
-                    required: ['safety_alert', 'severity', 'diagnosis', 'visual_evidence', 'acoustic_evidence', 'suggested_actions', 'engineDescription', 'isStock', 'visualConflictDetected', 'detectedCondition', 'confidence']
-                }
-            } as unknown as import('@google-cloud/vertexai').GenerationConfig
+                    required: [
+                        'safety_alert',
+                        'severity',
+                        'diagnosis',
+                        'visual_evidence',
+                        'acoustic_evidence',
+                        'suggested_actions',
+                        'engineDescription',
+                        'isStock',
+                        'visualConflictDetected',
+                        'detectedCondition',
+                        'confidence',
+                    ],
+                },
+            } as unknown as import('@google-cloud/vertexai').GenerationConfig,
         };
 
         try {
             const result = await this.tracer.traceAiCall({
                 name: 'uploaded_video_diagnostic_structured',
                 inputs: { videoUrl, vehicleContext, mimeType },
-                exec: async () => this.model.generateContent(request)
+                exec: async () => this.model.generateContent(request),
             });
 
             const vertexResult = result as unknown as GenerateContentResult;
@@ -218,19 +245,22 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                     inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
                     outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: CONFIG.AI_MODELS.CHAT_MODEL,
-                    timestamp: new Date()
+                    timestamp: new Date(),
                 });
             }
 
             const responseText = vertexResult.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response for uploaded video analysis");
+            if (!responseText)
+                throw new AppError(
+                    ErrorCode.AI_SERVICE_ERROR,
+                    'AI returned empty response for uploaded video analysis',
+                );
 
             const analysis = AIAnalysisSchema.parse(JSON.parse(responseText));
             await this.cacheService.createCache([{ text: responseText }], this.CACHE_TTL_SECONDS, cacheKey);
             return analysis;
-
         } catch (error) {
-            this.logger.error("Vertex AI Uploaded Video Analysis Failure", error);
+            this.logger.error('Vertex AI Uploaded Video Analysis Failure', error);
             throw error;
         }
     }
@@ -241,12 +271,15 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         mimeType: string = 'image/jpeg',
         userId?: string,
         sessionId?: string,
-        reasoningEffort?: ReasoningEffort
+        reasoningEffort?: ReasoningEffort,
     ): Promise<AIAnalysis> {
-        this.logger.debug("Sending to Vertex AI (Structured Output) for Uploaded Image Analysis", { imageUrl, mimeType });
+        this.logger.debug('Sending to Vertex AI (Structured Output) for Uploaded Image Analysis', {
+            imageUrl,
+            mimeType,
+        });
 
         if (!userId) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, "User ID is required for uploaded image analysis billing.");
+            throw new AppError(ErrorCode.UNAUTHORIZED, 'User ID is required for uploaded image analysis billing.');
         }
 
         const cacheKeyData = { imageUrl, vehicleContext, mimeType, reasoningEffort };
@@ -268,18 +301,20 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         const genConfig = this.getGenerationConfigForChat(reasoningEffort);
 
         const request = {
-            contents: [{
-                role: 'user',
-                parts: [
-                    {
-                        fileData: {
-                            mimeType: mimeType,
-                            fileUri: imageUrl
-                        }
-                    },
-                    { text: fullPrompt }
-                ]
-            }],
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        {
+                            fileData: {
+                                mimeType: mimeType,
+                                fileUri: imageUrl,
+                            },
+                        },
+                        { text: fullPrompt },
+                    ],
+                },
+            ],
             generationConfig: {
                 responseMimeType: 'application/json',
                 thinkingConfig: genConfig.thinkingConfig,
@@ -296,28 +331,43 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                         engineDescription: { type: SchemaType.STRING },
                         isStock: { type: SchemaType.BOOLEAN },
                         visualConflictDetected: { type: SchemaType.BOOLEAN },
-                        detectedCondition: { type: SchemaType.STRING, enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'] },
+                        detectedCondition: {
+                            type: SchemaType.STRING,
+                            enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'],
+                        },
                         confidence: { type: SchemaType.NUMBER },
                         verification: {
                             type: SchemaType.OBJECT,
                             properties: {
                                 isVerified: { type: SchemaType.BOOLEAN },
                                 verifiedSource: { type: SchemaType.STRING, nullable: true },
-                                conflictingEvidence: { type: SchemaType.STRING, nullable: true }
+                                conflictingEvidence: { type: SchemaType.STRING, nullable: true },
                             },
-                            required: ['isVerified']
-                        }
+                            required: ['isVerified'],
+                        },
                     },
-                    required: ['safety_alert', 'severity', 'diagnosis', 'visual_evidence', 'acoustic_evidence', 'suggested_actions', 'engineDescription', 'isStock', 'visualConflictDetected', 'detectedCondition', 'confidence']
-                }
-            } as unknown as import('@google-cloud/vertexai').GenerationConfig
+                    required: [
+                        'safety_alert',
+                        'severity',
+                        'diagnosis',
+                        'visual_evidence',
+                        'acoustic_evidence',
+                        'suggested_actions',
+                        'engineDescription',
+                        'isStock',
+                        'visualConflictDetected',
+                        'detectedCondition',
+                        'confidence',
+                    ],
+                },
+            } as unknown as import('@google-cloud/vertexai').GenerationConfig,
         };
 
         try {
             const result = await this.tracer.traceAiCall({
                 name: 'uploaded_image_diagnostic_structured',
                 inputs: { imageUrl, vehicleContext, mimeType },
-                exec: async () => this.model.generateContent(request)
+                exec: async () => this.model.generateContent(request),
             });
 
             const vertexResult = result as unknown as GenerateContentResult;
@@ -329,19 +379,22 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                     inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
                     outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: CONFIG.AI_MODELS.CHAT_MODEL,
-                    timestamp: new Date()
+                    timestamp: new Date(),
                 });
             }
 
             const responseText = vertexResult.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response for uploaded image analysis");
+            if (!responseText)
+                throw new AppError(
+                    ErrorCode.AI_SERVICE_ERROR,
+                    'AI returned empty response for uploaded image analysis',
+                );
 
             const analysis = AIAnalysisSchema.parse(JSON.parse(responseText));
             await this.cacheService.createCache([{ text: responseText }], this.CACHE_TTL_SECONDS, cacheKey);
             return analysis;
-
         } catch (error) {
-            this.logger.error("Vertex AI Uploaded Image Analysis Failure", error);
+            this.logger.error('Vertex AI Uploaded Image Analysis Failure', error);
             throw error;
         }
     }
@@ -356,25 +409,26 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         vin?: string,
         reasoningEffort?: ReasoningEffort,
         additionalParts?: Part[],
-        traceId?: string
+        traceId?: string,
     ): AsyncGenerator<StreamingEvent, void, unknown> {
         const genConfig = this.getGenerationConfigForChat(reasoningEffort);
 
         const chat = this.model.startChat({
-            history: history.map(msg => {
+            history: history.map((msg) => {
                 let parts: Part[] = [];
                 if (typeof msg.content === 'string') {
                     parts.push({ text: msg.content });
                 } else if (Array.isArray(msg.content)) {
-                    parts = (msg.content as MessagePart[]).map(part => {
+                    parts = (msg.content as MessagePart[]).map((part) => {
                         if (part.type === 'text' && part.text) return { text: part.text };
-                        if (part.type === 'image' && part.image) return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
+                        if (part.type === 'image' && part.image)
+                            return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
                         return { text: '' };
                     });
                 }
                 return {
                     role: msg.role === 'assistant' ? 'model' : 'user',
-                    parts: parts
+                    parts: parts,
                 };
             }),
             generationConfig: {
@@ -403,7 +457,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         const currentInput: Part[] = userParts;
         let loopCount = 0;
         const MAX_LOOPS = 3;
-        let accumulatedText = "";
+        let accumulatedText = '';
 
         while (loopCount < MAX_LOOPS) {
             const result = await chat.sendMessageStream(currentInput);
@@ -417,7 +471,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                 }
 
                 // 2. Handle Text Chunks
-                const partText = parts.find(p => p.text)?.text || "";
+                const partText = parts.find((p) => p.text)?.text || '';
                 if (partText) {
                     accumulatedText += partText;
                     yield { type: 'text', content: partText };
@@ -428,18 +482,22 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
 
             // Handle Billing
             if (finalResponse.usageMetadata) {
-                await this.billingService.recordUsage({
-                    userId, sessionId,
-                    inputTokens: finalResponse.usageMetadata.promptTokenCount || 0,
-                    outputTokens: finalResponse.usageMetadata.candidatesTokenCount || 0,
-                    model: CONFIG.AI_MODELS.CHAT_MODEL,
-                    timestamp: new Date()
-                }, traceId);
+                await this.billingService.recordUsage(
+                    {
+                        userId,
+                        sessionId,
+                        inputTokens: finalResponse.usageMetadata.promptTokenCount || 0,
+                        outputTokens: finalResponse.usageMetadata.candidatesTokenCount || 0,
+                        model: CONFIG.AI_MODELS.CHAT_MODEL,
+                        timestamp: new Date(),
+                    },
+                    traceId,
+                );
             }
 
             // 3. Handle Tool Calls
             const finalParts = finalResponse.candidates?.[0]?.content?.parts || [];
-            const toolCalls = finalParts.filter(p => p.functionCall);
+            const toolCalls = finalParts.filter((p) => p.functionCall);
 
             for (const call of toolCalls) {
                 if (call.functionCall) {
@@ -447,23 +505,23 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                         type: 'tool_call',
                         toolName: call.functionCall.name,
                         toolCallId: 'call_' + Math.random().toString(36).substr(2, 9),
-                        args: call.functionCall.args
+                        args: call.functionCall.args,
                     };
                 }
             }
 
             // Orchestrate Tools
-            const nextResponse = await this.functionCallService.handleFunctionCalls(
-                finalResponse,
-                chat,
-                { userId, sessionId, vin }
-            );
+            const nextResponse = await this.functionCallService.handleFunctionCalls(finalResponse, chat, {
+                userId,
+                sessionId,
+                vin,
+            });
 
             if (nextResponse !== finalResponse) {
                 // Tools were run!
                 const nextParts = nextResponse.candidates?.[0]?.content?.parts || [];
-                const nextText = nextParts.find(p => p.text)?.text || "";
-                const newText = nextText.replace(accumulatedText, "");
+                const nextText = nextParts.find((p) => p.text)?.text || '';
+                const newText = nextText.replace(accumulatedText, '');
                 if (newText) {
                     accumulatedText += newText;
                     yield { type: 'text', content: newText };
@@ -489,11 +547,22 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         vin?: string,
         reasoningEffort?: ReasoningEffort,
         additionalParts?: Part[],
-        traceId?: string
+        traceId?: string,
     ): Promise<string | MessagePart[]> {
         const genConfig = this.getGenerationConfigForChat(reasoningEffort);
 
-        const cacheKeyData = { history, message, vehicleContext, diagnosticContext, genConfig, userId, sessionId, vin, reasoningEffort, additionalParts };
+        const cacheKeyData = {
+            history,
+            message,
+            vehicleContext,
+            diagnosticContext,
+            genConfig,
+            userId,
+            sessionId,
+            vin,
+            reasoningEffort,
+            additionalParts,
+        };
         const cacheKey = `generateReply-${JSON.stringify(cacheKeyData)}`;
         const existingCache = await this.cacheService.getCache(cacheKey);
 
@@ -503,14 +572,15 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         }
 
         const chat = this.model.startChat({
-            history: history.map(msg => {
+            history: history.map((msg) => {
                 let parts: Part[] = [];
                 if (typeof msg.content === 'string') {
                     parts.push({ text: msg.content });
                 } else if (Array.isArray(msg.content)) {
-                    parts = (msg.content as MessagePart[]).map(part => {
+                    parts = (msg.content as MessagePart[]).map((part) => {
                         if (part.type === 'text' && part.text) return { text: part.text };
-                        if (part.type === 'image' && part.image) return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
+                        if (part.type === 'image' && part.image)
+                            return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
                         return { text: '' };
                     });
                 } else if (msg.content !== null && msg.content !== undefined) {
@@ -518,7 +588,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                 }
                 return {
                     role: msg.role === 'assistant' ? 'model' : 'user',
-                    parts: parts
+                    parts: parts,
                 };
             }),
             generationConfig: {
@@ -549,7 +619,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             inputs: {
                 vehicleContext,
                 hasDiagnosticContext: !!diagnosticContext,
-                hasAdditionalParts: !!(additionalParts && additionalParts.length > 0)
+                hasAdditionalParts: !!(additionalParts && additionalParts.length > 0),
             },
             exec: () => {
                 // Set traceId in RequestContext for the execution
@@ -557,30 +627,29 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                     return RequestContext.run({ traceId }, () => chat.sendMessage(userParts));
                 }
                 return chat.sendMessage(userParts);
-            }
+            },
         });
 
         if (result.response.usageMetadata) {
-            await this.billingService.recordUsage({
-                userId: userId,
-                sessionId: sessionId,
-                inputTokens: result.response.usageMetadata.promptTokenCount || 0,
-                outputTokens: result.response.usageMetadata.candidatesTokenCount || 0,
-                model: CONFIG.AI_MODELS.CHAT_MODEL, // Use CHAT_MODEL
-                timestamp: new Date()
-            }, traceId);
+            await this.billingService.recordUsage(
+                {
+                    userId: userId,
+                    sessionId: sessionId,
+                    inputTokens: result.response.usageMetadata.promptTokenCount || 0,
+                    outputTokens: result.response.usageMetadata.candidatesTokenCount || 0,
+                    model: CONFIG.AI_MODELS.CHAT_MODEL, // Use CHAT_MODEL
+                    timestamp: new Date(),
+                },
+                traceId,
+            );
         }
 
         let response = result.response;
-        response = await this.functionCallService.handleFunctionCalls(
-            response,
-            chat,
-            {
-                userId,
-                sessionId,
-                vin
-            }
-        );
+        response = await this.functionCallService.handleFunctionCalls(response, chat, {
+            userId,
+            sessionId,
+            vin,
+        });
 
         const finalCandidate = response.candidates?.[0];
         const contentParts = finalCandidate?.content?.parts || [];
@@ -593,7 +662,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             const textPart = contentParts.find((p: Part) => p.text);
             if (textPart) text = textPart.text;
         }
-        text = text || "I processed that request.";
+        text = text || 'I processed that request.';
 
         const groundingMetadata = finalCandidate?.groundingMetadata;
 
@@ -620,15 +689,21 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
                     type: 'tool-call',
                     toolName: call.name,
                     toolCallId: 'call_' + Math.random().toString(36).substr(2, 9),
-                    args: call.args
+                    args: call.args,
                 });
             }
         }
 
-        const finalResponse = (messageParts.length > 1 || (messageParts.length === 1 && messageParts[0].type !== 'text'))
-            ? messageParts : text;
+        const finalResponse =
+            messageParts.length > 1 || (messageParts.length === 1 && messageParts[0].type !== 'text')
+                ? messageParts
+                : text;
 
-        await this.cacheService.createCache([{ text: JSON.stringify(finalResponse) }], this.CACHE_TTL_SECONDS, cacheKey); // Cache the final response
+        await this.cacheService.createCache(
+            [{ text: JSON.stringify(finalResponse) }],
+            this.CACHE_TTL_SECONDS,
+            cacheKey,
+        ); // Cache the final response
         return finalResponse;
     }
 
@@ -638,21 +713,26 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
         if (typeof content === 'string') {
             parts = [{ text: content }];
         } else if (Array.isArray(content)) {
-            if (content.length > 0 && ('type' in content[0] || 'text' in content[0] || 'inlineData' in content[0] || 'fileData' in content[0])) {
-                parts = (content as MessagePart[]).map(part => {
-                    if (part.type === 'text' && part.text) return { text: part.text };
-                    if (part.type === 'image' && part.image) {
-                        if (part.image.startsWith('http') || part.image.startsWith('gs://')) {
-                            return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
-                        } else if (part.image.startsWith('data:')) {
-                            const matches = part.image.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-                            if (matches && matches.length === 3) {
-                                return { inlineData: { mimeType: matches[1], data: matches[2] } };
+            if (
+                content.length > 0 &&
+                ('type' in content[0] || 'text' in content[0] || 'inlineData' in content[0] || 'fileData' in content[0])
+            ) {
+                parts = (content as MessagePart[])
+                    .map((part) => {
+                        if (part.type === 'text' && part.text) return { text: part.text };
+                        if (part.type === 'image' && part.image) {
+                            if (part.image.startsWith('http') || part.image.startsWith('gs://')) {
+                                return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
+                            } else if (part.image.startsWith('data:')) {
+                                const matches = part.image.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+                                if (matches && matches.length === 3) {
+                                    return { inlineData: { mimeType: matches[1], data: matches[2] } };
+                                }
                             }
                         }
-                    }
-                    return { text: '' };
-                }).filter(p => ('text' in p && p.text !== '') || ('fileData' in p) || ('inlineData' in p));
+                        return { text: '' };
+                    })
+                    .filter((p) => ('text' in p && p.text !== '') || 'fileData' in p || 'inlineData' in p);
             } else {
                 parts = content as Part[];
             }
@@ -662,14 +742,16 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
 
         try {
             const result = await this.model.countTokens({
-                contents: [{
-                    role: 'user',
-                    parts: parts
-                }]
+                contents: [
+                    {
+                        role: 'user',
+                        parts: parts,
+                    },
+                ],
             });
             return result.totalTokens;
         } catch (error) {
-            this.logger.error("countTokens failed", error);
+            this.logger.error('countTokens failed', error);
             return 0;
         }
     }

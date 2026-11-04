@@ -11,10 +11,7 @@ export class ContextCacheService implements IContextCacheService {
     private vertex: VertexAI;
     private logger: ILogger;
 
-    constructor(
-        @inject(TYPES.Logger) logger: ILogger,
-        @inject(TYPES.ConfigProvider) config: IConfigProvider
-    ) {
+    constructor(@inject(TYPES.Logger) logger: ILogger, @inject(TYPES.ConfigProvider) config: IConfigProvider) {
         this.logger = logger;
 
         const fbConfig = config.getFirebaseConfig();
@@ -25,16 +22,19 @@ export class ContextCacheService implements IContextCacheService {
                 credentials = JSON.parse(key);
             } catch (error) {
                 this.logger.error('Invalid FIREBASE_SERVICE_ACCOUNT_KEY', error as Error);
-                throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Invalid FIREBASE_SERVICE_ACCOUNT_KEY: Failed to parse JSON');
+                throw new AppError(
+                    ErrorCode.INTERNAL_SERVER_ERROR,
+                    'Invalid FIREBASE_SERVICE_ACCOUNT_KEY: Failed to parse JSON',
+                );
             }
         }
-        
+
         const gcloudConfig = config.getGoogleCloudConfig();
-        
+
         this.vertex = new VertexAI({
             project: gcloudConfig.projectId,
             location: 'us', // Context Cache is typically strictly region-bound, often 'us-central1' or 'us'
-            googleAuthOptions: { credentials }
+            googleAuthOptions: { credentials },
         });
     }
 
@@ -55,12 +55,12 @@ export class ContextCacheService implements IContextCacheService {
             const contents = [
                 {
                     role: 'user',
-                    parts: parts.map(p => {
+                    parts: parts.map((p) => {
                         if (p.text) return { text: p.text };
                         if (p.fileData) return { fileData: p.fileData };
                         return { text: '' };
-                    })
-                }
+                    }),
+                },
             ];
 
             const cacheConfig: Record<string, unknown> = {
@@ -78,17 +78,17 @@ export class ContextCacheService implements IContextCacheService {
             this.logger.info('Context Cache Created', {
                 name: response.name,
                 displayName: response.displayName,
-                expireTime: response.expireTime
+                expireTime: response.expireTime,
             });
 
             if (!response.name) {
-                throw new AppError(ErrorCode.AI_SERVICE_ERROR, "Failed to create cache: No resource name returned");
+                throw new AppError(ErrorCode.AI_SERVICE_ERROR, 'Failed to create cache: No resource name returned');
             }
 
             return response.name;
         } catch (error) {
             this.logger.error('Failed to create context cache', error as Error);
-            throw new AppError(ErrorCode.AI_SERVICE_ERROR, "Context caching failed");
+            throw new AppError(ErrorCode.AI_SERVICE_ERROR, 'Context caching failed');
         }
     }
 
@@ -106,10 +106,13 @@ export class ContextCacheService implements IContextCacheService {
         try {
             this.logger.info('Updating Context Cache TTL', { cacheName, ttlSeconds });
 
-            await this.cacheManager.update({
-                name: cacheName,
-                ttl: `${ttlSeconds}s`
-            }, ['ttl']);
+            await this.cacheManager.update(
+                {
+                    name: cacheName,
+                    ttl: `${ttlSeconds}s`,
+                },
+                ['ttl'],
+            );
 
             this.logger.info('Context Cache Updated Successfully', { cacheName });
         } catch (error) {
@@ -133,7 +136,7 @@ export class ContextCacheService implements IContextCacheService {
         try {
             this.logger.info('Listing Context Caches');
             const result = await this.cacheManager.list();
-            
+
             const safeResult = result as { cachedContents?: unknown[] } | unknown[];
             if (Array.isArray(safeResult)) {
                 return safeResult;
@@ -158,7 +161,10 @@ export class ContextCacheService implements IContextCacheService {
 
             if (match) {
                 const cachedContent = match as { name: string };
-                this.logger.info('Found existing cache by display name', { displayName, cacheName: cachedContent.name });
+                this.logger.info('Found existing cache by display name', {
+                    displayName,
+                    cacheName: cachedContent.name,
+                });
                 return cachedContent.name;
             }
 

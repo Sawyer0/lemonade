@@ -1,6 +1,6 @@
 /**
  * generate-safety-rules.ts
- * 
+ *
  * Generates automotive safety rules using Gemini's knowledge base.
  * Run with: npx tsx packages/infrastructure/scripts/generate-safety-rules.ts
  */
@@ -25,12 +25,12 @@ const GENERATED_RULES_SCHEMA: Schema = {
                 type: SchemaType.OBJECT,
                 properties: {
                     id: { type: SchemaType.STRING },
-                    pattern: { type: SchemaType.STRING, description: "Regex pattern as string (without slashes)" },
+                    pattern: { type: SchemaType.STRING, description: 'Regex pattern as string (without slashes)' },
                     hazard: { type: SchemaType.STRING },
-                    message: { type: SchemaType.STRING }
+                    message: { type: SchemaType.STRING },
                 },
-                required: ["id", "pattern", "hazard", "message"]
-            }
+                required: ['id', 'pattern', 'hazard', 'message'],
+            },
         },
         interactionHazards: {
             type: SchemaType.ARRAY,
@@ -38,26 +38,42 @@ const GENERATED_RULES_SCHEMA: Schema = {
                 type: SchemaType.OBJECT,
                 properties: {
                     id: { type: SchemaType.STRING },
-                    nounPattern: { type: SchemaType.STRING, description: "Regex pattern for dangerous nouns" },
+                    nounPattern: { type: SchemaType.STRING, description: 'Regex pattern for dangerous nouns' },
                     hazard: { type: SchemaType.STRING },
-                    message: { type: SchemaType.STRING }
+                    message: { type: SchemaType.STRING },
                 },
-                required: ["id", "nounPattern", "hazard", "message"]
-            }
+                required: ['id', 'nounPattern', 'hazard', 'message'],
+            },
         },
         safeVerbs: {
             type: SchemaType.ARRAY,
-            items: { type: SchemaType.STRING }
-        }
+            items: { type: SchemaType.STRING },
+        },
     },
-    required: ["environmentalTriggers", "interactionHazards", "safeVerbs"]
+    required: ['environmentalTriggers', 'interactionHazards', 'safeVerbs'],
 };
 
 const HAZARD_TYPES = [
-    "JACK_STAND_MISSING", "HIGH_VOLTAGE", "FUEL_LEAK", "SAFETY_CHECK_FAILED", "NONE",
-    "CARBON_MONOXIDE", "AIRBAG_DEPLOYMENT", "BRAKE_FAILURE", "COOLANT_LEAK", "EXHAUST_FUMES",
-    "ROTATING_PARTS", "HOT_SURFACES", "CHEMICAL_EXPOSURE", "SUSPENDED_LOAD", "PRESSURIZED_SYSTEM",
-    "BATTERY_ACID", "REFRIGERANT_LEAK", "ELECTRICAL_SHORT", "UNSTABLE_VEHICLE", "FIRE_RISK"
+    'JACK_STAND_MISSING',
+    'HIGH_VOLTAGE',
+    'FUEL_LEAK',
+    'SAFETY_CHECK_FAILED',
+    'NONE',
+    'CARBON_MONOXIDE',
+    'AIRBAG_DEPLOYMENT',
+    'BRAKE_FAILURE',
+    'COOLANT_LEAK',
+    'EXHAUST_FUMES',
+    'ROTATING_PARTS',
+    'HOT_SURFACES',
+    'CHEMICAL_EXPOSURE',
+    'SUSPENDED_LOAD',
+    'PRESSURIZED_SYSTEM',
+    'BATTERY_ACID',
+    'REFRIGERANT_LEAK',
+    'ELECTRICAL_SHORT',
+    'UNSTABLE_VEHICLE',
+    'FIRE_RISK',
 ];
 
 const GENERATION_PROMPT = `
@@ -105,7 +121,7 @@ scan, scanning, scanned, notice, noticing, noticed, find, finding, found,
 view, viewing, watch, watching, read, reading, verify, identify, assess, evaluate, review, document
 
 CRITICAL REQUIREMENTS:
-- Use hazard types from: ${HAZARD_TYPES.join(", ")}
+- Use hazard types from: ${HAZARD_TYPES.join(', ')}
 - Patterns: regex strings with \\\\b word boundaries
 - Make patterns BROAD to catch natural language variations
 - IDs: "env-001", "int-001" format
@@ -115,7 +131,9 @@ async function generateSafetyRules() {
     const apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-        console.error('Error: GOOGLE_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or GEMINI_API_KEY environment variable required');
+        console.error(
+            'Error: GOOGLE_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or GEMINI_API_KEY environment variable required',
+        );
         process.exit(1);
     }
 
@@ -127,7 +145,7 @@ async function generateSafetyRules() {
         generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: GENERATED_RULES_SCHEMA,
-        }
+        },
     });
 
     try {
@@ -140,9 +158,9 @@ async function generateSafetyRules() {
         // Add metadata
         const output = {
             generatedAt: new Date().toISOString(),
-            version: "1.0.0",
-            generator: "gemini-2.5-flash",
-            ...generatedRules
+            version: '1.0.0',
+            generator: 'gemini-2.5-flash',
+            ...generatedRules,
         };
 
         // Write to output file
@@ -153,7 +171,6 @@ async function generateSafetyRules() {
         console.log(`✅ Generated ${output.interactionHazards.length} interaction hazards`);
         console.log(`✅ Generated ${output.safeVerbs.length} safe verbs`);
         console.log(`📁 Saved to: ${outputPath}`);
-
     } catch (error) {
         console.error('❌ Error generating rules:', error);
         process.exit(1);

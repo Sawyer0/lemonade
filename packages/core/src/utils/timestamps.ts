@@ -1,6 +1,6 @@
 /**
- * @param obj 
- * @returns 
+ * @param obj
+ * @returns
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const convertTimestamps = (obj: any): any => {

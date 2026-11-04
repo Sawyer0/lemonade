@@ -9,4 +9,3 @@ export class ServerAuthService implements IServerAuthService {
         return adminAuth.verifyIdToken(token);
     }
 }
-

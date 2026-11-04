@@ -22,9 +22,9 @@ export interface IContextCacheService {
     getCache(cacheName: string): Promise<unknown>;
 
     /**
-     * @param cacheName 
-     * @param ttlSeconds 
-     * @returns 
+     * @param cacheName
+     * @param ttlSeconds
+     * @returns
      */
     updateCache(cacheName: string, ttlSeconds: number): Promise<void>;
 
@@ -34,13 +34,13 @@ export interface IContextCacheService {
     deleteCache(cacheName: string): Promise<void>;
 
     /**
-     * @returns 
+     * @returns
      */
     listCaches(): Promise<unknown[]>;
 
     /**
-     * @param displayName 
-     * @returns 
+     * @param displayName
+     * @returns
      */
     findCacheByDisplayName(displayName: string): Promise<string | null>;
 }

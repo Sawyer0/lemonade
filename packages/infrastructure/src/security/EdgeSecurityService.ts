@@ -3,7 +3,9 @@ import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { injectable } from 'inversify';
 import { CONFIG } from '../config';
 
-const JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
+const JWKS = createRemoteJWKSet(
+    new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'),
+);
 
 @injectable()
 export class EdgeSecurityService implements IEdgeSecurityService {
@@ -13,13 +15,10 @@ export class EdgeSecurityService implements IEdgeSecurityService {
         // Prepare the key for HMAC
         const encoder = new TextEncoder();
         const keyData = encoder.encode(CONFIG.SECURITY.INTERNAL_SECRET);
-        this.secretKey = crypto.subtle.importKey(
-            'raw',
-            keyData,
-            { name: 'HMAC', hash: 'SHA-256' },
-            false,
-            ['sign', 'verify']
-        );
+        this.secretKey = crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, [
+            'sign',
+            'verify',
+        ]);
     }
 
     async verifyToken(token: string): Promise<Record<string, unknown> | null> {
@@ -42,18 +41,14 @@ export class EdgeSecurityService implements IEdgeSecurityService {
         const encoder = new TextEncoder();
         // Sort keys to ensure consistent string representation
         const sortedKeys = Object.keys(payload).sort();
-        const dataToSign = sortedKeys.map(k => `${k}:${payload[k]}`).join('|');
-        
+        const dataToSign = sortedKeys.map((k) => `${k}:${payload[k]}`).join('|');
+
         const key = await this.secretKey;
-        const signatureBuffer = await crypto.subtle.sign(
-            'HMAC',
-            key,
-            encoder.encode(dataToSign)
-        );
+        const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(dataToSign));
 
         // Convert to hex string
         return Array.from(new Uint8Array(signatureBuffer))
-            .map(b => b.toString(16).padStart(2, '0'))
+            .map((b) => b.toString(16).padStart(2, '0'))
             .join('');
     }
 
@@ -62,7 +57,9 @@ export class EdgeSecurityService implements IEdgeSecurityService {
         return expectedSignature === signature;
     }
 
-    async getAuthenticatedUser(req: Request): Promise<{ userId: string; tier: 'free' | 'pro'; traceId: string } | null> {
+    async getAuthenticatedUser(
+        req: Request,
+    ): Promise<{ userId: string; tier: 'free' | 'pro'; traceId: string } | null> {
         const userId = req.headers.get('x-user-id');
         const tier = req.headers.get('x-user-tier') as 'free' | 'pro';
         const traceId = req.headers.get('x-trace-id');
@@ -75,7 +72,7 @@ export class EdgeSecurityService implements IEdgeSecurityService {
         const payload = {
             'x-user-id': userId,
             'x-user-tier': tier,
-            'x-trace-id': traceId
+            'x-trace-id': traceId,
         };
 
         const isValid = await this.verifyPayloadSignature(payload, signature);

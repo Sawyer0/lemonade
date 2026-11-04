@@ -14,7 +14,7 @@ interface ApiRequestOptions<T> {
 export class ApiClient {
     private static async request<TResponse, TBody = unknown>(
         endpoint: string,
-        options: ApiRequestOptions<TBody> = {}
+        options: ApiRequestOptions<TBody> = {},
     ): Promise<TResponse> {
         const { method = 'GET', body, headers = {}, skipAuth = false } = options;
         const logger = clientContainer.get<ILogger>(TYPES.Logger);
@@ -57,7 +57,6 @@ export class ApiClient {
             }
 
             return await response.json();
-
         } catch (error) {
             logger.error(`API Request Failed: ${method} ${endpoint}`, error);
             throw error;
@@ -80,4 +79,3 @@ export class ApiClient {
         return this.request<T>(endpoint, { method: 'DELETE', headers });
     }
 }
-

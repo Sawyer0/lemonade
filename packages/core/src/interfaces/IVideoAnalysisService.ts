@@ -7,6 +7,6 @@ export interface IVideoAnalysisService {
         context: string,
         mimeType: string,
         userId: string,
-        sessionId: string
-        ): Promise<AIAnalysis>;
+        sessionId: string,
+    ): Promise<AIAnalysis>;
 }

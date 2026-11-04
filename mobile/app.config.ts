@@ -10,12 +10,8 @@ const appConfig = ({ config }: ConfigContext): ExpoConfig => {
 
     if (isWeb || disableAI) {
         // Filter out plugins that are known to cause issues on web or are native-only
-        const nativeOnlyPlugins = [
-            '@livekit/react-native',
-            'react-native-vision-camera',
-            'llama.rn'
-        ];
-        plugins = plugins.filter(plugin => {
+        const nativeOnlyPlugins = ['@livekit/react-native', 'react-native-vision-camera', 'llama.rn'];
+        plugins = plugins.filter((plugin) => {
             const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
             return !nativeOnlyPlugins.includes(pluginName);
         });
@@ -23,8 +19,8 @@ const appConfig = ({ config }: ConfigContext): ExpoConfig => {
 
     return {
         ...config,
-        name: config.name ?? "mobile",
-        slug: config.slug ?? "mobile",
+        name: config.name ?? 'mobile',
+        slug: config.slug ?? 'mobile',
         plugins,
     };
 };

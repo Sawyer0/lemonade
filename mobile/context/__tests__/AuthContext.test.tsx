@@ -17,7 +17,7 @@ jest.mock('firebase/firestore', () => ({
     getDocs: jest.fn(),
 }));
 jest.mock('../../infrastructure/firebase/config', () => ({
-    db: {}
+    db: {},
 }));
 
 describe('AuthContext', () => {
@@ -25,7 +25,7 @@ describe('AuthContext', () => {
         uid: 'test-uid',
         email: 'test@example.com',
         displayName: 'Test User',
-        photoURL: 'https://example.com/photo.jpg'
+        photoURL: 'https://example.com/photo.jpg',
     };
 
     const mockLogin = jest.fn();
@@ -41,14 +41,12 @@ describe('AuthContext', () => {
             login: mockLogin,
             signup: mockSignup,
             signOut: mockSignOut,
-            signInWithGoogle: mockSignInWithGoogle
+            signInWithGoogle: mockSignInWithGoogle,
         });
     });
 
     it('should provide null user when not authenticated', async () => {
-        const wrapper = ({ children }: { children: React.ReactNode }) => (
-            <AuthProvider>{children}</AuthProvider>
-        );
+        const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
         const { result } = renderHook(() => useAuth(), { wrapper });
 
         await waitFor(() => {
@@ -65,7 +63,7 @@ describe('AuthContext', () => {
             login: mockLogin,
             signup: mockSignup,
             signOut: mockSignOut,
-            signInWithGoogle: mockSignInWithGoogle
+            signInWithGoogle: mockSignInWithGoogle,
         });
 
         const mockProfile = {
@@ -75,30 +73,30 @@ describe('AuthContext', () => {
             tier: 'free',
             preferences: { autoOpenCamera: false },
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
         };
 
         (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
             callback({
                 exists: () => true,
-                data: () => mockProfile
+                data: () => mockProfile,
             });
             return jest.fn();
         });
 
-        const wrapper = ({ children }: { children: React.ReactNode }) => (
-            <AuthProvider>{children}</AuthProvider>
-        );
+        const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
         const { result } = renderHook(() => useAuth(), { wrapper });
 
         await waitFor(() => {
             expect(result.current.isLoading).toBe(false);
         });
 
-        expect(result.current.user).toEqual(expect.objectContaining({
-            id: 'test-uid',
-            email: 'test@example.com'
-        }));
+        expect(result.current.user).toEqual(
+            expect.objectContaining({
+                id: 'test-uid',
+                email: 'test@example.com',
+            }),
+        );
     });
 
     describe('Auth Error Handling', () => {
@@ -111,17 +109,14 @@ describe('AuthContext', () => {
                 login: mockLogin,
                 signup: mockSignup,
                 signOut: mockSignOut,
-                signInWithGoogle: mockSignInWithGoogle
+                signInWithGoogle: mockSignInWithGoogle,
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             await act(async () => {
-                await expect(result.current.login('test@test.com', 'password'))
-                    .rejects.toThrow('Invalid credentials');
+                await expect(result.current.login('test@test.com', 'password')).rejects.toThrow('Invalid credentials');
             });
         });
 
@@ -134,17 +129,16 @@ describe('AuthContext', () => {
                 login: mockLogin,
                 signup: mockSignup,
                 signOut: mockSignOut,
-                signInWithGoogle: mockSignInWithGoogle
+                signInWithGoogle: mockSignInWithGoogle,
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             await act(async () => {
-                await expect(result.current.signup('test@test.com', 'password'))
-                    .rejects.toThrow('Email already in use');
+                await expect(result.current.signup('test@test.com', 'password')).rejects.toThrow(
+                    'Email already in use',
+                );
             });
         });
 
@@ -157,17 +151,14 @@ describe('AuthContext', () => {
                 login: mockLogin,
                 signup: mockSignup,
                 signOut: mockSignOut,
-                signInWithGoogle: mockSignInWithGoogle
+                signInWithGoogle: mockSignInWithGoogle,
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             await act(async () => {
-                await expect(result.current.signOut())
-                    .rejects.toThrow('Sign out failed');
+                await expect(result.current.signOut()).rejects.toThrow('Sign out failed');
             });
         });
 
@@ -180,17 +171,14 @@ describe('AuthContext', () => {
                 login: mockLogin,
                 signup: mockSignup,
                 signOut: mockSignOut,
-                signInWithGoogle: mockSignInWithGoogle
+                signInWithGoogle: mockSignInWithGoogle,
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             await act(async () => {
-                await expect(result.current.signInWithGoogle())
-                    .rejects.toThrow('Google sign-in cancelled');
+                await expect(result.current.signInWithGoogle()).rejects.toThrow('Google sign-in cancelled');
             });
         });
     });
@@ -203,7 +191,7 @@ describe('AuthContext', () => {
                 login: mockLogin,
                 signup: mockSignup,
                 signOut: mockSignOut,
-                signInWithGoogle: mockSignInWithGoogle
+                signInWithGoogle: mockSignInWithGoogle,
             });
 
             (onSnapshot as jest.Mock).mockImplementation((ref, onSuccess, onError) => {
@@ -211,9 +199,7 @@ describe('AuthContext', () => {
                 return jest.fn();
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             await waitFor(() => {
@@ -231,20 +217,18 @@ describe('AuthContext', () => {
                 login: mockLogin,
                 signup: mockSignup,
                 signOut: mockSignOut,
-                signInWithGoogle: mockSignInWithGoogle
+                signInWithGoogle: mockSignInWithGoogle,
             });
 
             (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
                 callback({
                     exists: () => false,
-                    data: () => null
+                    data: () => null,
                 });
                 return jest.fn();
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             await waitFor(() => {
@@ -259,25 +243,23 @@ describe('AuthContext', () => {
                 login: mockLogin,
                 signup: mockSignup,
                 signOut: mockSignOut,
-                signInWithGoogle: mockSignInWithGoogle
+                signInWithGoogle: mockSignInWithGoogle,
             });
 
             const malformedProfile = {
                 // Missing required fields
-                email: 'test@example.com'
+                email: 'test@example.com',
             };
 
             (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
                 callback({
                     exists: () => true,
-                    data: () => malformedProfile
+                    data: () => malformedProfile,
                 });
                 return jest.fn();
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             await waitFor(() => {
@@ -296,7 +278,7 @@ describe('AuthContext', () => {
                 login: mockLogin,
                 signup: mockSignup,
                 signOut: mockSignOut,
-                signInWithGoogle: mockSignInWithGoogle
+                signInWithGoogle: mockSignInWithGoogle,
             });
 
             (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
@@ -309,15 +291,13 @@ describe('AuthContext', () => {
                         tier: 'free',
                         preferences: {},
                         createdAt: new Date(),
-                        updatedAt: new Date()
-                    })
+                        updatedAt: new Date(),
+                    }),
                 });
                 return mockUnsubscribe;
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { unmount } = renderHook(() => useAuth(), { wrapper });
 
             unmount();
@@ -333,7 +313,7 @@ describe('AuthContext', () => {
                     login: mockLogin,
                     signup: mockSignup,
                     signOut: mockSignOut,
-                    signInWithGoogle: mockSignInWithGoogle
+                    signInWithGoogle: mockSignInWithGoogle,
                 };
             });
 
@@ -341,9 +321,7 @@ describe('AuthContext', () => {
                 return jest.fn();
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             // Should handle without crashing
@@ -359,12 +337,10 @@ describe('AuthContext', () => {
                 login: mockLogin,
                 signup: mockSignup,
                 signOut: mockSignOut,
-                signInWithGoogle: mockSignInWithGoogle
+                signInWithGoogle: mockSignInWithGoogle,
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             expect(result.current.isLoading).toBe(true);
@@ -378,7 +354,7 @@ describe('AuthContext', () => {
                     login: mockLogin,
                     signup: mockSignup,
                     signOut: mockSignOut,
-                    signInWithGoogle: mockSignInWithGoogle
+                    signInWithGoogle: mockSignInWithGoogle,
                 })
                 .mockReturnValue({
                     user: mockFirebaseUser,
@@ -386,7 +362,7 @@ describe('AuthContext', () => {
                     login: mockLogin,
                     signup: mockSignup,
                     signOut: mockSignOut,
-                    signInWithGoogle: mockSignInWithGoogle
+                    signInWithGoogle: mockSignInWithGoogle,
                 });
 
             (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
@@ -399,15 +375,13 @@ describe('AuthContext', () => {
                         tier: 'free',
                         preferences: {},
                         createdAt: new Date(),
-                        updatedAt: new Date()
-                    })
+                        updatedAt: new Date(),
+                    }),
                 });
                 return jest.fn();
             });
 
-            const wrapper = ({ children }: { children: React.ReactNode }) => (
-                <AuthProvider>{children}</AuthProvider>
-            );
+            const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
             const { result, rerender } = renderHook(() => useAuth(), { wrapper });
 
             // Initial loading state

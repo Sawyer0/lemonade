@@ -13,27 +13,27 @@ let soundObject: Audio.Sound | null = null;
  * This prepares the audio session and pre-loads the sound into RAM.
  */
 export async function setupFeedbackService() {
-  try {
-    // A. Configure Audio Session to MIX with LiveKit
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false, 
-      playsInSilentModeIOS: true, 
-      interruptionModeIOS: Audio.InterruptionModeIOS.MixWithOthers, 
-      interruptionModeAndroid: Audio.InterruptionModeAndroid.DuckOthers,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false, 
-    });
+    try {
+        // A. Configure Audio Session to MIX with LiveKit
+        await Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            playsInSilentModeIOS: true,
+            interruptionModeIOS: Audio.InterruptionModeIOS.MixWithOthers,
+            interruptionModeAndroid: Audio.InterruptionModeAndroid.DuckOthers,
+            shouldDuckAndroid: true,
+            playThroughEarpieceAndroid: false,
+        });
 
-    // B. Pre-load the sound file
-    const { sound } = await Audio.Sound.createAsync(CHIME_SOURCE);
-    soundObject = sound;
-    
-    console.log("Feedback Service: Ready");
-  } catch (error) {
-    // If file is missing, we catch it here and log. 
-    // This allows the app to function without the physical mp3 during development.
-    console.warn("Feedback Service: Could not load chime asset. Is processing_chime.mp3 in assets/sounds?", error);
-  }
+        // B. Pre-load the sound file
+        const { sound } = await Audio.Sound.createAsync(CHIME_SOURCE);
+        soundObject = sound;
+
+        console.log('Feedback Service: Ready');
+    } catch (error) {
+        // If file is missing, we catch it here and log.
+        // This allows the app to function without the physical mp3 during development.
+        console.warn('Feedback Service: Could not load chime asset. Is processing_chime.mp3 in assets/sounds?', error);
+    }
 }
 
 /**
@@ -41,15 +41,15 @@ export async function setupFeedbackService() {
  * Plays sound and fires haptics simultaneously.
  */
 export async function triggerGhostFeedback() {
-  try {
-    // A. Haptic Punch (Immediate physical feedback)
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+        // A. Haptic Punch (Immediate physical feedback)
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // B. Audio Chime
-    if (soundObject) {
-      await soundObject.replayAsync(); 
+        // B. Audio Chime
+        if (soundObject) {
+            await soundObject.replayAsync();
+        }
+    } catch (error) {
+        console.warn('Feedback trigger failed', error);
     }
-  } catch (error) {
-    console.warn("Feedback trigger failed", error);
-  }
 }

@@ -20,4 +20,3 @@ export const VehicleScanResponseSchema = z.object({
 });
 
 export type VehicleScanResponseDTO = z.infer<typeof VehicleScanResponseSchema>;
-

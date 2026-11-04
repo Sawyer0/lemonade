@@ -8,19 +8,19 @@ import { NextRequest } from 'next/server';
 
 // Mocks
 const mockSecurity = {
-    getAuthenticatedUser: vi.fn()
+    getAuthenticatedUser: vi.fn(),
 };
 const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 };
 const mockSessionRepo = {
     findByUserId: vi.fn(),
     create: vi.fn(),
     findById: vi.fn(),
-    update: vi.fn()
+    update: vi.fn(),
 };
 
 // Helper to create request
@@ -29,8 +29,8 @@ function createRequest(method: string, body?: object, headers: Record<string, st
         method,
         headers: {
             'Content-Type': 'application/json',
-            ...headers
-        }
+            ...headers,
+        },
     };
     if (body) {
         options.body = JSON.stringify(body);
@@ -52,7 +52,7 @@ const sampleSession: DiagnosticSession = {
     cumulativeVideoDurationProcessedMinutes: 0,
     cumulativeAudioDurationProcessedMinutes: 0,
     startedAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01')
+    updatedAt: new Date('2024-01-01'),
 };
 
 describe('Session API Route', () => {
@@ -75,7 +75,7 @@ describe('Session API Route', () => {
         mockSecurity.getAuthenticatedUser.mockResolvedValue({
             userId: 'user-123',
             tier: 'free',
-            traceId: 'trace-123'
+            traceId: 'trace-123',
         });
     });
 
@@ -132,10 +132,7 @@ describe('Session API Route', () => {
             });
 
             it('returns multiple sessions', async () => {
-                const sessions = [
-                    sampleSession,
-                    { ...sampleSession, id: '123e4567-e89b-12d3-a456-426614174002' }
-                ];
+                const sessions = [sampleSession, { ...sampleSession, id: '123e4567-e89b-12d3-a456-426614174002' }];
                 mockSessionRepo.findByUserId.mockResolvedValue(sessions);
 
                 const req = createRequest('GET');
@@ -173,7 +170,7 @@ describe('Session API Route', () => {
     describe('POST /api/session', () => {
         const validBody = {
             vehicleId: '123e4567-e89b-12d3-a456-426614174001',
-            complaint: 'Engine makes noise'
+            complaint: 'Engine makes noise',
         };
 
         describe('Authentication', () => {
@@ -202,7 +199,7 @@ describe('Session API Route', () => {
             it('returns 400 when vehicleId is not UUID format', async () => {
                 const req = createRequest('POST', {
                     vehicleId: 'not-a-uuid',
-                    complaint: 'noise'
+                    complaint: 'noise',
                 });
                 const res = await POST(req as unknown as NextRequest);
 
@@ -214,7 +211,7 @@ describe('Session API Route', () => {
             it('returns 400 when vehicleId is empty string', async () => {
                 const req = createRequest('POST', {
                     vehicleId: '',
-                    complaint: 'noise'
+                    complaint: 'noise',
                 });
                 const res = await POST(req as unknown as NextRequest);
 
@@ -225,7 +222,7 @@ describe('Session API Route', () => {
                 mockSessionRepo.create.mockResolvedValue(undefined);
 
                 const req = createRequest('POST', {
-                    vehicleId: '123e4567-e89b-12d3-a456-426614174001'
+                    vehicleId: '123e4567-e89b-12d3-a456-426614174001',
                 });
                 const res = await POST(req as unknown as NextRequest);
 
@@ -237,7 +234,7 @@ describe('Session API Route', () => {
 
                 const req = createRequest('POST', {
                     vehicleId: '123e4567-e89b-12d3-a456-426614174001',
-                    complaint: ''
+                    complaint: '',
                 });
                 const res = await POST(req as unknown as NextRequest);
 
@@ -262,8 +259,8 @@ describe('Session API Route', () => {
                         obdCodes: [],
                         messages: [],
                         aiAnalysis: null,
-                        safety_stop: false
-                    })
+                        safety_stop: false,
+                    }),
                 );
             });
 
@@ -278,7 +275,7 @@ describe('Session API Route', () => {
                 expect(body.sessionId).toBeDefined();
                 // UUID v4 format check
                 expect(body.sessionId).toMatch(
-                    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+                    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
                 );
             });
 
@@ -288,9 +285,7 @@ describe('Session API Route', () => {
                 const req = createRequest('POST', validBody);
                 await POST(req as unknown as NextRequest);
 
-                expect(mockSessionRepo.create).toHaveBeenCalledWith(
-                    expect.objectContaining({ status: 'active' })
-                );
+                expect(mockSessionRepo.create).toHaveBeenCalledWith(expect.objectContaining({ status: 'active' }));
             });
 
             it('initializes empty message history', async () => {
@@ -299,22 +294,18 @@ describe('Session API Route', () => {
                 const req = createRequest('POST', validBody);
                 await POST(req as unknown as NextRequest);
 
-                expect(mockSessionRepo.create).toHaveBeenCalledWith(
-                    expect.objectContaining({ messages: [] })
-                );
+                expect(mockSessionRepo.create).toHaveBeenCalledWith(expect.objectContaining({ messages: [] }));
             });
 
             it('sets complaint to null when not provided', async () => {
                 mockSessionRepo.create.mockResolvedValue(undefined);
 
                 const req = createRequest('POST', {
-                    vehicleId: '123e4567-e89b-12d3-a456-426614174001'
+                    vehicleId: '123e4567-e89b-12d3-a456-426614174001',
                 });
                 await POST(req as unknown as NextRequest);
 
-                expect(mockSessionRepo.create).toHaveBeenCalledWith(
-                    expect.objectContaining({ complaint: null })
-                );
+                expect(mockSessionRepo.create).toHaveBeenCalledWith(expect.objectContaining({ complaint: null }));
             });
         });
 
@@ -332,7 +323,7 @@ describe('Session API Route', () => {
                 const req = new Request('http://localhost/api/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: 'not valid json'
+                    body: 'not valid json',
                 });
                 const res = await POST(req as unknown as NextRequest);
 

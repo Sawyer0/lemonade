@@ -14,12 +14,21 @@ function sseBody(lines: string[]): ReadableStream<Uint8Array> {
 
 describe('OpenAICompatibleClient', () => {
     it('posts an OpenAI-style request and returns the message content', async () => {
-        const fetchImpl = vi.fn().mockResolvedValue(
-            new Response(JSON.stringify({ choices: [{ message: { content: 'hello' } }] }), { status: 200 }),
-        );
-        const client = new OpenAICompatibleClient({ baseUrl: 'https://llm.test/v1/', apiKey: 'k', model: 'm', fetchImpl });
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValue(
+                new Response(JSON.stringify({ choices: [{ message: { content: 'hello' } }] }), { status: 200 }),
+            );
+        const client = new OpenAICompatibleClient({
+            baseUrl: 'https://llm.test/v1/',
+            apiKey: 'k',
+            model: 'm',
+            fetchImpl,
+        });
 
-        await expect(client.complete({ messages: [{ role: 'user', content: 'hi' }], jsonMode: true })).resolves.toBe('hello');
+        await expect(client.complete({ messages: [{ role: 'user', content: 'hi' }], jsonMode: true })).resolves.toBe(
+            'hello',
+        );
 
         const [url, init] = fetchImpl.mock.calls[0];
         expect(url).toBe('https://llm.test/v1/chat/completions');
@@ -29,19 +38,26 @@ describe('OpenAICompatibleClient', () => {
     });
 
     it('streams deltas across chunk boundaries and stops at [DONE]', async () => {
-        const fetchImpl = vi.fn().mockResolvedValue(
-            new Response(
-                sseBody([
-                    'data: {"choices":[{"delta":{"content":"Hel"}}]}\n',
-                    'data: {"choices":[{"delta":{"con',
-                    'tent":"lo"}}]}\n\n',
-                    'data: [DONE]\n',
-                    'data: {"choices":[{"delta":{"content":"ignored"}}]}\n',
-                ]),
-                { status: 200 },
-            ),
-        );
-        const client = new OpenAICompatibleClient({ baseUrl: 'https://llm.test/v1', apiKey: 'k', model: 'm', fetchImpl });
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValue(
+                new Response(
+                    sseBody([
+                        'data: {"choices":[{"delta":{"content":"Hel"}}]}\n',
+                        'data: {"choices":[{"delta":{"con',
+                        'tent":"lo"}}]}\n\n',
+                        'data: [DONE]\n',
+                        'data: {"choices":[{"delta":{"content":"ignored"}}]}\n',
+                    ]),
+                    { status: 200 },
+                ),
+            );
+        const client = new OpenAICompatibleClient({
+            baseUrl: 'https://llm.test/v1',
+            apiKey: 'k',
+            model: 'm',
+            fetchImpl,
+        });
 
         const parts: string[] = [];
         for await (const delta of client.stream({ messages: [{ role: 'user', content: 'hi' }] })) parts.push(delta);
@@ -50,7 +66,12 @@ describe('OpenAICompatibleClient', () => {
 
     it('raises ChatCompletionError with the HTTP status on failure', async () => {
         const fetchImpl = vi.fn().mockResolvedValue(new Response('invalid key', { status: 401 }));
-        const client = new OpenAICompatibleClient({ baseUrl: 'https://llm.test/v1', apiKey: 'bad', model: 'm', fetchImpl });
+        const client = new OpenAICompatibleClient({
+            baseUrl: 'https://llm.test/v1',
+            apiKey: 'bad',
+            model: 'm',
+            fetchImpl,
+        });
 
         await expect(client.complete({ messages: [] })).rejects.toMatchObject({
             name: 'ChatCompletionError',
@@ -74,9 +95,11 @@ describe('createGroqClient', () => {
     });
 
     it('uses the Groq endpoint and default model, with env overrides', async () => {
-        const fetchImpl = vi.fn().mockResolvedValue(
-            new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { status: 200 }),
-        );
+        const fetchImpl = vi
+            .fn()
+            .mockResolvedValue(
+                new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { status: 200 }),
+            );
         const client = createGroqClient({ GROQ_API_KEY: 'gsk_test' }, fetchImpl);
         expect(client.model).toBe(GROQ_DEFAULT_MODEL);
         await client.complete({ messages: [] });

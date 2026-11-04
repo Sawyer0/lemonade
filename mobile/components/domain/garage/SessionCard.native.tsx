@@ -11,9 +11,7 @@ interface SessionCardProps {
 }
 
 export function SessionCard({ session, onPress }: SessionCardProps) {
-    const dateLabel = session.updatedAt
-        ? new Date(session.updatedAt).toLocaleDateString()
-        : 'Just now';
+    const dateLabel = session.updatedAt ? new Date(session.updatedAt).toLocaleDateString() : 'Just now';
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
@@ -48,8 +46,14 @@ function StatusBadge({ status }: { status: string }) {
     let color = Theme.textSecondary;
     let bg = 'rgba(255,255,255,0.1)';
 
-    if (status === 'active') { color = Theme.success; bg = 'rgba(34, 197, 94, 0.1)'; }
-    if (status === 'analyzing') { color = Theme.tint; bg = 'rgba(250, 204, 21, 0.1)'; }
+    if (status === 'active') {
+        color = Theme.success;
+        bg = 'rgba(34, 197, 94, 0.1)';
+    }
+    if (status === 'analyzing') {
+        color = Theme.tint;
+        bg = 'rgba(250, 204, 21, 0.1)';
+    }
 
     return (
         <View style={[styles.statusBadge, { backgroundColor: bg }]}>
@@ -119,5 +123,5 @@ const styles = StyleSheet.create({
     issueText: {
         color: Theme.warning,
         fontSize: 12,
-    }
+    },
 });

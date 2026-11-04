@@ -1,10 +1,12 @@
 import { z } from 'zod';
 
 export const ChatRequestSchema = z.object({
-    messages: z.array(z.object({
-        role: z.enum(['user', 'assistant', 'system', 'tool']),
-        content: z.any(),
-    })),
+    messages: z.array(
+        z.object({
+            role: z.enum(['user', 'assistant', 'system', 'tool']),
+            content: z.any(),
+        }),
+    ),
     sessionId: z.string().uuid(),
 });
 
@@ -16,4 +18,3 @@ export const ChatResponseSchema = z.object({
 });
 
 export type ChatResponseDTO = z.infer<typeof ChatResponseSchema>;
-

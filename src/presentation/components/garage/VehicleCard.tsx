@@ -47,7 +47,7 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
                 updatedAt: serverTimestamp(),
                 startedAt: serverTimestamp(),
                 aiAnalysis: null,
-                safety_stop: false
+                safety_stop: false,
             });
 
             router.push(`/session/${sessionId}`);
@@ -60,11 +60,12 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
 
     return (
         <div className="block group relative flex flex-col h-full active:scale-[0.99] transition-transform duration-200">
-            <div className={`
+            <div
+                className={`
         relative h-64 w-full rounded-t-2xl overflow-hidden bg-zinc-900 border-x border-t border-white/5 transition-all
         shadow-xl ${statusGlow}
-      `}>
-
+      `}
+            >
                 {/* LAYER 1: THE REALITY ANCHOR (Real Photo) */}
                 <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
                     {vehicle.photoUrl ? (
@@ -87,7 +88,6 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
                 {/* LAYER 3: THE VITALS DASHBOARD */}
                 <div className="absolute bottom-0 w-full p-5">
                     <div className="flex justify-between items-end">
-
                         {/* Identity DNA */}
                         <div>
                             <h2 className="text-3xl font-black text-white tracking-tighter uppercase">
@@ -130,7 +130,12 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
                         ) : (
                             <div className="flex items-center gap-2 uppercase tracking-wide text-sm">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2.5}
+                                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                                    />
                                 </svg>
                                 Diagnose
                             </div>
@@ -147,7 +152,12 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
                     >
                         <div className="flex items-center gap-2 uppercase tracking-wide text-sm">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2.5}
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
                             </svg>
                             History
                         </div>
@@ -157,4 +167,3 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
         </div>
     );
 }
-

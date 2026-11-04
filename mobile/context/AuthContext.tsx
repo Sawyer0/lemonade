@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         signup,
         signOut,
-        signInWithGoogle
+        signInWithGoogle,
     } = useFirebaseAuth();
 
     const [user, setUser] = useState<User | null>(null);
@@ -67,45 +67,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const userRef = doc(db, 'users', firebaseUser.uid);
 
-        unsubscribeRef.current = onSnapshot(userRef, async (snapshot) => {
-            if (!isMountedRef.current) return;
+        unsubscribeRef.current = onSnapshot(
+            userRef,
+            async (snapshot) => {
+                if (!isMountedRef.current) return;
 
-            if (snapshot.exists()) {
-                const data = snapshot.data();
-                const parsed = UserSchema.safeParse({
-                    ...data,
-                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
-                    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
-                });
-
-                if (parsed.success) {
-                    const newUser = parsed.data;
-                    setUser(prev => {
-                        if (!prev) return newUser;
-                        // Use updatedAt timestamp for equality check to avoid redundant renders
-                        if (prev.updatedAt.getTime() === newUser.updatedAt.getTime()) {
-                            return prev;
-                        }
-                        return newUser;
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    const parsed = UserSchema.safeParse({
+                        ...data,
+                        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+                        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
                     });
+
+                    if (parsed.success) {
+                        const newUser = parsed.data;
+                        setUser((prev) => {
+                            if (!prev) return newUser;
+                            // Use updatedAt timestamp for equality check to avoid redundant renders
+                            if (prev.updatedAt.getTime() === newUser.updatedAt.getTime()) {
+                                return prev;
+                            }
+                            return newUser;
+                        });
+                    } else {
+                        console.error('User Schema Validation Failed', parsed.error.message);
+                        setUser(null);
+                    }
                 } else {
-                    console.error("User Schema Validation Failed", parsed.error.message);
-                    setUser(null);
+                    // ... create user ...
+                    // ...
                 }
-            } else {
-                // ... create user ...
-                // ...
-            }
-            if (isMountedRef.current && isLoading) {
-                setIsLoading(false);
-            }
-        }, (err) => {
-            console.error("User Snapshot Error", err);
-            if (isMountedRef.current) {
-                setUser(null);
-                setIsLoading(false);
-            }
-        });
+                if (isMountedRef.current && isLoading) {
+                    setIsLoading(false);
+                }
+            },
+            (err) => {
+                console.error('User Snapshot Error', err);
+                if (isMountedRef.current) {
+                    setUser(null);
+                    setIsLoading(false);
+                }
+            },
+        );
 
         return () => {
             if (unsubscribeRef.current) {
@@ -115,27 +119,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
     }, [firebaseUser, firebaseLoading, user, isLoading]);
 
-    const updatePreferences = useCallback(async (prefs: Partial<User['preferences']>) => {
-        if (!user) return;
-        const userRef = doc(db, 'users', user.id);
-        const updatedPrefs = { ...user.preferences, ...prefs };
+    const updatePreferences = useCallback(
+        async (prefs: Partial<User['preferences']>) => {
+            if (!user) return;
+            const userRef = doc(db, 'users', user.id);
+            const updatedPrefs = { ...user.preferences, ...prefs };
 
-        await setDoc(userRef, {
-            preferences: updatedPrefs,
-            updatedAt: new Date()
-        }, { merge: true });
-    }, [user]);
+            await setDoc(
+                userRef,
+                {
+                    preferences: updatedPrefs,
+                    updatedAt: new Date(),
+                },
+                { merge: true },
+            );
+        },
+        [user],
+    );
 
     return (
-        <AuthContext.Provider value={{
-            user,
-            isLoading: isLoading || firebaseLoading,
-            login,
-            signup,
-            signOut,
-            signInWithGoogle,
-            updatePreferences
-        }}>
+        <AuthContext.Provider
+            value={{
+                user,
+                isLoading: isLoading || firebaseLoading,
+                login,
+                signup,
+                signOut,
+                signInWithGoogle,
+                updatePreferences,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );

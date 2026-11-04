@@ -11,7 +11,7 @@ export interface Message {
 }
 
 interface ChatHelpers {
-    append: (message: { role: 'user', content: string | MessagePart[] }) => Promise<void>;
+    append: (message: { role: 'user'; content: string | MessagePart[] }) => Promise<void>;
     messages: Message[];
     setMessages: Dispatch<SetStateAction<Message[]>>;
 }
@@ -40,7 +40,8 @@ export const useWorkspaceActions = ({
                 const publicUrl = await uploadFile(file, sessionId);
                 // Trigger analysis via API (Fire and Forget)
                 await ApiClient.post(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
-                    sessionId, publicUrl
+                    sessionId,
+                    publicUrl,
                 });
 
                 showToast('Video uploaded successfully', 'success');
@@ -59,9 +60,8 @@ export const useWorkspaceActions = ({
         try {
             await append({
                 role: 'user',
-                content
+                content,
             });
-
         } catch {
             showToast('Failed to send message. Please try again.', 'error');
             // If failed, restore input
@@ -85,7 +85,7 @@ export const useWorkspaceActions = ({
                     await ApiClient.post(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
                         sessionId,
                         publicUrl,
-                        fileType: isVideo ? 'video' : 'audio'
+                        fileType: isVideo ? 'video' : 'audio',
                     });
 
                     showToast('File uploaded. AI is analyzing...', 'success');
@@ -95,13 +95,12 @@ export const useWorkspaceActions = ({
                         role: 'user',
                         content: [
                             { type: 'text', text: 'I have captured an image of the part.' },
-                            { type: 'image', image: publicUrl }
-                        ]
+                            { type: 'image', image: publicUrl },
+                        ],
                     });
                     showToast('Image captured and sent!', 'success');
                 }
             }
-
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to upload file';
             showToast(message, 'error');
@@ -111,7 +110,6 @@ export const useWorkspaceActions = ({
     return {
         handleUpload,
         handleSendMessage,
-        handleImageCapture
+        handleImageCapture,
     };
 };
-

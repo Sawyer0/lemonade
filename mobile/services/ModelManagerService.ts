@@ -5,7 +5,7 @@ export class ModelManagerService implements IModelManagerService {
     private progressListeners: ((progress: DownloadProgress) => void)[] = [];
     private downloadResumable: FileSystem.DownloadResumable | null = null;
 
-    constructor(private logger: ILogger) { }
+    constructor(private logger: ILogger) {}
 
     /**
      * Ensures the model is available in the cacheDirectory.
@@ -31,22 +31,17 @@ export class ModelManagerService implements IModelManagerService {
             const data: DownloadProgress = {
                 totalBytesExpectedToWrite: downloadProgress.totalBytesExpectedToWrite,
                 totalBytesWritten: downloadProgress.totalBytesWritten,
-                progress
+                progress,
             };
-            this.progressListeners.forEach(l => l(data));
+            this.progressListeners.forEach((l) => l(data));
         };
 
-        this.downloadResumable = FileSystem.createDownloadResumable(
-            modelUrl,
-            localPath,
-            {},
-            callback
-        );
+        this.downloadResumable = FileSystem.createDownloadResumable(modelUrl, localPath, {}, callback);
 
         try {
             const result = await this.downloadResumable.downloadAsync();
             if (!result) {
-                throw new Error("Download failed: result is empty.");
+                throw new Error('Download failed: result is empty.');
             }
 
             this.logger.info(`Model ${modelName} initialized successfully.`, { uri: result.uri });
@@ -80,7 +75,7 @@ export class ModelManagerService implements IModelManagerService {
     onProgress(callback: (progress: DownloadProgress) => void): () => void {
         this.progressListeners.push(callback);
         return () => {
-            this.progressListeners = this.progressListeners.filter(l => l !== callback);
+            this.progressListeners = this.progressListeners.filter((l) => l !== callback);
         };
     }
 }

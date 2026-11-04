@@ -44,7 +44,6 @@ function ThinkingBubble() {
     );
 }
 
-
 export function ChatStream({ messages, isVideoMode, onImageCapture, sessionId, isLoading }: ChatStreamProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -78,7 +77,7 @@ export function ChatStream({ messages, isVideoMode, onImageCapture, sessionId, i
     }, [messages, shouldAutoScroll, isLoading]);
 
     const handleCloseTool = (toolCallId: string) => {
-        setClosedToolIds(prev => {
+        setClosedToolIds((prev) => {
             const next = new Set(prev);
             next.add(toolCallId);
             return next;
@@ -106,9 +105,10 @@ export function ChatStream({ messages, isVideoMode, onImageCapture, sessionId, i
             <ScrollArea
                 ref={scrollAreaRef}
                 className={clsx(
-                    "flex-1 h-full overflow-y-auto p-4 space-y-4 pointer-events-auto min-h-0",
-                    !isVideoMode && "bg-zinc-950/50 rounded-xl border border-white/5"
-                )}>
+                    'flex-1 h-full overflow-y-auto p-4 space-y-4 pointer-events-auto min-h-0',
+                    !isVideoMode && 'bg-zinc-950/50 rounded-xl border border-white/5',
+                )}
+            >
                 {messages.map((msg) => (
                     <ChatMessage
                         key={msg.id}
@@ -121,13 +121,10 @@ export function ChatStream({ messages, isVideoMode, onImageCapture, sessionId, i
                 ))}
 
                 {/* Thinking Indicator */}
-                {isLoading && messages[messages.length - 1]?.role === 'user' && (
-                    <ThinkingBubble />
-                )}
+                {isLoading && messages[messages.length - 1]?.role === 'user' && <ThinkingBubble />}
 
                 <div ref={bottomRef} />
             </ScrollArea>
-
 
             {/* File Upload Button in Footer */}
             <ChatFooterInput sessionId={sessionId} setShowFileUpload={setShowFileUpload} />

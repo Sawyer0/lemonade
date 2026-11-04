@@ -6,16 +6,16 @@ appId: com.dawan.lemonademvp
 
 # Verify garage screen
 - extendedWaitUntil:
-    visible: "My Garage"
+    visible: 'My Garage'
     timeout: 5000
 
 # Tap add vehicle FAB
 - tapOn:
-    id: "add-vehicle-fab"
+    id: 'add-vehicle-fab'
 
 # Wait for add vehicle screen
 - waitForAnimationToEnd:
     timeout: 5000
 
 # The add screen should show "Scan VIN" title
-- assertVisible: "Scan VIN"
+- assertVisible: 'Scan VIN'

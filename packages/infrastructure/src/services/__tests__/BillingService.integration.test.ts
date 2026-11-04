@@ -4,7 +4,7 @@ import { BillingService } from '../BillingService';
 import { AIUsageRecord, IBillingRepository } from '@lemonade/core';
 
 const mockBillingRepo = {
-    recordUsage: vi.fn().mockResolvedValue(undefined)
+    recordUsage: vi.fn().mockResolvedValue(undefined),
 };
 
 describe('BillingService Integration', () => {
@@ -22,7 +22,7 @@ describe('BillingService Integration', () => {
             inputTokens: 100,
             outputTokens: 50,
             model: 'gemini-pro',
-            timestamp: new Date()
+            timestamp: new Date(),
         };
 
         await service.recordUsage(usage);
@@ -40,7 +40,7 @@ describe('BillingService Integration', () => {
                 inputTokens: 100,
                 outputTokens: 50,
                 model: 'gemini-pro',
-                timestamp: new Date()
+                timestamp: new Date(),
             };
 
             await expect(service.recordUsage(usage)).rejects.toThrow('Database connection failed');
@@ -55,7 +55,7 @@ describe('BillingService Integration', () => {
                 inputTokens: 100,
                 outputTokens: 50,
                 model: 'gemini-pro',
-                timestamp: new Date()
+                timestamp: new Date(),
             };
 
             await expect(service.recordUsage(usage)).rejects.toThrow('Operation timed out');
@@ -70,7 +70,7 @@ describe('BillingService Integration', () => {
                 inputTokens: 0,
                 outputTokens: 0,
                 model: 'gemini-pro',
-                timestamp: new Date()
+                timestamp: new Date(),
             };
 
             await service.recordUsage(usage);
@@ -85,7 +85,7 @@ describe('BillingService Integration', () => {
                 inputTokens: 1_000_000,
                 outputTokens: 500_000,
                 model: 'gemini-pro',
-                timestamp: new Date()
+                timestamp: new Date(),
             };
 
             await service.recordUsage(usage);
@@ -100,7 +100,7 @@ describe('BillingService Integration', () => {
                 inputTokens: 100,
                 outputTokens: 50,
                 model: 'gemini-pro',
-                timestamp: new Date()
+                timestamp: new Date(),
             };
 
             // Service should still call repo - validation is repo's responsibility
@@ -115,7 +115,7 @@ describe('BillingService Integration', () => {
                 inputTokens: 100,
                 outputTokens: 50,
                 model: 'gemini-pro',
-                timestamp: new Date()
+                timestamp: new Date(),
             };
 
             await service.recordUsage(usage);
@@ -131,11 +131,11 @@ describe('BillingService Integration', () => {
                 inputTokens: 100 * (i + 1),
                 outputTokens: 50 * (i + 1),
                 model: 'gemini-pro',
-                timestamp: new Date()
+                timestamp: new Date(),
             }));
 
             // Record all usages concurrently
-            await Promise.all(usages.map(usage => service.recordUsage(usage)));
+            await Promise.all(usages.map((usage) => service.recordUsage(usage)));
 
             expect(mockBillingRepo.recordUsage).toHaveBeenCalledTimes(10);
         });
@@ -154,15 +154,13 @@ describe('BillingService Integration', () => {
                 inputTokens: 100,
                 outputTokens: 50,
                 model: 'gemini-pro',
-                timestamp: new Date()
+                timestamp: new Date(),
             }));
 
-            const results = await Promise.allSettled(
-                usages.map(usage => service.recordUsage(usage))
-            );
+            const results = await Promise.allSettled(usages.map((usage) => service.recordUsage(usage)));
 
-            const fulfilled = results.filter(r => r.status === 'fulfilled');
-            const rejected = results.filter(r => r.status === 'rejected');
+            const fulfilled = results.filter((r) => r.status === 'fulfilled');
+            const rejected = results.filter((r) => r.status === 'rejected');
 
             expect(fulfilled.length).toBe(4);
             expect(rejected.length).toBe(1);

@@ -12,11 +12,11 @@ vi.mock('@lemonade/infrastructure', async () => {
     return {
         ...actual,
         adminAuth: {
-            verifyIdToken: vi.fn()
+            verifyIdToken: vi.fn(),
         },
         adminDb: {
-            collection: vi.fn()
-        }
+            collection: vi.fn(),
+        },
     };
 });
 
@@ -27,13 +27,13 @@ const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 };
 
 // Helper to create request
 function createRequest(method: string, token?: string, body?: object) {
     const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
     };
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -53,7 +53,7 @@ const sampleUser: User = {
     tier: 'free',
     preferences: { autoOpenCamera: false },
     createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01')
+    updatedAt: new Date('2024-01-01'),
 };
 
 // Mock Firestore document
@@ -61,10 +61,10 @@ const mockDocGet = vi.fn();
 const mockDocSet = vi.fn();
 const mockDoc = vi.fn(() => ({
     get: mockDocGet,
-    set: mockDocSet
+    set: mockDocSet,
 }));
 const mockCollection = vi.fn(() => ({
-    doc: mockDoc
+    doc: mockDoc,
 }));
 
 describe('Profile API Route', () => {
@@ -77,14 +77,14 @@ describe('Profile API Route', () => {
         // Setup adminAuth mock
         (adminAuth.verifyIdToken as Mock).mockResolvedValue({
             uid: 'user-123',
-            email: 'test@example.com'
+            email: 'test@example.com',
         });
 
         // Setup adminDb mock
         (adminDb.collection as Mock).mockImplementation(mockCollection);
         mockDocGet.mockResolvedValue({
             exists: true,
-            data: () => sampleUser
+            data: () => sampleUser,
         });
         mockDocSet.mockResolvedValue(undefined);
     });
@@ -108,7 +108,7 @@ describe('Profile API Route', () => {
             it('returns 401 when Bearer prefix missing', async () => {
                 const req = new Request('http://localhost/api/profile', {
                     method: 'GET',
-                    headers: { 'Authorization': 'token-without-bearer' }
+                    headers: { Authorization: 'token-without-bearer' },
                 });
                 const res = await GET(req as unknown as NextRequest);
 
@@ -116,9 +116,7 @@ describe('Profile API Route', () => {
             });
 
             it('returns 500 when token is invalid', async () => {
-                (adminAuth.verifyIdToken as ReturnType<typeof vi.fn>).mockRejectedValue(
-                    new Error('Invalid token')
-                );
+                (adminAuth.verifyIdToken as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Invalid token'));
 
                 const req = createRequest('GET', 'invalid-token');
                 const res = await GET(req as unknown as NextRequest);
@@ -142,7 +140,7 @@ describe('Profile API Route', () => {
             it('auto-creates user if not exists', async () => {
                 mockDocGet.mockResolvedValue({
                     exists: false,
-                    data: () => null
+                    data: () => null,
                 });
 
                 const req = createRequest('GET', 'valid-token');
@@ -157,12 +155,12 @@ describe('Profile API Route', () => {
             it('uses token email for new user', async () => {
                 mockDocGet.mockResolvedValue({
                     exists: false,
-                    data: () => null
+                    data: () => null,
                 });
 
                 (adminAuth.verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue({
                     uid: 'new-user',
-                    email: 'new@example.com'
+                    email: 'new@example.com',
                 });
 
                 const req = createRequest('GET', 'valid-token');
@@ -212,24 +210,23 @@ describe('Profile API Route', () => {
                 const res = await PATCH(req as unknown as NextRequest);
 
                 expect(res.status).toBe(200);
-                expect(mockDocSet).toHaveBeenCalledWith(
-                    expect.objectContaining({ displayName: 'New Name' }),
-                    { merge: true }
-                );
+                expect(mockDocSet).toHaveBeenCalledWith(expect.objectContaining({ displayName: 'New Name' }), {
+                    merge: true,
+                });
             });
 
             it('updates preferences.autoOpenCamera', async () => {
                 const req = createRequest('PATCH', 'valid-token', {
-                    preferences: { autoOpenCamera: true }
+                    preferences: { autoOpenCamera: true },
                 });
                 const res = await PATCH(req as unknown as NextRequest);
 
                 expect(res.status).toBe(200);
                 expect(mockDocSet).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        preferences: { autoOpenCamera: true }
+                        preferences: { autoOpenCamera: true },
                     }),
-                    { merge: true }
+                    { merge: true },
                 );
             });
 

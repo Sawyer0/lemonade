@@ -25,5 +25,5 @@ export const RequestContext = {
     getTraceId: (): string => {
         const store = contextStorage.getStore();
         return store?.traceId || 'unknown-trace';
-    }
+    },
 };

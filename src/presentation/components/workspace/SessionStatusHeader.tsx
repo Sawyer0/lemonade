@@ -23,13 +23,15 @@ export function SessionStatusHeader({ sessionId, vehicleId, status }: SessionSta
                 <div>
                     <h2 className="text-white font-bold">SESSION #{sessionId.slice(0, 4)}</h2>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className={clsx("w-2 h-2 rounded-full", {
-                            'bg-green-500 animate-pulse': status === 'active',
-                            'bg-yellow-500 animate-spin': status === 'analyzing',
-                            'bg-blue-500': status === 'waiting_user',
-                            'bg-red-500': status === 'error',
-                            'bg-gray-500': status === 'completed'
-                        })} />
+                        <span
+                            className={clsx('w-2 h-2 rounded-full', {
+                                'bg-green-500 animate-pulse': status === 'active',
+                                'bg-yellow-500 animate-spin': status === 'analyzing',
+                                'bg-blue-500': status === 'waiting_user',
+                                'bg-red-500': status === 'error',
+                                'bg-gray-500': status === 'completed',
+                            })}
+                        />
                         <span className="text-xs text-zinc-400 uppercase">{status}</span>
                     </div>
                 </div>
@@ -37,4 +39,3 @@ export function SessionStatusHeader({ sessionId, vehicleId, status }: SessionSta
         </div>
     );
 }
-

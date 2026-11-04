@@ -53,10 +53,7 @@ export function InputBar({ input, setInput, onSendMessage, onUpload, uploading, 
 
                 // Left Side: Attachment Button
                 left={
-                    <Link
-                        className="!text-zinc-400"
-                        onClick={() => fileInputRef.current?.click()}
-                    >
+                    <Link className="!text-zinc-400" onClick={() => fileInputRef.current?.click()}>
                         {uploading ? (
                             <div className="flex flex-col items-center">
                                 <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
@@ -84,4 +81,3 @@ export function InputBar({ input, setInput, onSendMessage, onUpload, uploading, 
         </div>
     );
 }
-

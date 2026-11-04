@@ -11,7 +11,7 @@ export interface ITTSService {
 
 /**
  * useTTS Hook - Web Speech API Implementation
- * 
+ *
  * Architecture: This hook implements ITTSService interface, making it easy
  * to swap out the underlying provider (e.g., ElevenLabs) without changing
  * the component API.
@@ -36,9 +36,9 @@ export function useTTS(): ITTSService {
 
         // Try to find a good voice (prefer US English)
         const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(
-            (v) => v.lang.startsWith('en-US') && v.name.includes('Google')
-        ) || voices.find((v) => v.lang.startsWith('en'));
+        const preferredVoice =
+            voices.find((v) => v.lang.startsWith('en-US') && v.name.includes('Google')) ||
+            voices.find((v) => v.lang.startsWith('en'));
 
         if (preferredVoice) {
             utterance.voice = preferredVoice;
@@ -59,4 +59,3 @@ export function useTTS(): ITTSService {
 
     return { speak, stop, isSpeaking };
 }
-

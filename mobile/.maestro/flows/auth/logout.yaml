@@ -8,56 +8,56 @@ appId: com.dawan.lemonademvp
 # Wait for login screen
 - extendedWaitUntil:
     visible:
-        id: "login-submit-button"
+      id: 'login-submit-button'
     timeout: 180000
 
 # Enter credentials
 - tapOn:
-    id: "login-email-input"
-- inputText: "e2e-test@lemonade.dev"
+    id: 'login-email-input'
+- inputText: 'e2e-test@lemonade.dev'
 - tapOn:
-    id: "login-password-input"
-- inputText: "TestPassword123!"
+    id: 'login-password-input'
+- inputText: 'TestPassword123!'
 - hideKeyboard
 
 # Submit login
 - tapOn:
-    id: "login-submit-button"
+    id: 'login-submit-button'
 
 # Handle Google Password Manager prompt
 - scroll
 - runFlow:
     when:
-        visible: "Not now"
+      visible: 'Not now'
     commands:
-        - tapOn: "Not now"
+      - tapOn: 'Not now'
 
 # Wait for garage screen to fully load
 - extendedWaitUntil:
     visible:
-        id: "welcome-message"
+      id: 'welcome-message'
     timeout: 15000
 
 # Handle any delayed Google Password Manager prompts
 - runFlow:
     when:
-        visible: "Not now"
+      visible: 'Not now'
     commands:
-        - tapOn: "Not now"
+      - tapOn: 'Not now'
 
 # Now tap logout button
 - extendedWaitUntil:
     visible:
-        id: "logout-button"
+      id: 'logout-button'
     timeout: 5000
 - tapOn:
-    id: "logout-button"
+    id: 'logout-button'
 
 # Wait for navigation to login screen - give it more time
 - extendedWaitUntil:
     visible:
-        id: "login-submit-button"
+      id: 'login-submit-button'
     timeout: 30000
 
 # Should be back on login screen
-- assertVisible: "Lemonade"
+- assertVisible: 'Lemonade'

@@ -1,11 +1,6 @@
 import { injectable, inject } from 'inversify';
 import type { ILogger, IBillingService, IGoogleSearchService } from '@lemonade/core';
-import {
-    SearchRequest,
-    SearchResponse,
-    AppError,
-    ErrorCode
-} from '@lemonade/core';
+import { SearchRequest, SearchResponse, AppError, ErrorCode } from '@lemonade/core';
 import { TYPES } from '../di/types';
 import type { IConfigProvider } from '../interfaces/IConfigProvider';
 
@@ -26,8 +21,8 @@ export class GoogleSearchService implements IGoogleSearchService {
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
         @inject(TYPES.BillingService) private billingService: IBillingService,
-        @inject(TYPES.ConfigProvider) private configProvider: IConfigProvider
-    ) { }
+        @inject(TYPES.ConfigProvider) private configProvider: IConfigProvider,
+    ) {}
 
     async search(request: SearchRequest): Promise<SearchResponse> {
         const apiKey = this.configProvider.getOrThrow('GOOGLE_SEARCH_API_KEY');
@@ -38,15 +33,17 @@ export class GoogleSearchService implements IGoogleSearchService {
 
             const response = await fetch(url);
             if (request.userId) {
-                this.billingService.recordUsage({
-                    userId: request.userId,
-                    sessionId: request.sessionId,
-                    inputTokens: 0,
-                    outputTokens: 0,
-                    model: 'google-custom-search',
-                    timestamp: new Date(),
-                    searchQueries: 1
-                }).catch(err => this.logger.error('[GoogleSearchService] Failed to record usage', err as Error));
+                this.billingService
+                    .recordUsage({
+                        userId: request.userId,
+                        sessionId: request.sessionId,
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        model: 'google-custom-search',
+                        timestamp: new Date(),
+                        searchQueries: 1,
+                    })
+                    .catch((err) => this.logger.error('[GoogleSearchService] Failed to record usage', err as Error));
             }
 
             if (!response.ok) {
@@ -75,21 +72,20 @@ export class GoogleSearchService implements IGoogleSearchService {
                     link: item.link,
                     snippet: item.snippet,
                     source: item.displayLink,
-                    date: typeof date === 'string' ? date : undefined
+                    date: typeof date === 'string' ? date : undefined,
                 };
             });
 
             return {
                 results,
                 queryUsed: request.query,
-                totalFound: parseInt(data.searchInformation?.totalResults || '0', 10)
+                totalFound: parseInt(data.searchInformation?.totalResults || '0', 10),
             };
-
         } catch (error) {
             if (error instanceof AppError) throw error;
 
             this.logger.error('[GoogleSearchService] Request failed', error as Error);
-            throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, "Google Search Request Failed");
+            throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, 'Google Search Request Failed');
         }
     }
 }

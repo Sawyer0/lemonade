@@ -26,7 +26,7 @@ describe('FunctionCallService', () => {
 
         mockMemoryService = {
             addDocument: vi.fn().mockResolvedValue(undefined),
-            search: vi.fn().mockResolvedValue([])
+            search: vi.fn().mockResolvedValue([]),
         } as unknown as IMemoryService;
 
         mockTracer = {
@@ -42,29 +42,38 @@ describe('FunctionCallService', () => {
 
     it('should handle google_search tool call', async () => {
         const initialResponse = {
-            candidates: [{
-                content: {
-                    parts: [{
-                        functionCall: {
-                            name: 'google_search',
-                            args: { query: 'test query' }
-                        }
-                    }]
-                }
-            }]
+            candidates: [
+                {
+                    content: {
+                        parts: [
+                            {
+                                functionCall: {
+                                    name: 'google_search',
+                                    args: { query: 'test query' },
+                                },
+                            },
+                        ],
+                    },
+                },
+            ],
         } as unknown as GenerateContentResponse;
 
         const nextResponse = {
-            candidates: [{
-                content: {
-                    parts: [{ text: 'Final Answer' }]
-                }
-            }]
+            candidates: [
+                {
+                    content: {
+                        parts: [{ text: 'Final Answer' }],
+                    },
+                },
+            ],
         } as unknown as GenerateContentResponse;
 
         (mockChatSession.sendMessage as jest.Mock).mockResolvedValue({ response: nextResponse });
 
-        const result = await service.handleFunctionCalls(initialResponse, mockChatSession, { userId: 'u1', sessionId: 's1' });
+        const result = await service.handleFunctionCalls(initialResponse, mockChatSession, {
+            userId: 'u1',
+            sessionId: 's1',
+        });
 
         expect(mockSearchService.search).toHaveBeenCalledWith(expect.objectContaining({ query: 'test query' }));
         expect(mockChatSession.sendMessage).toHaveBeenCalled();
@@ -73,57 +82,71 @@ describe('FunctionCallService', () => {
 
     it('should return error if google_search arguments are invalid', async () => {
         const initialResponse = {
-            candidates: [{
-                content: {
-                    parts: [{
-                        functionCall: {
-                            name: 'google_search',
-                            args: { invalid: 'args' }
-                        }
-                    }]
-                }
-            }]
+            candidates: [
+                {
+                    content: {
+                        parts: [
+                            {
+                                functionCall: {
+                                    name: 'google_search',
+                                    args: { invalid: 'args' },
+                                },
+                            },
+                        ],
+                    },
+                },
+            ],
         } as unknown as GenerateContentResponse;
 
         const nextResponse = {
-            candidates: [{
-                content: { parts: [{ text: 'Error handled' }] }
-            }]
+            candidates: [
+                {
+                    content: { parts: [{ text: 'Error handled' }] },
+                },
+            ],
         } as unknown as GenerateContentResponse;
 
         (mockChatSession.sendMessage as jest.Mock).mockResolvedValue({ response: nextResponse });
 
         await service.handleFunctionCalls(initialResponse, mockChatSession, { userId: 'u1', sessionId: 's1' });
 
-        expect(mockChatSession.sendMessage).toHaveBeenCalledWith(expect.arrayContaining([
-            expect.objectContaining({
-                functionResponse: expect.objectContaining({
-                    response: expect.objectContaining({
-                        content: expect.objectContaining({ error: expect.any(String) })
-                    })
-                })
-            })
-        ]));
+        expect(mockChatSession.sendMessage).toHaveBeenCalledWith(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    functionResponse: expect.objectContaining({
+                        response: expect.objectContaining({
+                            content: expect.objectContaining({ error: expect.any(String) }),
+                        }),
+                    }),
+                }),
+            ]),
+        );
     });
 
     it('should handle verify_safe_support tool call', async () => {
         const initialResponse = {
-            candidates: [{
-                content: {
-                    parts: [{
-                        functionCall: {
-                            name: 'verify_safe_support',
-                            args: { reason: 'check' }
-                        }
-                    }]
-                }
-            }]
+            candidates: [
+                {
+                    content: {
+                        parts: [
+                            {
+                                functionCall: {
+                                    name: 'verify_safe_support',
+                                    args: { reason: 'check' },
+                                },
+                            },
+                        ],
+                    },
+                },
+            ],
         } as unknown as GenerateContentResponse;
 
         const nextResponse = {
-            candidates: [{
-                content: { parts: [{ text: 'Safe check' }] }
-            }]
+            candidates: [
+                {
+                    content: { parts: [{ text: 'Safe check' }] },
+                },
+            ],
         } as unknown as GenerateContentResponse;
 
         (mockChatSession.sendMessage as jest.Mock).mockResolvedValue({ response: nextResponse });

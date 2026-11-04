@@ -7,4 +7,4 @@ export * from './analysis.dto';
 export * from './verification.dto';
 export * from './user.dto';
 export * from './billing.dto';
-export * from './audio.dto';    
+export * from './audio.dto';

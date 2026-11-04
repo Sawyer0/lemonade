@@ -29,7 +29,7 @@ import type {
     IntuitionInput,
     GatherAllContextInput,
     VisionInput,
-    DeepPartial
+    DeepPartial,
 } from '@lemonade/core';
 import { MechanicPrompts, MemoryTags, getModelForState } from '@lemonade/core';
 import { mechanicMachine } from '@lemonade/core';
@@ -58,8 +58,8 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         @inject(TYPES.SafetyMonitor) private safetyMonitor: ISafetyMonitor,
         @inject(TYPES.TracingService) private tracer: ITracingService,
         @inject(TYPES.Logger) private logger: ILogger,
-        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter
-    ) { }
+        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
+    ) {}
 
     async diagnose(input: ReasoningInput): Promise<NeurosymbolicState> {
         return this.tracer.traceAiCall({
@@ -68,37 +68,61 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             inputs: {
                 userQuery: input.userQuery,
                 vehicleContext: input.vehicleContext,
-                complaint: input.complaint
+                complaint: input.complaint,
             },
             tags: ['neurosymbolic', 'diagnosis'],
-            exec: () => this.runDiagnosis(input)
+            exec: () => this.runDiagnosis(input),
         });
     }
 
     private async runDiagnosis(input: ReasoningInput): Promise<NeurosymbolicState> {
-        this.logger.info('[MechanicReasoning] Starting System 2 Diagnosis Loop (XState)', { sessionId: input.sessionId });
+        this.logger.info('[MechanicReasoning] Starting System 2 Diagnosis Loop (XState)', {
+            sessionId: input.sessionId,
+        });
 
         // Phase 1: Reactive Layer (Immediate Safety Gating)
         const reactiveAssessment = this.reactiveSafety.checkSafety(input.userQuery);
         if (reactiveAssessment && reactiveAssessment.intervention_required) {
             this.logger.warn('[MechanicReasoning] Reactive Safety Triggered', {
                 sessionId: input.sessionId,
-                hazard: reactiveAssessment.hazards_detected
+                hazard: reactiveAssessment.hazards_detected,
             });
             return {
                 complaint: input.complaint,
-                intuition: { hypothesis: "Immediate Hazard", confidence: 1.0, reasoning: "Reactive Layer Triggered", investigationPlan: [] },
-                authorityData: { vin: input.vehicleContext.vin as string, nhtsaRecalls: [], manualSpecs: null, safetyAlerts: reactiveAssessment.hazards_detected },
-                visualGrounding: { engineDescription: "Gated", isStock: true, visualConflictDetected: false, detectedCondition: 'unknown' },
+                intuition: {
+                    hypothesis: 'Immediate Hazard',
+                    confidence: 1.0,
+                    reasoning: 'Reactive Layer Triggered',
+                    investigationPlan: [],
+                },
+                authorityData: {
+                    vin: input.vehicleContext.vin as string,
+                    nhtsaRecalls: [],
+                    manualSpecs: null,
+                    safetyAlerts: reactiveAssessment.hazards_detected,
+                },
+                visualGrounding: {
+                    engineDescription: 'Gated',
+                    isStock: true,
+                    visualConflictDetected: false,
+                    detectedCondition: 'unknown',
+                },
                 consensus: { similarCasesFound: 0, consensusFix: null, isKnownIssue: false },
-                verification: { isVerified: false, verifiedSource: null, searchQueryUsed: null, conflictingEvidence: null },
+                verification: {
+                    isVerified: false,
+                    verifiedSource: null,
+                    searchQueryUsed: null,
+                    conflictingEvidence: null,
+                },
                 finalDiagnosis: {
                     decision: 'STOP_DANGER',
                     reasoningTrace: `REACTIVE_LAYER: Match found for ${reactiveAssessment.hazards_detected[0]}`,
-                    userOutput: reactiveAssessment.suggested_output || "CRITICAL SAFETY STOP: Immediate hazard detected. Do not proceed.",
-                    requiredActions: ["Evacuate area", "Follow safety instructions"],
-                    metaConfidence: 1.0
-                }
+                    userOutput:
+                        reactiveAssessment.suggested_output ||
+                        'CRITICAL SAFETY STOP: Immediate hazard detected. Do not proceed.',
+                    requiredActions: ['Evacuate area', 'Follow safety instructions'],
+                    metaConfidence: 1.0,
+                },
             };
         }
 
@@ -108,196 +132,235 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         if (semanticAssessment.intervention_required) {
             this.logger.warn('[MechanicReasoning] Semantic Safety Triggered', {
                 sessionId: input.sessionId,
-                hazard: semanticAssessment.hazards_detected
+                hazard: semanticAssessment.hazards_detected,
             });
             return {
                 complaint: input.complaint,
-                intuition: { hypothesis: "Potential Hazard", confidence: 1.0, reasoning: "Semantic Layer Triggered", investigationPlan: [] },
-                authorityData: { vin: input.vehicleContext.vin as string, nhtsaRecalls: [], manualSpecs: null, safetyAlerts: semanticAssessment.hazards_detected },
-                visualGrounding: { engineDescription: "Gated", isStock: true, visualConflictDetected: false, detectedCondition: 'unknown' },
+                intuition: {
+                    hypothesis: 'Potential Hazard',
+                    confidence: 1.0,
+                    reasoning: 'Semantic Layer Triggered',
+                    investigationPlan: [],
+                },
+                authorityData: {
+                    vin: input.vehicleContext.vin as string,
+                    nhtsaRecalls: [],
+                    manualSpecs: null,
+                    safetyAlerts: semanticAssessment.hazards_detected,
+                },
+                visualGrounding: {
+                    engineDescription: 'Gated',
+                    isStock: true,
+                    visualConflictDetected: false,
+                    detectedCondition: 'unknown',
+                },
                 consensus: { similarCasesFound: 0, consensusFix: null, isKnownIssue: false },
-                verification: { isVerified: false, verifiedSource: null, searchQueryUsed: null, conflictingEvidence: null },
+                verification: {
+                    isVerified: false,
+                    verifiedSource: null,
+                    searchQueryUsed: null,
+                    conflictingEvidence: null,
+                },
                 finalDiagnosis: {
                     decision: 'STOP_DANGER',
                     reasoningTrace: `SEMANTIC_LAYER: Match found for ${semanticAssessment.hazards_detected[0]}`,
-                    userOutput: semanticAssessment.suggested_output || "SAFETY STOP: Potential hazard detected. Please follow the instructions.",
-                    requiredActions: ["Stop current action", "Follow safety instructions"],
-                    metaConfidence: 1.0
-                }
+                    userOutput:
+                        semanticAssessment.suggested_output ||
+                        'SAFETY STOP: Potential hazard detected. Please follow the instructions.',
+                    requiredActions: ['Stop current action', 'Follow safety instructions'],
+                    metaConfidence: 1.0,
+                },
             };
         }
 
-        const actor = createActor(mechanicMachine.provide({
-            actors: {
-                // New Actor: Generates Initial Hypothesis + Plan
-                generateIntuition: fromPromise(async ({ input }: { input: IntuitionInput }) => {
-                    return this.generateIntuition(
-                        input.userQuery,
-                        input.vehicleContext,
-                        input.nhtsaResults,
-                        input.vehicleHistory,
-                        input.userId,
-                        input.sessionId
-                    );
-                }),
-                // Vision Actor: Now mostly for verification/grounding
-                visionAnalysis: fromPromise(async ({ input }: { input: VisionInput }) => {
-                    if (!input.data.videoUrl) return Promise.resolve(input.data.visualAnalysis as AIAnalysis); // Skip if no video
+        const actor = createActor(
+            mechanicMachine.provide({
+                actors: {
+                    // New Actor: Generates Initial Hypothesis + Plan
+                    generateIntuition: fromPromise(async ({ input }: { input: IntuitionInput }) => {
+                        return this.generateIntuition(
+                            input.userQuery,
+                            input.vehicleContext,
+                            input.nhtsaResults,
+                            input.vehicleHistory,
+                            input.userId,
+                            input.sessionId,
+                        );
+                    }),
+                    // Vision Actor: Now mostly for verification/grounding
+                    visionAnalysis: fromPromise(async ({ input }: { input: VisionInput }) => {
+                        if (!input.data.videoUrl) return Promise.resolve(input.data.visualAnalysis as AIAnalysis); // Skip if no video
 
-                    const ctx = input.data;
-                    const reasoningInput: ReasoningInput = {
-                        videoUrl: ctx.videoUrl,
-                        vehicleContext: ctx.vehicleContext,
-                        sessionId: ctx.sessionId,
-                        userId: ctx.userId,
-                        userQuery: ctx.userQuery,
-                        localTriage: ctx.localTriage
-                    };
-                    return this.runVisionAnalysis(
-                        reasoningInput,
-                        ctx.searchResults,
-                        ctx.verificationResult,
-                        ctx.vehicleHistory,
-                        ctx.nhtsaResults as SafetyRecall[]
-                    );
-                }),
-                nhtsaCheck: fromPromise(async ({ input }: { input: NhtsaInput }) => {
-                    console.log('   [Actor] nhtsaCheck - STARTING');
-                    const idx = input.data;
-                    const result = await this.nhtsaService.checkRecalls(idx.year, idx.make, idx.model);
-                    console.log('   [Actor] nhtsaCheck - COMPLETED with', result.length, 'recalls');
-                    return result;
-                }),
-                vectorSearch: fromPromise(async ({ input }: { input: VectorInput }) => {
-                    console.log('   [Actor] vectorSearch - STARTING');
-                    try {
-                        const result = await input.service.search(input.data.query, 3, { userId: input.data.userId });
-                        console.log('   [Actor] vectorSearch - COMPLETED with', result.length, 'results');
+                        const ctx = input.data;
+                        const reasoningInput: ReasoningInput = {
+                            videoUrl: ctx.videoUrl,
+                            vehicleContext: ctx.vehicleContext,
+                            sessionId: ctx.sessionId,
+                            userId: ctx.userId,
+                            userQuery: ctx.userQuery,
+                            localTriage: ctx.localTriage,
+                        };
+                        return this.runVisionAnalysis(
+                            reasoningInput,
+                            ctx.searchResults,
+                            ctx.verificationResult,
+                            ctx.vehicleHistory,
+                            ctx.nhtsaResults as SafetyRecall[],
+                        );
+                    }),
+                    nhtsaCheck: fromPromise(async ({ input }: { input: NhtsaInput }) => {
+                        console.log('   [Actor] nhtsaCheck - STARTING');
+                        const idx = input.data;
+                        const result = await this.nhtsaService.checkRecalls(idx.year, idx.make, idx.model);
+                        console.log('   [Actor] nhtsaCheck - COMPLETED with', result.length, 'recalls');
                         return result;
-                    } catch (e) {
-                        console.log('   [Actor] vectorSearch - FAILED', e);
-                        this.logger.warn("Vector search failed", { error: e });
-                        return [];
-                    }
-                }),
-                googleSearch: fromPromise(async ({ input }: { input: SearchInput }) => {
-                    try {
-                        return await this.searchService.search(input.data);
-                    } catch (e) {
-                        this.logger.warn("Google search failed", { error: e });
-                        return { results: [], queryUsed: input.data.query, totalFound: 0 };
-                    }
-                }),
-                webVerification: fromPromise(async ({ input }: { input: VerificationInput }) => {
-                    return this.chatAI.verifyHypothesis(input.data);
-                }),
-                supermemorySearch: fromPromise(async ({ input }: { input: MemoryInput }) => {
-                    console.log('   [Actor] supermemorySearch - STARTING');
-                    try {
-                        const query = `Vehicle VIN: ${input.data.vin || 'Unknown'}. Component/Issue: ${input.data.query}`;
-                        const result = await input.service.search(query, {
-                            tags: [MemoryTags.vin(input.data.vin || 'unknown')]
+                    }),
+                    vectorSearch: fromPromise(async ({ input }: { input: VectorInput }) => {
+                        console.log('   [Actor] vectorSearch - STARTING');
+                        try {
+                            const result = await input.service.search(input.data.query, 3, {
+                                userId: input.data.userId,
+                            });
+                            console.log('   [Actor] vectorSearch - COMPLETED with', result.length, 'results');
+                            return result;
+                        } catch (e) {
+                            console.log('   [Actor] vectorSearch - FAILED', e);
+                            this.logger.warn('Vector search failed', { error: e });
+                            return [];
+                        }
+                    }),
+                    googleSearch: fromPromise(async ({ input }: { input: SearchInput }) => {
+                        try {
+                            return await this.searchService.search(input.data);
+                        } catch (e) {
+                            this.logger.warn('Google search failed', { error: e });
+                            return { results: [], queryUsed: input.data.query, totalFound: 0 };
+                        }
+                    }),
+                    webVerification: fromPromise(async ({ input }: { input: VerificationInput }) => {
+                        return this.chatAI.verifyHypothesis(input.data);
+                    }),
+                    supermemorySearch: fromPromise(async ({ input }: { input: MemoryInput }) => {
+                        console.log('   [Actor] supermemorySearch - STARTING');
+                        try {
+                            const query = `Vehicle VIN: ${input.data.vin || 'Unknown'}. Component/Issue: ${input.data.query}`;
+                            const result = await input.service.search(query, {
+                                tags: [MemoryTags.vin(input.data.vin || 'unknown')],
+                            });
+                            console.log('   [Actor] supermemorySearch - COMPLETED with', result.length, 'results');
+                            return result;
+                        } catch (e) {
+                            console.log('   [Actor] supermemorySearch - FAILED', e);
+                            this.logger.warn('Supermemory search failed', { error: e });
+                            return [];
+                        }
+                    }),
+                    // NEW: Combined actor for parallel context gathering (workaround for XState parallel state bug)
+                    gatherAllContext: fromPromise(async ({ input }: { input: GatherAllContextInput }) => {
+                        console.log('   [Actor] gatherAllContext - STARTING (Promise.all)');
+                        const [recalls, history, vectors] = await Promise.all([
+                            // NHTSA Recalls
+                            (async () => {
+                                try {
+                                    const { year, make, model } = input.vehicleContext;
+                                    return await input.services.nhtsa.checkRecalls(
+                                        Number(year || 0),
+                                        String(make || ''),
+                                        String(model || ''),
+                                    );
+                                } catch (e) {
+                                    console.log('   [gatherAllContext] NHTSA failed:', e);
+                                    return [];
+                                }
+                            })(),
+                            // Supermemory History
+                            (async () => {
+                                try {
+                                    const query = `Vehicle VIN: ${input.vehicleContext.vin || 'Unknown'}. Component/Issue: ${input.userQuery}`;
+                                    return await input.services.memory.search(query, {
+                                        tags: MemoryTags.forVehicle(
+                                            input.userId,
+                                            String(input.vehicleContext.vin || 'unknown'),
+                                        ),
+                                    });
+                                } catch (e) {
+                                    console.log('   [gatherAllContext] Memory failed:', e);
+                                    return [];
+                                }
+                            })(),
+                            // Vector Search
+                            (async () => {
+                                try {
+                                    return await input.services.vector.search(input.userQuery, 3, {
+                                        userId: input.userId,
+                                    });
+                                } catch (e) {
+                                    console.log('   [gatherAllContext] Vector failed:', e);
+                                    return [];
+                                }
+                            })(),
+                        ]);
+                        console.log('   [Actor] gatherAllContext - COMPLETED', {
+                            recalls: recalls.length,
+                            history: history.length,
+                            vectors: vectors.length,
                         });
-                        console.log('   [Actor] supermemorySearch - COMPLETED with', result.length, 'results');
-                        return result;
-                    } catch (e) {
-
-                        console.log('   [Actor] supermemorySearch - FAILED', e);
-                        this.logger.warn("Supermemory search failed", { error: e });
-                        return [];
-                    }
-                }),
-                // NEW: Combined actor for parallel context gathering (workaround for XState parallel state bug)
-                gatherAllContext: fromPromise(async ({ input }: { input: GatherAllContextInput }) => {
-                    console.log('   [Actor] gatherAllContext - STARTING (Promise.all)');
-                    const [recalls, history, vectors] = await Promise.all([
-                        // NHTSA Recalls
-                        (async () => {
-                            try {
-                                const { year, make, model } = input.vehicleContext;
-                                return await input.services.nhtsa.checkRecalls(
-                                    Number(year || 0),
-                                    String(make || ''),
-                                    String(model || '')
-                                );
-                            } catch (e) {
-                                console.log('   [gatherAllContext] NHTSA failed:', e);
-                                return [];
-                            }
-                        })(),
-                        // Supermemory History
-                        (async () => {
-                            try {
-                                const query = `Vehicle VIN: ${input.vehicleContext.vin || 'Unknown'}. Component/Issue: ${input.userQuery}`;
-                                return await input.services.memory.search(query, {
-                                    tags: MemoryTags.forVehicle(input.userId, String(input.vehicleContext.vin || 'unknown'))
-                                });
-                            } catch (e) {
-                                console.log('   [gatherAllContext] Memory failed:', e);
-                                return [];
-                            }
-                        })(),
-                        // Vector Search
-                        (async () => {
-                            try {
-                                return await input.services.vector.search(input.userQuery, 3, { userId: input.userId });
-                            } catch (e) {
-                                console.log('   [gatherAllContext] Vector failed:', e);
-                                return [];
-                            }
-                        })()
-                    ]);
-                    console.log('   [Actor] gatherAllContext - COMPLETED', { recalls: recalls.length, history: history.length, vectors: vectors.length });
-                    return { recalls, history, vectors };
-                })
-            },
-            actions: {
-                loadVisionModel: () => {
-                    this.logger.debug('Initializing Vision Analysis resources');
+                        return { recalls, history, vectors };
+                    }),
                 },
-                unloadVisionModel: () => {
-                    this.logger.debug('Releasing Vision Analysis resources');
-                }
-            }
-        }), {
-            input: {
-                userQuery: input.userQuery,
-                videoUrl: input.videoUrl,
-                vehicleContext: input.vehicleContext,
-                sessionId: input.sessionId,
-                userId: input.userId,
-                localTriage: input.localTriage,
-                services: {
-                    vision: this.videoAI,
-                    chat: this.chatAI,
-                    nhtsa: this.nhtsaService,
-                    vector: this.vectorRepo,
-                    search: this.searchService,
-                    memory: this.memoryService
-                }
+                actions: {
+                    loadVisionModel: () => {
+                        this.logger.debug('Initializing Vision Analysis resources');
+                    },
+                    unloadVisionModel: () => {
+                        this.logger.debug('Releasing Vision Analysis resources');
+                    },
+                },
+            }),
+            {
+                input: {
+                    userQuery: input.userQuery,
+                    videoUrl: input.videoUrl,
+                    vehicleContext: input.vehicleContext,
+                    sessionId: input.sessionId,
+                    userId: input.userId,
+                    localTriage: input.localTriage,
+                    services: {
+                        vision: this.videoAI,
+                        chat: this.chatAI,
+                        nhtsa: this.nhtsaService,
+                        vector: this.vectorRepo,
+                        search: this.searchService,
+                        memory: this.memoryService,
+                    },
+                },
+                inspect: process.env.XSTATE_INSPECTOR === 'true' ? createBrowserInspector().inspect : undefined,
             },
-            inspect: process.env.XSTATE_INSPECTOR === 'true' ? createBrowserInspector().inspect : undefined
-        });
+        );
 
         if (process.env.XSTATE_INSPECTOR === 'true') {
-            this.logger.info('[XState Inspector] Enabled - Connecting to Stately Studio', { sessionId: input.sessionId });
+            this.logger.info('[XState Inspector] Enabled - Connecting to Stately Studio', {
+                sessionId: input.sessionId,
+            });
         }
 
         actor.subscribe((state) => {
             this.logger.debug(`[MechanicMachine] State: ${JSON.stringify(state.value)}`, {
-                error: state.context.error
+                error: state.context.error,
             });
 
             // XState Persistence: Save snapshot on every transition
-            this.sessionRepo.saveXStateSnapshot(input.sessionId, state).catch(err =>
-                this.logger.warn('Failed to save XState snapshot', { error: err, sessionId: input.sessionId })
-            );
+            this.sessionRepo
+                .saveXStateSnapshot(input.sessionId, state)
+                .catch((err) =>
+                    this.logger.warn('Failed to save XState snapshot', { error: err, sessionId: input.sessionId }),
+                );
         });
 
         actor.start();
 
         // Brief delay to ensure actor is ready
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
         actor.send({
             type: 'DIAGNOSE',
@@ -306,39 +369,46 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             vehicleContext: input.vehicleContext,
             sessionId: input.sessionId,
             userId: input.userId,
-            localTriage: input.localTriage
+            localTriage: input.localTriage,
         });
 
         const finalState = await waitFor(actor, (state) => state.matches('synthesizing'), { timeout: 120000 });
 
         // Clear persistence on completion
-        await this.sessionRepo.clearXStateSnapshot(input.sessionId).catch(err =>
-            this.logger.warn('Failed to clear XState snapshot', { error: err, sessionId: input.sessionId })
-        );
+        await this.sessionRepo
+            .clearXStateSnapshot(input.sessionId)
+            .catch((err) =>
+                this.logger.warn('Failed to clear XState snapshot', { error: err, sessionId: input.sessionId }),
+            );
 
         const ctx = finalState.context;
 
         const visual = ctx.visualAnalysis || {
-            diagnosis: "Unknown",
+            diagnosis: 'Unknown',
             confidence: 0,
             visual_evidence: [],
             acoustic_evidence: [],
-            severity: "low",
+            severity: 'low',
             safety_alert: false,
             suggested_actions: [],
-            engineDescription: "No visual analysis performed",
+            engineDescription: 'No visual analysis performed',
             isStock: true,
             visualConflictDetected: false,
             detectedCondition: 'unknown',
-            reasoning: "No analysis performed",
-            investigationPlan: []
+            reasoning: 'No analysis performed',
+            investigationPlan: [],
         };
         const nhtsa = ctx.nhtsaResults || [];
         const similar = ctx.embeddingInfo || [];
-        const verificationResult = ctx.verificationResult || { isVerified: false, source: null, reasoning: "No verification run" };
+        const verificationResult = ctx.verificationResult || {
+            isVerified: false,
+            source: null,
+            reasoning: 'No verification run',
+        };
 
         const reasoningLower = (verificationResult.reasoning || '').toLowerCase();
-        const isExplicitConflict = !verificationResult.isVerified &&
+        const isExplicitConflict =
+            !verificationResult.isVerified &&
             (reasoningLower.includes('electric') ||
                 reasoningLower.includes('not') ||
                 reasoningLower.includes('contradict') ||
@@ -348,7 +418,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             isVerified: verificationResult.isVerified,
             verifiedSource: verificationResult.source || null,
             searchQueryUsed: ctx.searchResults?.queryUsed || null,
-            conflictingEvidence: isExplicitConflict ? verificationResult.reasoning : null
+            conflictingEvidence: isExplicitConflict ? verificationResult.reasoning : null,
         };
 
         const reflexionResult = this.synthesizeReflexion(
@@ -356,22 +426,41 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             nhtsa as SafetyRecall[],
             similar,
             verification,
-            ctx.localTriage
+            ctx.localTriage,
         );
 
         const state: NeurosymbolicState = {
             complaint: input.complaint,
-            intuition: { hypothesis: visual.diagnosis, confidence: visual.confidence, reasoning: "XState Logic", investigationPlan: [] },
-            authorityData: { vin: input.vehicleContext.vin as string, nhtsaRecalls: (nhtsa as { Summary?: string }[]).map((r) => r.Summary || 'Unknown'), manualSpecs: null, safetyAlerts: [] },
-            visualGrounding: { engineDescription: "Analyzed", isStock: true, visualConflictDetected: false, detectedCondition: 'unknown' },
-            consensus: { similarCasesFound: similar.length, consensusFix: similar.length > 0 ? (similar[0] as { text: string }).text : null, isKnownIssue: similar.length > 1 },
+            intuition: {
+                hypothesis: visual.diagnosis,
+                confidence: visual.confidence,
+                reasoning: 'XState Logic',
+                investigationPlan: [],
+            },
+            authorityData: {
+                vin: input.vehicleContext.vin as string,
+                nhtsaRecalls: (nhtsa as { Summary?: string }[]).map((r) => r.Summary || 'Unknown'),
+                manualSpecs: null,
+                safetyAlerts: [],
+            },
+            visualGrounding: {
+                engineDescription: 'Analyzed',
+                isStock: true,
+                visualConflictDetected: false,
+                detectedCondition: 'unknown',
+            },
+            consensus: {
+                similarCasesFound: similar.length,
+                consensusFix: similar.length > 0 ? (similar[0] as { text: string }).text : null,
+                isKnownIssue: similar.length > 1,
+            },
             verification: verification,
-            finalDiagnosis: reflexionResult
+            finalDiagnosis: reflexionResult,
         };
 
         if (state.intuition.confidence > 0.8 && state.finalDiagnosis.decision === 'PROCEED') {
-            this.saveToMemory(state.complaint || input.userQuery, state, input.userId, input.sessionId).catch(err =>
-                this.logger.error('Failed to save individual case to collective memory', err)
+            this.saveToMemory(state.complaint || input.userQuery, state, input.userId, input.sessionId).catch((err) =>
+                this.logger.error('Failed to save individual case to collective memory', err),
             );
         }
 
@@ -384,23 +473,23 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         recalls: SafetyRecall[],
         history: MemorySearchResult[],
         userId: string,
-        sessionId: string
+        sessionId: string,
     ): Promise<AIAnalysis> {
         const selectedModel = getModelForState('intuition');
         this.logger.info('[MechanicReasoning] Generating Intuition (System 2)', {
             sessionId,
             model: selectedModel,
-            modelReason: 'Deep diagnostic reasoning requires Pro model'
+            modelReason: 'Deep diagnostic reasoning requires Pro model',
         });
 
         // 1. Construct ASE Master Tech Prompt with FULL Context
-        const recallText = recalls.length > 0
-            ? recalls.map(r => `- [${r.Component}] ${r.Summary} (Remedy: ${r.Remedy})`).join('\n')
-            : "No active recalls found.";
+        const recallText =
+            recalls.length > 0
+                ? recalls.map((r) => `- [${r.Component}] ${r.Summary} (Remedy: ${r.Remedy})`).join('\n')
+                : 'No active recalls found.';
 
-        const historyText = history.length > 0
-            ? history.map(h => `- ${h.content}`).join('\n')
-            : "No relevant vehicle history.";
+        const historyText =
+            history.length > 0 ? history.map((h) => `- ${h.content}`).join('\n') : 'No relevant vehicle history.';
 
         const prompt = `
         You are an ASE Certified Master Technician with 20+ years of experience.
@@ -450,63 +539,67 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             const model = this.coreAdapter.getGenerativeModel(
                 selectedModel,
                 this.coreAdapter.commonTools,
-                this.coreAdapter.commonSafetySettings
+                this.coreAdapter.commonSafetySettings,
             );
 
             // 3. Call with Thinking Config (High Reasoning Effort)
             const generateConfig = {
                 thinkingConfig: {
                     thinkingBudget: 10000,
-                    includeThoughts: false
+                    includeThoughts: false,
                 },
                 temperature: 0.2,
-                responseMimeType: "application/json" as const
+                responseMimeType: 'application/json' as const,
             };
 
             const response = await model.generateContent({
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: generateConfig
+                generationConfig: generateConfig,
             });
 
             // 4. Parse JSON from response
             const text = response.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const jsonStr = text
+                .replace(/```json/g, '')
+                .replace(/```/g, '')
+                .trim();
             const result = JSON.parse(jsonStr);
 
             // Validate/Fill defaults
             return {
-                diagnosis: result.diagnosis || "Unknown Issue",
+                diagnosis: result.diagnosis || 'Unknown Issue',
                 confidence: typeof result.confidence === 'number' ? result.confidence : 0.5,
-                reasoning: result.reasoning || "Analysis complete.",
-                investigationPlan: Array.isArray(result.investigationPlan) ? result.investigationPlan : ["Perform visual inspection"],
-                severity: result.severity || "low",
+                reasoning: result.reasoning || 'Analysis complete.',
+                investigationPlan: Array.isArray(result.investigationPlan)
+                    ? result.investigationPlan
+                    : ['Perform visual inspection'],
+                severity: result.severity || 'low',
                 safety_alert: !!result.safety_alert,
                 suggested_actions: Array.isArray(result.suggested_actions) ? result.suggested_actions : [],
-                engineDescription: "N/A",
+                engineDescription: 'N/A',
                 isStock: true,
                 visualConflictDetected: false,
                 detectedCondition: 'unknown',
                 visual_evidence: [],
-                acoustic_evidence: []
+                acoustic_evidence: [],
             };
-
         } catch (error) {
-            this.logger.error("Failed to generate intuition", error as Error);
+            this.logger.error('Failed to generate intuition', error as Error);
             // Fallback
             return {
-                diagnosis: "Complex Issue",
+                diagnosis: 'Complex Issue',
                 confidence: 0.1,
-                reasoning: "Failed to generate detailed intuition.",
-                investigationPlan: ["Consult manual", "Check codes"],
-                severity: "low",
+                reasoning: 'Failed to generate detailed intuition.',
+                investigationPlan: ['Consult manual', 'Check codes'],
+                severity: 'low',
                 safety_alert: false,
-                suggested_actions: ["Consult human mechanic"],
-                engineDescription: "N/A",
+                suggested_actions: ['Consult human mechanic'],
+                engineDescription: 'N/A',
                 isStock: true,
                 visualConflictDetected: false,
                 detectedCondition: 'unknown',
                 visual_evidence: [],
-                acoustic_evidence: []
+                acoustic_evidence: [],
             };
         }
     }
@@ -516,7 +609,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         recalls: SafetyRecall[],
         consensus: unknown[],
         verification: VerificationData,
-        localTriage?: { detections: LocalTriageDetection[] }
+        localTriage?: { detections: LocalTriageDetection[] },
     ): NeurosymbolicState['finalDiagnosis'] {
         const decisionTrace: string[] = [];
         const activeRecalls = recalls || [];
@@ -532,74 +625,93 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         }
 
         // RECALL BOOST: If AI already suspects a recall-related part, align it
-        const recallMatch = activeRecalls.find(r =>
-            diagnosis.toLowerCase().includes(r.Component.toLowerCase()) ||
-            (r.Summary && diagnosis.toLowerCase().split(' ').some(word => r.Summary.toLowerCase().includes(word) && word.length > 3))
+        const recallMatch = activeRecalls.find(
+            (r) =>
+                diagnosis.toLowerCase().includes(r.Component.toLowerCase()) ||
+                (r.Summary &&
+                    diagnosis
+                        .toLowerCase()
+                        .split(' ')
+                        .some((word) => r.Summary.toLowerCase().includes(word) && word.length > 3)),
         );
 
         if (recallMatch) {
             decisionTrace.push(`RECALL MATCH: Symptoms align with Recall on ${recallMatch.Component}.`);
             diagnosis = `RECALL IDENTIFIED: ${recallMatch.Component}. ${recallMatch.Summary}`;
-            actions = [recallMatch.Remedy || "Contact your local dealer for a free repair.", ...actions];
+            actions = [recallMatch.Remedy || 'Contact your local dealer for a free repair.', ...actions];
         } else if (activeRecalls.length > 0) {
-            decisionTrace.push(`ALERT: Found ${activeRecalls.length} active recalls. No direct match found to current symptoms.`);
+            decisionTrace.push(
+                `ALERT: Found ${activeRecalls.length} active recalls. No direct match found to current symptoms.`,
+            );
         }
 
         if (verification.conflictingEvidence) {
             const conflict = verification.conflictingEvidence;
-            decisionTrace.push("CRITICAL CONFLICT: Ground truth contradicts intuition.");
+            decisionTrace.push('CRITICAL CONFLICT: Ground truth contradicts intuition.');
             return {
                 decision: 'REFER_TO_HUMAN',
                 reasoningTrace: decisionTrace.join('\n'),
                 userOutput: `CONFLICT DETECTED: My initial analysis suggests "${diagnosis}", but technical records indicate: ${conflict}. This requires human verification to avoid incorrect repair.`,
-                requiredActions: ["Consult Human Mechanic", "Verify with Technical Manual"],
-                metaConfidence: 0.5
+                requiredActions: ['Consult Human Mechanic', 'Verify with Technical Manual'],
+                metaConfidence: 0.5,
             };
         }
 
-        const metaConfidence = this.calculateMetaConfidence(intuition, recalls, consensus, verification, localTriage, !!recallMatch);
+        const metaConfidence = this.calculateMetaConfidence(
+            intuition,
+            recalls,
+            consensus,
+            verification,
+            localTriage,
+            !!recallMatch,
+        );
         decisionTrace.push(`META-COGNITION: Final confidence calculated at ${(metaConfidence * 100).toFixed(1)}%`);
 
         // RELAXED THRESHOLDS: Only punt if absolutely zero grounding and very low confidence
-        if (metaConfidence < 0.30 && !recallMatch && !verification.isVerified) {
+        if (metaConfidence < 0.3 && !recallMatch && !verification.isVerified) {
             // ITERATIVE FALLBACK: Request More Info instead of referring to human immediately
             const typedIntuition = intuition as DeepPartial<AIAnalysis>;
             if (typedIntuition.investigationPlan && typedIntuition.investigationPlan.length > 0) {
-                decisionTrace.push("LOW CONFIDENCE: Initiating iterative diagnosis request.");
+                decisionTrace.push('LOW CONFIDENCE: Initiating iterative diagnosis request.');
                 return {
                     decision: 'REQUEST_MORE_INFO',
                     reasoningTrace: decisionTrace.join('\n'),
                     userOutput: `I have a hypothesis (${diagnosis}), but I need you to check a few things to be sure:\n\n${typedIntuition.investigationPlan.map((step) => `- ${step}`).join('\n')}\n\nCan you perform these checks and tell me what you find?`,
                     requiredActions: typedIntuition.investigationPlan as string[],
-                    metaConfidence: metaConfidence
+                    metaConfidence: metaConfidence,
                 };
             }
 
-            decisionTrace.push("LOW CONFIDENCE: No grounding found and initial intuition is extremely weak.");
+            decisionTrace.push('LOW CONFIDENCE: No grounding found and initial intuition is extremely weak.');
             return {
                 decision: 'REFER_TO_HUMAN',
                 reasoningTrace: decisionTrace.join('\n'),
-                userOutput: "I'm having trouble forming a confident diagnosis with the available information. To be safe, I recommend consulting a human mechanic for a physical inspection.",
-                requiredActions: ["Consult Human Mechanic"],
-                metaConfidence: metaConfidence
+                userOutput:
+                    "I'm having trouble forming a confident diagnosis with the available information. To be safe, I recommend consulting a human mechanic for a physical inspection.",
+                requiredActions: ['Consult Human Mechanic'],
+                metaConfidence: metaConfidence,
             };
         }
 
-        const strongConsensusContradiction = consensus.length > 2 && (consensus[0] as { text: string }).text !== intuition.diagnosis && !verification.isVerified;
+        const strongConsensusContradiction =
+            consensus.length > 2 &&
+            (consensus[0] as { text: string }).text !== intuition.diagnosis &&
+            !verification.isVerified;
         if (strongConsensusContradiction) {
-            decisionTrace.push("COMPLEX CONFLICT: Consensus strongly contradicts intuition, but verification is inconclusive. Referring to human.");
+            decisionTrace.push(
+                'COMPLEX CONFLICT: Consensus strongly contradicts intuition, but verification is inconclusive. Referring to human.',
+            );
             return {
                 decision: 'REFER_TO_HUMAN',
                 reasoningTrace: decisionTrace.join('\n'),
-                userOutput: "My analysis conflicts with strong community consensus, and I cannot verify a definitive solution. Please refer to a human expert.",
-                requiredActions: ["Consult Human Mechanic"],
-                metaConfidence: 0.4
+                userOutput:
+                    'My analysis conflicts with strong community consensus, and I cannot verify a definitive solution. Please refer to a human expert.',
+                requiredActions: ['Consult Human Mechanic'],
+                metaConfidence: 0.4,
             };
         }
 
-        let userOutput = verification.isVerified
-            ? `${diagnosis} (Verified by external data)`
-            : diagnosis;
+        let userOutput = verification.isVerified ? `${diagnosis} (Verified by external data)` : diagnosis;
 
         if (activeRecalls.length > 0 && !recallMatch) {
             const firstRecall = activeRecalls[0];
@@ -608,12 +720,12 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             }
         }
 
-        decisionTrace.push("Proceeding with best-effort diagnosis.");
+        decisionTrace.push('Proceeding with best-effort diagnosis.');
 
         let decision: 'PROCEED' | 'STOP_DANGER' | 'REFER_TO_HUMAN' = 'PROCEED';
         if (intuition.safety_alert || intuition.severity === 'critical') {
             decision = 'STOP_DANGER';
-            decisionTrace.push("SAFETY STOP: AI identified a critical safety issue.");
+            decisionTrace.push('SAFETY STOP: AI identified a critical safety issue.');
         }
 
         return {
@@ -621,7 +733,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             reasoningTrace: decisionTrace.join('\n'),
             userOutput,
             requiredActions: actions,
-            metaConfidence
+            metaConfidence,
         };
     }
 
@@ -631,7 +743,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         consensus: unknown[],
         verification: VerificationData,
         localTriage?: { detections: LocalTriageDetection[] },
-        hasRecallMatch: boolean = false
+        hasRecallMatch: boolean = false,
     ): number {
         let score = intuition.confidence * 0.5;
         if (verification.isVerified) score += 0.4;
@@ -640,10 +752,11 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         if (hasRecallMatch) score += 0.3; // Significant boost for recall matches
 
         if (localTriage?.detections?.length && intuition.diagnosis) {
-            const match = localTriage.detections.find((d) =>
-                (d.confidence || 0) > 0.7 &&
-                d.id?.obj &&
-                intuition.diagnosis.toLowerCase().includes(d.id.obj.toLowerCase())
+            const match = localTriage.detections.find(
+                (d) =>
+                    (d.confidence || 0) > 0.7 &&
+                    d.id?.obj &&
+                    intuition.diagnosis.toLowerCase().includes(d.id.obj.toLowerCase()),
             );
             if (match) score = Math.min(1.0, score + 0.1);
         }
@@ -656,7 +769,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         searchContext?: SearchResponse,
         verificationContext?: VerificationResponse,
         vehicleHistory?: MemorySearchResult[],
-        recalls: SafetyRecall[] = []
+        recalls: SafetyRecall[] = [],
     ): Promise<AIAnalysis> {
         // STEP 0: Check for Local Model Results (SmolVLM2 on-device triage)
         if (input.localTriage && (input.localTriage.confidence || 0) > 0.7) {
@@ -666,14 +779,14 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                 model: selectedModel,
                 modelReason: 'On-device triage with high confidence',
                 localConfidence: input.localTriage.confidence,
-                costSavings: '$0.00'
+                costSavings: '$0.00',
             });
 
             // Convert LocalTriageResult to AIAnalysis format
             return {
-                diagnosis: input.localTriage.primaryIssue || "Unknown (Local)",
+                diagnosis: input.localTriage.primaryIssue || 'Unknown (Local)',
                 confidence: input.localTriage.confidence || 0.7,
-                reasoning: input.localTriage.reasoning || "Detected via local model",
+                reasoning: input.localTriage.reasoning || 'Detected via local model',
                 investigationPlan: [],
                 severity: input.localTriage.safetyConcern ? 'high' : 'medium',
                 safety_alert: !!input.localTriage.safetyConcern,
@@ -683,7 +796,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                 visualConflictDetected: false,
                 detectedCondition: 'unknown',
                 visual_evidence: [],
-                acoustic_evidence: []
+                acoustic_evidence: [],
             };
         }
 
@@ -692,24 +805,28 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             model: 'gemini-2.5-flash',
             modelReason: 'Fallback for vision analysis',
             localTriageAvailable: !!input.localTriage,
-            localConfidence: input.localTriage?.confidence ?? 0
+            localConfidence: input.localTriage?.confidence ?? 0,
         });
 
         // STEP 1: Build Enhanced Context
         let enhancedContext = JSON.stringify(input.vehicleContext);
 
         if (vehicleHistory && vehicleHistory.length > 0) {
-            const historyString = vehicleHistory.map(h => h.content).join('\n---\n');
+            const historyString = vehicleHistory.map((h) => h.content).join('\n---\n');
             enhancedContext += `\n\nVEHICLE HISTORY / PAST DIAGNOSTICS:\n${historyString}\n\nINSTRUCTION: Consider the history above when diagnosing the current issue. If a part was recently replaced, it might still be under warranty or could be a faulty new part.`;
         }
 
         if (recalls && recalls.length > 0) {
-            const recallString = recalls.map(r => `Component: ${r.Component}, Summary: ${r.Summary}, Remedy: ${r.Remedy}`).join('\n');
+            const recallString = recalls
+                .map((r) => `Component: ${r.Component}, Summary: ${r.Summary}, Remedy: ${r.Remedy}`)
+                .join('\n');
             enhancedContext += `\n\nACTIVE RECALLS found for this vehicle:\n${recallString}\n\nINSTRUCTION: Check if any of these recalls match the user's symptoms. If yes, the recall IS the diagnosis. If no, diagnose the symptoms normally but mention the recall as a secondary note.`;
         }
 
         if (searchContext && searchContext.results && searchContext.results.length > 0) {
-            const searchString = searchContext.results.map(r => `Title: ${r.title}\nSnippet: ${r.snippet}`).join('\n---\n');
+            const searchString = searchContext.results
+                .map((r) => `Title: ${r.title}\nSnippet: ${r.snippet}`)
+                .join('\n---\n');
             enhancedContext += `\n\nWEB SEARCH RESULTS:\n${searchString}\n\nINSTRUCTION: Use these search results to verify or refine your diagnosis.`;
         }
 
@@ -724,14 +841,14 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             input.userId,
             input.sessionId,
             'high',
-            input.videoDurationMinutes
+            input.videoDurationMinutes,
         );
     }
 
     private async analyzeTextOnlyDiagnosis(
         input: ReasoningInput,
         context: string,
-        verification?: VerificationResponse
+        verification?: VerificationResponse,
     ): Promise<AIAnalysis> {
         const prompt = MechanicPrompts.textDiagnosis(input.userQuery, context, JSON.stringify(verification));
         try {
@@ -741,29 +858,32 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                 JSON.stringify(input.vehicleContext),
                 null,
                 input.userId,
-                input.sessionId
+                input.sessionId,
             );
 
-            const text = Array.isArray(response) ? response.map(p => p.text).join('') : response;
+            const text = Array.isArray(response) ? response.map((p) => p.text).join('') : response;
             // Clean markdown json
-            const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const jsonStr = text
+                .replace(/```json/g, '')
+                .replace(/```/g, '')
+                .trim();
             return JSON.parse(jsonStr) as AIAnalysis;
         } catch (e) {
-            this.logger.error("Text-only diagnosis failed", e as Error);
+            this.logger.error('Text-only diagnosis failed', e as Error);
             return {
-                diagnosis: verification?.isVerified ? "Verified via Research" : "Unknown Issue",
+                diagnosis: verification?.isVerified ? 'Verified via Research' : 'Unknown Issue',
                 confidence: 0.1,
                 visual_evidence: [],
                 acoustic_evidence: [],
-                severity: "low",
+                severity: 'low',
                 safety_alert: false,
-                suggested_actions: ["Consult a mechanic"],
-                engineDescription: "Failed to analyze text",
+                suggested_actions: ['Consult a mechanic'],
+                engineDescription: 'Failed to analyze text',
                 isStock: true,
                 visualConflictDetected: false,
                 detectedCondition: 'unknown',
-                reasoning: "Text analysis failed",
-                investigationPlan: []
+                reasoning: 'Text analysis failed',
+                investigationPlan: [],
             };
         }
     }
@@ -775,7 +895,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             userId: userId,
             diagnosis: state.finalDiagnosis.userOutput,
             vehicle: state.authorityData.vin || 'unknown',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         });
 
         const diagnosticLog = `
@@ -798,12 +918,14 @@ Meta Confidence: ${state.finalDiagnosis.metaConfidence}
                 tags: [
                     MemoryTags.type('diagnostic'),
                     ...isolationTags,
-                    ...(state.verification.isVerified ? [MemoryTags.status('verified')] : [MemoryTags.status('session')])
+                    ...(state.verification.isVerified
+                        ? [MemoryTags.status('verified')]
+                        : [MemoryTags.status('session')]),
                 ],
                 metadata: {
                     sessionId,
-                    isVerified: state.verification.isVerified
-                }
+                    isVerified: state.verification.isVerified,
+                },
             });
 
             // 2. If verified, save multimedia artifacts
@@ -812,36 +934,40 @@ Meta Confidence: ${state.finalDiagnosis.metaConfidence}
                 if (session) {
                     // Save video if present
                     if (session.videoUrl) {
-                        await this.memoryService.addDocument({
-                            url: session.videoUrl,
-                            tags: [MemoryTags.type('observation'), ...isolationTags, MemoryTags.status('verified')],
-                            metadata: { sessionId, artifactType: 'video' }
-                        }).catch(e => this.logger.warn('Failed to ingest session video', { error: e }));
+                        await this.memoryService
+                            .addDocument({
+                                url: session.videoUrl,
+                                tags: [MemoryTags.type('observation'), ...isolationTags, MemoryTags.status('verified')],
+                                metadata: { sessionId, artifactType: 'video' },
+                            })
+                            .catch((e) => this.logger.warn('Failed to ingest session video', { error: e }));
                     }
 
                     // Save images from messages
                     const imageUrls = new Set<string>();
-                    session.messages.forEach(msg => {
+                    session.messages.forEach((msg) => {
                         if (Array.isArray(msg.content)) {
-                            msg.content.forEach(part => {
+                            msg.content.forEach((part) => {
                                 if (part.type === 'image' && part.image) imageUrls.add(part.image);
                             });
                         }
                     });
 
                     for (const url of imageUrls) {
-                        await this.memoryService.addDocument({
-                            url,
-                            tags: [MemoryTags.type('observation'), ...isolationTags, MemoryTags.status('verified')],
-                            metadata: { sessionId, artifactType: 'image' }
-                        }).catch(e => this.logger.warn('Failed to ingest session image', { error: e, url }));
+                        await this.memoryService
+                            .addDocument({
+                                url,
+                                tags: [MemoryTags.type('observation'), ...isolationTags, MemoryTags.status('verified')],
+                                metadata: { sessionId, artifactType: 'image' },
+                            })
+                            .catch((e) => this.logger.warn('Failed to ingest session image', { error: e, url }));
                     }
                 }
             }
 
-            this.logger.info("Diagnostic session saved to Supermemory", { vin: state.authorityData.vin, sessionId });
+            this.logger.info('Diagnostic session saved to Supermemory', { vin: state.authorityData.vin, sessionId });
         } catch (error) {
-            this.logger.error("Failed to save to Supermemory", error as Error);
+            this.logger.error('Failed to save to Supermemory', error as Error);
         }
     }
 }

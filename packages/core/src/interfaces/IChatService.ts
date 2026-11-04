@@ -9,9 +9,9 @@ import { VehicleContext } from './IRealtimeAIService';
 export interface IChatService {
     handleChatInteraction(sessionId: string, userMessage: string | MessagePart[]): Promise<string | MessagePart[]>;
     handleChatInteractionStream(
-        sessionId: string, 
+        sessionId: string,
         userMessage: string | MessagePart[],
         vehicleContextOverride?: VehicleContext,
-        diagnosticContextOverride?: AIAnalysis
+        diagnosticContextOverride?: AIAnalysis,
     ): AsyncGenerator<StreamingEvent, void, unknown>;
 }

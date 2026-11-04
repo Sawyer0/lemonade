@@ -1,4 +1,3 @@
-
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import path from 'path';
@@ -20,7 +19,9 @@ const logger: ILogger = {
 
 // Mock Billing (don't write to DB)
 const mockBilling: IBillingService = {
-    recordUsage: async () => { console.log('[MockBilling] Usage recorded'); },
+    recordUsage: async () => {
+        console.log('[MockBilling] Usage recorded');
+    },
     checkLimits: async () => ({ allowed: true, remaining: 1000 }),
     getUsage: async () => ({ totalTokens: 0, cost: 0, requests: 0 }),
 } as unknown as IBillingService;
@@ -42,7 +43,7 @@ async function main() {
             query: '2020 Ford F-150 brake squeak TSB',
             limit: 3,
             userId: 'test-user',
-            sessionId: 'test-session'
+            sessionId: 'test-session',
         });
 
         console.log(`   Result Count: ${searchResults.totalFound}`);

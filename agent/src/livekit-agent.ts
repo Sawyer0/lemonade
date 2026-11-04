@@ -3,9 +3,7 @@ import * as google from '@livekit/agents-plugin-google';
 import * as resemble from '@livekit/agents-plugin-resemble';
 import * as silero from '@livekit/agents-plugin-silero';
 import { RoomEvent, RemoteParticipant, DataPacketKind } from '@livekit/rtc-node';
-import {
-    SystemPrompts,
-} from '@lemonade/core';
+import { SystemPrompts } from '@lemonade/core';
 import {
     EnvConfigProvider,
     Logger,
@@ -33,9 +31,9 @@ import { z } from 'zod';
 import { env } from './env';
 
 // Data channel topics
-const VISUAL_BURST_REQUEST = "capture_visual_burst";
-const VISUAL_BURST_RESPONSE = "visual_burst_response";
-const PROACTIVE_PING = "proactive_ping";
+const VISUAL_BURST_REQUEST = 'capture_visual_burst';
+const VISUAL_BURST_RESPONSE = 'visual_burst_response';
+const PROACTIVE_PING = 'proactive_ping';
 
 interface JobMetadata {
     vehicleContext?: string;
@@ -76,7 +74,7 @@ const mechanicReasoningService = new MechanicReasoningService(
     reactiveSafetyService,
     safetyMonitor,
     tracer,
-    mainLogger
+    mainLogger,
 );
 
 const liveStreamAnalyzer = new GeminiFlashLiveStreamAdapter(
@@ -87,7 +85,7 @@ const liveStreamAnalyzer = new GeminiFlashLiveStreamAdapter(
     contextCache,
     userRepo,
     sessionRepo,
-    tracer
+    tracer,
 );
 
 export default defineAgent({
@@ -117,7 +115,7 @@ export default defineAgent({
         });
 
         const model = new google.realtime.RealtimeModel({
-            model: "gemini-2.5-flash-native-audio-preview-09-2025",
+            model: 'gemini-2.5-flash-native-audio-preview-09-2025',
             temperature: 0.7,
             modalities: [google.realtime.Modality.TEXT],
             apiKey: config.getGoogleCloudConfig().apiKey,
@@ -125,20 +123,23 @@ export default defineAgent({
 
         // 3. Define Tools
         const tools = {
-            start_video_stream: z.function()
+            start_video_stream: z
+                .function()
                 .describe('Request a visual burst (high-res frames) to inspect a part.')
-                .args(z.object({
-                    component: z.string().describe('The part to see (e.g. "engine belt", "brake rotor")'),
-                    reason: z.string().describe('Why you need to see it')
-                }))
+                .args(
+                    z.object({
+                        component: z.string().describe('The part to see (e.g. "engine belt", "brake rotor")'),
+                        reason: z.string().describe('Why you need to see it'),
+                    }),
+                )
                 .implementation(async ({ component, reason }) => {
                     mainLogger.info(`AI requesting visual burst`, { component, reason });
                     ctx.room.localParticipant?.publishData(
                         new TextEncoder().encode(JSON.stringify({ type: VISUAL_BURST_REQUEST, component, reason })),
-                        { topic: VISUAL_BURST_REQUEST, reliable: true }
+                        { topic: VISUAL_BURST_REQUEST, reliable: true },
                     );
                     return `Requesting visual data for ${component}. Please point your camera at it.`;
-                })
+                }),
         };
 
         // 4. Create Voice Agent (Pipeline)
@@ -151,14 +152,14 @@ export default defineAgent({
 
         const agent = new voice.Agent({
             vad: await silero.VAD.load(),
-            llm: model, 
+            llm: model,
             tts: tts,
             fncCtx: {
-                tools: tools 
+                tools: tools,
             },
             chatCtx: {
-                system: systemInstructions
-            }
+                system: systemInstructions,
+            },
         });
 
         // 5. Start Agent
@@ -168,11 +169,13 @@ export default defineAgent({
             if (event.text) {
                 mainLogger.info('Agent speaking, sending text to client', { text: event.text });
                 ctx.room.localParticipant?.publishData(
-                    new TextEncoder().encode(JSON.stringify({
-                        type: 'chat',
-                        analysis: { diagnosis: event.text }
-                    })),
-                    { topic: 'ai_response', reliable: true }
+                    new TextEncoder().encode(
+                        JSON.stringify({
+                            type: 'chat',
+                            analysis: { diagnosis: event.text },
+                        }),
+                    ),
+                    { topic: 'ai_response', reliable: true },
                 );
             }
         });
@@ -180,107 +183,132 @@ export default defineAgent({
         const sayAndSend = async (text: string) => {
             session.chat.addToHistory({ role: 'assistant', content: text });
             await session.response.say(text);
-            
+
             ctx.room.localParticipant?.publishData(
-                new TextEncoder().encode(JSON.stringify({
-                    type: 'chat',
-                    analysis: { diagnosis: text }
-                })),
-                { topic: 'ai_response', reliable: true }
+                new TextEncoder().encode(
+                    JSON.stringify({
+                        type: 'chat',
+                        analysis: { diagnosis: text },
+                    }),
+                ),
+                { topic: 'ai_response', reliable: true },
             );
         };
 
         // 6. Handle Semantic Bursts (Data Channel)
-        ctx.room.on(RoomEvent.DataReceived, async (payload: Uint8Array, participant?: RemoteParticipant, kind?: DataPacketKind, topic?: string) => {
-            if (participant?.identity !== userId) return;
+        ctx.room.on(
+            RoomEvent.DataReceived,
+            async (payload: Uint8Array, participant?: RemoteParticipant, kind?: DataPacketKind, topic?: string) => {
+                if (participant?.identity !== userId) return;
 
-            if (topic === PROACTIVE_PING) {
-                try {
-                    const ping = JSON.parse(new TextDecoder().decode(payload));
-                    const { detection } = ping;
-                    mainLogger.info(`Received Proactive Ping`, { part: detection.id.obj, risk: detection.eval.risk });
-                    
-                    if (detection.eval.risk) {
-                        await sayAndSend(`I'm seeing something concerning with the ${detection.id.obj}. Analyzing now...`);
-                    }
-                } catch (e) {
-                    mainLogger.warn('Failed to parse proactive ping', { error: e as Error });
-                }
-                return;
-            }
-
-            if (topic !== VISUAL_BURST_RESPONSE) return;
-
-            try {
-                const packet = JSON.parse(new TextDecoder().decode(payload));
-                const { frames, component, metadata } = packet;
-
-                if (frames?.length) {
-                    mainLogger.info(`Analyzing visual burst`, { component, frameCount: frames.length, reason: metadata?.reason });
-
-                    const localTriage = metadata?.localDetections ? {
-                        detections: metadata.localDetections,
-                        timestamp: metadata.timestamp
-                    } : undefined;
-
-                    // Trigger C: Complexity Triage check
-                    const hasComplexComponent = localTriage?.detections?.some((d: { objectId: string }) =>
-                        ['abs', 'hybrid', 'transmission', 'ecu'].includes(d.objectId.toLowerCase())
-                    );
-
-                    if (hasComplexComponent) {
-                        mainLogger.info('Triggering System 2: Complex component detected locally', { detections: localTriage?.detections });
-                        await sayAndSend(`Scanning complex ${component} system. One moment...`);
-
-                        const diagnosis = await mechanicReasoningService.diagnose({
-                            userQuery: `Analyze ${component} for issues.`,
-                            vehicleContext: typeof vehicleContext === 'string' ? JSON.parse(vehicleContext) : vehicleContext,
-                            sessionId: sessionId || 'unknown-session',
-                            userId: userId,
-                            localTriage: localTriage
+                if (topic === PROACTIVE_PING) {
+                    try {
+                        const ping = JSON.parse(new TextDecoder().decode(payload));
+                        const { detection } = ping;
+                        mainLogger.info(`Received Proactive Ping`, {
+                            part: detection.id.obj,
+                            risk: detection.eval.risk,
                         });
 
-                        await sayAndSend(diagnosis.finalDiagnosis.userOutput);
-                        return;
+                        if (detection.eval.risk) {
+                            await sayAndSend(
+                                `I'm seeing something concerning with the ${detection.id.obj}. Analyzing now...`,
+                            );
+                        }
+                    } catch (e) {
+                        mainLogger.warn('Failed to parse proactive ping', { error: e as Error });
                     }
+                    return;
+                }
 
-                    const analysis = await liveStreamAnalyzer.analyzeLiveImageFrame(
-                        frames[0],
-                        'image/jpeg',
-                        vehicleContext,
-                        userId,
-                        sessionId || 'unknown-session',
-                        (typeof vehicleContext === 'string' ? JSON.parse(vehicleContext) : vehicleContext)?.vin,
-                        Date.now(),
-                        localTriage
-                    );
+                if (topic !== VISUAL_BURST_RESPONSE) return;
 
-                    if (analysis) {
-                        if (Array.isArray(analysis)) {
-                            // Handle Tool Calls triggered during live stream
-                            for (const part of analysis) {
-                                if (part.type === 'tool-call') {
-                                    mainLogger.info(`Agent passing live tool call: ${part.toolName}`);
-                                    ctx.room.localParticipant?.publishData(
-                                        new TextEncoder().encode(JSON.stringify({
-                                            type: 'tool_call',
-                                            toolCall: { id: part.toolCallId, name: part.toolName, args: part.args }
-                                        })),
-                                        { topic: 'ai_response', reliable: true }
-                                    );
+                try {
+                    const packet = JSON.parse(new TextDecoder().decode(payload));
+                    const { frames, component, metadata } = packet;
+
+                    if (frames?.length) {
+                        mainLogger.info(`Analyzing visual burst`, {
+                            component,
+                            frameCount: frames.length,
+                            reason: metadata?.reason,
+                        });
+
+                        const localTriage = metadata?.localDetections
+                            ? {
+                                  detections: metadata.localDetections,
+                                  timestamp: metadata.timestamp,
+                              }
+                            : undefined;
+
+                        // Trigger C: Complexity Triage check
+                        const hasComplexComponent = localTriage?.detections?.some((d: { objectId: string }) =>
+                            ['abs', 'hybrid', 'transmission', 'ecu'].includes(d.objectId.toLowerCase()),
+                        );
+
+                        if (hasComplexComponent) {
+                            mainLogger.info('Triggering System 2: Complex component detected locally', {
+                                detections: localTriage?.detections,
+                            });
+                            await sayAndSend(`Scanning complex ${component} system. One moment...`);
+
+                            const diagnosis = await mechanicReasoningService.diagnose({
+                                userQuery: `Analyze ${component} for issues.`,
+                                vehicleContext:
+                                    typeof vehicleContext === 'string' ? JSON.parse(vehicleContext) : vehicleContext,
+                                sessionId: sessionId || 'unknown-session',
+                                userId: userId,
+                                localTriage: localTriage,
+                            });
+
+                            await sayAndSend(diagnosis.finalDiagnosis.userOutput);
+                            return;
+                        }
+
+                        const analysis = await liveStreamAnalyzer.analyzeLiveImageFrame(
+                            frames[0],
+                            'image/jpeg',
+                            vehicleContext,
+                            userId,
+                            sessionId || 'unknown-session',
+                            (typeof vehicleContext === 'string' ? JSON.parse(vehicleContext) : vehicleContext)?.vin,
+                            Date.now(),
+                            localTriage,
+                        );
+
+                        if (analysis) {
+                            if (Array.isArray(analysis)) {
+                                // Handle Tool Calls triggered during live stream
+                                for (const part of analysis) {
+                                    if (part.type === 'tool-call') {
+                                        mainLogger.info(`Agent passing live tool call: ${part.toolName}`);
+                                        ctx.room.localParticipant?.publishData(
+                                            new TextEncoder().encode(
+                                                JSON.stringify({
+                                                    type: 'tool_call',
+                                                    toolCall: {
+                                                        id: part.toolCallId,
+                                                        name: part.toolName,
+                                                        args: part.args,
+                                                    },
+                                                }),
+                                            ),
+                                            { topic: 'ai_response', reliable: true },
+                                        );
+                                    }
                                 }
+                            } else {
+                                // Handle standard Analysis
+                                await sayAndSend(`I've analyzed the ${component}. ${analysis.diagnosis}`);
                             }
-                        } else {
-                            // Handle standard Analysis
-                            await sayAndSend(`I've analyzed the ${component}. ${analysis.diagnosis}`);
                         }
                     }
+                } catch (err) {
+                    mainLogger.error('Failed to process burst data', { error: err as Error });
                 }
-            } catch (err) {
-                mainLogger.error('Failed to process burst data', { error: err as Error });
-            }
-        });
+            },
+        );
 
         mainLogger.info('Master Tech Agent ready (Gemini Realtime + Resemble)');
-    }
+    },
 });

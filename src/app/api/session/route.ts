@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-    ISessionRepository,
-    DiagnosticSessionSchema,
-    DiagnosticSession,
-    IEdgeSecurityService
-} from '@lemonade/core';
+import { ISessionRepository, DiagnosticSessionSchema, DiagnosticSession, IEdgeSecurityService } from '@lemonade/core';
 import { createErrorResponse } from '@/application/utils/validateRequest';
 import { withContext } from '@/application/utils/apiHandler';
 import { container } from '@/infrastructure/di/container';
@@ -28,13 +23,12 @@ export const GET = withContext(async (req: NextRequest) => {
 
         const userId = auth.userId;
         const sessionRepo = container.get<ISessionRepository>(TYPES.SessionRepo);
-        const sessions = await sessionRepo.findByUserId(userId); 
+        const sessions = await sessionRepo.findByUserId(userId);
 
         // Validate sessions before returning
         const validatedSessions = z.array(DiagnosticSessionSchema).parse(sessions);
 
         return NextResponse.json({ data: validatedSessions } satisfies SessionListResponseDTO);
-
     } catch (error) {
         return createErrorResponse(error);
     }
@@ -74,9 +68,7 @@ export const POST = withContext(async (req: NextRequest) => {
         await sessionRepo.create(newSession);
 
         return NextResponse.json({ sessionId: newSession.id } satisfies StartSessionResponseDTO);
-
     } catch (error) {
         return createErrorResponse(error);
     }
 });
-
