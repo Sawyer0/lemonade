@@ -6,17 +6,19 @@ export type MetaWearablesEvents = {
     onPermissionResult: (event: { permission: string; status: string }) => void;
 };
 
-/** Shape of the native MetaWearables Expo module (Android, Meta Wearables Device Access Toolkit). */
+/**
+ * Shape of the native MetaWearables Expo module (android/, over the Meta
+ * Wearables Device Access Toolkit). There is no iOS implementation yet.
+ */
 declare class MetaWearablesNativeModule extends NativeModule<MetaWearablesEvents> {
     initialize(): void;
     startRegistration(): void;
     getRegistrationState(): string;
-    checkPermission(permissionName: string): boolean;
+    checkPermission(permissionName: string): Promise<boolean>;
     requestPermission(permissionName: string): Promise<void>;
     startStream(deviceId?: string): Promise<void>;
     capturePhoto(): Promise<string>;
     stopStream(): void;
-    simulateConnection(): Promise<string>;
 }
 
 /** Null on platforms or builds without the native module (iOS, Expo Go, tests). */

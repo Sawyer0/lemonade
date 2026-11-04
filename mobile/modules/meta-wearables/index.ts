@@ -26,12 +26,12 @@ export function getRegistrationState(): string {
     return MetaWearablesModule.getRegistrationState();
 }
 
-export function checkPermission(permissionName: string): boolean {
+export async function checkPermission(permissionName: string): Promise<boolean> {
     if (!MetaWearablesModule) {
         warnNotAvailable('checkPermission');
         return false;
     }
-    return MetaWearablesModule.checkPermission(permissionName);
+    return await MetaWearablesModule.checkPermission(permissionName);
 }
 
 export async function requestPermission(permissionName: string): Promise<void> {
@@ -61,14 +61,6 @@ export async function capturePhoto(): Promise<string> {
 export function stopStream(): void {
     if (!MetaWearablesModule) return warnNotAvailable('stopStream');
     return MetaWearablesModule.stopStream();
-}
-
-export async function simulateConnection(): Promise<string> {
-    if (!MetaWearablesModule) {
-        warnNotAvailable('simulateConnection');
-        return 'unavailable';
-    }
-    return await MetaWearablesModule.simulateConnection();
 }
 
 interface Subscription {
