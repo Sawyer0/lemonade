@@ -29,7 +29,6 @@ functions/livekit-agent/__pycache__/
 # next.js
 .next/
 /out/
-/out/
 
 # production
 /build
@@ -44,9 +43,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (keep the template)
 .env*
-.env.local
+!.env.example
 
 temp_aar
 
@@ -85,10 +84,6 @@ execu-docs/
 # gemini
 .gemini/
 conductor/
-
-# accidental build artifacts in src
-packages/core/src/**/*.d.ts
-packages/core/src/**/*.js
 
 # accidental build artifacts in src
 packages/core/src/**/*.d.ts
