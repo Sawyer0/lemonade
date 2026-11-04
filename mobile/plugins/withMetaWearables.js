@@ -1,30 +1,17 @@
-const {
-    createRunOncePlugin,
-    withProjectBuildGradle,
-    withAppBuildGradle,
-    withAndroidManifest,
-    withDangerousMod,
-} = require('@expo/config-plugins');
+const { createRunOncePlugin, withAndroidManifest, withDangerousMod } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
 const pkg = require('../package.json');
 
+/**
+ * Android setup for the Meta Wearables Device Access Toolkit. The SDK itself is
+ * a Maven Central dependency of the local meta-wearables module; this plugin
+ * adds what has to live in the app manifest: attestation metadata (0/0 in
+ * Developer Mode), the Meta AI app query and the registration callback scheme.
+ * https://wearables.developer.meta.com/docs/develop/dat/build-integration-android
+ */
 const withMetaWearables = (config) => {
-    config = withProjectBuildGradle(config, (config) => {
-        if (config.modResults.language === 'groovy') {
-            config.modResults.contents = addMavenRepository(config.modResults.contents);
-        }
-        return config;
-    });
-
-    config = withAppBuildGradle(config, (config) => {
-        if (config.modResults.language === 'groovy') {
-            config.modResults.contents = addDependencies(config.modResults.contents);
-        }
-        return config;
-    });
-
     config = withAndroidManifest(config, (config) => {
         config.modResults = addPermissions(config.modResults);
         config.modResults = addMetaData(config.modResults);
@@ -66,20 +53,20 @@ function addPermissions(manifest) {
 }
 
 function addMetaData(manifest) {
-    const applicationId = process.env.META_WEARABLES_APPLICATION_ID || '0';
     const application = manifest.manifest.application[0];
+    const entries = {
+        'com.meta.wearable.mwdat.APPLICATION_ID': process.env.META_WEARABLES_APPLICATION_ID || '0',
+        'com.meta.wearable.mwdat.CLIENT_TOKEN': process.env.META_WEARABLES_CLIENT_TOKEN || '0',
+    };
 
     if (!application['meta-data']) {
         application['meta-data'] = [];
     }
 
-    if (!application['meta-data'].some((m) => m.$['android:name'] === 'com.meta.wearables.APPLICATION_ID')) {
-        application['meta-data'].push({
-            $: {
-                'android:name': 'com.meta.wearables.APPLICATION_ID',
-                'android:value': applicationId,
-            },
-        });
+    for (const [name, value] of Object.entries(entries)) {
+        if (!application['meta-data'].some((m) => m.$['android:name'] === name)) {
+            application['meta-data'].push({ $: { 'android:name': name, 'android:value': value } });
+        }
     }
 
     return manifest;
@@ -182,49 +169,6 @@ async function createFilePathResource(projectRoot) {
 </paths>`;
 
     fs.writeFileSync(path.join(resDir, 'file_paths.xml'), filePathsContent);
-}
-
-function addMavenRepository(buildGradle) {
-    if (buildGradle.includes('maven.pkg.github.com/facebook/meta-wearables-sdk')) {
-        return buildGradle;
-    }
-
-    // Use Gradle properties or Env vars directly in the gradle file
-    const mavenBlock = `
-        maven {
-            url = uri("https://maven.pkg.github.com/facebook/meta-wearables-dat-android")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("GITHUB_TOKEN")
-            }
-        }`;
-
-    // Robust insertion into 'allprojects > repositories' or root 'repositories'
-    if (buildGradle.includes('allprojects {')) {
-        const regex = /(allprojects\s*{[\s\S]*?repositories\s*{)/;
-        if (regex.test(buildGradle)) {
-            return buildGradle.replace(regex, `$1\n${mavenBlock}`);
-        }
-    }
-
-    // Fallback to first repositories block
-    return buildGradle.replace(/repositories\s*{/, `repositories {\n${mavenBlock}`);
-}
-
-function addDependencies(appBuildGradle) {
-    if (appBuildGradle.includes('com.meta.wearables:mwdat-core')) {
-        return appBuildGradle;
-    }
-
-    const dependencies = `
-    implementation("com.meta.wearables:mwdat-core:1.0.0")
-    implementation("com.meta.wearables:mwdat-camera:1.0.0")
-    if (project.hasProperty("useMockDevice")) {
-        implementation("com.meta.wearables:mwdat-mockdevice:1.0.0")
-    }
-  `;
-
-    return appBuildGradle.replace(/dependencies\s*{/, `dependencies {${dependencies}\n`);
 }
 
 module.exports = createRunOncePlugin(withMetaWearables, 'withMetaWearables', pkg.version);

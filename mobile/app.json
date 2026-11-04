@@ -67,7 +67,8 @@
           "n_gpu_layers": "auto",
           "use_metal": true
         }
-      ]
+      ],
+      "./plugins/withMetaWearables"
     ],
     "metro": {
       "configFile": "./metro.config.cjs"

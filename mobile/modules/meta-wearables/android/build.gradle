@@ -1,0 +1,29 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.metawearables'
+version = '1.0.0'
+
+// Meta Wearables Device Access Toolkit, published to Maven Central (com.meta.wearable).
+// https://github.com/facebook/meta-wearables-dat-android
+def mwdatVersion = '1.0.1'
+
+android {
+  namespace 'expo.modules.metawearables'
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  implementation "com.meta.wearable:mwdat-core:${mwdatVersion}"
+  implementation "com.meta.wearable:mwdat-camera:${mwdatVersion}"
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+}

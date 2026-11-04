@@ -9,12 +9,10 @@ const MockModule = {
         console.log('MetaWearables.startRegistration called (mock)');
     },
     getRegistrationState: () => 'MOCK_MODE',
-    checkPermission: () => false,
     requestPermission: async () => {},
     startStream: async () => {},
     capturePhoto: async () => 'mock-photo-uri',
     stopStream: () => {},
-    simulateConnection: async () => 'mock-device',
 };
 
 export function initialize(): void {
@@ -29,7 +27,7 @@ export function getRegistrationState(): string {
     return MockModule.getRegistrationState();
 }
 
-export function checkPermission(): boolean {
+export async function checkPermission(): Promise<boolean> {
     return false;
 }
 
@@ -42,10 +40,6 @@ export async function capturePhoto(): Promise<string> {
 }
 
 export function stopStream(): void {}
-
-export async function simulateConnection(): Promise<string> {
-    return 'mock-device';
-}
 
 interface Subscription {
     remove: () => void;
