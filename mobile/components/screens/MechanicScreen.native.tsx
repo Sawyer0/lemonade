@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Theme } from '@mobile/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useGeminiSession } from '@mobile/hooks/useGeminiSession';
-import { useVehicle } from '@mobile/hooks/useVehicle';
+import { useSessionVehicle } from '@mobile/hooks/useSessionVehicle';
 import { Camera } from 'react-native-vision-camera';
 
 import { useNativeAuth } from '@mobile/hooks/useNativeAuth';
@@ -14,11 +14,8 @@ import { GhostCard } from '../ui/GhostCard';
 
 export default function MechanicScreenNative() {
     const router = useRouter();
-    const { sessionId, vehicleContext } = useLocalSearchParams<{ sessionId: string; vehicleContext: string }>();
-
-    // Vehicle Context Resolution
-    const vehicleId = typeof vehicleContext === 'string' ? vehicleContext : undefined;
-    const { vehicle } = useVehicle(vehicleId);
+    const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+    const { vehicle } = useSessionVehicle(sessionId);
     useNativeAuth();
 
     // Refs to hold mutable camera state/functions without triggering useCallback/useEffect dependencies
