@@ -79,6 +79,9 @@ jobs:
       - name: Test (mobile)
         run: npm run test:mobile
 
+      - name: Test (mobile config plugins)
+        run: npm --workspace mobile run test:plugins -- --ci
+
       - name: Build
         run: npm run build
 
@@ -140,3 +143,35 @@ jobs:
         env:
           CI: '1'
         run: npx expo export --platform ${{ matrix.platform }} --output-dir dist-${{ matrix.platform }}
+
+  android-module:
+    name: Compile Meta Wearables Android module
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Generate the Android project
+        working-directory: mobile
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Compile the module
+        working-directory: mobile/android
+        run: ./gradlew :meta-wearables:compileDebugKotlin --stacktrace
