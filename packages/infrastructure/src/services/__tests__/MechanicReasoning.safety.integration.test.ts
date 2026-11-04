@@ -35,7 +35,7 @@ const mockDependencies = {
     vectorRepo: { search: () => Promise.resolve([]), addCase: () => Promise.resolve() } as unknown as IVectorRepository,
     searchService: { search: () => Promise.resolve({ results: [] }) } as unknown as IGoogleSearchService,
     memoryService: { search: () => Promise.resolve([]), addDocument: () => Promise.resolve() } as unknown as IMemoryService,
-    tracer: { traceAiCall: (opts: { exec: () => any }) => opts.exec() } as unknown as ITracingService,
+    tracer: { traceAiCall: (opts: { exec: () => unknown }) => opts.exec() } as unknown as ITracingService,
     sessionRepo: { saveXStateSnapshot: () => Promise.resolve(), clearXStateSnapshot: () => Promise.resolve() } as unknown as ISessionRepository,
     coreAdapter: {} as unknown as GeminiCoreAdapter
 };

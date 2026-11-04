@@ -326,11 +326,8 @@ describe('AuthContext', () => {
         });
 
         it('should handle rapid auth state changes', async () => {
-            let authCallback: ((state: { user: typeof mockFirebaseUser | null; loading: boolean }) => void) | null = null;
-
             (useFirebaseAuth as jest.Mock).mockImplementation(() => {
-                const [state, setState] = React.useState({ user: null, loading: true });
-                authCallback = setState;
+                const [state] = React.useState({ user: null, loading: true });
                 return {
                     ...state,
                     login: mockLogin,
@@ -340,7 +337,7 @@ describe('AuthContext', () => {
                 };
             });
 
-            (onSnapshot as jest.Mock).mockImplementation((ref, callback) => {
+            (onSnapshot as jest.Mock).mockImplementation(() => {
                 return jest.fn();
             });
 
@@ -374,11 +371,6 @@ describe('AuthContext', () => {
         });
 
         it('should transition from loading to authenticated', async () => {
-            let resolveLoading: () => void;
-            const loadingPromise = new Promise<void>(resolve => {
-                resolveLoading = resolve;
-            });
-
             (useFirebaseAuth as jest.Mock)
                 .mockReturnValueOnce({
                     user: null,

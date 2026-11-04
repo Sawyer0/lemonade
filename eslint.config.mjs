@@ -19,6 +19,21 @@ const eslintConfig = defineConfig([
     "public/**",
   ]),
   {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }
+      ]
+    }
+  },
+  {
+    // jest.mock factories are hoisted above imports, so they must use require().
+    files: ["mobile/**/__tests__/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off"
+    }
+  },
+  {
     files: ["**/*.cjs", "**/*.js", "**/jest.config.js", "**/jest.setup.js", "**/metro.config.js"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
