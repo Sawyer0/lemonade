@@ -41,7 +41,10 @@ jobs:
       - name: Typecheck (mobile)
         run: npm run typecheck:mobile
 
-      - name: Test (web + packages)
+      - name: Typecheck (agent)
+        run: npm run typecheck:agent
+
+      - name: Test (web, packages, agent)
         run: npm test
 
       - name: Test (mobile)

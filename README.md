@@ -16,9 +16,9 @@ packages/infrastructure
                 Adapters: Vertex AI / Gemini, Groq, Firestore, NHTSA, Google Search, Supermemory, usage billing,
                 edge auth + rate limiting, LangSmith tracing
 functions/      Firebase Cloud Functions: video analysis on upload, Stripe checkout and webhook
-mobile/         Expo / React Native app: camera, VIN scanner, LiveKit, on-device llama.rn, Meta wearables
-                module (in progress)
-agent/          LiveKit voice agent (work in progress)
+mobile/         Expo / React Native app: camera, VIN scanner, live mechanic over LiveKit, on-device llama.rn
+                triage, Ray-Ban Meta glasses
+agent/          LiveKit voice agent (the live Master Tech) and its room token server
 ```
 
 Request flow for chat (`POST /api/chat`, streamed as NDJSON):
@@ -87,13 +87,39 @@ Set `LLM_PROVIDER=groq` with `GROQ_API_KEY` to run chat and safety checks on Gro
 
 The mobile app is in `mobile/` (`npx expo run:android` or `run:ios` from that folder); see `mobile/README.md`.
 
+### Live voice agent
+
+`agent/` runs the live Master Tech that the mobile app calls during a camera session. It is a
+[LiveKit Agents](https://docs.livekit.io/agents/) 1.0 worker built on `AgentSession`:
+
+- **Voice port** (`agent/src/voice/voice.ts`): Gemini Live (`gemini-2.5-flash-native-audio-preview`) listens and
+  answers in its own native audio voice by default. Set `RESEMBLE_API_KEY` (and optionally `RESEMBLE_VOICE_UUID`)
+  to have Gemini reply in text and Resemble speak it instead.
+- **Data channel** (`LiveChannelTopic` in `packages/core`): the phone sends typed messages, proactive pings from
+  on-device triage and camera frames; `LiveChannelRouter` validates each packet with Zod and routes it.
+  `BurstAnalyzer` sends complex systems (ABS, hybrid, transmission, ECU, airbags) through the full reasoning
+  service and everything else through fast live-frame analysis.
+- **Token server** (`agent/src/index.ts`): `POST /livekit-agent/get-livekit-token` verifies the Firebase ID token
+  and issues a room token whose identity is the user's uid.
+
+```bash
+npm --workspace agent run dev       # token server on :3001 + agent worker (LiveKit dev mode)
+npm --workspace agent run worker    # agent worker only
+```
+
+It needs `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` and `GOOGLE_API_KEY`. Outside production the
+LiveKit settings fall back to the `livekit-server --dev` defaults; in production the agent refuses to start without
+them. Frame analysis additionally uses the Vertex AI and Firestore settings of the web app.
+
 ## Testing
 
 ```bash
 npm run lint           # ESLint, zero warnings allowed
 npm run format:check   # Prettier
-npm run typecheck      # tsc, strict mode
-npm test               # Vitest: web app and packages
+npm run typecheck      # tsc, strict mode (web + packages)
+npm run typecheck:mobile
+npm run typecheck:agent
+npm test               # Vitest: web app, packages and agent
 npm run test:mobile    # Jest: mobile app
 npm run build          # Next.js production build
 ```
@@ -102,6 +128,15 @@ GitHub Actions runs all of these on every pull request (`.github/workflows/ci.ym
 and cloud service. Tests that call Vertex AI or write to a real Firestore project run only with
 `RUN_LIVE_CLOUD_TESTS=true` and credentials in `.env.local`. Playwright end-to-end specs are in `e2e/`
 (`npx playwright test`, which starts the dev server).
+
+The voice agent has an opt-in live end-to-end test (`agent/test/live/voiceAgent.live.test.ts`). It starts the agent
+worker, joins a fresh LiveKit room as a test participant, speaks a question (synthesised with Gemini TTS) and asserts
+that the agent answers with audio and a transcript. It is skipped unless the LiveKit and Google keys are set:
+
+```bash
+LIVEKIT_URL=wss://... LIVEKIT_API_KEY=... LIVEKIT_API_SECRET=... GOOGLE_API_KEY=... \
+  npm --workspace agent run test:live    # sets RUN_LIVE_AGENT_TESTS=true
+```
 
 ## API routes
 
