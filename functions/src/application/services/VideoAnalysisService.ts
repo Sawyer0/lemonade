@@ -55,7 +55,7 @@ export class VideoAnalysisService {
             let memoryContext = '';
 
             if (vehicleId) {
-                const vehicle = await this.vehicleRepo.findById(vehicleId);
+                const vehicle = await this.vehicleRepo.findById(vehicleId, session.userId);
                 if (vehicle && vehicle.specs) {
                     const specs = vehicle.specs;
                     context = `${specs.year} ${specs.make} ${specs.model} ${specs.engine}`;

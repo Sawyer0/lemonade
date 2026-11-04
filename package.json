@@ -6,7 +6,8 @@
   "workspaces": [
     "packages/*",
     "agent",
-    "mobile"
+    "mobile",
+    "functions"
   ],
   "scripts": {
     "dev": "next dev",
@@ -23,7 +24,8 @@
     "test:mobile": "npm --workspace mobile test -- --ci",
     "demo": "tsx --tsconfig tsconfig.json scripts/demo-chat.ts",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "typecheck:functions": "npm --workspace functions run typecheck"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.18.0",

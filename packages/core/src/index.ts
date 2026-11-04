@@ -50,6 +50,7 @@ export * from './prompts/VerificationPrompts';
 export * from './prompts/VideoPrompts';
 export * from './prompts/VoicePrompts';
 export * from './types/ai';
+export * from './types/billing';
 
 export * from './types/evals';
 

@@ -3,7 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { stripe, getProPriceId } from './stripe';
 import { CONFIG } from './config';
 import { ErrorCode, ILogger } from '@lemonade/core';
-import { CreateCheckoutSessionResponseDTO } from '@application/dtos/billing.dto';
+import type { CreateCheckoutSessionResponseDTO } from '@lemonade/core';
 import { container } from './infrastructure/di/container';
 import { TYPES } from './infrastructure/di/types';
 

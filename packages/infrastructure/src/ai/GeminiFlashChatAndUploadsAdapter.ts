@@ -47,7 +47,7 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
         @inject(TYPES.BillingService) private billingService: IBillingService,
-        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
+        @inject(TYPES.GeminiCoreAdapter) coreAdapter: GeminiCoreAdapter,
         @inject(TYPES.FunctionCallService) private functionCallService: FunctionCallService,
         @inject(TYPES.ContextCacheService) private cacheService: IContextCacheService,
         @inject(TYPES.TracingService) private tracer: TracingService, // Inject TracingService

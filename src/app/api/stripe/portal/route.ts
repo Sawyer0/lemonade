@@ -5,8 +5,8 @@ import { CONFIG } from '@/infrastructure/config';
 
 import { createErrorResponse } from '@/application/http/validateRequest';
 import { AppError, ErrorCode } from '@lemonade/core';
+import type { BillingPortalResponseDTO } from '@lemonade/core';
 import { withContext } from '@/application/http/withContext';
-import { BillingPortalResponseDTO } from '@/application/dtos/billing.dto';
 
 const getStripe = () => {
     const key = CONFIG.PAYMENTS.STRIPE_SECRET_KEY;
