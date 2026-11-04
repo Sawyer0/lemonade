@@ -231,7 +231,7 @@ export class ReactiveSafetyService implements IReactiveSafetyService {
 
     private createAssessment(hazard: HazardType, message: string): SafetyAssessment {
         return {
-            safety_score: 0,
+            safety_score: 10,
             hazards_detected: [hazard],
             user_intent: 'dangerous_action',
             intervention_required: true,

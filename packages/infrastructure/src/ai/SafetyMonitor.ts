@@ -3,6 +3,17 @@ import type { ISafetyAI, ILogger } from '@lemonade/core';
 import { ISafetyMonitor, SafetyPrompts, SafetyAssessment } from '@lemonade/core';
 import { TYPES } from '../di/types';
 
+/**
+ * Returned whenever the safety model cannot give a usable answer. The check fails
+ * closed: maximum danger on the 1-10 scale and an intervention required.
+ */
+const FAIL_CLOSED_ASSESSMENT: SafetyAssessment = {
+    safety_score: 10,
+    hazards_detected: ['SAFETY_CHECK_FAILED'],
+    user_intent: 'unknown',
+    intervention_required: true,
+};
+
 @injectable()
 export class SafetyMonitor implements ISafetyMonitor {
     constructor(
@@ -20,12 +31,7 @@ export class SafetyMonitor implements ISafetyMonitor {
 
             if (!text) {
                 this.logger.warn('SafetyMonitor: No response text received', { userMessage });
-                return {
-                    safety_score: 0,
-                    hazards_detected: ['SAFETY_CHECK_FAILED'],
-                    user_intent: 'unknown',
-                    intervention_required: true,
-                };
+                return { ...FAIL_CLOSED_ASSESSMENT };
             }
 
             const cleanText = text.replace(/```json\n?|\n?```/g, '');
@@ -39,21 +45,11 @@ export class SafetyMonitor implements ISafetyMonitor {
                     error: e,
                     userMessage,
                 });
-                return {
-                    safety_score: 0,
-                    hazards_detected: ['SAFETY_CHECK_FAILED'],
-                    user_intent: 'unknown',
-                    intervention_required: true,
-                };
+                return { ...FAIL_CLOSED_ASSESSMENT };
             }
         } catch (error) {
             this.logger.error('SafetyMonitor Assessment Failed', error as Error, { userMessage });
-            return {
-                safety_score: 0,
-                hazards_detected: ['SAFETY_CHECK_FAILED'],
-                user_intent: 'unknown',
-                intervention_required: true,
-            };
+            return { ...FAIL_CLOSED_ASSESSMENT };
         }
     }
 }
