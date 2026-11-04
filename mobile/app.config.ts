@@ -12,8 +12,8 @@ const appConfig = ({ config }: ConfigContext): ExpoConfig => {
         // Filter out plugins that are known to cause issues on web or are native-only
         const nativeOnlyPlugins = ['@livekit/react-native', 'react-native-vision-camera', 'llama.rn'];
         plugins = plugins.filter((plugin) => {
-            const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
-            return !nativeOnlyPlugins.includes(pluginName);
+            const pluginName: unknown = Array.isArray(plugin) ? plugin[0] : plugin;
+            return typeof pluginName !== 'string' || !nativeOnlyPlugins.includes(pluginName);
         });
     }
 
