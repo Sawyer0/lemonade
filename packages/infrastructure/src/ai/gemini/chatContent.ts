@@ -95,11 +95,8 @@ export function toCountableParts(content: string | MessagePart[] | Part[]): Part
                     }
                 }
             }
+            if (part.type === 'audio' && part.data) return { text: `[Audio Content: ${part.data}]` };
             return { text: '' };
         })
         .filter((p) => ('text' in p && p.text !== '') || 'fileData' in p || 'inlineData' in p);
-}
-
-export function newToolCallId(): string {
-    return 'call_' + Math.random().toString(36).substring(2, 11);
 }

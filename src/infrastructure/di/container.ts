@@ -6,8 +6,6 @@ import { TYPES } from './types';
 import type {
     IVehicleRepository,
     ISessionRepository,
-    IMultimodalUploadAnalyzer,
-    ILiveStreamAnalyzer,
     ILogger,
     IVehicleInfoProvider,
     IAuthService,
@@ -23,13 +21,11 @@ import type {
     IEmbeddingService,
     IVectorRepository,
     IMechanicReasoningService,
-    IChatAssistantAI,
     IVideoAnalysisService,
     IReactiveSafetyService,
     ISessionService,
     IChatService,
     ISummarizationService,
-    ISafetyAI,
     IEdgeSecurityService,
     IRateLimiter,
     IComplaintIdentificationService,
@@ -40,8 +36,6 @@ import {
     FirestoreVehicleRepository as VehicleAdminRepository,
     FirestoreSessionRepository as SessionAdminRepository,
     FirestoreUserRepository,
-    GeminiFlashChatAndUploadsAdapter,
-    GeminiFlashLiveStreamAdapter,
     GeminiCoreAdapter,
     Logger,
     BillingFirestoreRepository,
@@ -54,17 +48,13 @@ import {
     SupermemoryService,
     ReactiveSafetyService,
     MechanicReasoningService,
-    VertexAISafetyAdapter,
     FunctionCallService,
     EdgeSecurityService,
     UpstashRateLimiter,
-    CompletionChatAdapter,
-    CompletionSafetyAdapter,
-    createGroqClient,
-    resolveLlmProvider,
     SafetyMonitor,
     NHTSAService,
     EmbeddingService,
+    bindAiProviders,
 } from '@lemonade/infrastructure';
 
 // Implementations (Local / Web-specific)
@@ -116,26 +106,9 @@ container.bind<IVehicleInfoProvider>(TYPES.VehicleInfoProvider).to(NHTSAVehicleI
 container.bind<IBillingRepository>(TYPES.BillingRepository).to(BillingFirestoreRepository).inSingletonScope();
 
 // --- 2. Bind AI Adapters (The "Brain") ---
-// Chat and System 1 safety use Vertex AI by default; LLM_PROVIDER=groq switches
-// them to Groq's free OpenAI-compatible API (GROQ_API_KEY required).
-if (resolveLlmProvider() === 'groq') {
-    container
-        .bind<IChatAssistantAI>(TYPES.ChatAI)
-        .toDynamicValue(() => new CompletionChatAdapter(createGroqClient()))
-        .inSingletonScope();
-    container
-        .bind<ISafetyAI>(TYPES.SafetyAI)
-        .toDynamicValue(() => new CompletionSafetyAdapter(createGroqClient()))
-        .inSingletonScope();
-} else {
-    container.bind<IChatAssistantAI>(TYPES.ChatAI).to(GeminiFlashChatAndUploadsAdapter).inSingletonScope();
-    container.bind<ISafetyAI>(TYPES.SafetyAI).to(VertexAISafetyAdapter).inSingletonScope();
-}
-container
-    .bind<IMultimodalUploadAnalyzer>(TYPES.MultimodalUploadAI)
-    .to(GeminiFlashChatAndUploadsAdapter)
-    .inSingletonScope();
-container.bind<ILiveStreamAnalyzer>(TYPES.LiveStreamAI).to(GeminiFlashLiveStreamAdapter).inSingletonScope();
+// Chat, System 1 safety and the media model use Vertex AI by default;
+// LLM_PROVIDER=groq switches them to Groq (GROQ_API_KEY required).
+bindAiProviders(container);
 container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(GoogleSearchService).inSingletonScope();
 container.bind<IMemoryService>(TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
 container.bind<FunctionCallService>(TYPES.FunctionCallService).to(FunctionCallService).inSingletonScope();

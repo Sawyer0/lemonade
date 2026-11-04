@@ -1,12 +1,15 @@
 export * from './di/types';
 export { createContainer } from './di/container';
+export { bindAiProviders } from './di/aiBindings';
 export * from './interfaces/IConfigProvider';
 export * from './config/EnvConfigProvider';
 export * from './config';
 export * from './ai/VertexAIVideoAdapter';
 export * from './ai/VertexAISafetyAdapter';
-export * from './ai/GeminiFlashLiveStreamAdapter';
-export * from './ai/GeminiFlashChatAndUploadsAdapter';
+export * from './ai/GeminiChatAdapter';
+export * from './ai/gemini/GeminiMediaModel';
+export * from './ai/media/MediaUploadAnalyzer';
+export * from './ai/media/LiveStreamAnalyzer';
 export * from './ai/GeminiCoreAdapter';
 export * from './ai/ContextCacheService';
 export * from './ai/FunctionCallHandler'; // Add FunctionCallHandler
