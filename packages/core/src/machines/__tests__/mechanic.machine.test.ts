@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createActor, waitFor } from 'xstate';
+import { createActor, fromPromise, waitFor } from 'xstate';
 import { mechanicMachine } from '../mechanic.machine';
-import type { MechanicInput, MechanicServices } from '../mechanic.machine';
+import type { GatherAllContextOutput, MechanicInput, MechanicServices } from '../mechanic.machine';
+import type { AIAnalysis } from '../../types/models';
 
 describe('mechanicMachine', () => {
     const createMockServices = (overrides: Partial<{
@@ -101,11 +102,11 @@ describe('mechanicMachine', () => {
             
             const actor = createActor(mechanicMachine.provide({
                 actors: {
-                    gatherAllContext: vi.fn().mockResolvedValue({
+                    gatherAllContext: fromPromise(async () => ({
                         history: mockHistory,
                         recalls: mockRecalls,
                         vectors: mockVectors
-                    })
+                    }) as unknown as GatherAllContextOutput)
                 }
             }), { input: createDefaultInput() });
             
@@ -142,7 +143,9 @@ describe('mechanicMachine', () => {
             
             const actor = createActor(mechanicMachine.provide({
                 actors: {
-                    visionAnalysis: vi.fn().mockResolvedValue(mockAnalysis)
+                    // Intuition must succeed for the machine to reach the vision step.
+                    generateIntuition: fromPromise(async () => ({ ...mockAnalysis, diagnosis: 'Initial hypothesis' }) as AIAnalysis),
+                    visionAnalysis: fromPromise(async () => mockAnalysis as AIAnalysis)
                 }
             }), { input: createDefaultInput({ videoUrl: 'v' }) });
 
