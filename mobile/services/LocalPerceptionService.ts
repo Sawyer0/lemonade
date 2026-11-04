@@ -1,5 +1,6 @@
 import { CONFIG } from '../constants/config';
 import { initLlama, LlamaContext } from 'llama.rn';
+import { completionConfidence } from '../domain/completionConfidence';
 import { ILogger, ILocalPerceptionService, SemanticTriageResult, SemanticTriageResultSchema } from '@lemonade/core';
 import { PerformanceMonitor } from './PerformanceMonitor';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -92,6 +93,7 @@ Output strictly valid JSON.`;
                 n_predict: 64, // Increased for JSON
                 stop: ['\n\n', '```'], // Stop at end of block
                 temperature: 0.1,
+                n_probs: 1, // per-token probabilities, used for the confidence score
             });
 
             const output = result.text.trim();
@@ -109,7 +111,7 @@ Output strictly valid JSON.`;
                 // Validation using Zod Schema
                 const validation = SemanticTriageResultSchema.safeParse({
                     ...parsed,
-                    confidence: 0.85, // Placeholder until model outputs confidence
+                    confidence: completionConfidence(result.completion_probabilities),
                     timestamp: Date.now(),
                     steadyStrikeCount: 1,
                 });
