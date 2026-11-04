@@ -2,7 +2,7 @@
 
 [← Back to Docs](../README.md) | [Full ExecuTorch Docs](../../execu-docs/README.md)
 
-Quick reference for maintaining the FieldTech SDK's on-device AI components.
+Quick reference for maintaining Lemonade's on-device AI components.
 
 ---
 

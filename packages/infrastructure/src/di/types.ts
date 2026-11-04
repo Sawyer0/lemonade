@@ -24,7 +24,6 @@ export const TYPES = {
     MechanicReasoningService: Symbol.for('MechanicReasoningService'),
     EdgeSecurityService: Symbol.for('EdgeSecurityService'),
     RateLimiter: Symbol.for('RateLimiter'),
-    FieldTechAgent: Symbol.for('FieldTechAgent'),
 
     // Repositories
     UserRepo: Symbol.for('UserRepo'),

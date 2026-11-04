@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import { Container } from 'inversify';
 import {
-    IFieldTechAgent,
     ILogger,
     IMechanicReasoningService,
     ISessionRepository,
@@ -25,7 +24,6 @@ import { IConfigProvider } from '../interfaces/IConfigProvider';
 import { TYPES } from './types';
 
 // Implementations
-import { FieldTechAgent } from '../services/FieldTechAgent';
 import { MechanicReasoningService } from '../services/MechanicReasoningService';
 import { FirestoreSessionRepository } from '../repositories/FirestoreSessionRepository';
 import { GoogleSearchService } from '../external/GoogleSearchService';
@@ -99,7 +97,6 @@ export function createContainer(): Container {
         .inSingletonScope();
 
     // 7. Agent Interface
-    container.bind<IFieldTechAgent>(TYPES.FieldTechAgent).to(FieldTechAgent).inSingletonScope();
 
     return container;
 }

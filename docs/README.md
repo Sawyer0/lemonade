@@ -19,9 +19,7 @@ docs/
 
 | Doc | Description |
 |-----|-------------|
-| [SDK Maintenance Guide](./sdk/SDK_MAINTENANCE_GUIDE.md) | How to maintain the FieldTech SDK |
 | [ExecuTorch Summary](./sdk/EXECUTORCH_SUMMARY.md) | On-device AI reference |
-| [FieldTech SDK Plan](./sdk/FIELDTECH_SDK_PLAN.md) | SDK extraction roadmap |
 | [Architecture](./sdk/LEMONADE-ARCHITECTURE.md) | System architecture overview |
 | [System Design](./sdk/LEMONADE-SYSTEM-DESIGN.md) | Detailed design docs |
 | [Neuro-Symbolic System](./sdk/NEUROSYMBOLIC_SYSTEM.md) | AI reasoning architecture |
