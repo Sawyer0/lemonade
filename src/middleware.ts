@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 // Import directly from the edge-safe file to avoid Node.js dependency leaks
 import { EdgeSecurityService, UpstashRateLimiter, Logger } from '@lemonade/infrastructure/src/edge';
+import { isProOnlyApiPath, isProtectedApiPath } from '@/infrastructure/security/routeAccess';
 
 const logger = new Logger();
 const securityService = new EdgeSecurityService();
@@ -13,20 +14,9 @@ export async function middleware(request: NextRequest) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-trace-id', traceId);
 
-    const protectedPaths = [
-        '/api/analysis',
-        '/api/chat',
-        '/api/vehicles',
-        '/api/upload',
-        '/api/stripe/portal',
-        '/api/session',
-        '/api/voice'
-    ];
-
     const pathname = request.nextUrl.pathname;
-    const isProtected = protectedPaths.some(path => pathname.startsWith(path));
 
-    if (isProtected) {
+    if (isProtectedApiPath(pathname)) {
         let userId: string | null = null;
         let userTier: 'free' | 'pro' = 'free';
 
@@ -76,8 +66,7 @@ export async function middleware(request: NextRequest) {
         }
 
         // 2. Pro Gating
-        const proOnlyPaths = ['/api/analysis/trigger', '/api/voice', '/api/session/token'];
-        if (proOnlyPaths.some(path => pathname.startsWith(path))) {
+        if (isProOnlyApiPath(pathname)) {
             if (userTier !== 'pro') {
                 logger.warn('Security: Access Denied - Pro Tier Required', { traceId, userId, pathname });
                 return NextResponse.json(
