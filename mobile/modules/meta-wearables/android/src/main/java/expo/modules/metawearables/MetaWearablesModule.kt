@@ -188,7 +188,6 @@ class MetaWearablesModule : Module() {
         val bytes = ByteArray(photo.data.remaining()).also { photo.data.duplicate().get(it) }
         file.writeBytes(bytes)
       }
-      else -> throw CodedException("ERR_CAPTURE", "Unsupported photo format", null)
     }
   }
 }
