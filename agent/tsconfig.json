@@ -1,26 +1,22 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "allowJs": true,
-    "checkJs": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "noEmit": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "outDir": "./dist",
     "resolveJsonModule": true,
-    "declaration": true,
-    "experimentalDecorators": true, // Added
-    "emitDecoratorMetadata": true, // Added
-    "types": ["node", "reflect-metadata"], // Added
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": ["node"],
     "paths": {
       "@lemonade/core": ["../packages/core/src/index.ts"],
       "@lemonade/infrastructure": ["../packages/infrastructure/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.js"],
+  "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
