@@ -212,7 +212,6 @@ export const mechanicMachine = setup({
                 onDone: {
                     target: 'intuition',
                     actions: [
-                        () => console.log('   [XState] gathering_context.onDone -> intuition'),
                         assign({
                             nhtsaResults: ({ event }) => event.output.recalls,
                             vehicleHistory: ({ event }) => event.output.history,
@@ -222,10 +221,7 @@ export const mechanicMachine = setup({
                 },
                 onError: {
                     target: 'intuition', // Continue even on error
-                    actions: [
-                        () => console.log('   [XState] gathering_context.onError -> intuition'),
-                        assign({ error: ({ event }) => String(event.error) }),
-                    ],
+                    actions: [assign({ error: ({ event }) => String(event.error) })],
                 },
             },
         },
