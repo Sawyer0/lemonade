@@ -1,6 +1,7 @@
 {
   "name": "agent",
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "description": "",
   "main": "dist/index.js",
   "module": "src/index.ts",
@@ -12,7 +13,6 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
   "type": "module",
   "dependencies": {
     "@lemonade/core": "file:../packages/core",

@@ -124,4 +124,4 @@ and cloud service. Tests that call Vertex AI or write to a real Firestore projec
 
 ## License
 
-No license file is included; all rights reserved by the author.
+Copyright 2026 Dawan Sawyer. Licensed under the [Apache License 2.0](LICENSE).
