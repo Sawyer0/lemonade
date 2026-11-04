@@ -34,7 +34,7 @@ export const GhostCard: React.FC<GhostCardProps> = ({ title, subtitle }) => {
     }));
 
     return (
-        <GlassCard style={styles.container} intensity={20}>
+        <GlassCard style={styles.container} variant="thin">
             <View style={styles.content}>
                 <View style={styles.headerRow}>
                     <Text style={styles.title}>{title}</Text>

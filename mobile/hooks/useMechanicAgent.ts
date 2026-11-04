@@ -20,7 +20,7 @@ import {
 import { LocalPerceptionService } from '../services/LocalPerceptionService';
 import { PerformanceMonitor } from '../services/PerformanceMonitor';
 import { CONFIG } from '../constants/config';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { fromPromise } from 'xstate';
 import {
     MobileVisionAdapter,
