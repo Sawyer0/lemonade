@@ -113,7 +113,7 @@ describe('GhostCard', () => {
         });
 
         it('sets up animation effect', () => {
-            const { withRepeat, withSequence, withTiming } = require('react-native-reanimated');
+            const { withRepeat } = require('react-native-reanimated');
             render(<GhostCard title="Test" />);
             // Animation functions should be called during setup
             expect(withRepeat).toHaveBeenCalled();

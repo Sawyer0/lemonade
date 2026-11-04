@@ -287,6 +287,7 @@ describe('ReactiveSafetyService Integration', () => {
             const result = service.checkSafety(longInput);
             const duration = performance.now() - start;
 
+            expect(result).toBeNull();
             console.log(`Long input (${longInput.length} chars) processed in ${duration.toFixed(2)}ms`);
             expect(duration).toBeLessThan(100); // 100ms max for very long input
         });
