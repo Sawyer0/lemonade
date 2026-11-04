@@ -35,13 +35,11 @@ export function AddVehicleModal({ onClose }: { onClose: () => void }) {
         // Standard web listener
         window.addEventListener('message', handleNativeMessage);
         // React Native specific listener (sometimes attached differently depending on platform version)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        document.addEventListener('message', handleNativeMessage as any);
+        document.addEventListener('message', handleNativeMessage as EventListener);
 
         return () => {
             window.removeEventListener('message', handleNativeMessage);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            document.removeEventListener('message', handleNativeMessage as any);
+            document.removeEventListener('message', handleNativeMessage as EventListener);
         };
     }, [user?.uid, submitVin]);
 
