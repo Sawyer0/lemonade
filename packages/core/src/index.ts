@@ -58,6 +58,7 @@ export * from './types/models';
 
 // Exports DiagnosticSession, AIAnalysis, User, Vehicle, MessagePart, SafetyRecall, AIAnalysisSchema, DiagnosticSessionSchema, UserSchema, VehicleSchema etc.
 export * from './types/localPerception';
+export * from './types/liveChannel';
 export * from './types/neurosymbolic';
 export * from './types/reasoning'; // Exports ReasoningInput
 export * from './types/safety'; // Exports SafetyAssessment, SAFETY_RAW_SCHEMA
