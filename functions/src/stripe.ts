@@ -1,15 +1,25 @@
 import Stripe from 'stripe';
 import { CONFIG } from './config';
 
-const STRIPE_SECRET_KEY = CONFIG.STRIPE.SECRET_KEY;
+let client: Stripe | undefined;
 
-if (!STRIPE_SECRET_KEY) {
-    console.warn('STRIPE_SECRET_KEY is missing in environment variables.');
+/**
+ * Lazily creates the Stripe client. The SDK throws on an empty key, so building
+ * it at import time would crash every function (and deploy-time discovery)
+ * whenever STRIPE_SECRET_KEY is not set.
+ */
+export function getStripe(): Stripe {
+    if (!client) {
+        const key = CONFIG.STRIPE.SECRET_KEY;
+        if (!key) {
+            throw new Error('STRIPE_SECRET_KEY is not set');
+        }
+        client = new Stripe(key, {
+            apiVersion: '2024-11-20.acacia' as string as Stripe.LatestApiVersion,
+        });
+    }
+    return client;
 }
-
-export const stripe = new Stripe(STRIPE_SECRET_KEY || '', {
-    apiVersion: '2024-11-20.acacia' as string as Stripe.LatestApiVersion,
-});
 
 /**
  * Helper to find or create the "Lemonade Pro" product.
@@ -18,7 +28,7 @@ export const stripe = new Stripe(STRIPE_SECRET_KEY || '', {
  */
 export async function getProPriceId(): Promise<string> {
     // 1. Search for existing product
-    const products = await stripe.products.search({
+    const products = await getStripe().products.search({
         query: "name:'Lemonade Pro' AND active:'true'",
     });
 
@@ -29,7 +39,7 @@ export async function getProPriceId(): Promise<string> {
             return product.default_price;
         }
         // If no default price, list prices
-        const prices = await stripe.prices.list({ product: product.id, active: true, limit: 1 });
+        const prices = await getStripe().prices.list({ product: product.id, active: true, limit: 1 });
         if (prices.data.length > 0) {
             return prices.data[0].id;
         }
@@ -37,7 +47,7 @@ export async function getProPriceId(): Promise<string> {
 
     // 2. Create if not found
     console.log('Creating "Lemonade Pro" product in Stripe...');
-    const newProduct = await stripe.products.create({
+    const newProduct = await getStripe().products.create({
         name: 'Lemonade Pro',
         description: 'Unlimited AI Diagnostics & Video Analysis',
         default_price_data: {

@@ -1,6 +1,6 @@
 import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
-import { stripe, getProPriceId } from './stripe';
+import { getStripe, getProPriceId } from './stripe';
 import { CONFIG } from './config';
 import { ErrorCode, ILogger } from '@lemonade/core';
 import type { CreateCheckoutSessionResponseDTO } from '@lemonade/core';
@@ -21,7 +21,7 @@ export const createCheckoutSession = onCall(async (request): Promise<CreateCheck
     try {
         const priceId = await getProPriceId();
 
-        const session = await stripe.checkout.sessions.create({
+        const session = await getStripe().checkout.sessions.create({
             mode: 'subscription',
             payment_method_types: ['card'],
             line_items: [
@@ -59,7 +59,7 @@ export const stripeWebhook = onRequest(async (req, res) => {
 
     try {
         if (endpointSecret && sig) {
-            event = stripe.webhooks.constructEvent(req.rawBody, sig, endpointSecret);
+            event = getStripe().webhooks.constructEvent(req.rawBody, sig, endpointSecret);
         } else {
             event = req.body;
         }
