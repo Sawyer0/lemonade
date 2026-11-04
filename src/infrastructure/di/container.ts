@@ -62,14 +62,15 @@ import {
     CompletionSafetyAdapter,
     createGroqClient,
     resolveLlmProvider,
+    SafetyMonitor,
+    NHTSAService,
+    EmbeddingService,
 } from '@lemonade/infrastructure';
 
 // Implementations (Local / Web-specific)
 import { AuthService } from '../auth/AuthService';
 import { ServerAuthService } from '@/infrastructure/auth/ServerAuthService';
 import { StorageService } from '@/infrastructure/storage/StorageService';
-import { NHTSAService } from '@/infrastructure/external/NHTSAService';
-import { EmbeddingService } from '@/infrastructure/ai/EmbeddingService';
 import { FirestoreVectorRepository } from '@/infrastructure/repositories/FirestoreVectorRepository';
 import { CONFIG } from '@/infrastructure/config';
 import { NHTSAVehicleInfoProvider } from '../external/NHTSAVehicleInfoProvider';
@@ -79,7 +80,6 @@ import { VehicleService } from '@/application/services/VehicleService';
 import { SessionService } from '@/application/services/SessionService';
 import { ChatService } from '@/application/services/ChatService';
 import { VideoAnalysisService } from '@/application/services/VideoAnalysisService';
-import { SafetyMonitor } from '@/application/services/SafetyMonitor';
 import { SummarizationService } from '@/application/services/SummarizationService';
 import { ComplaintIdentificationService } from '@/application/services/ComplaintIdentificationService';
 
