@@ -29,7 +29,7 @@ export class LiveChannelRouter {
     constructor(
         private readonly session: SessionContext,
         private readonly conversation: Conversation,
-        private readonly bursts: BurstAnalyzer,
+        private readonly bursts: Pick<BurstAnalyzer, 'analyze'>,
         private readonly responder: BurstResponder,
         private readonly logger: ILogger,
     ) {}

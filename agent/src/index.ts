@@ -1,10 +1,9 @@
 import 'reflect-metadata';
-import { fileURLToPath } from 'node:url';
 import { Elysia } from 'elysia';
-import { cli, ServerOptions } from '@livekit/agents';
 import { adminAuth, Logger } from '@lemonade/infrastructure';
 import { loadEnv } from './env';
 import { issueRoomToken } from './tokens';
+import { runWorker } from './worker';
 
 const env = loadEnv();
 const logger = new Logger();
@@ -23,14 +22,6 @@ const app = new Elysia().post('/livekit-agent/get-livekit-token', async ({ body,
 
 app.listen(env.PORT, () => logger.info(`Token server listening on port ${env.PORT}`));
 
-// The worker loads the agent definition from its own module path.
-cli.runApp(
-    new ServerOptions({
-        agent: fileURLToPath(new URL('./livekit-agent.ts', import.meta.url)),
-        wsURL: env.LIVEKIT_URL,
-        apiKey: env.LIVEKIT_API_KEY,
-        apiSecret: env.LIVEKIT_API_SECRET,
-    }),
-);
+runWorker();
 
 export default app;

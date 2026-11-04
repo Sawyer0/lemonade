@@ -1,8 +1,8 @@
 import { type JobContext, defineAgent, voice } from '@livekit/agents';
 import * as silero from '@livekit/agents-plugin-silero';
 import { RoomEvent, type RemoteParticipant } from '@livekit/rtc-node';
-import type { ILiveStreamAnalyzer, ILogger, IMechanicReasoningService } from '@lemonade/core';
-import { TYPES, createContainer } from '@lemonade/infrastructure';
+import type { ILiveStreamAnalyzer, IMechanicReasoningService } from '@lemonade/core';
+import { Logger, TYPES, createContainer } from '@lemonade/infrastructure';
 import { loadEnv } from './env';
 import { LiveChannelRouter, type Conversation } from './channel/LiveChannelRouter';
 import { RoomPublisher } from './channel/roomPublisher';
@@ -14,12 +14,23 @@ import { createVoice } from './voice/voice';
 import { livekitVoiceProviders } from './voice/livekitVoiceProviders';
 
 const env = loadEnv();
-const container = createContainer();
-const logger = container.get<ILogger>(TYPES.Logger);
-const bursts = new BurstAnalyzer(
-    container.get<IMechanicReasoningService>(TYPES.MechanicReasoningService),
-    container.get<ILiveStreamAnalyzer>(TYPES.LiveStreamAI),
-);
+const logger = new Logger();
+
+// Frame analysis needs Vertex AI, Firestore and NHTSA. Build that graph on the first
+// frame, so a voice-only call (and the live e2e test) needs nothing beyond LiveKit and Gemini.
+let burstAnalyzer: BurstAnalyzer | undefined;
+const bursts: Pick<BurstAnalyzer, 'analyze'> = {
+    analyze: (...args) => {
+        if (!burstAnalyzer) {
+            const container = createContainer();
+            burstAnalyzer = new BurstAnalyzer(
+                container.get<IMechanicReasoningService>(TYPES.MechanicReasoningService),
+                container.get<ILiveStreamAnalyzer>(TYPES.LiveStreamAI),
+            );
+        }
+        return burstAnalyzer.analyze(...args);
+    },
+};
 
 /** Adapts the LiveKit AgentSession to the router's Conversation port. */
 function conversationFor(session: voice.AgentSession): Conversation {
