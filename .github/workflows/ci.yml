@@ -47,6 +47,15 @@ jobs:
       - name: Typecheck (functions)
         run: npm run typecheck:functions
 
+      - name: Build functions and load the compiled entry
+        env:
+          GCLOUD_PROJECT: demo-lemonade
+          FIREBASE_CONFIG: '{"projectId":"demo-lemonade","storageBucket":"demo-lemonade.appspot.com"}'
+          LLM_PROVIDER: offline
+        run: |
+          npm --workspace functions run build
+          node -e 'const fns = require("./functions"); console.log("exports:", Object.keys(fns).join(", "))'
+
       - name: Test with coverage (web, packages, agent)
         run: npm run test:coverage
 
@@ -106,3 +115,28 @@ jobs:
 
       - name: Smoke test
         run: npx --yes firebase-tools@14 emulators:exec --only auth,firestore --project demo-lemonade "npm run test:smoke"
+
+  mobile-export:
+    name: Mobile bundle (${{ matrix.platform }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, android]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Export JS bundle
+        working-directory: mobile
+        env:
+          CI: '1'
+        run: npx expo export --platform ${{ matrix.platform }} --output-dir dist-${{ matrix.platform }}
