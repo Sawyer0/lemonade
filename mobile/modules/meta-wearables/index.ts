@@ -1,13 +1,7 @@
-// @ts-expect-error - expo-modules-core types resolved at runtime
-import { EventEmitter, NativeModulesProxy } from 'expo-modules-core';
-import MetaWearablesModule from './src/MetaWearablesModule';
+import MetaWearablesModule, { MetaWearablesEvents } from './src/MetaWearablesModule';
 import MetaStreamView from './src/MetaStreamView';
 
-// Check if native module is available
-const isNativeAvailable = MetaWearablesModule != null;
-
-// Create event emitter only if native module is available
-const emitter = isNativeAvailable ? new EventEmitter(MetaWearablesModule ?? NativeModulesProxy.MetaWearables) : null;
+const isNativeAvailable = MetaWearablesModule !== null;
 
 // Stub functions that warn when native module isn't available
 function warnNotAvailable(methodName: string): void {
@@ -15,17 +9,17 @@ function warnNotAvailable(methodName: string): void {
 }
 
 export function initialize(): void {
-    if (!isNativeAvailable) return warnNotAvailable('initialize');
+    if (!MetaWearablesModule) return warnNotAvailable('initialize');
     return MetaWearablesModule.initialize();
 }
 
 export function startRegistration(): void {
-    if (!isNativeAvailable) return warnNotAvailable('startRegistration');
+    if (!MetaWearablesModule) return warnNotAvailable('startRegistration');
     return MetaWearablesModule.startRegistration();
 }
 
 export function getRegistrationState(): string {
-    if (!isNativeAvailable) {
+    if (!MetaWearablesModule) {
         warnNotAvailable('getRegistrationState');
         return 'unavailable';
     }
@@ -33,7 +27,7 @@ export function getRegistrationState(): string {
 }
 
 export function checkPermission(permissionName: string): boolean {
-    if (!isNativeAvailable) {
+    if (!MetaWearablesModule) {
         warnNotAvailable('checkPermission');
         return false;
     }
@@ -41,7 +35,7 @@ export function checkPermission(permissionName: string): boolean {
 }
 
 export async function requestPermission(permissionName: string): Promise<void> {
-    if (!isNativeAvailable) {
+    if (!MetaWearablesModule) {
         warnNotAvailable('requestPermission');
         return;
     }
@@ -49,7 +43,7 @@ export async function requestPermission(permissionName: string): Promise<void> {
 }
 
 export async function startStream(deviceId?: string): Promise<void> {
-    if (!isNativeAvailable) {
+    if (!MetaWearablesModule) {
         warnNotAvailable('startStream');
         return;
     }
@@ -57,7 +51,7 @@ export async function startStream(deviceId?: string): Promise<void> {
 }
 
 export async function capturePhoto(): Promise<string> {
-    if (!isNativeAvailable) {
+    if (!MetaWearablesModule) {
         warnNotAvailable('capturePhoto');
         return '';
     }
@@ -65,12 +59,12 @@ export async function capturePhoto(): Promise<string> {
 }
 
 export function stopStream(): void {
-    if (!isNativeAvailable) return warnNotAvailable('stopStream');
+    if (!MetaWearablesModule) return warnNotAvailable('stopStream');
     return MetaWearablesModule.stopStream();
 }
 
 export async function simulateConnection(): Promise<string> {
-    if (!isNativeAvailable) {
+    if (!MetaWearablesModule) {
         warnNotAvailable('simulateConnection');
         return 'unavailable';
     }
@@ -83,21 +77,20 @@ interface Subscription {
 
 const noopSubscription: Subscription = { remove: () => {} };
 
-export function addRegistrationChangeListener(listener: (event: { state: string }) => void): Subscription {
-    if (!emitter) return noopSubscription;
-    return emitter.addListener('onRegistrationChange', listener);
+function addListener<E extends keyof MetaWearablesEvents>(event: E, listener: MetaWearablesEvents[E]): Subscription {
+    return MetaWearablesModule ? MetaWearablesModule.addListener(event, listener) : noopSubscription;
 }
 
-export function addStreamStateChangeListener(listener: (event: { state: string }) => void): Subscription {
-    if (!emitter) return noopSubscription;
-    return emitter.addListener('onStreamStateChange', listener);
+export function addRegistrationChangeListener(listener: MetaWearablesEvents['onRegistrationChange']): Subscription {
+    return addListener('onRegistrationChange', listener);
 }
 
-export function addPermissionResultListener(
-    listener: (event: { permission: string; status: string }) => void,
-): Subscription {
-    if (!emitter) return noopSubscription;
-    return emitter.addListener('onPermissionResult', listener);
+export function addStreamStateChangeListener(listener: MetaWearablesEvents['onStreamStateChange']): Subscription {
+    return addListener('onStreamStateChange', listener);
+}
+
+export function addPermissionResultListener(listener: MetaWearablesEvents['onPermissionResult']): Subscription {
+    return addListener('onPermissionResult', listener);
 }
 
 export { MetaStreamView, isNativeAvailable };

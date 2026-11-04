@@ -1,50 +1,9 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, initializeAuth, Auth } from 'firebase/auth';
 import { SHARED_CONFIG } from '@lemonade/core';
-// Manual implementation because firebase/auth/react-native export is missing in this version
-// Ported from @firebase/auth/dist/rn/index.js
-interface ReactNativeStorage {
-    getItem(key: string): Promise<string | null>;
-    setItem(key: string, value: string): Promise<void>;
-    removeItem(key: string): Promise<void>;
-}
-
-const getReactNativePersistence = (storage: ReactNativeStorage) => {
-    // Firebase Internal Persistence requires a Class Constructor, not an instance.
-    class ReactNativePersistence {
-        static type = 'LOCAL';
-        type = 'LOCAL'; // Instance property required by SDK
-
-        async _isAvailable() {
-            try {
-                if (!storage) return false;
-                await storage.setItem('__sak', '1');
-                await storage.removeItem('__sak');
-                return true;
-            } catch {
-                return false;
-            }
-        }
-
-        _set(key: string, value: unknown) {
-            return storage.setItem(key, JSON.stringify(value));
-        }
-
-        async _get(key: string) {
-            const json = await storage.getItem(key);
-            return json ? JSON.parse(json) : null;
-        }
-
-        _remove(key: string) {
-            return storage.removeItem(key);
-        }
-
-        _addListener() {}
-        _removeListener() {}
-    }
-
-    return ReactNativePersistence;
-};
+// The react-native build of @firebase/auth ships AsyncStorage-backed persistence;
+// TypeScript resolves its types through the react-native export condition.
+import { getReactNativePersistence } from '@firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { connectAuthEmulator } from 'firebase/auth';

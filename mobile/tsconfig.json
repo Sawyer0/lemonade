@@ -8,7 +8,8 @@
       "@lemonade/core": ["../packages/core/src/index.ts"],
       "@infrastructure/*": ["../src/infrastructure/*"],
       "@web-shared-hooks/*": ["../src/presentation/hooks/*"],
-      "@/*": ["../src/*"]
+      "@/*": ["../src/*"],
+      "@firebase/auth": ["../node_modules/@firebase/auth/dist/rn/index.rn.d.ts"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"]
