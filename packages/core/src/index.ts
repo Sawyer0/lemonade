@@ -35,7 +35,6 @@ export * from './interfaces/IVehicleInfoProvider';
 export * from './interfaces/IVehicleRepository';
 export * from './interfaces/IVideoAnalysisService';
 export * from './interfaces/IVoiceService';
-export * from './interfaces/IFieldTechAgent';
 
 export * from './machines/mechanic.machine'; // Exports mechanicMachine, VisionInput, NhtsaInput, VectorInput, WebInput
 
