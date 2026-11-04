@@ -1,8 +1,8 @@
 import { injectable, inject } from 'inversify';
 import { adminDb } from '../firebase/admin';
 import type { ILogger } from '@lemonade/core';
-import { IUserRepository, User, UserSchema, AppError, ErrorCode } from '@lemonade/core';
-import { convertTimestamps } from '../firestore/timestamps';
+import { IUserRepository, User, UserSchema, AppError, ErrorCode, convertTimestamps } from '@lemonade/core';
+
 import { TYPES } from '../di/types';
 
 @injectable()

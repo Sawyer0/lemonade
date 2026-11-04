@@ -21,7 +21,6 @@ export * from './observability/TracingService';
 export * from './observability/EvalRunner';
 export * from './context/request-context';
 export * from './firebase/admin';
-export * from './firestore/timestamps';
 export * from './repositories/FirestoreSessionRepository';
 export * from './repositories/FirestoreUserRepository';
 export * from './repositories/FirestoreVehicleRepository';

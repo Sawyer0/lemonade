@@ -68,7 +68,7 @@ export * from './types/verification';
 // Exports SearchRequest, SearchResponse, VerificationRequest, VerificationResponse
 export * from './types/video';
 export * from './config'; // Added export for centralized configuration
-export * from './utils/timestamps';
-export * from './utils/memoryTags';
-export * from './utils/types';
-export * from './utils/modelRouter';
+export * from './firestore/timestamps';
+export * from './memory/memoryTags';
+export * from './types/deepPartial';
+export * from './machines/modelRouter';

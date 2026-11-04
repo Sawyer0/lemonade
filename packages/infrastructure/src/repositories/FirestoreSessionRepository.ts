@@ -10,9 +10,9 @@ import {
     AIAnalysisSchema,
     AppError,
     ErrorCode,
+    convertTimestamps,
 } from '@lemonade/core';
 import { TYPES } from '../di/types';
-import { convertTimestamps } from '../firestore/timestamps';
 
 @injectable()
 export class FirestoreSessionRepository implements ISessionRepository {
@@ -32,7 +32,7 @@ export class FirestoreSessionRepository implements ISessionRepository {
         const snap = await adminDb.collection('sessions').doc(id).get();
         if (!snap.exists) return null;
 
-        const data = convertTimestamps(snap.data());
+        const data = convertTimestamps(snap.data() ?? {});
 
         if (!data.userId) {
             data.userId = 'unknown';
