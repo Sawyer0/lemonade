@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function AddVehicleScreen() {
     const { user } = useAuth();
-    const { onboardVehicle, loading } = useVehicle();
+    const { onboardVehicle, loading, error } = useVehicle();
     const router = useRouter();
 
     const handleVinScanned = async (vin: string) => {
@@ -19,13 +19,14 @@ export default function AddVehicleScreen() {
             router.replace(`/garage/${vehicle.id}`);
         } catch (e) {
             console.error('Failed to onboard vehicle', e);
+            throw e; // lets the scanner re-arm so the user can try again
         }
     };
 
     return (
         <ThemedView style={styles.container}>
             <Stack.Screen options={{ title: 'Add Vehicle' }} />
-            <VinScanner onScanned={handleVinScanned} loading={loading} />
+            <VinScanner onScan={handleVinScanned} onClose={() => router.back()} loading={loading} error={error} />
         </ThemedView>
     );
 }
