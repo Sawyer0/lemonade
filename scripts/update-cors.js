@@ -19,7 +19,7 @@ function loadEnv() {
             }
         });
         return env;
-    } catch (e: unknown) {
+    } catch (e) {
         console.warn('Error loading .env.local:', e);
         return {};
     }
@@ -54,7 +54,7 @@ async function updateCors() {
                 console.log("✅ Found buckets:");
                 buckets.forEach(b => console.log(`   - ${b.name}`));
             }
-        } catch (e: unknown) {
+        } catch (e) {
             console.log("⚠️  Could not list buckets (Likely missing 'Storage Admin' permission)", e);
         }
 
