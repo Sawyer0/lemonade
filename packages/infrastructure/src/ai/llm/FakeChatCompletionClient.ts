@@ -1,4 +1,4 @@
-import type { ChatCompletionClient, ChatCompletionRequest } from './ChatCompletionClient';
+import type { ChatCompletionClient, ChatCompletionRequest, ChatCompletionResult } from './ChatCompletionClient';
 
 /** In-memory ChatCompletionClient for tests and offline demos: replays scripted replies. */
 export class FakeChatCompletionClient implements ChatCompletionClient {
@@ -10,6 +10,10 @@ export class FakeChatCompletionClient implements ChatCompletionClient {
     async complete(request: ChatCompletionRequest): Promise<string> {
         this.requests.push(request);
         return this.replies.shift() ?? '';
+    }
+
+    async completeWithUsage(request: ChatCompletionRequest): Promise<ChatCompletionResult> {
+        return { content: await this.complete(request) };
     }
 
     async *stream(request: ChatCompletionRequest): AsyncIterable<string> {

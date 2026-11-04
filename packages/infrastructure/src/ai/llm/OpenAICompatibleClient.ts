@@ -1,4 +1,4 @@
-import type { ChatCompletionClient, ChatCompletionRequest } from './ChatCompletionClient';
+import type { ChatCompletionClient, ChatCompletionRequest, ChatCompletionResult } from './ChatCompletionClient';
 
 export interface OpenAICompatibleClientOptions {
     baseUrl: string;
@@ -19,6 +19,7 @@ export class ChatCompletionError extends Error {
 
 interface CompletionResponse {
     choices?: { message?: { content?: string | null } }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
 }
 
 interface CompletionChunk {
@@ -40,9 +41,18 @@ export class OpenAICompatibleClient implements ChatCompletionClient {
     }
 
     async complete(request: ChatCompletionRequest): Promise<string> {
+        return (await this.completeWithUsage(request)).content;
+    }
+
+    async completeWithUsage(request: ChatCompletionRequest): Promise<ChatCompletionResult> {
         const response = await this.post(request, false);
         const body = (await response.json()) as CompletionResponse;
-        return body.choices?.[0]?.message?.content ?? '';
+        return {
+            content: body.choices?.[0]?.message?.content ?? '',
+            usage: body.usage
+                ? { inputTokens: body.usage.prompt_tokens ?? 0, outputTokens: body.usage.completion_tokens ?? 0 }
+                : undefined,
+        };
     }
 
     async *stream(request: ChatCompletionRequest): AsyncIterable<string> {
