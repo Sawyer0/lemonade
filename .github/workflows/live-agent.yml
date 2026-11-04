@@ -1,0 +1,47 @@
+name: Live agent e2e
+
+# Manual only: talks to a real LiveKit project and the Gemini API, so it costs
+# money and needs repository secrets. Run it from the Actions tab.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-agent
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+      LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+      LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+    steps:
+      - name: Check secrets
+        run: |
+          missing=""
+          for name in LIVEKIT_URL LIVEKIT_API_KEY LIVEKIT_API_SECRET GOOGLE_API_KEY; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Live agent test
+        run: npm --workspace agent run test:live
