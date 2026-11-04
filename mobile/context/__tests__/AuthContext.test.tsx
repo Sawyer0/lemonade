@@ -2,7 +2,7 @@ import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { AuthProvider, useAuth } from '../AuthContext';
 import { useFirebaseAuth } from '../../hooks/useFirebaseAuth';
-import { onSnapshot } from 'firebase/firestore';
+import { onSnapshot, setDoc } from 'firebase/firestore';
 
 // Mocks
 jest.mock('../../hooks/useFirebaseAuth');
@@ -136,7 +136,7 @@ describe('AuthContext', () => {
             const { result } = renderHook(() => useAuth(), { wrapper });
 
             await act(async () => {
-                await expect(result.current.signup('test@test.com', 'password')).rejects.toThrow(
+                await expect(result.current.signup('test@test.com', 'password', 'Test User')).rejects.toThrow(
                     'Email already in use',
                 );
             });
@@ -210,7 +210,7 @@ describe('AuthContext', () => {
             expect(result.current.user).toBeNull();
         });
 
-        it('should handle profile document not existing', async () => {
+        it('creates the profile document on first sign-in', async () => {
             (useFirebaseAuth as jest.Mock).mockReturnValue({
                 user: mockFirebaseUser,
                 loading: false,
@@ -234,6 +234,17 @@ describe('AuthContext', () => {
             await waitFor(() => {
                 expect(result.current.isLoading).toBe(false);
             });
+            expect(setDoc).toHaveBeenCalledWith(
+                undefined,
+                expect.objectContaining({
+                    id: 'test-uid',
+                    email: 'test@example.com',
+                    displayName: 'Test User',
+                    photoUrl: 'https://example.com/photo.jpg',
+                    tier: 'free',
+                    preferences: { autoOpenCamera: false },
+                }),
+            );
         });
 
         it('should handle malformed profile data', async () => {

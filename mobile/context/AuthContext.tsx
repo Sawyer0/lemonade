@@ -7,6 +7,10 @@ import { doc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
+    /** True while a sign-in or sign-up request is in flight. */
+    loading: boolean;
+    /** Last auth error message, or null. */
+    error: string | null;
     login: (email: string, password: string) => Promise<void>;
     signup: (email: string, password: string, displayName: string) => Promise<void>;
     signOut: () => Promise<void>;
@@ -20,6 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
         user: firebaseUser,
         loading: firebaseLoading,
+        error,
         login,
         signup,
         signOut,
@@ -95,8 +100,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         setUser(null);
                     }
                 } else {
-                    // ... create user ...
-                    // ...
+                    // First sign-in: create the profile document; the snapshot fires again with it.
+                    try {
+                        const now = new Date();
+                        const newUser = UserSchema.parse({
+                            id: firebaseUser.uid,
+                            email: firebaseUser.email ?? '',
+                            displayName: firebaseUser.displayName ?? undefined,
+                            photoUrl: firebaseUser.photoURL ?? undefined,
+                            createdAt: now,
+                            updatedAt: now,
+                        });
+                        await setDoc(userRef, stripUndefined(newUser));
+                    } catch (createError) {
+                        console.error('Failed to create user profile', createError);
+                        setUser(null);
+                    }
                 }
                 if (isMountedRef.current && isLoading) {
                     setIsLoading(false);
@@ -142,6 +161,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             value={{
                 user,
                 isLoading: isLoading || firebaseLoading,
+                loading: firebaseLoading,
+                error,
                 login,
                 signup,
                 signOut,
@@ -152,6 +173,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             {children}
         </AuthContext.Provider>
     );
+}
+
+/** Firestore rejects undefined field values. */
+function stripUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
+    return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
 }
 
 export function useAuth() {
