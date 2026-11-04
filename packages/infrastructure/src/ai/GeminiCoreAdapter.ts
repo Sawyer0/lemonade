@@ -27,19 +27,18 @@ export class GeminiCoreAdapter {
         @inject(TYPES.Logger) private logger: ILogger,
         @inject(TYPES.ConfigProvider) private config: IConfigProvider,
     ) {
-        const fbConfig = this.config.getFirebaseConfig();
-        const key = fbConfig.serviceAccountKey;
-
-        if (!key) {
-            this.logger.error('CRITICAL: FIREBASE_SERVICE_ACCOUNT_KEY is missing in GeminiCoreAdapter', {}, undefined);
-            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'FIREBASE_SERVICE_ACCOUNT_KEY is missing');
-        }
+        const key = this.config.getFirebaseConfig().serviceAccountKey;
 
         try {
-            const credentials = JSON.parse(key);
-            this.logger.debug('Service Account Email', { email: credentials.client_email });
+            // An explicit service account key wins; without one the Vertex client uses
+            // Application Default Credentials, the same as the other Vertex adapters.
+            const authOptions = key ? { credentials: JSON.parse(key) } : undefined;
+            if (authOptions) {
+                this.logger.debug('Service Account Email', { email: authOptions.credentials.client_email });
+            } else {
+                this.logger.info('GeminiCoreAdapter: no service account key, using Application Default Credentials');
+            }
 
-            const authOptions = { credentials };
             const gcloudConfig = this.config.getGoogleCloudConfig();
 
             this.vertex = new VertexAI({
