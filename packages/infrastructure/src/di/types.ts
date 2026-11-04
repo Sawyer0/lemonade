@@ -16,6 +16,7 @@ export const TYPES = {
     ChatAI: Symbol.for('ChatAI'),
     LiveStreamAI: Symbol.for('LiveStreamAI'),
     SafetyAI: Symbol.for('SafetyAI'),
+    MediaAnalysisModel: Symbol.for('MediaAnalysisModel'),
     NHTSAService: Symbol.for('NHTSAService'),
     EmbeddingService: Symbol.for('EmbeddingService'),
     VectorRepository: Symbol.for('VectorRepository'),

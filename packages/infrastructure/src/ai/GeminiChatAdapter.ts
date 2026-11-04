@@ -2,7 +2,6 @@ import { injectable, inject } from 'inversify';
 import type { GenerativeModel, Part } from '@google-cloud/vertexai';
 import type {
     IChatAssistantAI,
-    IMultimodalUploadAnalyzer,
     AIAnalysis,
     ILogger,
     IBillingService,
@@ -20,20 +19,18 @@ import { FunctionCallService } from './FunctionCallHandler';
 import { GeminiCoreAdapter } from './GeminiCoreAdapter';
 import { GeminiChatResponder } from './gemini/GeminiChatResponder';
 import { GeminiHypothesisVerifier } from './gemini/GeminiHypothesisVerifier';
-import { GeminiUploadAnalyzer } from './gemini/GeminiUploadAnalyzer';
 import { type ChatHistoryMessage, toCountableParts } from './gemini/chatContent';
 
 /**
- * Vertex Gemini Flash behind the chat and upload ports. One model instance is
- * shared by three focused collaborators: the chat responder, the hypothesis
- * verifier and the upload analyzer. This class only adapts the port signatures.
+ * Vertex Gemini Flash behind the chat port. One model instance is shared by the
+ * chat responder and the hypothesis verifier; this class only adapts the port
+ * signatures. Uploads go through MediaUploadAnalyzer and the media model port.
  */
 @injectable()
-export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMultimodalUploadAnalyzer {
+export class GeminiChatAdapter implements IChatAssistantAI {
     private readonly model: GenerativeModel;
     private readonly chat: GeminiChatResponder;
     private readonly verifier: GeminiHypothesisVerifier;
-    private readonly uploads: GeminiUploadAnalyzer;
 
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
@@ -57,52 +54,11 @@ export class GeminiFlashChatAndUploadsAdapter implements IChatAssistantAI, IMult
             logger,
         );
         this.verifier = new GeminiHypothesisVerifier(this.model, cacheService, logger);
-        this.uploads = new GeminiUploadAnalyzer(this.model, billingService, cacheService, tracer, logger);
-        this.logger.info(`GeminiFlashChatAndUploadsAdapter initialized, using model: ${CONFIG.AI_MODELS.CHAT_MODEL}`);
+        this.logger.info(`GeminiChatAdapter initialized, using model: ${CONFIG.AI_MODELS.CHAT_MODEL}`);
     }
 
     verifyHypothesis(request: VerificationRequest, traceId?: string): Promise<VerificationResponse> {
         return this.verifier.verify(request, traceId);
-    }
-
-    analyzeUploadedVideo(
-        videoUrl: string,
-        vehicleContext: string,
-        mimeType: string = 'video/mp4',
-        userId?: string,
-        sessionId?: string,
-        reasoningEffort?: ReasoningEffort,
-        videoDurationMinutes?: number,
-    ): Promise<AIAnalysis> {
-        return this.uploads.analyze({
-            kind: 'video',
-            fileUrl: videoUrl,
-            vehicleContext,
-            mimeType,
-            userId,
-            sessionId,
-            reasoningEffort,
-            videoDurationMinutes,
-        });
-    }
-
-    analyzeUploadedImage(
-        imageUrl: string,
-        vehicleContext: string,
-        mimeType: string = 'image/jpeg',
-        userId?: string,
-        sessionId?: string,
-        reasoningEffort?: ReasoningEffort,
-    ): Promise<AIAnalysis> {
-        return this.uploads.analyze({
-            kind: 'image',
-            fileUrl: imageUrl,
-            vehicleContext,
-            mimeType,
-            userId,
-            sessionId,
-            reasoningEffort,
-        });
     }
 
     generateReplyStream(

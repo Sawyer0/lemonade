@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GeminiFlashChatAndUploadsAdapter } from '../GeminiFlashChatAndUploadsAdapter';
-import { ILogger, IBillingService, MessagePart } from '@lemonade/core';
+import { GeminiChatAdapter } from '../GeminiChatAdapter';
+import type { ILogger, IBillingService, IContextCacheService, MessagePart } from '@lemonade/core';
+import type { TracingService } from '../../observability/TracingService';
 import { GeminiCoreAdapter } from '../GeminiCoreAdapter';
 import { FunctionCallService } from '../FunctionCallHandler';
 import { GenerativeModel, ChatSession } from '@google-cloud/vertexai';
 
-describe('GeminiFlashChatAndUploadsAdapter', () => {
-    let adapter: GeminiFlashChatAndUploadsAdapter;
+describe('GeminiChatAdapter', () => {
+    let adapter: GeminiChatAdapter;
     let mockLogger: ILogger;
     let mockBillingService: IBillingService;
     let mockCoreAdapter: GeminiCoreAdapter;
@@ -46,7 +47,7 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
             commonSafetySettings: [],
         } as unknown as GeminiCoreAdapter;
 
-        adapter = new GeminiFlashChatAndUploadsAdapter(
+        adapter = new GeminiChatAdapter(
             mockLogger,
             mockBillingService,
             mockCoreAdapter,
@@ -144,100 +145,6 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
                 await expect(adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1')).rejects.toThrow(
                     'Tool execution failed',
                 );
-            });
-        });
-
-        describe('analyzeUploadedVideo', () => {
-            it('should throw UNAUTHORIZED when userId is missing', async () => {
-                await expect(
-                    adapter.analyzeUploadedVideo('gs://bucket/video.mp4', '2020 Honda Civic', 'video/mp4'),
-                ).rejects.toThrow('User ID is required');
-            });
-
-            it('should throw when AI returns empty response', async () => {
-                (mockModel.generateContent as ReturnType<typeof vi.fn>).mockResolvedValue({
-                    response: {
-                        candidates: [{ content: { parts: [] } }],
-                        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 0 },
-                    },
-                });
-
-                await expect(
-                    adapter.analyzeUploadedVideo(
-                        'gs://bucket/video.mp4',
-                        '2020 Honda Civic',
-                        'video/mp4',
-                        'user-1',
-                        'session-1',
-                    ),
-                ).rejects.toThrow('AI returned empty response');
-            });
-
-            it('should throw when AI returns malformed JSON', async () => {
-                (mockModel.generateContent as ReturnType<typeof vi.fn>).mockResolvedValue({
-                    response: {
-                        candidates: [{ content: { parts: [{ text: 'not valid json {' }] } }],
-                        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 },
-                    },
-                });
-
-                await expect(
-                    adapter.analyzeUploadedVideo(
-                        'gs://bucket/video.mp4',
-                        '2020 Honda Civic',
-                        'video/mp4',
-                        'user-1',
-                        'session-1',
-                    ),
-                ).rejects.toThrow();
-            });
-
-            it('should throw when Vertex AI API is unavailable', async () => {
-                (mockModel.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(
-                    new Error('503 Service Unavailable'),
-                );
-
-                await expect(
-                    adapter.analyzeUploadedVideo(
-                        'gs://bucket/video.mp4',
-                        '2020 Honda Civic',
-                        'video/mp4',
-                        'user-1',
-                        'session-1',
-                    ),
-                ).rejects.toThrow('503 Service Unavailable');
-
-                expect(mockLogger.error).toHaveBeenCalledWith(
-                    'Vertex AI Uploaded Video Analysis Failure',
-                    expect.any(Error),
-                );
-            });
-        });
-
-        describe('analyzeUploadedImage', () => {
-            it('should throw UNAUTHORIZED when userId is missing', async () => {
-                await expect(
-                    adapter.analyzeUploadedImage('gs://bucket/image.jpg', '2020 Honda Civic', 'image/jpeg'),
-                ).rejects.toThrow('User ID is required');
-            });
-
-            it('should throw when AI returns empty response', async () => {
-                (mockModel.generateContent as ReturnType<typeof vi.fn>).mockResolvedValue({
-                    response: {
-                        candidates: [{ content: { parts: [] } }],
-                        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 0 },
-                    },
-                });
-
-                await expect(
-                    adapter.analyzeUploadedImage(
-                        'gs://bucket/image.jpg',
-                        '2020 Honda Civic',
-                        'image/jpeg',
-                        'user-1',
-                        'session-1',
-                    ),
-                ).rejects.toThrow('AI returned empty response');
             });
         });
 

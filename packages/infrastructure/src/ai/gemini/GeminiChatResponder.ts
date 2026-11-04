@@ -18,14 +18,9 @@ import { RequestContext } from '../../context/request-context';
 import type { FunctionCallService } from '../FunctionCallHandler';
 import type { TracingService } from '../../observability/TracingService';
 import { generationConfigForEffort } from './generationConfig';
-import {
-    type ChatHistoryMessage,
-    buildUserParts,
-    formatGroundingSources,
-    newToolCallId,
-    toVertexHistory,
-} from './chatContent';
+import { type ChatHistoryMessage, buildUserParts, formatGroundingSources, toVertexHistory } from './chatContent';
 import { recordChatModelUsage } from './usageRecorder';
+import { newToolCallId } from '../toolCallId';
 
 const CACHE_TTL_SECONDS = 3600;
 

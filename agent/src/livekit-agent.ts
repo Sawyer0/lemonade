@@ -16,8 +16,8 @@ import { livekitVoiceProviders } from './voice/livekitVoiceProviders';
 const env = loadEnv();
 const logger = new Logger();
 
-// Frame analysis needs Vertex AI, Firestore and NHTSA. Build that graph on the first
-// frame, so a voice-only call (and the live e2e test) needs nothing beyond LiveKit and Gemini.
+// Frame analysis needs the media model (Vertex by default), Firestore and NHTSA. Build that
+// graph on the first frame, so a voice-only call (and the live e2e test) needs only LiveKit and Gemini.
 let burstAnalyzer: BurstAnalyzer | undefined;
 const bursts: Pick<BurstAnalyzer, 'analyze'> = {
     analyze: (...args) => {

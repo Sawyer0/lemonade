@@ -12,10 +12,7 @@ import {
     INHTSAService,
     IVectorRepository,
     IEmbeddingService,
-    IChatAssistantAI,
-    ISafetyAI,
-    IMultimodalUploadAnalyzer,
-    ILiveStreamAnalyzer,
+    IUserRepository,
     IBillingService,
     IBillingRepository,
     IContextCacheService,
@@ -38,9 +35,8 @@ import { EnvConfigProvider } from '../config/EnvConfigProvider';
 import { Logger } from '../logging/Logger';
 
 // AI Adapters
-import { GeminiFlashChatAndUploadsAdapter } from '../ai/GeminiFlashChatAndUploadsAdapter';
-import { VertexAISafetyAdapter } from '../ai/VertexAISafetyAdapter';
-import { GeminiFlashLiveStreamAdapter } from '../ai/GeminiFlashLiveStreamAdapter';
+import { bindAiProviders } from './aiBindings';
+import { FirestoreUserRepository } from '../repositories/FirestoreUserRepository';
 import { GeminiCoreAdapter } from '../ai/GeminiCoreAdapter';
 import { FunctionCallService } from '../ai/FunctionCallHandler';
 import { BillingService } from '../services/BillingService';
@@ -67,17 +63,12 @@ export function createContainer(): Container {
     container.bind<IBillingRepository>(TYPES.BillingRepository).to(BillingFirestoreRepository).inSingletonScope();
     container.bind<IBillingService>(TYPES.BillingService).to(BillingService).inSingletonScope();
 
-    // 2. AI Adapters
-    container.bind<IChatAssistantAI>(TYPES.ChatAI).to(GeminiFlashChatAndUploadsAdapter).inSingletonScope();
-    container
-        .bind<IMultimodalUploadAnalyzer>(TYPES.MultimodalUploadAI)
-        .to(GeminiFlashChatAndUploadsAdapter)
-        .inSingletonScope();
-    container.bind<ILiveStreamAnalyzer>(TYPES.LiveStreamAI).to(GeminiFlashLiveStreamAdapter).inSingletonScope();
-    container.bind<ISafetyAI>(TYPES.SafetyAI).to(VertexAISafetyAdapter).inSingletonScope();
+    // 2. AI Adapters (provider chosen by LLM_PROVIDER)
+    bindAiProviders(container);
 
     // 3. Services & Repositories
     container.bind<ISessionRepository>(TYPES.SessionRepository).to(FirestoreSessionRepository).inSingletonScope();
+    container.bind<IUserRepository>(TYPES.UserRepo).to(FirestoreUserRepository).inSingletonScope();
     container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(GoogleSearchService).inSingletonScope();
     container.bind<IMemoryService>(TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
     container.bind<INHTSAService>(TYPES.NHTSAService).to(NHTSAService).inSingletonScope();
@@ -95,8 +86,6 @@ export function createContainer(): Container {
         .bind<IMechanicReasoningService>(TYPES.MechanicReasoningService)
         .to(MechanicReasoningService)
         .inSingletonScope();
-
-    // 7. Agent Interface
 
     return container;
 }
