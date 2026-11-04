@@ -76,30 +76,33 @@ export const useWorkspaceActions = ({
             const isAudio = file.type.startsWith('audio/');
 
             if (toolCallId) {
-                // TODO: Support tool result injection in useGeminiChat if needed
-                showToast('Image captured, but tool results are not yet supported in this hook.', 'info');
-            } else {
-                // File Upload (User initiated - video or audio)
-                if (isVideo || isAudio) {
-                    // Trigger backend analysis for video/audio
-                    await ApiClient.post(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
-                        sessionId,
-                        publicUrl,
-                        fileType: isVideo ? 'video' : 'audio',
-                    });
+                // Answer the agent's camera request with the photo itself, so the model sees it next turn.
+                await append({
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: 'Here is the photo you asked for.' },
+                        { type: 'image', image: publicUrl },
+                    ],
+                });
+                showToast('Photo sent to the Master Tech', 'success');
+            } else if (isVideo || isAudio) {
+                // Trigger backend analysis for video/audio
+                await ApiClient.post(CONFIG.API.ROUTES.ANALYSIS_TRIGGER, {
+                    sessionId,
+                    publicUrl,
+                    fileType: isVideo ? 'video' : 'audio',
+                });
 
-                    showToast('File uploaded. AI is analyzing...', 'success');
-                } else {
-                    // Regular image file
-                    await append({
-                        role: 'user',
-                        content: [
-                            { type: 'text', text: 'I have captured an image of the part.' },
-                            { type: 'image', image: publicUrl },
-                        ],
-                    });
-                    showToast('Image captured and sent!', 'success');
-                }
+                showToast('File uploaded. AI is analyzing...', 'success');
+            } else {
+                await append({
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: 'I have captured an image of the part.' },
+                        { type: 'image', image: publicUrl },
+                    ],
+                });
+                showToast('Image captured and sent!', 'success');
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to upload file';
