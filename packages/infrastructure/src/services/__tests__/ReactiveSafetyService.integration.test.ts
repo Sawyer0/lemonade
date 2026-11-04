@@ -18,7 +18,8 @@ import { VertexAISafetyAdapter } from '../../ai/VertexAISafetyAdapter';
 import { EnvConfigProvider } from '../../config/EnvConfigProvider';
 import type { ILogger } from '@lemonade/core';
 
-// System 2 checks call Vertex AI; run them only when cloud credentials are set up.
+// System 2 checks call Vertex AI and telemetry writes to Firestore; run them only when
+// cloud credentials are set up.
 const RUN_LIVE_CLOUD_TESTS = process.env.RUN_LIVE_CLOUD_TESTS === 'true';
 
 // Real logger for integration tests
@@ -162,7 +163,7 @@ describe('ReactiveSafetyService Integration', () => {
         );
     });
 
-    describe('Telemetry Integration', () => {
+    describe.runIf(RUN_LIVE_CLOUD_TESTS)('Telemetry Integration', () => {
         /**
          * Verify telemetry logs to Firestore correctly.
          * This tests the actual Firestore write path.
