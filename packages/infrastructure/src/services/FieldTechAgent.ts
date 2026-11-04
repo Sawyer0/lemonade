@@ -1,4 +1,3 @@
-
 import { injectable, inject } from 'inversify';
 import type {
     IFieldTechAgent,
@@ -8,7 +7,7 @@ import type {
     NeurosymbolicState,
     ReasoningInput,
     IMechanicReasoningService,
-    ISessionRepository
+    ISessionRepository,
 } from '@lemonade/core';
 import { TYPES } from '../di/types';
 
@@ -20,15 +19,19 @@ export class FieldTechAgent implements IFieldTechAgent {
     constructor(
         @inject(TYPES.MechanicReasoningService) private mechanicReasoning: IMechanicReasoningService,
         @inject(TYPES.SessionRepository) private sessionRepo: ISessionRepository,
-        @inject(TYPES.Logger) private logger: ILogger
-    ) { }
+        @inject(TYPES.Logger) private logger: ILogger,
+    ) {}
 
     async diagnose(input: ReasoningInput): Promise<NeurosymbolicState> {
         this.emit({ type: 'STATE_CHANGE', payload: { phase: 'diagnosing' }, timestamp: Date.now() });
         this.currentPhase = 'diagnosing';
 
         try {
-            this.emit({ type: 'THOUGHT', payload: `Starting diagnosis for session ${input.sessionId}`, timestamp: Date.now() });
+            this.emit({
+                type: 'THOUGHT',
+                payload: `Starting diagnosis for session ${input.sessionId}`,
+                timestamp: Date.now(),
+            });
 
             // Delegate to System 2 Logic
             const result = await this.mechanicReasoning.diagnose(input);
@@ -47,15 +50,15 @@ export class FieldTechAgent implements IFieldTechAgent {
     explainCurrentState(): string {
         switch (this.currentPhase) {
             case 'idle':
-                return "I am currently idle, waiting for vehicle data.";
+                return 'I am currently idle, waiting for vehicle data.';
             case 'diagnosing':
-                return "I am currently analyzing the vehicle state, checking recalls, and consulting the service manual.";
+                return 'I am currently analyzing the vehicle state, checking recalls, and consulting the service manual.';
             case 'complete':
-                return "I have finished the diagnosis and verified the results.";
+                return 'I have finished the diagnosis and verified the results.';
             case 'error':
-                return "I encountered an error during the last operation.";
+                return 'I encountered an error during the last operation.';
             default:
-                return "I am processing data.";
+                return 'I am processing data.';
         }
     }
 
@@ -67,7 +70,7 @@ export class FieldTechAgent implements IFieldTechAgent {
     }
 
     private emit(event: AgentEvent) {
-        this.eventListeners.forEach(handler => {
+        this.eventListeners.forEach((handler) => {
             try {
                 handler(event);
             } catch (err) {

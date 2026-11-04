@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import Animated, { 
-    useSharedValue, 
-    useAnimatedStyle, 
-    withRepeat, 
-    withTiming, 
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withRepeat,
+    withTiming,
     withSequence,
-    Easing 
+    Easing,
 } from 'react-native-reanimated';
 import { GlassCard } from './GlassCard.native';
 
@@ -22,15 +22,15 @@ export const GhostCard: React.FC<GhostCardProps> = ({ title, subtitle }) => {
         opacity.value = withRepeat(
             withSequence(
                 withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-                withTiming(0.3, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+                withTiming(0.3, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
             ),
             -1,
-            true
+            true,
         );
     }, [opacity]);
 
     const animatedStyle = useAnimatedStyle(() => ({
-        opacity: opacity.value
+        opacity: opacity.value,
     }));
 
     return (
@@ -40,7 +40,7 @@ export const GhostCard: React.FC<GhostCardProps> = ({ title, subtitle }) => {
                     <Text style={styles.title}>{title}</Text>
                     <Animated.View style={[styles.pulseDot, animatedStyle]} />
                 </View>
-                
+
                 {/* Skeleton Lines */}
                 <View style={styles.skeletonContainer}>
                     <Animated.View style={[styles.skeletonLine, { width: '80%' }, animatedStyle]} />
@@ -89,5 +89,5 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: 'rgba(255,255,255,0.6)',
         marginTop: 4,
-    }
+    },
 });

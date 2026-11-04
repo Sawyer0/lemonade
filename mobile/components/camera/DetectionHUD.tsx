@@ -6,7 +6,7 @@ import Animated, {
     withRepeat,
     withTiming,
     withSequence,
-    Easing
+    Easing,
 } from 'react-native-reanimated';
 import { SemanticTriageResult } from '@lemonade/core';
 
@@ -20,9 +20,8 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
     const borderOpacity = useSharedValue(0.5);
 
     const isCloudActive = agentState !== 'idle';
-    const bestDetection = detections.length > 0
-        ? [...detections].sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0]
-        : null;
+    const bestDetection =
+        detections.length > 0 ? [...detections].sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0] : null;
     const isLocked = bestDetection ? (bestDetection.confidence || 0) >= 0.8 : false;
 
     useEffect(() => {
@@ -31,20 +30,20 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
             borderOpacity.value = withRepeat(
                 withSequence(
                     withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
-                    withTiming(0.4, { duration: 800, easing: Easing.inOut(Easing.ease) })
+                    withTiming(0.4, { duration: 800, easing: Easing.inOut(Easing.ease) }),
                 ),
                 -1,
-                true
+                true,
             );
         } else if (!isLocked) {
             // Pulse animation for "Searching"
             borderOpacity.value = withRepeat(
                 withSequence(
                     withTiming(1, { duration: 500, easing: Easing.inOut(Easing.ease) }),
-                    withTiming(0.3, { duration: 500, easing: Easing.inOut(Easing.ease) })
+                    withTiming(0.3, { duration: 500, easing: Easing.inOut(Easing.ease) }),
                 ),
                 -1,
-                true
+                true,
             );
         } else {
             // Solid for "Locked"
@@ -58,11 +57,16 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
         if (!bestDetection) return '#00EDA4';
 
         switch (bestDetection.eval.stat) {
-            case 'CRITICAL': return '#FF4444'; // Red
-            case 'CAUTION': return '#FFA500'; // Orange
-            case 'UNCERTAIN': return '#A9A9A9'; // Gray
-            case 'NORMAL': return '#00EDA4'; // Green
-            default: return '#00EDA4';
+            case 'CRITICAL':
+                return '#FF4444'; // Red
+            case 'CAUTION':
+                return '#FFA500'; // Orange
+            case 'UNCERTAIN':
+                return '#A9A9A9'; // Gray
+            case 'NORMAL':
+                return '#00EDA4'; // Green
+            default:
+                return '#00EDA4';
         }
     };
 
@@ -96,9 +100,7 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
             <View style={styles.centerReticleContainer}>
                 <Animated.View style={[styles.reticleBox, animatedStyle]}>
                     <View style={[styles.labelContainer, isCloudActive && { backgroundColor: '#8A2BE2' }]}>
-                        <Text style={styles.labelText}>
-                            {id.obj.toUpperCase()}
-                        </Text>
+                        <Text style={styles.labelText}>{id.obj.toUpperCase()}</Text>
                         <Text style={[styles.stateText, { color: isCloudActive ? 'white' : statusColor }]}>
                             {getStatusText()} {agentState === 'idle' && `(${Math.round(confValue * 100)}%)`}
                         </Text>
@@ -146,5 +148,5 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
         marginTop: 2,
-    }
+    },
 });

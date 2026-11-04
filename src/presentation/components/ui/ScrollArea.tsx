@@ -12,22 +12,21 @@ export const ScrollArea = React.forwardRef<HTMLDivElement, ScrollAreaProps>(
             <div
                 ref={ref}
                 className={clsx(
-                    "overflow-y-scroll",
+                    'overflow-y-scroll',
                     // Custom Scrollbar Styling for visibility
-                    "[&::-webkit-scrollbar]:w-2",
-                    "[&::-webkit-scrollbar-track]:bg-zinc-800",
-                    "[&::-webkit-scrollbar-thumb]:bg-zinc-500",
-                    "[&::-webkit-scrollbar-thumb]:rounded-full",
-                    "[&::-webkit-scrollbar-thumb]:hover:bg-zinc-400",
-                    className
+                    '[&::-webkit-scrollbar]:w-2',
+                    '[&::-webkit-scrollbar-track]:bg-zinc-800',
+                    '[&::-webkit-scrollbar-thumb]:bg-zinc-500',
+                    '[&::-webkit-scrollbar-thumb]:rounded-full',
+                    '[&::-webkit-scrollbar-thumb]:hover:bg-zinc-400',
+                    className,
                 )}
                 {...props}
             >
                 {children}
             </div>
         );
-    }
+    },
 );
 
-ScrollArea.displayName = "ScrollArea";
-
+ScrollArea.displayName = 'ScrollArea';

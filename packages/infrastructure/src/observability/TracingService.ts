@@ -8,9 +8,7 @@ import { ITracingService, TraceOptions } from '@lemonade/core';
 
 @injectable()
 export class TracingService implements ITracingService {
-    constructor(
-        @inject(TYPES.ConfigProvider) private config: IConfigProvider
-    ) { }
+    constructor(@inject(TYPES.ConfigProvider) private config: IConfigProvider) {}
 
     async traceAiCall<T>({ name, inputs, exec, parentTraceId, runType, tags }: TraceOptions<T>): Promise<T> {
         const langSmithConfig = this.config.getLangSmithConfig();
@@ -30,10 +28,10 @@ export class TracingService implements ITracingService {
                 id: runId,
                 name,
                 inputs: { ...inputs, traceId },
-                run_type: runType || "llm",
+                run_type: runType || 'llm',
                 project_name: langSmithConfig.project,
                 parent_run_id: parentTraceId,
-                extra: { traceId, tags }
+                extra: { traceId, tags },
             });
         } catch (traceErr: unknown) {
             console.warn('Failed to create LangSmith run, proceeding without tracing:', traceErr);
@@ -44,7 +42,7 @@ export class TracingService implements ITracingService {
             const output = await exec();
             try {
                 await client!.updateRun(runId!, {
-                    outputs: output as Record<string, unknown>
+                    outputs: output as Record<string, unknown>,
                 });
             } catch (traceErr: unknown) {
                 console.warn('Failed to update LangSmith run (outputs), proceeding:', traceErr);

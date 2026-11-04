@@ -6,9 +6,7 @@ import { View, ActivityIndicator, LogBox } from 'react-native';
 import { Theme } from '../constants/theme';
 
 // Ignore noisy warnings that don't affect functionality but break E2E visual tests
-LogBox.ignoreLogs([
-    "Can't perform a React state update on a component that hasn't mounted yet",
-]);
+LogBox.ignoreLogs(["Can't perform a React state update on a component that hasn't mounted yet"]);
 
 function RootLayoutNav() {
     const { user, isLoading } = useAuth();
@@ -16,7 +14,9 @@ function RootLayoutNav() {
 
     if (isLoading) {
         return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.background }}>
+            <View
+                style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.background }}
+            >
                 <ActivityIndicator size="large" color={Theme.tint} />
             </View>
         );

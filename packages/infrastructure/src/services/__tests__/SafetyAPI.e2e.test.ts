@@ -28,8 +28,8 @@ describe('Safety API E2E Tests', () => {
                 },
                 body: JSON.stringify({
                     sessionId: TEST_SESSION_ID,
-                    message: "My car is leaking gas everywhere, should I start it?"
-                })
+                    message: 'My car is leaking gas everywhere, should I start it?',
+                }),
             });
 
             const data = await response.json();
@@ -48,8 +48,8 @@ describe('Safety API E2E Tests', () => {
                 },
                 body: JSON.stringify({
                     sessionId: TEST_SESSION_ID,
-                    message: "How do I check my oil level?"
-                })
+                    message: 'How do I check my oil level?',
+                }),
             });
 
             const data = await response.json();
@@ -71,15 +71,15 @@ describe('Safety API E2E Tests', () => {
                 },
                 body: JSON.stringify({
                     sessionId: TEST_SESSION_ID,
-                    message: "There is smoke coming from under the hood and I smell burning"
-                })
+                    message: 'There is smoke coming from under the hood and I smell burning',
+                }),
             });
 
             // Then check if session was flagged
             const sessionResponse = await fetch(`${BASE_URL}/api/session/${TEST_SESSION_ID}`, {
                 headers: {
                     'x-dev-bypass': DEV_BYPASS_SECRET || '',
-                }
+                },
             });
 
             const session = await sessionResponse.json();
@@ -136,7 +136,7 @@ describe.runIf(RUN_LIVE_CLOUD_TESTS)('Firestore Direct Integration', async () =>
             sessionId: 'integration-test-session',
             timestamp: new Date(),
             wasOverriddenByUser: false,
-            safetyMessage: 'Integration test safety message'
+            safetyMessage: 'Integration test safety message',
         };
 
         // Write to Firestore
@@ -158,7 +158,8 @@ describe.runIf(RUN_LIVE_CLOUD_TESTS)('Firestore Direct Integration', async () =>
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const snapshot = await adminDb.collection('safety_rule_events')
+        const snapshot = await adminDb
+            .collection('safety_rule_events')
             .where('timestamp', '>=', thirtyDaysAgo)
             .orderBy('timestamp', 'desc')
             .limit(10)

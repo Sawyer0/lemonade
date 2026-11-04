@@ -10,8 +10,8 @@ vi.mock('@lemonade/infrastructure', async () => {
     return {
         ...actual,
         adminDb: {
-            collection: vi.fn()
-        }
+            collection: vi.fn(),
+        },
     };
 });
 
@@ -22,11 +22,11 @@ vi.mock('stripe', () => {
             billingPortal: {
                 sessions: {
                     create: vi.fn().mockResolvedValue({
-                        url: 'https://billing.stripe.com/session/test'
-                    })
-                }
-            }
-        }))
+                        url: 'https://billing.stripe.com/session/test',
+                    }),
+                },
+            },
+        })),
     };
 });
 
@@ -37,16 +37,16 @@ const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 };
 
 // Mock Firestore document
 const mockDocGet = vi.fn();
 const mockDoc = vi.fn(() => ({
-    get: mockDocGet
+    get: mockDocGet,
 }));
 const mockCollection = vi.fn(() => ({
-    doc: mockDoc
+    doc: mockDoc,
 }));
 
 // Helper to create request
@@ -55,8 +55,8 @@ function createRequest(headers: Record<string, string> = {}) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            ...headers
-        }
+            ...headers,
+        },
     });
 }
 
@@ -73,8 +73,8 @@ describe('POST /api/stripe/portal', () => {
             exists: true,
             data: () => ({
                 id: 'user-123',
-                stripeCustomerId: 'cus_test123'
-            })
+                stripeCustomerId: 'cus_test123',
+            }),
         });
     });
 
@@ -108,7 +108,7 @@ describe('POST /api/stripe/portal', () => {
         it('returns 404 when user not found', async () => {
             mockDocGet.mockResolvedValue({
                 exists: false,
-                data: () => null
+                data: () => null,
             });
 
             const req = createRequest({ 'x-user-id': 'user-123' });
@@ -121,9 +121,9 @@ describe('POST /api/stripe/portal', () => {
             mockDocGet.mockResolvedValue({
                 exists: true,
                 data: () => ({
-                    id: 'user-123'
+                    id: 'user-123',
                     // no stripeCustomerId
-                })
+                }),
             });
 
             const req = createRequest({ 'x-user-id': 'user-123' });

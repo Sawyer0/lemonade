@@ -23,16 +23,16 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
         try {
             // Stop existing tracks using ref to avoid dependency on state
             if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop());
+                streamRef.current.getTracks().forEach((track) => track.stop());
             }
 
             const newStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: facingMode,
                     width: { ideal: 1920 },
-                    height: { ideal: 1080 }
+                    height: { ideal: 1080 },
                 },
-                audio: false
+                audio: false,
             });
 
             setStream(newStream);
@@ -49,12 +49,11 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
     }, [facingMode, onClose, showToast]);
 
     useEffect(() => {
-
         // eslint-disable-next-line
         startCamera();
         return () => {
             if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop());
+                streamRef.current.getTracks().forEach((track) => track.stop());
             }
         };
     }, [startCamera]);
@@ -80,25 +79,29 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         // Convert to blob/file
-        canvas.toBlob(async (blob) => {
-            if (blob) {
-                const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-                try {
-                    await onCapture(file);
-                    // Stop stream after successful capture
-                    streamRef.current?.getTracks().forEach(track => track.stop());
-                    setIsCapturing(false);
-                } catch {
-                    // console.error('Capture upload failed:', error);
-                    showToast('Failed to upload image.', 'error');
-                    setIsCapturing(false);
+        canvas.toBlob(
+            async (blob) => {
+                if (blob) {
+                    const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                    try {
+                        await onCapture(file);
+                        // Stop stream after successful capture
+                        streamRef.current?.getTracks().forEach((track) => track.stop());
+                        setIsCapturing(false);
+                    } catch {
+                        // console.error('Capture upload failed:', error);
+                        showToast('Failed to upload image.', 'error');
+                        setIsCapturing(false);
+                    }
                 }
-            }
-        }, 'image/jpeg', 0.8);
+            },
+            'image/jpeg',
+            0.8,
+        );
     };
 
     const toggleCamera = () => {
-        setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+        setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
     };
 
     return (
@@ -109,8 +112,8 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                 playsInline
                 muted
                 className={clsx(
-                    "w-full h-full object-cover",
-                    facingMode === 'user' && "scale-x-[-1]" // Mirror selfie cam
+                    'w-full h-full object-cover',
+                    facingMode === 'user' && 'scale-x-[-1]', // Mirror selfie cam
                 )}
             />
 
@@ -118,7 +121,6 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
 
             {/* Overlay Controls */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-4">
-
                 {/* Top Bar */}
                 <div className="flex justify-end">
                     <button
@@ -143,8 +145,8 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
                         onClick={handleCapture}
                         disabled={isCapturing}
                         className={clsx(
-                            "p-4 rounded-full border-4 border-white transition-all transform active:scale-95",
-                            isCapturing ? "bg-zinc-500 scale-90" : "bg-white hover:bg-zinc-200"
+                            'p-4 rounded-full border-4 border-white transition-all transform active:scale-95',
+                            isCapturing ? 'bg-zinc-500 scale-90' : 'bg-white hover:bg-zinc-200',
                         )}
                     >
                         {isCapturing ? (
@@ -168,4 +170,3 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
         </div>
     );
 }
-

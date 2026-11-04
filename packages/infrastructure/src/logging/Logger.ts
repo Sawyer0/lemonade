@@ -11,9 +11,7 @@ export interface RemoteTransport {
 export class Logger implements ILogger {
     private remoteTransport: RemoteTransport | undefined;
 
-    constructor(
-        @inject(TYPES.RemoteLogTransport) @optional() remoteTransport?: RemoteTransport
-    ) {
+    constructor(@inject(TYPES.RemoteLogTransport) @optional() remoteTransport?: RemoteTransport) {
         this.remoteTransport = remoteTransport;
     }
 
@@ -23,7 +21,7 @@ export class Logger implements ILogger {
             message,
             timestamp: new Date().toISOString(),
             traceId: RequestContext.getTraceId(),
-            ...context
+            ...context,
         };
     }
 
@@ -35,12 +33,15 @@ export class Logger implements ILogger {
 
     error(message: string, error?: unknown, context?: Record<string, unknown>): void {
         const logEntry = this.formatLog('ERROR', message, {
-            error: error instanceof Error ? {
-                message: error.message,
-                name: error.name,
-                stack: error.stack
-            } : error,
-            ...context
+            error:
+                error instanceof Error
+                    ? {
+                          message: error.message,
+                          name: error.name,
+                          stack: error.stack,
+                      }
+                    : error,
+            ...context,
         });
         console.error(JSON.stringify(logEntry));
         this.remoteTransport?.send(logEntry);

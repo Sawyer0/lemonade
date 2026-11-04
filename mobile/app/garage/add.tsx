@@ -18,7 +18,7 @@ export default function AddVehicleScreen() {
             // Redirect to the new vehicle's detail page
             router.replace(`/garage/${vehicle.id}`);
         } catch (e) {
-            console.error("Failed to onboard vehicle", e);
+            console.error('Failed to onboard vehicle', e);
         }
     };
 
@@ -33,5 +33,5 @@ export default function AddVehicleScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-    }
+    },
 });

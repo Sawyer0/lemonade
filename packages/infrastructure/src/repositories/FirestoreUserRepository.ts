@@ -7,7 +7,7 @@ import { TYPES } from '../di/types';
 
 @injectable()
 export class FirestoreUserRepository implements IUserRepository {
-    constructor(@inject(TYPES.Logger) private logger: ILogger) { }
+    constructor(@inject(TYPES.Logger) private logger: ILogger) {}
 
     private repairUserData(data: unknown): unknown {
         if (!data) return data;
@@ -44,14 +44,18 @@ export class FirestoreUserRepository implements IUserRepository {
         const result = UserSchema.safeParse(data);
 
         if (!result.success) {
-            this.logger.warn(`[UserRepo] Validation failed for ${userId}. Attempting repair...`, { error: result.error });
+            this.logger.warn(`[UserRepo] Validation failed for ${userId}. Attempting repair...`, {
+                error: result.error,
+            });
 
             // Attempt Repair
             const repairedData = this.repairUserData(data);
             const retryResult = UserSchema.safeParse(repairedData);
 
             if (!retryResult.success) {
-                this.logger.error(`[UserRepo] FATAL: User data corrupted beyond repair for ${userId}`, { error: retryResult.error });
+                this.logger.error(`[UserRepo] FATAL: User data corrupted beyond repair for ${userId}`, {
+                    error: retryResult.error,
+                });
                 throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, `User data corrupted for ${userId}`);
             }
 

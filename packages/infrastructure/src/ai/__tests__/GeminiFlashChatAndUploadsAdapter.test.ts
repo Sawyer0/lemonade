@@ -21,26 +21,29 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
         mockBillingService = { recordUsage: vi.fn().mockResolvedValue(undefined) } as unknown as IBillingService;
 
         mockFunctionCallService = {
-            handleFunctionCalls: vi.fn().mockImplementation((response) => Promise.resolve(response))
+            handleFunctionCalls: vi.fn().mockImplementation((response) => Promise.resolve(response)),
         } as unknown as FunctionCallService;
 
-        mockCacheService = { getCache: vi.fn().mockResolvedValue(null), createCache: vi.fn().mockResolvedValue(undefined) } as unknown as IContextCacheService;
+        mockCacheService = {
+            getCache: vi.fn().mockResolvedValue(null),
+            createCache: vi.fn().mockResolvedValue(undefined),
+        } as unknown as IContextCacheService;
         mockTracer = { traceAiCall: vi.fn(({ exec }) => exec()) } as unknown as TracingService;
 
         mockChat = {
-            sendMessage: vi.fn()
+            sendMessage: vi.fn(),
         } as unknown as ChatSession;
 
         mockModel = {
             startChat: vi.fn().mockReturnValue(mockChat),
             generateContent: vi.fn(),
-            countTokens: vi.fn().mockResolvedValue({ totalTokens: 10 })
+            countTokens: vi.fn().mockResolvedValue({ totalTokens: 10 }),
         } as unknown as GenerativeModel;
 
         mockCoreAdapter = {
             getGenerativeModel: vi.fn().mockReturnValue(mockModel),
             commonTools: [],
-            commonSafetySettings: []
+            commonSafetySettings: [],
         } as unknown as GeminiCoreAdapter;
 
         adapter = new GeminiFlashChatAndUploadsAdapter(
@@ -49,7 +52,7 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
             mockCoreAdapter,
             mockFunctionCallService,
             mockCacheService,
-            mockTracer
+            mockTracer,
         );
     });
 
@@ -59,8 +62,8 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
                 const responseWithEmptyCandidates = {
                     response: {
                         candidates: [],
-                        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 }
-                    }
+                        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 },
+                    },
                 };
 
                 (mockChat.sendMessage as ReturnType<typeof vi.fn>).mockResolvedValue(responseWithEmptyCandidates);
@@ -75,8 +78,8 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
                 const responseWithNullCandidates = {
                     response: {
                         candidates: null,
-                        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 }
-                    }
+                        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 },
+                    },
                 };
 
                 (mockChat.sendMessage as ReturnType<typeof vi.fn>).mockResolvedValue(responseWithNullCandidates);
@@ -89,59 +92,65 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
             it('should handle API network error', async () => {
                 (mockChat.sendMessage as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network timeout'));
 
-                await expect(
-                    adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1')
-                ).rejects.toThrow('Network timeout');
+                await expect(adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1')).rejects.toThrow(
+                    'Network timeout',
+                );
             });
 
             it('should still work if billing service fails', async () => {
                 const validResponse = {
                     response: {
-                        candidates: [{
-                            content: {
-                                parts: [{ text: 'Response text' }]
-                            }
-                        }],
-                        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 }
-                    }
+                        candidates: [
+                            {
+                                content: {
+                                    parts: [{ text: 'Response text' }],
+                                },
+                            },
+                        ],
+                        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 },
+                    },
                 };
 
                 (mockChat.sendMessage as ReturnType<typeof vi.fn>).mockResolvedValue(validResponse);
-                (mockBillingService.recordUsage as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Billing DB down'));
+                (mockBillingService.recordUsage as ReturnType<typeof vi.fn>).mockRejectedValue(
+                    new Error('Billing DB down'),
+                );
 
                 // Should still return the response even if billing fails
-                await expect(
-                    adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1')
-                ).rejects.toThrow('Billing DB down');
+                await expect(adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1')).rejects.toThrow(
+                    'Billing DB down',
+                );
             });
 
             it('should handle function call service failure', async () => {
                 const validResponse = {
                     response: {
-                        candidates: [{
-                            content: {
-                                parts: [{ text: 'Response text' }]
-                            }
-                        }],
-                        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 }
-                    }
+                        candidates: [
+                            {
+                                content: {
+                                    parts: [{ text: 'Response text' }],
+                                },
+                            },
+                        ],
+                        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 },
+                    },
                 };
 
                 (mockChat.sendMessage as ReturnType<typeof vi.fn>).mockResolvedValue(validResponse);
                 (mockFunctionCallService.handleFunctionCalls as ReturnType<typeof vi.fn>).mockRejectedValue(
-                    new Error('Tool execution failed')
+                    new Error('Tool execution failed'),
                 );
 
-                await expect(
-                    adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1')
-                ).rejects.toThrow('Tool execution failed');
+                await expect(adapter.generateReply([], 'test', 'car', null, 'user-1', 'session-1')).rejects.toThrow(
+                    'Tool execution failed',
+                );
             });
         });
 
         describe('analyzeUploadedVideo', () => {
             it('should throw UNAUTHORIZED when userId is missing', async () => {
                 await expect(
-                    adapter.analyzeUploadedVideo('gs://bucket/video.mp4', '2020 Honda Civic', 'video/mp4')
+                    adapter.analyzeUploadedVideo('gs://bucket/video.mp4', '2020 Honda Civic', 'video/mp4'),
                 ).rejects.toThrow('User ID is required');
             });
 
@@ -149,12 +158,18 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
                 (mockModel.generateContent as ReturnType<typeof vi.fn>).mockResolvedValue({
                     response: {
                         candidates: [{ content: { parts: [] } }],
-                        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 0 }
-                    }
+                        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 0 },
+                    },
                 });
 
                 await expect(
-                    adapter.analyzeUploadedVideo('gs://bucket/video.mp4', '2020 Honda Civic', 'video/mp4', 'user-1', 'session-1')
+                    adapter.analyzeUploadedVideo(
+                        'gs://bucket/video.mp4',
+                        '2020 Honda Civic',
+                        'video/mp4',
+                        'user-1',
+                        'session-1',
+                    ),
                 ).rejects.toThrow('AI returned empty response');
             });
 
@@ -162,27 +177,39 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
                 (mockModel.generateContent as ReturnType<typeof vi.fn>).mockResolvedValue({
                     response: {
                         candidates: [{ content: { parts: [{ text: 'not valid json {' }] } }],
-                        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 }
-                    }
+                        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 },
+                    },
                 });
 
                 await expect(
-                    adapter.analyzeUploadedVideo('gs://bucket/video.mp4', '2020 Honda Civic', 'video/mp4', 'user-1', 'session-1')
+                    adapter.analyzeUploadedVideo(
+                        'gs://bucket/video.mp4',
+                        '2020 Honda Civic',
+                        'video/mp4',
+                        'user-1',
+                        'session-1',
+                    ),
                 ).rejects.toThrow();
             });
 
             it('should throw when Vertex AI API is unavailable', async () => {
                 (mockModel.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(
-                    new Error('503 Service Unavailable')
+                    new Error('503 Service Unavailable'),
                 );
 
                 await expect(
-                    adapter.analyzeUploadedVideo('gs://bucket/video.mp4', '2020 Honda Civic', 'video/mp4', 'user-1', 'session-1')
+                    adapter.analyzeUploadedVideo(
+                        'gs://bucket/video.mp4',
+                        '2020 Honda Civic',
+                        'video/mp4',
+                        'user-1',
+                        'session-1',
+                    ),
                 ).rejects.toThrow('503 Service Unavailable');
 
                 expect(mockLogger.error).toHaveBeenCalledWith(
                     'Vertex AI Uploaded Video Analysis Failure',
-                    expect.any(Error)
+                    expect.any(Error),
                 );
             });
         });
@@ -190,7 +217,7 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
         describe('analyzeUploadedImage', () => {
             it('should throw UNAUTHORIZED when userId is missing', async () => {
                 await expect(
-                    adapter.analyzeUploadedImage('gs://bucket/image.jpg', '2020 Honda Civic', 'image/jpeg')
+                    adapter.analyzeUploadedImage('gs://bucket/image.jpg', '2020 Honda Civic', 'image/jpeg'),
                 ).rejects.toThrow('User ID is required');
             });
 
@@ -198,26 +225,30 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
                 (mockModel.generateContent as ReturnType<typeof vi.fn>).mockResolvedValue({
                     response: {
                         candidates: [{ content: { parts: [] } }],
-                        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 0 }
-                    }
+                        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 0 },
+                    },
                 });
 
                 await expect(
-                    adapter.analyzeUploadedImage('gs://bucket/image.jpg', '2020 Honda Civic', 'image/jpeg', 'user-1', 'session-1')
+                    adapter.analyzeUploadedImage(
+                        'gs://bucket/image.jpg',
+                        '2020 Honda Civic',
+                        'image/jpeg',
+                        'user-1',
+                        'session-1',
+                    ),
                 ).rejects.toThrow('AI returned empty response');
             });
         });
 
         describe('verifyHypothesis', () => {
             it('should return safe default when AI fails', async () => {
-                (mockModel.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(
-                    new Error('API Error')
-                );
+                (mockModel.generateContent as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('API Error'));
 
                 const result = await adapter.verifyHypothesis({
                     hypothesis: 'The car needs new brakes',
                     evidence: 'Squeaking sound',
-                    sessionId: 'session-1'
+                    sessionId: 'session-1',
                 });
 
                 // Should return safe default, not throw
@@ -228,14 +259,14 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
             it('should return safe default when response is empty', async () => {
                 (mockModel.generateContent as ReturnType<typeof vi.fn>).mockResolvedValue({
                     response: {
-                        candidates: [{ content: { parts: [] } }]
-                    }
+                        candidates: [{ content: { parts: [] } }],
+                    },
                 });
 
                 const result = await adapter.verifyHypothesis({
                     hypothesis: 'test',
                     evidence: 'test',
-                    sessionId: 'session-1'
+                    sessionId: 'session-1',
                 });
 
                 expect(result.isVerified).toBe(false);
@@ -245,14 +276,14 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
             it('should return safe default when JSON is malformed', async () => {
                 (mockModel.generateContent as ReturnType<typeof vi.fn>).mockResolvedValue({
                     response: {
-                        candidates: [{ content: { parts: [{ text: '{ invalid json' }] } }]
-                    }
+                        candidates: [{ content: { parts: [{ text: '{ invalid json' }] } }],
+                    },
                 });
 
                 const result = await adapter.verifyHypothesis({
                     hypothesis: 'test',
                     evidence: 'test',
-                    sessionId: 'session-1'
+                    sessionId: 'session-1',
                 });
 
                 expect(result.isVerified).toBe(false);
@@ -261,7 +292,9 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
 
         describe('countTokens', () => {
             it('should return 0 when API fails', async () => {
-                (mockModel.countTokens as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Token counting failed'));
+                (mockModel.countTokens as ReturnType<typeof vi.fn>).mockRejectedValue(
+                    new Error('Token counting failed'),
+                );
 
                 const count = await adapter.countTokens('test content');
 
@@ -292,29 +325,24 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
                 { role: 'assistant', content: [{ type: 'text', text: 'response' }] },
                 { role: 'user', content: { nested: 'object' } },
                 { role: 'assistant', content: null },
-                { role: 'user', content: undefined }
+                { role: 'user', content: undefined },
             ];
 
             const validResponse = {
                 response: {
-                    candidates: [{
-                        content: { parts: [{ text: 'Response' }] }
-                    }],
-                    usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 }
-                }
+                    candidates: [
+                        {
+                            content: { parts: [{ text: 'Response' }] },
+                        },
+                    ],
+                    usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 },
+                },
             };
 
             (mockChat.sendMessage as ReturnType<typeof vi.fn>).mockResolvedValue(validResponse);
 
             // Should not throw
-            const result = await adapter.generateReply(
-                mixedHistory,
-                'test',
-                'car',
-                null,
-                'user-1',
-                'session-1'
-            );
+            const result = await adapter.generateReply(mixedHistory, 'test', 'car', null, 'user-1', 'session-1');
 
             expect(result).toBeDefined();
         });
@@ -333,16 +361,23 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
     it('should return start_video_stream tool call to client', async () => {
         const responseWithToolCall = {
             response: {
-                candidates: [{
-                    content: {
-                        parts: [
-                            { text: 'I need to see the engine.' },
-                            { functionCall: { name: 'start_video_stream', args: { reason: 'Inspect leaks', focusArea: 'engine_bay' } } }
-                        ]
-                    }
-                }],
-                usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 }
-            }
+                candidates: [
+                    {
+                        content: {
+                            parts: [
+                                { text: 'I need to see the engine.' },
+                                {
+                                    functionCall: {
+                                        name: 'start_video_stream',
+                                        args: { reason: 'Inspect leaks', focusArea: 'engine_bay' },
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+                usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 },
+            },
         };
 
         (mockChat.sendMessage as jest.Mock).mockResolvedValue(responseWithToolCall);
@@ -351,22 +386,29 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
 
         expect(Array.isArray(result)).toBe(true);
         const parts = result as MessagePart[];
-        expect(parts.find(p => p.type === 'tool-call' && p.toolName === 'start_video_stream')).toBeDefined();
+        expect(parts.find((p) => p.type === 'tool-call' && p.toolName === 'start_video_stream')).toBeDefined();
     });
 
     it('should return display_content tool call to client', async () => {
         const responseWithToolCall = {
             response: {
-                candidates: [{
-                    content: {
-                        parts: [
-                            { text: 'Here is the diagram.' },
-                            { functionCall: { name: 'display_content', args: { title: 'Diagram', url: 'http://img.png', type: 'image' } } }
-                        ]
-                    }
-                }],
-                usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 }
-            }
+                candidates: [
+                    {
+                        content: {
+                            parts: [
+                                { text: 'Here is the diagram.' },
+                                {
+                                    functionCall: {
+                                        name: 'display_content',
+                                        args: { title: 'Diagram', url: 'http://img.png', type: 'image' },
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+                usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 },
+            },
         };
 
         (mockChat.sendMessage as jest.Mock).mockResolvedValue(responseWithToolCall);
@@ -375,6 +417,6 @@ describe('GeminiFlashChatAndUploadsAdapter', () => {
 
         expect(Array.isArray(result)).toBe(true);
         const parts = result as MessagePart[];
-        expect(parts.find(p => p.type === 'tool-call' && p.toolName === 'display_content')).toBeDefined();
+        expect(parts.find((p) => p.type === 'tool-call' && p.toolName === 'display_content')).toBeDefined();
     });
 });

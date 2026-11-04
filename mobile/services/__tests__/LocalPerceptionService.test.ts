@@ -6,10 +6,12 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 // Explicitly mock llama.rn for Jest
 jest.mock('llama.rn', () => ({
-    initLlama: jest.fn(() => Promise.resolve({
-        completion: jest.fn(() => Promise.resolve({ text: 'part: state' })),
-        release: jest.fn(),
-    })),
+    initLlama: jest.fn(() =>
+        Promise.resolve({
+            completion: jest.fn(() => Promise.resolve({ text: 'part: state' })),
+            release: jest.fn(),
+        }),
+    ),
     LlamaContext: jest.fn(),
 }));
 
@@ -17,7 +19,7 @@ jest.mock('llama.rn', () => ({
 jest.mock('expo-file-system/legacy', () => ({
     writeAsStringAsync: jest.fn(),
     cacheDirectory: 'file:///cache/',
-    EncodingType: { Base64: 'base64' }
+    EncodingType: { Base64: 'base64' },
 }));
 
 // Mocks
@@ -42,10 +44,12 @@ describe('LocalPerceptionService', () => {
 
     it('should initialize correctly', async () => {
         await service.initialize('file:///model.gguf');
-        expect(initLlama).toHaveBeenCalledWith(expect.objectContaining({
-            model: 'file:///model.gguf',
-            n_ctx: 1024,
-        }));
+        expect(initLlama).toHaveBeenCalledWith(
+            expect.objectContaining({
+                model: 'file:///model.gguf',
+                n_ctx: 1024,
+            }),
+        );
         expect(service.isReady()).toBe(true);
     });
 
@@ -65,17 +69,19 @@ describe('LocalPerceptionService', () => {
         const context = await (initLlama as jest.Mock).mock.results[0].value;
         const validJson = JSON.stringify({
             id: { obj: 'Brake Rotor', cat: 'Braking' },
-            eval: { stat: 'CRITICAL', risk: true, note: 'Deep surface rust visible' }
+            eval: { stat: 'CRITICAL', risk: true, note: 'Deep surface rust visible' },
         });
         context.completion.mockResolvedValueOnce({ text: validJson });
 
         const results = await service.triageFrame('file:///frame.jpg');
 
         expect(results).toHaveLength(1);
-        expect(results[0]).toEqual(expect.objectContaining({
-            id: expect.objectContaining({ obj: 'Brake Rotor' }),
-            eval: expect.objectContaining({ risk: true, stat: 'CRITICAL' })
-        }));
+        expect(results[0]).toEqual(
+            expect.objectContaining({
+                id: expect.objectContaining({ obj: 'Brake Rotor' }),
+                eval: expect.objectContaining({ risk: true, stat: 'CRITICAL' }),
+            }),
+        );
     });
 
     it('should handle invalid JSON by returning UNCERTAIN', async () => {

@@ -8,11 +8,11 @@ if (getApps().length === 0) {
     if (CONFIG.FIREBASE.SERVICE_ACCOUNT_KEY) {
         initializeApp({
             credential: cert(JSON.parse(CONFIG.FIREBASE.SERVICE_ACCOUNT_KEY)),
-            storageBucket: CONFIG.GCLOUD.MEDIA_BUCKET
+            storageBucket: CONFIG.GCLOUD.MEDIA_BUCKET,
         });
     } else {
         initializeApp({
-            storageBucket: CONFIG.GCLOUD.MEDIA_BUCKET
+            storageBucket: CONFIG.GCLOUD.MEDIA_BUCKET,
         });
     }
 }

@@ -13,7 +13,7 @@ import {
     ISessionRepository,
     ISafetyMonitor,
     ITracingService,
-    ReasoningInput
+    ReasoningInput,
 } from '@lemonade/core';
 
 describe('MechanicReasoningService', () => {
@@ -44,43 +44,43 @@ describe('MechanicReasoningService', () => {
                 engineDescription: 'Stock',
                 isStock: true,
                 visualConflictDetected: false,
-                detectedCondition: 'clean'
-            })
+                detectedCondition: 'clean',
+            }),
         } as unknown as IMultimodalUploadAnalyzer;
 
         mockChatAI = {
-            verifyHypothesis: vi.fn().mockResolvedValue({ isVerified: false, source: null, reasoning: '' })
+            verifyHypothesis: vi.fn().mockResolvedValue({ isVerified: false, source: null, reasoning: '' }),
         } as unknown as IChatAssistantAI;
 
         mockNHTSA = {
-            checkRecalls: vi.fn().mockResolvedValue([])
+            checkRecalls: vi.fn().mockResolvedValue([]),
         } as unknown as INHTSAService;
 
         mockEmbedding = { embed: vi.fn().mockResolvedValue(new Array(768).fill(0)) } as unknown as IEmbeddingService;
 
         mockVector = {
             search: vi.fn().mockResolvedValue([]),
-            addCase: vi.fn().mockResolvedValue(undefined)
+            addCase: vi.fn().mockResolvedValue(undefined),
         } as unknown as IVectorRepository;
 
         mockSearch = {
-            search: vi.fn().mockResolvedValue({ results: [], queryUsed: '', totalFound: 0 })
+            search: vi.fn().mockResolvedValue({ results: [], queryUsed: '', totalFound: 0 }),
         } as unknown as IGoogleSearchService;
 
         mockMemory = {
             search: vi.fn().mockResolvedValue([]),
-            addDocument: vi.fn().mockResolvedValue(undefined)
+            addDocument: vi.fn().mockResolvedValue(undefined),
         } as unknown as IMemoryService;
 
         mockReactive = { checkSafety: vi.fn().mockReturnValue(null) } as unknown as IReactiveSafetyService;
 
         mockSessionRepo = {
             saveXStateSnapshot: vi.fn().mockResolvedValue(undefined),
-            clearXStateSnapshot: vi.fn().mockResolvedValue(undefined)
+            clearXStateSnapshot: vi.fn().mockResolvedValue(undefined),
         } as unknown as ISessionRepository;
 
         mockSafetyMonitor = {
-            assess: vi.fn().mockResolvedValue({ intervention_required: false, hazards_detected: [] })
+            assess: vi.fn().mockResolvedValue({ intervention_required: false, hazards_detected: [] }),
         } as unknown as ISafetyMonitor;
 
         mockTracing = { traceAiCall: vi.fn(({ exec }) => exec()) } as unknown as ITracingService;
@@ -99,7 +99,7 @@ describe('MechanicReasoningService', () => {
             mockReactive,
             mockSafetyMonitor,
             mockTracing,
-            mockLogger
+            mockLogger,
         );
     });
 
@@ -110,19 +110,21 @@ describe('MechanicReasoningService', () => {
             vehicleContext: { year: 2022, make: 'Ford', model: 'F-150', vin: 'VIN123' },
             userQuery: 'brake squeak when cold',
             complaint: 'Brakes squeaking',
-            videoUrl: 'http://example.com/video.mp4'
+            videoUrl: 'http://example.com/video.mp4',
         };
 
         mockSearch.search = vi.fn().mockResolvedValue({
-            results: [{ title: 'F-150 Brake TSB 22-123', link: 'http://ford.com/tsb123', snippet: 'TSB for brake squeak' }],
+            results: [
+                { title: 'F-150 Brake TSB 22-123', link: 'http://ford.com/tsb123', snippet: 'TSB for brake squeak' },
+            ],
             queryUsed: 'brake squeak when cold 2022 Ford F-150',
-            totalFound: 1
+            totalFound: 1,
         });
 
         mockChatAI.verifyHypothesis = vi.fn().mockResolvedValue({
             isVerified: true,
             source: 'http://ford.com/tsb123',
-            reasoning: 'Matches TSB 22-123 for cold brake squeak.'
+            reasoning: 'Matches TSB 22-123 for cold brake squeak.',
         });
 
         const result = await service.diagnose(input);
@@ -139,7 +141,7 @@ describe('MechanicReasoningService', () => {
             vehicleContext: { year: 2018, make: 'Tesla', model: 'Model 3', vin: 'VIN_TESLA' },
             userQuery: 'what oil does this take?',
             complaint: 'Oil type query',
-            videoUrl: 'http://example.com/video.mp4'
+            videoUrl: 'http://example.com/video.mp4',
         };
 
         mockVideoAI.analyzeUploadedVideo = vi.fn().mockResolvedValue({
@@ -153,13 +155,13 @@ describe('MechanicReasoningService', () => {
             engineDescription: 'Tesla Electric Motor',
             isStock: true,
             visualConflictDetected: false,
-            detectedCondition: 'clean'
+            detectedCondition: 'clean',
         });
 
         mockChatAI.verifyHypothesis = vi.fn().mockResolvedValue({
             isVerified: false,
             source: 'Tesla Manual',
-            reasoning: 'Tesla Model 3 is an electric vehicle and does not use engine oil.'
+            reasoning: 'Tesla Model 3 is an electric vehicle and does not use engine oil.',
         });
 
         const result = await service.diagnose(input);
@@ -175,7 +177,7 @@ describe('MechanicReasoningService', () => {
             vehicleContext: { year: 2020, make: 'Toyota', model: 'Camry', vin: 'VIN_CAMRY' },
             userQuery: 'squealing noise when starting',
             complaint: 'Squealing noise',
-            videoUrl: 'http://example.com/video.mp4'
+            videoUrl: 'http://example.com/video.mp4',
         };
 
         mockVideoAI.analyzeUploadedVideo = vi.fn().mockResolvedValue({
@@ -189,19 +191,19 @@ describe('MechanicReasoningService', () => {
             engineDescription: 'Stock',
             isStock: true,
             visualConflictDetected: false,
-            detectedCondition: 'clean'
+            detectedCondition: 'clean',
         });
 
         mockSearch.search = vi.fn().mockResolvedValue({
             results: [{ title: 'Camry Belt Squeak', link: 'http://toyota.com', snippet: 'Common belt issue' }],
             queryUsed: 'squealing noise when starting 2020 Toyota Camry',
-            totalFound: 1
+            totalFound: 1,
         });
 
         mockChatAI.verifyHypothesis = vi.fn().mockResolvedValue({
             isVerified: true,
             source: 'Toyota Tech',
-            reasoning: 'Belt squeal is a known issue for this model.'
+            reasoning: 'Belt squeal is a known issue for this model.',
         });
 
         const result = await service.diagnose(input);
@@ -217,11 +219,11 @@ describe('MechanicReasoningService', () => {
             vehicleContext: { year: 2015, make: 'Honda', model: 'Civic', vin: 'VIN_HONDA' },
             userQuery: 'battery light is on',
             complaint: 'Battery light',
-            videoUrl: 'http://example.com/video.mp4'
+            videoUrl: 'http://example.com/video.mp4',
         };
 
         const mockHistory = [
-            { content: '[DIAGNOSTIC LOG] Alternator was replaced 2 months ago.', metadata: { date: '2025-10-21' } }
+            { content: '[DIAGNOSTIC LOG] Alternator was replaced 2 months ago.', metadata: { date: '2025-10-21' } },
         ];
         mockMemory.search = vi.fn().mockResolvedValue(mockHistory);
 
@@ -230,8 +232,8 @@ describe('MechanicReasoningService', () => {
         expect(mockMemory.search).toHaveBeenCalledWith(
             expect.stringContaining('VIN_HONDA'),
             expect.objectContaining({
-                tags: expect.arrayContaining(['user:user-1', 'vin:VIN_HONDA'])
-            })
+                tags: expect.arrayContaining(['user:user-1', 'vin:VIN_HONDA']),
+            }),
         );
 
         expect(mockVideoAI.analyzeUploadedVideo).toHaveBeenCalledWith(
@@ -241,7 +243,7 @@ describe('MechanicReasoningService', () => {
             expect.any(String),
             expect.any(String),
             expect.any(String),
-            undefined
+            undefined,
         );
     });
 
@@ -252,14 +254,14 @@ describe('MechanicReasoningService', () => {
             vehicleContext: { year: 2020, make: 'Honda', model: 'Civic', vin: 'VIN_ERROR' },
             userQuery: 'check engine light',
             complaint: 'Check engine light',
-            videoUrl: 'http://example.com/video.mp4'
+            videoUrl: 'http://example.com/video.mp4',
         };
 
         it('should stop immediately when reactive safety detects hazard', async () => {
             mockReactive.checkSafety = vi.fn().mockReturnValue({
                 intervention_required: true,
                 hazards_detected: ['FUEL_LEAK'],
-                suggested_output: 'DANGER: Fuel leak detected. Stop immediately.'
+                suggested_output: 'DANGER: Fuel leak detected. Stop immediately.',
             });
 
             const result = await service.diagnose(baseInput);
@@ -276,7 +278,7 @@ describe('MechanicReasoningService', () => {
             mockSafetyMonitor.assess = vi.fn().mockResolvedValue({
                 intervention_required: true,
                 hazards_detected: ['HIGH_VOLTAGE_SYSTEM'],
-                suggested_output: 'WARNING: High voltage system detected.'
+                suggested_output: 'WARNING: High voltage system detected.',
             });
 
             const result = await service.diagnose(baseInput);
@@ -297,10 +299,7 @@ describe('MechanicReasoningService', () => {
             // Should still complete diagnosis
             expect(result).toBeDefined();
             expect(result.finalDiagnosis).toBeDefined();
-            expect(mockLogger.warn).not.toHaveBeenCalledWith(
-                expect.stringContaining('NHTSA'),
-                expect.anything()
-            );
+            expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('NHTSA'), expect.anything());
         });
 
         it('should continue diagnosis even if vector search fails', async () => {
@@ -332,9 +331,7 @@ describe('MechanicReasoningService', () => {
         });
 
         it('should handle video analysis failure gracefully', async () => {
-            mockVideoAI.analyzeUploadedVideo = vi.fn().mockRejectedValue(
-                new Error('Video processing failed')
-            );
+            mockVideoAI.analyzeUploadedVideo = vi.fn().mockRejectedValue(new Error('Video processing failed'));
 
             const result = await service.diagnose(baseInput);
 
@@ -344,9 +341,7 @@ describe('MechanicReasoningService', () => {
         });
 
         it('should handle verification failure gracefully', async () => {
-            mockChatAI.verifyHypothesis = vi.fn().mockRejectedValue(
-                new Error('Verification service unavailable')
-            );
+            mockChatAI.verifyHypothesis = vi.fn().mockRejectedValue(new Error('Verification service unavailable'));
 
             const result = await service.diagnose(baseInput);
 
@@ -378,7 +373,7 @@ describe('MechanicReasoningService', () => {
             vehicleContext: { year: 2020, make: 'Honda', model: 'Civic', vin: 'VIN_SAFETY' },
             userQuery: 'test query',
             complaint: 'Test complaint',
-            videoUrl: 'http://example.com/video.mp4'
+            videoUrl: 'http://example.com/video.mp4',
         };
 
         it('should prioritize reactive safety over semantic safety', async () => {
@@ -386,12 +381,12 @@ describe('MechanicReasoningService', () => {
             mockReactive.checkSafety = vi.fn().mockReturnValue({
                 intervention_required: true,
                 hazards_detected: ['REACTIVE_HAZARD'],
-                suggested_output: 'Reactive stop'
+                suggested_output: 'Reactive stop',
             });
             mockSafetyMonitor.assess = vi.fn().mockResolvedValue({
                 intervention_required: true,
                 hazards_detected: ['SEMANTIC_HAZARD'],
-                suggested_output: 'Semantic stop'
+                suggested_output: 'Semantic stop',
             });
 
             const result = await service.diagnose(baseInput);
@@ -406,7 +401,7 @@ describe('MechanicReasoningService', () => {
             mockReactive.checkSafety = vi.fn().mockReturnValue(null);
             mockSafetyMonitor.assess = vi.fn().mockResolvedValue({
                 intervention_required: false,
-                hazards_detected: []
+                hazards_detected: [],
             });
 
             const result = await service.diagnose(baseInput);
@@ -423,7 +418,7 @@ describe('MechanicReasoningService', () => {
                 userId: 'user-1',
                 vehicleContext: { year: 2020, make: 'Honda', model: 'Civic', vin: 'VIN_NOVIDEO' },
                 userQuery: 'engine noise',
-                complaint: 'Engine noise'
+                complaint: 'Engine noise',
                 // No videoUrl
             };
 
@@ -440,7 +435,7 @@ describe('MechanicReasoningService', () => {
                 vehicleContext: { year: 0, make: '', model: '' },
                 userQuery: 'general question',
                 complaint: 'Unknown',
-                videoUrl: 'http://example.com/video.mp4'
+                videoUrl: 'http://example.com/video.mp4',
             };
 
             const result = await service.diagnose(input);
@@ -456,7 +451,7 @@ describe('MechanicReasoningService', () => {
                 vehicleContext: { year: 2020, make: 'Honda', model: 'Civic' },
                 userQuery: longQuery,
                 complaint: 'Test',
-                videoUrl: 'http://example.com/video.mp4'
+                videoUrl: 'http://example.com/video.mp4',
             };
 
             const result = await service.diagnose(input);

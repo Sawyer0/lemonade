@@ -1,9 +1,9 @@
 export class VerificationPrompts {
-  /**
-   * Generates the prompt for fact-checking a hypothesis against evidence.
-   */
-  static factChecker(hypothesis: string, evidence: string): string {
-    return `
+    /**
+     * Generates the prompt for fact-checking a hypothesis against evidence.
+     */
+    static factChecker(hypothesis: string, evidence: string): string {
+        return `
 You are a strict Scientific Fact Checker for an Automotive Diagnostic System.
 
 HYPOTHESIS:
@@ -26,5 +26,5 @@ RETURN JSON ONLY:
     "reasoning": string (One sentence explanation)
 }
 `.trim();
-  }
+    }
 }

@@ -1,4 +1,3 @@
-
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import path from 'path';
@@ -21,7 +20,6 @@ async function main() {
         } else {
             throw new Error('Agent interface mismatch');
         }
-
     } catch (error) {
         console.error('❌ SDK Verification Failed:', error);
         process.exit(1);

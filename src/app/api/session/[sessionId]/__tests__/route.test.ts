@@ -12,8 +12,8 @@ vi.mock('@lemonade/infrastructure', async () => {
     return {
         ...actual,
         adminAuth: {
-            verifyIdToken: vi.fn()
-        }
+            verifyIdToken: vi.fn(),
+        },
     };
 });
 
@@ -24,26 +24,26 @@ const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 };
 const mockSessionRepo = {
     findById: vi.fn(),
     findByUserId: vi.fn(),
     create: vi.fn(),
-    update: vi.fn()
+    update: vi.fn(),
 };
 
 // Helper to create request
 function createRequest(sessionId: string, token?: string) {
     const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
     };
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
     return new Request(`http://localhost/api/session/${sessionId}`, {
         method: 'GET',
-        headers
+        headers,
     });
 }
 
@@ -61,7 +61,7 @@ const sampleSession: DiagnosticSession = {
     cumulativeVideoDurationProcessedMinutes: 0,
     cumulativeAudioDurationProcessedMinutes: 0,
     startedAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01')
+    updatedAt: new Date('2024-01-01'),
 };
 
 describe('GET /api/session/[sessionId]', () => {
@@ -78,7 +78,7 @@ describe('GET /api/session/[sessionId]', () => {
 
         // Default mock for adminAuth
         (adminAuth.verifyIdToken as Mock).mockResolvedValue({
-            uid: 'user-123'
+            uid: 'user-123',
         });
     });
 
@@ -102,8 +102,8 @@ describe('GET /api/session/[sessionId]', () => {
             const req = new Request('http://localhost/api/session/123', {
                 method: 'GET',
                 headers: {
-                    'Authorization': 'token-without-bearer'
-                }
+                    Authorization: 'token-without-bearer',
+                },
             });
             const context = { params: { sessionId: '123e4567-e89b-12d3-a456-426614174000' } };
             const res = await GET(req as unknown as NextRequest, context);
@@ -112,9 +112,7 @@ describe('GET /api/session/[sessionId]', () => {
         });
 
         it('returns 500 when token verification fails', async () => {
-            (adminAuth.verifyIdToken as ReturnType<typeof vi.fn>).mockRejectedValue(
-                new Error('Invalid token')
-            );
+            (adminAuth.verifyIdToken as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Invalid token'));
 
             const req = createRequest('123e4567-e89b-12d3-a456-426614174000', 'invalid-token');
             const context = { params: { sessionId: '123e4567-e89b-12d3-a456-426614174000' } };
@@ -125,9 +123,7 @@ describe('GET /api/session/[sessionId]', () => {
         });
 
         it('returns 500 when token is expired', async () => {
-            (adminAuth.verifyIdToken as ReturnType<typeof vi.fn>).mockRejectedValue(
-                new Error('Token expired')
-            );
+            (adminAuth.verifyIdToken as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Token expired'));
 
             const req = createRequest('123e4567-e89b-12d3-a456-426614174000', 'expired-token');
             const context = { params: { sessionId: '123e4567-e89b-12d3-a456-426614174000' } };
@@ -141,7 +137,7 @@ describe('GET /api/session/[sessionId]', () => {
         it('returns 403 when user does not own session', async () => {
             (mockSessionRepo.findById as Mock).mockResolvedValue({
                 ...sampleSession,
-                userId: 'different-user'
+                userId: 'different-user',
             });
 
             const req = createRequest('123e4567-e89b-12d3-a456-426614174000', 'valid-token');

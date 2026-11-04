@@ -8,31 +8,31 @@ appId: com.dawan.lemonademvp
 # Increase timeout to 3 minutes for slow Metro bundling
 - extendedWaitUntil:
     visible:
-        id: "login-submit-button"
+      id: 'login-submit-button'
     timeout: 180000
 
 # Verify login screen loads
-- assertVisible: "Lemonade"
-- assertVisible: "Master Tech in your pocket"
+- assertVisible: 'Lemonade'
+- assertVisible: 'Master Tech in your pocket'
 
 # Verify login form elements are present
 - assertVisible:
-    id: "login-email-input"
+    id: 'login-email-input'
 - assertVisible:
-    id: "login-password-input"
+    id: 'login-password-input'
 
 # Navigate to signup
-- tapOn: "Sign Up"
+- tapOn: 'Sign Up'
 
 # Verify signup screen loads
-- assertVisible: "Create Account"
+- assertVisible: 'Create Account'
 - assertVisible:
-    id: "signup-email-input"
+    id: 'signup-email-input'
 - assertVisible:
-    id: "signup-password-input"
+    id: 'signup-password-input'
 - assertVisible:
-    id: "signup-submit-button"
+    id: 'signup-submit-button'
 
 # Navigate back to login
-- tapOn: "Login"
-- assertVisible: "Lemonade"
+- tapOn: 'Login'
+- assertVisible: 'Lemonade'

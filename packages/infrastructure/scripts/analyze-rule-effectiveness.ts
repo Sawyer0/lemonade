@@ -1,11 +1,11 @@
 /**
  * analyze-rule-effectiveness.ts
- * 
+ *
  * Analyzes safety rule telemetry data to identify:
  * - Most/least frequently triggered rules
  * - Rules with high override rates (potential false positives)
  * - Common trigger phrases for each rule
- * 
+ *
  * Run with: npx tsx packages/infrastructure/scripts/analyze-rule-effectiveness.ts
  */
 
@@ -85,15 +85,16 @@ async function analyzeRuleEffectiveness() {
         // Analyze each rule
         const analyses: RuleAnalysis[] = [];
         for (const [ruleId, events] of ruleEvents.entries()) {
-            const overrideCount = events.filter(e => e.wasOverriddenByUser).length;
+            const overrideCount = events.filter((e) => e.wasOverriddenByUser).length;
             const overrideRate = events.length > 0 ? overrideCount / events.length : 0;
 
             // Extract common phrases (word frequency)
             const phraseCounts = new Map<string, number>();
             for (const event of events) {
-                const words = event.userQuery.toLowerCase()
+                const words = event.userQuery
+                    .toLowerCase()
                     .split(/\s+/)
-                    .filter(w => w.length > 3 && !['the', 'and', 'that', 'with', 'this'].includes(w));
+                    .filter((w) => w.length > 3 && !['the', 'and', 'that', 'with', 'this'].includes(w));
                 for (const word of words) {
                     phraseCounts.set(word, (phraseCounts.get(word) || 0) + 1);
                 }
@@ -134,17 +135,19 @@ async function analyzeRuleEffectiveness() {
         console.log('📈 OVERVIEW');
         console.log(`   Total events: ${snapshot.size}`);
         console.log(`   Unique rules: ${analyses.length}`);
-        console.log(`   Rules to review: ${analyses.filter(a => a.recommendation !== 'keep').length}\n`);
+        console.log(`   Rules to review: ${analyses.filter((a) => a.recommendation !== 'keep').length}\n`);
 
         console.log('🔴 HIGH PRIORITY (Recommend Remove/Refine)');
         console.log('───────────────────────────────────────────');
-        const needsAttention = analyses.filter(a => a.recommendation !== 'keep');
+        const needsAttention = analyses.filter((a) => a.recommendation !== 'keep');
         if (needsAttention.length === 0) {
             console.log('   None - all rules performing well!\n');
         } else {
             for (const rule of needsAttention) {
                 console.log(`   ${rule.ruleId} [${rule.recommendation.toUpperCase()}]`);
-                console.log(`      Firings: ${rule.totalFirings} | Override Rate: ${(rule.overrideRate * 100).toFixed(1)}%`);
+                console.log(
+                    `      Firings: ${rule.totalFirings} | Override Rate: ${(rule.overrideRate * 100).toFixed(1)}%`,
+                );
                 console.log(`      Hazard: ${rule.hazardType}`);
                 console.log(`      Common phrases: ${rule.commonPhrases.join(', ')}\n`);
             }
@@ -152,24 +155,32 @@ async function analyzeRuleEffectiveness() {
 
         console.log('🟢 TOP PERFORMING RULES');
         console.log('───────────────────────────────────────────');
-        const topRules = analyses.filter(a => a.recommendation === 'keep').slice(0, 5);
+        const topRules = analyses.filter((a) => a.recommendation === 'keep').slice(0, 5);
         for (const rule of topRules) {
             console.log(`   ${rule.ruleId}`);
-            console.log(`      Firings: ${rule.totalFirings} | Override Rate: ${(rule.overrideRate * 100).toFixed(1)}%`);
+            console.log(
+                `      Firings: ${rule.totalFirings} | Override Rate: ${(rule.overrideRate * 100).toFixed(1)}%`,
+            );
             console.log(`      Hazard: ${rule.hazardType}\n`);
         }
 
         // Save detailed report to JSON
         const reportPath = path.join(__dirname, 'rule-effectiveness-report.json');
-        fs.writeFileSync(reportPath, JSON.stringify({
-            generatedAt: new Date().toISOString(),
-            totalEvents: snapshot.size,
-            uniqueRules: analyses.length,
-            analyses,
-        }, null, 2));
+        fs.writeFileSync(
+            reportPath,
+            JSON.stringify(
+                {
+                    generatedAt: new Date().toISOString(),
+                    totalEvents: snapshot.size,
+                    uniqueRules: analyses.length,
+                    analyses,
+                },
+                null,
+                2,
+            ),
+        );
 
         console.log(`📁 Full report saved to: ${reportPath}`);
-
     } catch (error) {
         console.error('❌ Error analyzing rules:', error);
         process.exit(1);

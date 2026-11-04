@@ -14,7 +14,7 @@
     "resolveJsonModule": true,
     "declaration": true,
     "experimentalDecorators": true, // Added
-    "emitDecoratorMetadata": true,   // Added
+    "emitDecoratorMetadata": true, // Added
     "types": ["node", "reflect-metadata"], // Added
     "paths": {
       "@lemonade/core": ["../packages/core/src/index.ts"],

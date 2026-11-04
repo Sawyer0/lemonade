@@ -7,7 +7,7 @@ dotenv.config({ path: '.env.local' });
 // Initialize Firebase Admin
 if (!admin.apps.length) {
     let credential;
-    
+
     // Try to load service account from env var (local dev)
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
         try {
@@ -35,7 +35,7 @@ const auth = admin.auth();
 const TEST_USER = {
     email: 'e2e-test@lemonade.dev',
     password: 'TestPassword123!',
-    displayName: 'Test Technician'
+    displayName: 'Test Technician',
 };
 
 const TEST_VEHICLE = {
@@ -45,8 +45,8 @@ const TEST_VEHICLE = {
         make: 'Honda',
         model: 'Civic',
         engine: '1.5L Turbo',
-        trim: 'EX-T'
-    }
+        trim: 'EX-T',
+    },
 };
 
 async function createTestAccount() {
@@ -61,7 +61,7 @@ async function createTestAccount() {
             await auth.updateUser(userRecord.uid, {
                 password: TEST_USER.password,
                 displayName: TEST_USER.displayName,
-                emailVerified: true
+                emailVerified: true,
             });
         } catch (error: unknown) {
             if ((error as { code?: string }).code === 'auth/user-not-found') {
@@ -70,7 +70,7 @@ async function createTestAccount() {
                     email: TEST_USER.email,
                     password: TEST_USER.password,
                     displayName: TEST_USER.displayName,
-                    emailVerified: true
+                    emailVerified: true,
                 });
             } else {
                 throw error;
@@ -89,10 +89,10 @@ async function createTestAccount() {
             displayName: TEST_USER.displayName,
             tier: 'free',
             preferences: {
-                autoOpenCamera: false
+                autoOpenCamera: false,
             },
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
         };
 
         await userDocRef.set(userData, { merge: true });
@@ -101,7 +101,8 @@ async function createTestAccount() {
         // 3. Create Vehicle Document
         // Schema: src/core/types/models.ts -> VehicleSchema
         // Check if vehicle exists for this user with this VIN
-        const vehiclesSnapshot = await db.collection('vehicles')
+        const vehiclesSnapshot = await db
+            .collection('vehicles')
             .where('userId', '==', userId)
             .where('vin', '==', TEST_VEHICLE.vin)
             .get();
@@ -118,7 +119,7 @@ async function createTestAccount() {
                 specs: TEST_VEHICLE.specs,
                 activeIssuesCount: 0,
                 createdAt: new Date(),
-                photoUrl: null // Optional field
+                photoUrl: null, // Optional field
             };
 
             await vehicleDocRef.set(vehicleData);
@@ -126,7 +127,6 @@ async function createTestAccount() {
         }
 
         console.log('✅ Test account setup complete.');
-
     } catch (error) {
         console.error('❌ Error creating test account:', error);
         process.exit(1);

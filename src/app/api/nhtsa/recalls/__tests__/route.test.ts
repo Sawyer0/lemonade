@@ -9,10 +9,10 @@ const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 };
 const mockNHTSAService = {
-    checkRecalls: vi.fn()
+    checkRecalls: vi.fn(),
 };
 
 // Helper to create request with query params
@@ -31,7 +31,9 @@ describe('GET /api/nhtsa/recalls', () => {
         container.unbind(TYPES.Logger);
         container.bind(TYPES.Logger).toConstantValue(mockLogger);
 
-        try { container.unbind(TYPES.NHTSAService); } catch {}
+        try {
+            container.unbind(TYPES.NHTSAService);
+        } catch {}
         container.bind(TYPES.NHTSAService).toConstantValue(mockNHTSAService);
 
         // Default mock
@@ -77,7 +79,7 @@ describe('GET /api/nhtsa/recalls', () => {
         it('returns recalls for valid year/make/model', async () => {
             const recalls = [
                 { id: 'recall-1', description: 'Brake issue' },
-                { id: 'recall-2', description: 'Airbag issue' }
+                { id: 'recall-2', description: 'Airbag issue' },
             ];
             mockNHTSAService.checkRecalls.mockResolvedValue(recalls);
 

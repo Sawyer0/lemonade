@@ -10,15 +10,15 @@ vi.mock('firebase-admin/firestore', () => {
         getFirestore: vi.fn(),
         FieldValue: {
             vector: vi.fn((v) => v),
-            serverTimestamp: vi.fn(() => 'SERVER_TIMESTAMP')
+            serverTimestamp: vi.fn(() => 'SERVER_TIMESTAMP'),
         },
         Filter: {
             where: vi.fn((field, op, value) => ({ field, op, value })),
-            and: vi.fn((...filters) => ({ type: 'and', filters }))
+            and: vi.fn((...filters) => ({ type: 'and', filters })),
         },
         Timestamp: {
-            now: vi.fn(() => ({ toDate: () => new Date() }))
-        }
+            now: vi.fn(() => ({ toDate: () => new Date() })),
+        },
     };
 });
 
@@ -26,16 +26,16 @@ const mockLogger: ILogger = {
     info: vi.fn(),
     debug: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
 };
 
 const mockEmbedContent = vi.fn();
 const mockModel = {
-    embedContent: mockEmbedContent
+    embedContent: mockEmbedContent,
 };
 
 const mockCoreAdapter = {
-    getGenerativeModel: vi.fn().mockReturnValue(mockModel)
+    getGenerativeModel: vi.fn().mockReturnValue(mockModel),
 } as unknown as GeminiCoreAdapter;
 
 describe('VectorRepository', () => {
@@ -56,13 +56,13 @@ describe('VectorRepository', () => {
         (getFirestore as Mock).mockReturnValue({
             collection: vi.fn().mockReturnValue({
                 doc: vi.fn().mockReturnValue({ set: mockDocSet }),
-                findNearest: mockFindNearest
-            })
+                findNearest: mockFindNearest,
+            }),
         });
 
         // Default embedding response
         mockEmbedContent.mockResolvedValue({
-            embedding: { values: [0.1, 0.2, 0.3, 0.4, 0.5] }
+            embedding: { values: [0.1, 0.2, 0.3, 0.4, 0.5] },
         });
 
         repository = new VectorRepository(mockLogger, mockCoreAdapter);
@@ -102,7 +102,7 @@ describe('VectorRepository', () => {
                 expect(results).toEqual([]);
                 expect(mockLogger.error).toHaveBeenCalledWith(
                     expect.stringContaining('Search failed'),
-                    expect.any(Error)
+                    expect.any(Error),
                 );
             });
 
@@ -160,9 +160,9 @@ describe('VectorRepository', () => {
                             embedding: { values: [0.1, 0.2] },
                             metadata: {},
                             createdAt: 'invalid', // Also invalid createdAt
-                            _distance: 0.2
-                        })
-                    }
+                            _distance: 0.2,
+                        }),
+                    },
                 ];
 
                 mockVectorQueryGet.mockResolvedValueOnce({ docs: mockDocs });
@@ -184,9 +184,9 @@ describe('VectorRepository', () => {
                             embedding: { values: [0.1] },
                             metadata: {},
                             createdAt: 'invalid-date',
-                            _distance: 0.1
-                        })
-                    }
+                            _distance: 0.1,
+                        }),
+                    },
                 ];
 
                 mockVectorQueryGet.mockResolvedValueOnce({ docs: mockDocs });
@@ -204,9 +204,9 @@ describe('VectorRepository', () => {
                             embedding: { values: [0.1] },
                             metadata: null,
                             createdAt: { toDate: () => new Date() },
-                            _distance: 0.1
-                        })
-                    }
+                            _distance: 0.1,
+                        }),
+                    },
                 ];
 
                 mockVectorQueryGet.mockResolvedValueOnce({ docs: mockDocs });
@@ -225,7 +225,7 @@ describe('VectorRepository', () => {
             it('should handle filter with multiple conditions', async () => {
                 const results = await repository.search('test', 5, {
                     category: 'brakes',
-                    difficulty: 'easy'
+                    difficulty: 'easy',
                 });
                 expect(results).toEqual([]);
             });
@@ -252,9 +252,9 @@ describe('VectorRepository', () => {
                     data: () => ({
                         text: 'Similar case 1',
                         metadata: { sessionId: 'session-1' },
-                        _distance: 0.1
-                    })
-                }
+                        _distance: 0.1,
+                    }),
+                },
             ];
 
             mockVectorQueryGet.mockResolvedValueOnce({ docs: mockDocs });
@@ -278,9 +278,9 @@ describe('VectorRepository', () => {
                     id: 'case-1',
                     data: () => ({
                         text: 'Case without distance',
-                        metadata: {}
-                    })
-                }
+                        metadata: {},
+                    }),
+                },
             ];
 
             mockVectorQueryGet.mockResolvedValueOnce({ docs: mockDocs });
@@ -308,7 +308,7 @@ describe('VectorRepository', () => {
                 text,
                 embedding: vector,
                 metadata,
-                createdAt: 'SERVER_TIMESTAMP'
+                createdAt: 'SERVER_TIMESTAMP',
             });
         });
 
@@ -322,16 +322,14 @@ describe('VectorRepository', () => {
                 text,
                 embedding: vector,
                 metadata: {},
-                createdAt: 'SERVER_TIMESTAMP'
+                createdAt: 'SERVER_TIMESTAMP',
             });
         });
 
         it('should propagate Firestore write errors', async () => {
             mockDocSet.mockRejectedValueOnce(new Error('Write failed'));
 
-            await expect(
-                repository.addCase('test', [0.1])
-            ).rejects.toThrow('Write failed');
+            await expect(repository.addCase('test', [0.1])).rejects.toThrow('Write failed');
         });
 
         it('should handle empty text', async () => {

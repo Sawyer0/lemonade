@@ -1,13 +1,18 @@
 import { ILogger } from '@lemonade/core';
 
 export class MobileLogger implements ILogger {
-    private formatLog(level: string, message: string, context?: Record<string, unknown>, traceId?: string): Record<string, unknown> {
+    private formatLog(
+        level: string,
+        message: string,
+        context?: Record<string, unknown>,
+        traceId?: string,
+    ): Record<string, unknown> {
         return {
             level,
             timestamp: new Date().toISOString(),
             message,
             traceId,
-            ...context
+            ...context,
         };
     }
 
@@ -17,9 +22,8 @@ export class MobileLogger implements ILogger {
     }
 
     error(message: string, error?: unknown, context?: Record<string, unknown>, traceId?: string): void {
-        const errorDetails = error instanceof Error
-            ? { name: error.name, message: error.message, stack: error.stack }
-            : error;
+        const errorDetails =
+            error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error;
 
         const entry = this.formatLog('ERROR', message, { ...context, error: errorDetails }, traceId);
         console.error(JSON.stringify(entry));

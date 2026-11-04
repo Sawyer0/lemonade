@@ -1,4 +1,3 @@
-
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import path from 'path';
@@ -25,16 +24,16 @@ async function main() {
 
         // 3. Prepare Input
         const input: ReasoningInput = {
-            userQuery: "My 2018 F-150 has a weird scraping noise when I brake.",
+            userQuery: 'My 2018 F-150 has a weird scraping noise when I brake.',
             sessionId: `smoke-test-${Date.now()}`,
-            userId: "smoke-test-user",
+            userId: 'smoke-test-user',
             vehicleContext: {
                 year: 2018,
-                make: "Ford",
-                model: "F-150",
-                vin: "1FTEW1CP5KFA12345" // Dummy VIN, might fail validation but that's okay, we want to test the flow
+                make: 'Ford',
+                model: 'F-150',
+                vin: '1FTEW1CP5KFA12345', // Dummy VIN, might fail validation but that's okay, we want to test the flow
             },
-            complaint: "Scraping noise when braking"
+            complaint: 'Scraping noise when braking',
         };
 
         console.log(`🏁 Calling agent.diagnose() for session: ${input.sessionId}`);
@@ -51,7 +50,6 @@ async function main() {
         console.log('REASONING:', result.finalDiagnosis.reasoningTrace);
         console.log('OUTPUT:', result.finalDiagnosis.userOutput);
         console.log('==========================================');
-
     } catch (error) {
         console.error('❌ Smoke Test Failed:', error);
         process.exit(1);

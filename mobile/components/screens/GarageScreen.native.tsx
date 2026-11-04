@@ -13,8 +13,8 @@ export default function GarageScreen() {
 
     const handlePressSession = (sessionId: string) => {
         router.push({
-            pathname: "/session/[id]",
-            params: { id: sessionId }
+            pathname: '/session/[id]',
+            params: { id: sessionId },
         });
     };
 
@@ -41,19 +41,14 @@ export default function GarageScreen() {
             <FlatList
                 data={sessions}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                    <SessionCard
-                        session={item}
-                        onPress={() => handlePressSession(item.id)}
-                    />
-                )}
+                renderItem={({ item }) => <SessionCard session={item} onPress={() => handlePressSession(item.id)} />}
                 contentContainerStyle={styles.list}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
                         <Text style={styles.emptyText}>No active sessions.</Text>
                         <GradientButton
                             title="Start Diagnosis"
-                            onPress={() => router.push("/(tabs)/explore")}
+                            onPress={() => router.push('/(tabs)/explore')}
                             style={{ marginTop: 20 }}
                         />
                     </View>
@@ -105,5 +100,5 @@ const styles = StyleSheet.create({
     emptyText: {
         color: Theme.textSecondary,
         fontSize: 16,
-    }
+    },
 });

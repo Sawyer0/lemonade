@@ -1,13 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
 import type { ISessionRepository, IVehicleRepository, ILogger } from '@lemonade/core';
-import {
-    ISessionService,
-    DiagnosticSession,
-    Vehicle,
-    AppError,
-    ErrorCode
-} from '@lemonade/core';
+import { ISessionService, DiagnosticSession, Vehicle, AppError, ErrorCode } from '@lemonade/core';
 import { v4 as uuidv4 } from 'uuid';
 
 @injectable()
@@ -15,16 +9,20 @@ export class SessionService implements ISessionService {
     constructor(
         @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
         @inject(TYPES.VehicleRepo) private vehicleRepo: IVehicleRepository,
-        @inject(TYPES.Logger) private logger: ILogger
-    ) { }
+        @inject(TYPES.Logger) private logger: ILogger,
+    ) {}
 
     async startSession(vehicleId: string, userId: string): Promise<string> {
         const vehicle = await this.vehicleRepo.findById(vehicleId, userId);
-        if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
+        if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Vehicle not found');
 
         if (vehicle.userId !== userId) {
-            this.logger.warn(`[SessionService] Unauthorized session start attempt`, { vehicleId, userId, ownerId: vehicle.userId });
-            throw new AppError(ErrorCode.FORBIDDEN, "You do not own this vehicle", 403);
+            this.logger.warn(`[SessionService] Unauthorized session start attempt`, {
+                vehicleId,
+                userId,
+                ownerId: vehicle.userId,
+            });
+            throw new AppError(ErrorCode.FORBIDDEN, 'You do not own this vehicle', 403);
         }
 
         const newSession: DiagnosticSession = {
@@ -40,7 +38,7 @@ export class SessionService implements ISessionService {
             aiAnalysis: null,
             safety_stop: false,
             cumulativeVideoDurationProcessedMinutes: 0,
-            cumulativeAudioDurationProcessedMinutes: 0
+            cumulativeAudioDurationProcessedMinutes: 0,
         };
 
         await this.sessionRepo.create(newSession);
@@ -49,10 +47,10 @@ export class SessionService implements ISessionService {
 
     async getSessionContext(sessionId: string): Promise<{ session: DiagnosticSession; vehicle: Vehicle }> {
         const session = await this.sessionRepo.findById(sessionId);
-        if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
+        if (!session) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Session not found');
 
         const vehicle = await this.vehicleRepo.findById(session.vehicleId, session.userId);
-        if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
+        if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Vehicle not found');
 
         return { session, vehicle };
     }
@@ -68,7 +66,11 @@ export class SessionService implements ISessionService {
         }
 
         if (session.userId !== userId) {
-            this.logger.warn('[SessionService] deleteSession forbidden', { sessionId, userId, ownerId: session.userId });
+            this.logger.warn('[SessionService] deleteSession forbidden', {
+                sessionId,
+                userId,
+                ownerId: session.userId,
+            });
             throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to delete this session', 403);
         }
 

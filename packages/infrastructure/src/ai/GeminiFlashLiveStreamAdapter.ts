@@ -1,6 +1,12 @@
 import { injectable, inject } from 'inversify';
 import { GenerativeModel, SchemaType, Part, GenerateContentResult } from '@google-cloud/vertexai';
-import type { ISessionRepository, IContextCacheService, IUserRepository, ILogger, IBillingService } from '@lemonade/core';
+import type {
+    ISessionRepository,
+    IContextCacheService,
+    IUserRepository,
+    ILogger,
+    IBillingService,
+} from '@lemonade/core';
 import {
     ILiveStreamAnalyzer,
     AIAnalysis,
@@ -14,7 +20,7 @@ import {
     AiGenerationConfig,
     MessagePart,
     SHARED_CONFIG,
-    LocalTriageResult
+    LocalTriageResult,
 } from '@lemonade/core';
 import { TracingService } from '../observability/TracingService';
 import { TYPES } from '../di/types';
@@ -34,10 +40,16 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         @inject(TYPES.ContextCacheService) private cacheService: IContextCacheService,
         @inject(TYPES.UserRepo) private userRepo: IUserRepository,
         @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
-        @inject(TYPES.TracingService) private tracer: TracingService
+        @inject(TYPES.TracingService) private tracer: TracingService,
     ) {
-        this.model = coreAdapter.getGenerativeModel(SHARED_CONFIG.AI_MODELS.LIVE_MODEL, coreAdapter.commonTools, coreAdapter.commonSafetySettings);
-        this.logger.info(`GeminiFlashLiveStreamAdapter initialized, using model: ${SHARED_CONFIG.AI_MODELS.LIVE_MODEL}`);
+        this.model = coreAdapter.getGenerativeModel(
+            SHARED_CONFIG.AI_MODELS.LIVE_MODEL,
+            coreAdapter.commonTools,
+            coreAdapter.commonSafetySettings,
+        );
+        this.logger.info(
+            `GeminiFlashLiveStreamAdapter initialized, using model: ${SHARED_CONFIG.AI_MODELS.LIVE_MODEL}`,
+        );
     }
 
     async countTokens(content: string | MessagePart[] | Part[]): Promise<number> {
@@ -46,24 +58,29 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         if (typeof content === 'string') {
             parts = [{ text: content }];
         } else if (Array.isArray(content)) {
-            if (content.length > 0 && ('type' in content[0] || 'text' in content[0] || 'inlineData' in content[0] || 'fileData' in content[0])) {
-                parts = (content as MessagePart[]).map(part => {
-                    if (part.type === 'text' && part.text) return { text: part.text };
-                    if (part.type === 'image' && part.image) {
-                        if (part.image.startsWith('http') || part.image.startsWith('gs://')) {
-                            return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
-                        } else if (part.image.startsWith('data:')) {
-                            const matches = part.image.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-                            if (matches && matches.length === 3) {
-                                return { inlineData: { mimeType: matches[1], data: matches[2] } };
+            if (
+                content.length > 0 &&
+                ('type' in content[0] || 'text' in content[0] || 'inlineData' in content[0] || 'fileData' in content[0])
+            ) {
+                parts = (content as MessagePart[])
+                    .map((part) => {
+                        if (part.type === 'text' && part.text) return { text: part.text };
+                        if (part.type === 'image' && part.image) {
+                            if (part.image.startsWith('http') || part.image.startsWith('gs://')) {
+                                return { fileData: { mimeType: 'image/jpeg', fileUri: part.image } };
+                            } else if (part.image.startsWith('data:')) {
+                                const matches = part.image.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+                                if (matches && matches.length === 3) {
+                                    return { inlineData: { mimeType: matches[1], data: matches[2] } };
+                                }
                             }
                         }
-                    }
-                    if (part.type === 'audio' && part.data) {
-                        return { text: `[Audio Content: ${part.data}]` };
-                    }
-                    return { text: '' };
-                }).filter(p => ('text' in p && p.text !== '') || ('fileData' in p) || ('inlineData' in p));
+                        if (part.type === 'audio' && part.data) {
+                            return { text: `[Audio Content: ${part.data}]` };
+                        }
+                        return { text: '' };
+                    })
+                    .filter((p) => ('text' in p && p.text !== '') || 'fileData' in p || 'inlineData' in p);
             } else {
                 parts = content as Part[];
             }
@@ -73,20 +90,22 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
 
         try {
             const result = await this.model.countTokens({
-                contents: [{
-                    role: 'user',
-                    parts: parts
-                }]
+                contents: [
+                    {
+                        role: 'user',
+                        parts: parts,
+                    },
+                ],
             });
             return result.totalTokens;
         } catch (error) {
-            this.logger.error("countTokens failed", error as Error);
+            this.logger.error('countTokens failed', error as Error);
             return 0;
         }
     }
 
     private getGenerationConfigForVideo(effort?: ReasoningEffort): AiGenerationConfig {
-        if (!effort || effort === "none") return AI_GENERATION_CONFIGS.LIVE_VIDEO;
+        if (!effort || effort === 'none') return AI_GENERATION_CONFIGS.LIVE_VIDEO;
         return AI_GENERATION_CONFIGS.LIVE_VIDEO;
     }
 
@@ -97,26 +116,33 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         userId?: string,
         sessionId?: string,
         reasoningEffort?: ReasoningEffort,
-        videoDurationMinutes?: number
+        videoDurationMinutes?: number,
     ): Promise<AIAnalysis> {
-        this.logger.debug("Sending to Vertex AI (Structured Output) for Full Video Analysis", { videoUrl, mimeType, videoDurationMinutes });
+        this.logger.debug('Sending to Vertex AI (Structured Output) for Full Video Analysis', {
+            videoUrl,
+            mimeType,
+            videoDurationMinutes,
+        });
 
         if (!userId) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, "User ID is required for video analysis access control.");
+            throw new AppError(ErrorCode.UNAUTHORIZED, 'User ID is required for video analysis access control.');
         }
         const user = await this.userRepo.findById(userId);
 
         if (!user) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, "User not found for video analysis access control.");
+            throw new AppError(ErrorCode.UNAUTHORIZED, 'User not found for video analysis access control.');
         }
 
         if (user.tier === 'free') {
-            throw new AppError(ErrorCode.FORBIDDEN, "Free users do not have access to video analysis.");
+            throw new AppError(ErrorCode.FORBIDDEN, 'Free users do not have access to video analysis.');
         }
 
         const MAX_PRO_VIDEO_MINUTES = 35;
         if (user.tier === 'pro' && videoDurationMinutes !== undefined && videoDurationMinutes > MAX_PRO_VIDEO_MINUTES) {
-            throw new AppError(ErrorCode.FORBIDDEN, `Video exceeds maximum duration of ${MAX_PRO_VIDEO_MINUTES} minutes for Pro users.`);
+            throw new AppError(
+                ErrorCode.FORBIDDEN,
+                `Video exceeds maximum duration of ${MAX_PRO_VIDEO_MINUTES} minutes for Pro users.`,
+            );
         }
 
         const cacheKeyData = { videoUrl, vehicleContext, mimeType, reasoningEffort, videoDurationMinutes };
@@ -139,18 +165,20 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         const model = this.model;
 
         const request = {
-            contents: [{
-                role: 'user',
-                parts: [
-                    {
-                        fileData: {
-                            mimeType: mimeType,
-                            fileUri: videoUrl
-                        }
-                    },
-                    { text: fullPrompt }
-                ]
-            }],
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        {
+                            fileData: {
+                                mimeType: mimeType,
+                                fileUri: videoUrl,
+                            },
+                        },
+                        { text: fullPrompt },
+                    ],
+                },
+            ],
             generationConfig: {
                 responseMimeType: genConfig.responseMimeType,
                 thinkingConfig: genConfig.thinkingConfig,
@@ -167,28 +195,43 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                         engineDescription: { type: SchemaType.STRING },
                         isStock: { type: SchemaType.BOOLEAN },
                         visualConflictDetected: { type: SchemaType.BOOLEAN },
-                        detectedCondition: { type: SchemaType.STRING, enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'] },
+                        detectedCondition: {
+                            type: SchemaType.STRING,
+                            enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'],
+                        },
                         confidence: { type: SchemaType.NUMBER },
                         verification: {
                             type: SchemaType.OBJECT,
                             properties: {
                                 isVerified: { type: SchemaType.BOOLEAN },
                                 verifiedSource: { type: SchemaType.STRING, nullable: true },
-                                conflictingEvidence: { type: SchemaType.STRING, nullable: true }
+                                conflictingEvidence: { type: SchemaType.STRING, nullable: true },
                             },
-                            required: ['isVerified']
-                        }
+                            required: ['isVerified'],
+                        },
                     },
-                    required: ['safety_alert', 'severity', 'diagnosis', 'visual_evidence', 'acoustic_evidence', 'suggested_actions', 'engineDescription', 'isStock', 'visualConflictDetected', 'detectedCondition', 'confidence']
-                }
-            } as unknown as import('@google-cloud/vertexai').GenerationConfig
+                    required: [
+                        'safety_alert',
+                        'severity',
+                        'diagnosis',
+                        'visual_evidence',
+                        'acoustic_evidence',
+                        'suggested_actions',
+                        'engineDescription',
+                        'isStock',
+                        'visualConflictDetected',
+                        'detectedCondition',
+                        'confidence',
+                    ],
+                },
+            } as unknown as import('@google-cloud/vertexai').GenerationConfig,
         };
 
         try {
             const result = await this.tracer.traceAiCall({
                 name: 'video_diagnostic_structured',
                 inputs: { videoUrl, vehicleContext, mimeType },
-                exec: async () => model.generateContent(request)
+                exec: async () => model.generateContent(request),
             });
 
             const vertexResult = result as unknown as GenerateContentResult;
@@ -200,20 +243,19 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                     inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
                     outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: SHARED_CONFIG.AI_MODELS.CHAT_MODEL,
-                    timestamp: new Date()
+                    timestamp: new Date(),
                 });
             }
 
             const responseText = vertexResult.response?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-            if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response");
+            if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, 'AI returned empty response');
 
             const analysis = AIAnalysisSchema.parse(JSON.parse(responseText));
             await this.cacheService.createCache([{ text: responseText }], this.CACHE_TTL_SECONDS, cacheKey);
             return analysis;
-
         } catch (error) {
-            this.logger.error("Vertex AI Video Analysis Failure", error as Error);
+            this.logger.error('Vertex AI Video Analysis Failure', error as Error);
             throw error;
         }
     }
@@ -226,21 +268,25 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         sessionId: string,
         vin?: string,
         inputTimestamp?: number,
-        localTriage?: LocalTriageResult
+        localTriage?: LocalTriageResult,
     ): Promise<AIAnalysis | MessagePart[] | null> {
-        this.logger.debug("Sending to Vertex AI (Structured Output) for Live Image Frame Analysis", { sessionId, mimeType, userId });
+        this.logger.debug('Sending to Vertex AI (Structured Output) for Live Image Frame Analysis', {
+            sessionId,
+            mimeType,
+            userId,
+        });
 
         if (!userId) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, "User ID is required for image frame analysis access control.");
+            throw new AppError(ErrorCode.UNAUTHORIZED, 'User ID is required for image frame analysis access control.');
         }
         const user = await this.userRepo.findById(userId);
 
         if (!user) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, "User not found for image frame analysis access control.");
+            throw new AppError(ErrorCode.UNAUTHORIZED, 'User not found for image frame analysis access control.');
         }
 
         if (user.tier === 'free') {
-            throw new AppError(ErrorCode.FORBIDDEN, "Free users do not have access to live video analysis.");
+            throw new AppError(ErrorCode.FORBIDDEN, 'Free users do not have access to live video analysis.');
         }
 
         const session = await this.sessionRepo.findById(sessionId);
@@ -252,7 +298,10 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         const FRAME_DURATION_MINUTES = 2 / 60;
 
         if (session.cumulativeVideoDurationProcessedMinutes >= MAX_LIVE_VIDEO_MINUTES) {
-            throw new AppError(ErrorCode.FORBIDDEN, `Live video analysis limit of ${MAX_LIVE_VIDEO_MINUTES} minutes reached for this session.`);
+            throw new AppError(
+                ErrorCode.FORBIDDEN,
+                `Live video analysis limit of ${MAX_LIVE_VIDEO_MINUTES} minutes reached for this session.`,
+            );
         }
 
         if (inputTimestamp && session.lastProcessedFrameTimestamp) {
@@ -260,7 +309,10 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
             const MIN_TIME_BETWEEN_FRAMES_MS = SHARED_CONFIG.SUBSCRIPTION.LIVE_VIDEO_MIN_TIME_BETWEEN_FRAMES_MS;
 
             if (timeSinceLastFrame < MIN_TIME_BETWEEN_FRAMES_MS) {
-                this.logger.warn('Live video frame rejected: too soon after last frame.', { sessionId, timeSinceLastFrame });
+                this.logger.warn('Live video frame rejected: too soon after last frame.', {
+                    sessionId,
+                    timeSinceLastFrame,
+                });
                 return null;
             }
         }
@@ -291,33 +343,45 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                         engineDescription: { type: SchemaType.STRING },
                         isStock: { type: SchemaType.BOOLEAN },
                         visualConflictDetected: { type: SchemaType.BOOLEAN },
-                        detectedCondition: { type: SchemaType.STRING, enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'] },
+                        detectedCondition: {
+                            type: SchemaType.STRING,
+                            enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'],
+                        },
                         confidence: { type: SchemaType.NUMBER },
                         verification: {
                             type: SchemaType.OBJECT,
                             properties: {
                                 isVerified: { type: SchemaType.BOOLEAN },
                                 verifiedSource: { type: SchemaType.STRING, nullable: true },
-                                conflictingEvidence: { type: SchemaType.STRING, nullable: true }
+                                conflictingEvidence: { type: SchemaType.STRING, nullable: true },
                             },
-                            required: ['isVerified']
-                        }
+                            required: ['isVerified'],
+                        },
                     },
-                    required: ['safety_alert', 'severity', 'diagnosis', 'visual_evidence', 'acoustic_evidence', 'suggested_actions', 'engineDescription', 'isStock', 'visualConflictDetected', 'detectedCondition', 'confidence']
-                }
-            } as unknown as import('@google-cloud/vertexai').GenerationConfig
+                    required: [
+                        'safety_alert',
+                        'severity',
+                        'diagnosis',
+                        'visual_evidence',
+                        'acoustic_evidence',
+                        'suggested_actions',
+                        'engineDescription',
+                        'isStock',
+                        'visualConflictDetected',
+                        'detectedCondition',
+                        'confidence',
+                    ],
+                },
+            } as unknown as import('@google-cloud/vertexai').GenerationConfig,
         });
 
         try {
-            const userParts: Part[] = [
-                { inlineData: { mimeType: mimeType, data: imageData } },
-                { text: fullPrompt }
-            ];
+            const userParts: Part[] = [{ inlineData: { mimeType: mimeType, data: imageData } }, { text: fullPrompt }];
 
             const result = await this.tracer.traceAiCall({
                 name: 'live_image_analysis_structured',
                 inputs: { sessionId, mimeType, userId, inputTimestamp },
-                exec: async () => chat.sendMessage(userParts)
+                exec: async () => chat.sendMessage(userParts),
             });
 
             const vertexResult = result as unknown as GenerateContentResult;
@@ -329,20 +393,16 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                     inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
                     outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: SHARED_CONFIG.AI_MODELS.CHAT_MODEL,
-                    timestamp: new Date()
+                    timestamp: new Date(),
                 });
             }
 
             let response = vertexResult.response;
-            response = await this.functionCallService.handleFunctionCalls(
-                response,
-                chat,
-                {
-                    userId,
-                    sessionId,
-                    vin
-                }
-            );
+            response = await this.functionCallService.handleFunctionCalls(response, chat, {
+                userId,
+                sessionId,
+                vin,
+            });
 
             const finalCandidate = response.candidates?.[0];
             const contentParts = finalCandidate?.content?.parts || [];
@@ -359,7 +419,7 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                             type: 'tool-call',
                             toolName: call.name,
                             toolCallId: 'call_' + Math.random().toString(36).substr(2, 9),
-                            args: call.args
+                            args: call.args,
                         });
                     }
                 }
@@ -367,7 +427,8 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
             }
 
             const responseText = finalCandidate?.content?.parts?.[0]?.text;
-            if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response from image frame analysis");
+            if (!responseText)
+                throw new AppError(ErrorCode.AI_SERVICE_ERROR, 'AI returned empty response from image frame analysis');
 
             const analysis = AIAnalysisSchema.parse(JSON.parse(responseText));
 
@@ -375,9 +436,8 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
             await this.sessionRepo.updateCumulativeVideoDuration(sessionId, FRAME_DURATION_MINUTES);
 
             return analysis;
-
         } catch (error) {
-            this.logger.error("Vertex AI Image Frame Analysis Failure", error as Error, { sessionId, userId });
+            this.logger.error('Vertex AI Image Frame Analysis Failure', error as Error, { sessionId, userId });
             throw error;
         }
     }
@@ -390,21 +450,26 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         sessionId: string,
         audioChunkDurationSeconds: number,
         vin?: string,
-        inputTimestamp?: number
+        inputTimestamp?: number,
     ): Promise<AIAnalysis | MessagePart[] | null> {
-        this.logger.debug("Sending to Vertex AI (Structured Output) for Live Audio Chunk Analysis", { sessionId, mimeType, userId, audioChunkDurationSeconds });
+        this.logger.debug('Sending to Vertex AI (Structured Output) for Live Audio Chunk Analysis', {
+            sessionId,
+            mimeType,
+            userId,
+            audioChunkDurationSeconds,
+        });
 
         if (!userId) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, "User ID is required for live audio analysis access control.");
+            throw new AppError(ErrorCode.UNAUTHORIZED, 'User ID is required for live audio analysis access control.');
         }
         const user = await this.userRepo.findById(userId);
 
         if (!user) {
-            throw new AppError(ErrorCode.UNAUTHORIZED, "User not found for live audio analysis access control.");
+            throw new AppError(ErrorCode.UNAUTHORIZED, 'User not found for live audio analysis access control.');
         }
 
         if (user.tier === 'free') {
-            throw new AppError(ErrorCode.FORBIDDEN, "Free users do not have access to live audio analysis.");
+            throw new AppError(ErrorCode.FORBIDDEN, 'Free users do not have access to live audio analysis.');
         }
 
         const session = await this.sessionRepo.findById(sessionId);
@@ -416,17 +481,23 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
         const LIVE_AUDIO_MIN_TIME_BETWEEN_CHUNKS_MS = SHARED_CONFIG.SUBSCRIPTION.LIVE_AUDIO_MIN_TIME_BETWEEN_CHUNKS_MS;
 
         const currentCumulativeAudioMinutes = session.cumulativeAudioDurationProcessedMinutes || 0;
-        const newCumulativeAudioMinutes = currentCumulativeAudioMinutes + (audioChunkDurationSeconds / 60);
+        const newCumulativeAudioMinutes = currentCumulativeAudioMinutes + audioChunkDurationSeconds / 60;
 
         if (newCumulativeAudioMinutes > MAX_PRO_AUDIO_MINUTES) {
-            throw new AppError(ErrorCode.FORBIDDEN, `Live audio analysis limit of ${MAX_PRO_AUDIO_MINUTES} minutes reached for this session.`);
+            throw new AppError(
+                ErrorCode.FORBIDDEN,
+                `Live audio analysis limit of ${MAX_PRO_AUDIO_MINUTES} minutes reached for this session.`,
+            );
         }
 
         if (inputTimestamp && session.lastProcessedAudioChunkTimestamp) {
             const timeSinceLastChunk = inputTimestamp - session.lastProcessedAudioChunkTimestamp;
 
             if (timeSinceLastChunk < LIVE_AUDIO_MIN_TIME_BETWEEN_CHUNKS_MS) {
-                this.logger.warn('Live audio chunk rejected: too soon after last chunk.', { sessionId, timeSinceLastChunk });
+                this.logger.warn('Live audio chunk rejected: too soon after last chunk.', {
+                    sessionId,
+                    timeSinceLastChunk,
+                });
                 return null;
             }
         }
@@ -455,33 +526,45 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                         engineDescription: { type: SchemaType.STRING },
                         isStock: { type: SchemaType.BOOLEAN },
                         visualConflictDetected: { type: SchemaType.BOOLEAN },
-                        detectedCondition: { type: SchemaType.STRING, enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'] },
+                        detectedCondition: {
+                            type: SchemaType.STRING,
+                            enum: ['clean', 'rust', 'leak', 'broken', 'modified', 'unknown'],
+                        },
                         confidence: { type: SchemaType.NUMBER },
                         verification: {
                             type: SchemaType.OBJECT,
                             properties: {
                                 isVerified: { type: SchemaType.BOOLEAN },
                                 verifiedSource: { type: SchemaType.STRING, nullable: true },
-                                conflictingEvidence: { type: SchemaType.STRING, nullable: true }
+                                conflictingEvidence: { type: SchemaType.STRING, nullable: true },
                             },
-                            required: ['isVerified']
-                        }
+                            required: ['isVerified'],
+                        },
                     },
-                    required: ['safety_alert', 'severity', 'diagnosis', 'visual_evidence', 'acoustic_evidence', 'suggested_actions', 'engineDescription', 'isStock', 'visualConflictDetected', 'detectedCondition', 'confidence']
-                }
-            } as unknown as import('@google-cloud/vertexai').GenerationConfig
+                    required: [
+                        'safety_alert',
+                        'severity',
+                        'diagnosis',
+                        'visual_evidence',
+                        'acoustic_evidence',
+                        'suggested_actions',
+                        'engineDescription',
+                        'isStock',
+                        'visualConflictDetected',
+                        'detectedCondition',
+                        'confidence',
+                    ],
+                },
+            } as unknown as import('@google-cloud/vertexai').GenerationConfig,
         });
 
         try {
-            const userParts: Part[] = [
-                { inlineData: { mimeType: mimeType, data: audioData } },
-                { text: fullPrompt }
-            ];
+            const userParts: Part[] = [{ inlineData: { mimeType: mimeType, data: audioData } }, { text: fullPrompt }];
 
             const result = await this.tracer.traceAiCall({
                 name: 'live_audio_analysis_structured',
                 inputs: { sessionId, mimeType, userId, audioChunkDurationSeconds, inputTimestamp },
-                exec: async () => chat.sendMessage(userParts)
+                exec: async () => chat.sendMessage(userParts),
             });
 
             const vertexResult = result as unknown as GenerateContentResult;
@@ -493,20 +576,16 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                     inputTokens: vertexResult.response.usageMetadata.promptTokenCount || 0,
                     outputTokens: vertexResult.response.usageMetadata.candidatesTokenCount || 0,
                     model: SHARED_CONFIG.AI_MODELS.LIVE_MODEL,
-                    timestamp: new Date()
+                    timestamp: new Date(),
                 });
             }
 
             let response = vertexResult.response;
-            response = await this.functionCallService.handleFunctionCalls(
-                response,
-                chat,
-                {
-                    userId,
-                    sessionId,
-                    vin
-                }
-            );
+            response = await this.functionCallService.handleFunctionCalls(response, chat, {
+                userId,
+                sessionId,
+                vin,
+            });
 
             const finalCandidate = response.candidates?.[0];
             const contentParts = finalCandidate?.content?.parts || [];
@@ -523,7 +602,7 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
                             type: 'tool-call',
                             toolName: call.name,
                             toolCallId: 'call_' + Math.random().toString(36).substr(2, 9),
-                            args: call.args
+                            args: call.args,
                         });
                     }
                 }
@@ -531,7 +610,8 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
             }
 
             const responseText = finalCandidate?.content?.parts?.[0]?.text;
-            if (!responseText) throw new AppError(ErrorCode.AI_SERVICE_ERROR, "AI returned empty response from live audio analysis");
+            if (!responseText)
+                throw new AppError(ErrorCode.AI_SERVICE_ERROR, 'AI returned empty response from live audio analysis');
 
             const analysis = AIAnalysisSchema.parse(JSON.parse(responseText));
 
@@ -539,9 +619,8 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
             await this.sessionRepo.updateCumulativeAudioDuration(sessionId, audioChunkDurationSeconds / 60);
 
             return analysis;
-
         } catch (error) {
-            this.logger.error("Vertex AI Live Audio Analysis Failure", error as Error, { sessionId, userId });
+            this.logger.error('Vertex AI Live Audio Analysis Failure', error as Error, { sessionId, userId });
             throw error;
         }
     }

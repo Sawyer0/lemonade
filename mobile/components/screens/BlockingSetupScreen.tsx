@@ -10,16 +10,14 @@ export default function BlockingSetupScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.content}>
-                <LinearGradient
-                    colors={[Theme.gradientStart, Theme.gradientEnd]}
-                    style={styles.iconCircle}
-                >
+                <LinearGradient colors={[Theme.gradientStart, Theme.gradientEnd]} style={styles.iconCircle}>
                     <Text style={styles.icon}>AI</Text>
                 </LinearGradient>
 
                 <Text style={styles.title}>Initialize Master Tech</Text>
                 <Text style={styles.subtitle}>
-                    To provide private, sub-200ms vehicle diagnostic assistance, Lemonade needs to securely download its core perception model (~300MB).
+                    To provide private, sub-200ms vehicle diagnostic assistance, Lemonade needs to securely download its
+                    core perception model (~300MB).
                 </Text>
 
                 {error && (
@@ -32,13 +30,13 @@ export default function BlockingSetupScreen() {
                 {isDownloading ? (
                     <View style={styles.progressContainer}>
                         <ActivityIndicator size="large" color={Theme.tint} />
-                        <Text style={styles.progressText}>
-                            {Math.round(downloadProgress * 100)}% Synchronized
-                        </Text>
+                        <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}% Synchronized</Text>
                         <View style={styles.progressBarBg}>
                             <View style={[styles.progressBarFill, { width: `${downloadProgress * 100}%` }]} />
                         </View>
-                        <Text style={styles.eta}>Please keep Lemonade in the foreground during this one-time secure setup.</Text>
+                        <Text style={styles.eta}>
+                            Please keep Lemonade in the foreground during this one-time secure setup.
+                        </Text>
                     </View>
                 ) : (
                     <TouchableOpacity style={styles.button} onPress={ensureModel} activeOpacity={0.8}>
@@ -155,5 +153,5 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginTop: 16,
         textAlign: 'center',
-    }
+    },
 });

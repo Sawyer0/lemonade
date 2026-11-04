@@ -11,7 +11,7 @@ export const POST = withContext(async (req: Request) => {
         const searchService = container.get<IGoogleSearchService>(TYPES.GoogleSearchService);
         const results: SearchResponse = await searchService.search({
             ...body,
-            limit: body.limit ?? 3
+            limit: body.limit ?? 3,
         });
         return NextResponse.json(results);
     } catch (error) {

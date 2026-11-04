@@ -12,20 +12,20 @@ const VectorActionSchema = z.discriminatedUnion('action', [
         action: z.literal('search'),
         query: z.string().min(1),
         limit: z.number().int().positive().optional().default(3),
-        filter: z.record(z.unknown()).optional()
+        filter: z.record(z.unknown()).optional(),
     }),
     z.object({
         action: z.literal('findSimilar'),
         vector: z.array(z.number()),
         limit: z.number().int().positive().optional().default(3),
-        filter: z.object({ userId: z.string().optional() }).optional()
+        filter: z.object({ userId: z.string().optional() }).optional(),
     }),
     z.object({
         action: z.literal('addCase'),
         text: z.string().min(1),
         vector: z.array(z.number()),
-        metadata: z.record(z.unknown()).optional()
-    })
+        metadata: z.record(z.unknown()).optional(),
+    }),
 ]);
 
 export const POST = withContext(async (req: Request) => {

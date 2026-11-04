@@ -26,16 +26,38 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
                 {content.map((p, index) => {
                     if (p.type === 'text') {
                         return (
-                            <Text key={index} style={[styles.text, isUser ? styles.textDark : styles.textLight, { marginBottom: 4 }]}>
+                            <Text
+                                key={index}
+                                style={[styles.text, isUser ? styles.textDark : styles.textLight, { marginBottom: 4 }]}
+                            >
                                 {p.text}
                             </Text>
                         );
                     }
                     if (p.type === 'tool-call' && p.toolName === 'start_video_stream') {
                         return (
-                            <TouchableOpacity key={index} onPress={() => router.push(`/live-mechanic?roomName=${sessionId}&sessionId=${sessionId}`)} style={{ marginTop: 8 }}>
-                                <GlassCard variant="thin" style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
-                                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: Theme.tint, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                            <TouchableOpacity
+                                key={index}
+                                onPress={() =>
+                                    router.push(`/live-mechanic?roomName=${sessionId}&sessionId=${sessionId}`)
+                                }
+                                style={{ marginTop: 8 }}
+                            >
+                                <GlassCard
+                                    variant="thin"
+                                    style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}
+                                >
+                                    <View
+                                        style={{
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: 16,
+                                            backgroundColor: Theme.tint,
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            marginRight: 12,
+                                        }}
+                                    >
                                         <Text style={{ fontSize: 18 }}>📷</Text>
                                     </View>
                                     <Text style={{ color: 'white', fontWeight: 'bold' }}>Tap to Open Camera</Text>
@@ -44,7 +66,11 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
                         );
                     }
                     if (p.type === 'tool_result' || p.type === 'tool-result') {
-                        return <Text key={index} style={[styles.text, { fontSize: 12, opacity: 0.7 }]}>[Action Completed]</Text>;
+                        return (
+                            <Text key={index} style={[styles.text, { fontSize: 12, opacity: 0.7 }]}>
+                                [Action Completed]
+                            </Text>
+                        );
                     }
                     return null;
                 })}
@@ -69,9 +95,7 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
 
     return (
         <View style={[styles.container, styles.aiContainer]}>
-            <View style={[styles.bubble, styles.aiBubble]}>
-                {renderContent()}
-            </View>
+            <View style={[styles.bubble, styles.aiBubble]}>{renderContent()}</View>
         </View>
     );
 }
@@ -107,5 +131,5 @@ const styles = StyleSheet.create({
     },
     textLight: {
         color: Theme.text,
-    }
+    },
 });

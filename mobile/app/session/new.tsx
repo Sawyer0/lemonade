@@ -22,9 +22,9 @@ export default function NewSessionRoute() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${idToken}`
+                        Authorization: `Bearer ${idToken}`,
                     },
-                    body: JSON.stringify({ vehicleId })
+                    body: JSON.stringify({ vehicleId }),
                 });
 
                 if (!response.ok) throw new Error('Failed to create session');

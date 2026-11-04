@@ -43,21 +43,21 @@ export default function GarageScreen() {
 
     return (
         <ThemedView style={styles.container}>
-            <Stack.Screen options={{ 
-                title: 'My Garage',
-                headerRight: () => (
-                    <TouchableOpacity
-                        testID="logout-button"
-                        onPress={signOut}
-                        style={{ marginRight: 8 }}
-                    >
-                        <Ionicons name="log-out-outline" size={24} color={Theme.text} />
-                    </TouchableOpacity>
-                )
-            }} />
+            <Stack.Screen
+                options={{
+                    title: 'My Garage',
+                    headerRight: () => (
+                        <TouchableOpacity testID="logout-button" onPress={signOut} style={{ marginRight: 8 }}>
+                            <Ionicons name="log-out-outline" size={24} color={Theme.text} />
+                        </TouchableOpacity>
+                    ),
+                }}
+            />
 
             <View style={styles.header}>
-                <ThemedText testID="welcome-message" type="subtitle">Welcome, {user?.displayName || 'Mechanic'}</ThemedText>
+                <ThemedText testID="welcome-message" type="subtitle">
+                    Welcome, {user?.displayName || 'Mechanic'}
+                </ThemedText>
                 <ThemedText style={styles.headerSub}>Manage your vehicles and diagnostic sessions.</ThemedText>
             </View>
 
@@ -81,11 +81,7 @@ export default function GarageScreen() {
                 contentContainerStyle={styles.list}
             />
 
-            <TouchableOpacity
-                testID="add-vehicle-fab"
-                style={styles.fab}
-                onPress={() => router.push('/garage/add')}
-            >
+            <TouchableOpacity testID="add-vehicle-fab" style={styles.fab} onPress={() => router.push('/garage/add')}>
                 <Ionicons name="add" size={30} color="black" />
             </TouchableOpacity>
         </ThemedView>
@@ -181,5 +177,5 @@ const styles = StyleSheet.create({
     errorText: {
         color: Theme.error,
         textAlign: 'center',
-    }
+    },
 });

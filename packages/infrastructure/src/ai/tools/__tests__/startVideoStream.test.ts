@@ -2,7 +2,7 @@ import { START_VIDEO_STREAM_TOOL } from '../startVideoStream';
 
 /**
  * start_video_stream Tool Definitions Test
- * 
+ *
  * These tests verify the start_video_stream tool definition is correct.
  */
 
@@ -19,4 +19,3 @@ describe('start_video_stream Tool', () => {
         expect(START_VIDEO_STREAM_TOOL.parameters.required).toContain('focusArea');
     });
 });
-

@@ -1,12 +1,8 @@
 {
   "name": "meta-wearables",
-  "platforms": [
-    "android"
-  ],
+  "platforms": ["android"],
   "android": {
     "package": "expo.modules.metawearables",
-    "modules": [
-      "expo.modules.metawearables.MetaWearablesModule"
-    ]
+    "modules": ["expo.modules.metawearables.MetaWearablesModule"]
   }
 }

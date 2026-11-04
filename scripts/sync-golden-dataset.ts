@@ -6,20 +6,28 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 async function sync() {
-    console.log('Available Env Keys:', Object.keys(process.env).filter(k => !k.includes('SECRET') && !k.includes('KEY')));
+    console.log(
+        'Available Env Keys:',
+        Object.keys(process.env).filter((k) => !k.includes('SECRET') && !k.includes('KEY')),
+    );
     // Just looking for the pattern without printing values
-    const langchainKey = Object.keys(process.env).find(k => k.includes('LANG'));
+    const langchainKey = Object.keys(process.env).find((k) => k.includes('LANG'));
     console.log('Found LangChain related key:', langchainKey);
 
     const apiKey = process.env.LANGSMITH_API_KEY || process.env.LANGCHAIN_API_KEY;
     if (apiKey) {
-        console.log(`LangSmith/LangChain API Key found: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
+        console.log(
+            `LangSmith/LangChain API Key found: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`,
+        );
     } else {
         console.log('LangSmith/LangChain API Key NOT found in environment.');
     }
 
     const client = new Client();
-    const datasetPath = path.resolve(__dirname, '../packages/infrastructure/src/observability/data/golden_dataset.json');
+    const datasetPath = path.resolve(
+        __dirname,
+        '../packages/infrastructure/src/observability/data/golden_dataset.json',
+    );
     const scenarios = JSON.parse(fs.readFileSync(datasetPath, 'utf8'));
 
     const datasetName = 'Master Tech Golden Set';
@@ -36,7 +44,7 @@ async function sync() {
         }
 
         // To avoid duplicates if re-running, we might want to clear or check existing examples
-        // For prototype simplicity, we just add them. 
+        // For prototype simplicity, we just add them.
         // In real production, we'd use scenario IDs to upsert.
 
         for (const scenario of scenarios) {
@@ -45,8 +53,8 @@ async function sync() {
                 metadata: {
                     id: scenario.id,
                     name: scenario.name,
-                    expected_behavior: scenario.expected_behavior
-                }
+                    expected_behavior: scenario.expected_behavior,
+                },
             });
             console.log(`Uploaded scenario: ${scenario.name}`);
         }

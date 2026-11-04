@@ -64,7 +64,11 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
 
     return (
         <div className="w-full max-w-md mx-auto">
-            <List strong inset className="!bg-zinc-900/50 !m-0 border border-zinc-800 backdrop-blur-sm rounded-2xl overflow-hidden">
+            <List
+                strong
+                inset
+                className="!bg-zinc-900/50 !m-0 border border-zinc-800 backdrop-blur-sm rounded-2xl overflow-hidden"
+            >
                 <div className="p-4 text-center border-b border-zinc-800/50 mb-2">
                     <h2 className="text-xl font-bold text-white">
                         {mode === 'login' ? 'Master Access' : 'New Technician'}
@@ -118,7 +122,7 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
                     disabled={loading}
                     className="bg-gradient-to-r from-yellow-500 to-orange-500 !text-black font-bold h-12"
                 >
-                    {loading ? 'Processing...' : (mode === 'login' ? 'Grant Access' : 'Register Profile')}
+                    {loading ? 'Processing...' : mode === 'login' ? 'Grant Access' : 'Register Profile'}
                 </Button>
 
                 <Button
@@ -132,4 +136,3 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
         </div>
     );
 }
-

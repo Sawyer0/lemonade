@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@lemonade/infrastructure';
-import {
-    AppError,
-    ErrorCode,
-    ILiveStreamAnalyzer,
-    DiagnosticSessionSchema,
-    ILogger
-} from '@lemonade/core';
+import { AppError, ErrorCode, ILiveStreamAnalyzer, DiagnosticSessionSchema, ILogger } from '@lemonade/core';
 import { createErrorResponse } from '@/application/utils/validateRequest';
 import { withContext } from '@/application/utils/apiHandler';
 import { container } from '@/infrastructure/di/container';
@@ -38,7 +32,10 @@ export const POST = withContext(async (req: NextRequest, context: unknown) => {
 
             userId = body.userId;
             if (!userId) {
-                throw new AppError(ErrorCode.MISSING_REQUIRED_PARAMETERS, 'userId is required in the body for API Key authenticated requests.');
+                throw new AppError(
+                    ErrorCode.MISSING_REQUIRED_PARAMETERS,
+                    'userId is required in the body for API Key authenticated requests.',
+                );
             }
         } else {
             // Firebase Token Authentication (User)
@@ -53,11 +50,15 @@ export const POST = withContext(async (req: NextRequest, context: unknown) => {
         // --- End Authentication ---
 
         // 2. Validate Input using the already read body
-        const { audioData, mimeType, chunkDurationSeconds, audioTimestamp, vehicleContext } = AudioChunkRequestSchema.parse(body);
+        const { audioData, mimeType, chunkDurationSeconds, audioTimestamp, vehicleContext } =
+            AudioChunkRequestSchema.parse(body);
 
         // Optional: Further validate vehicleContext if needed, e.g., against DiagnosticSession's vehicle
         const parsedContext = JSON.parse(vehicleContext);
-        const sanitizedVehicleContext = DiagnosticSessionSchema.pick({ vehicleId: true }).safeParse(parsedContext).success ? vehicleContext : "{}";
+        const sanitizedVehicleContext = DiagnosticSessionSchema.pick({ vehicleId: true }).safeParse(parsedContext)
+            .success
+            ? vehicleContext
+            : '{}';
         const vin = parsedContext?.vin;
 
         // 3. Call Live Stream Analyzer
@@ -71,20 +72,22 @@ export const POST = withContext(async (req: NextRequest, context: unknown) => {
             sessionId,
             chunkDurationSeconds,
             typeof vin === 'string' ? vin : undefined,
-            audioTimestamp
+            audioTimestamp,
         );
 
         if (analysis === null) {
             // This indicates a rate-limiting rejection, client should wait.
             return NextResponse.json(
-                { analysis: null, message: "Audio chunk rate limit exceeded. Please wait." } satisfies AudioChunkResponseDTO,
-                { status: 429 } // 429 Too Many Requests
+                {
+                    analysis: null,
+                    message: 'Audio chunk rate limit exceeded. Please wait.',
+                } satisfies AudioChunkResponseDTO,
+                { status: 429 }, // 429 Too Many Requests
             );
         }
 
         // 4. Return AI Analysis
         return NextResponse.json({ analysis: analysis } satisfies AudioChunkResponseDTO);
-
     } catch (error) {
         logger.error(`API Error in POST /api/session/${sessionId}/audio-chunk`, error);
         return createErrorResponse(error);

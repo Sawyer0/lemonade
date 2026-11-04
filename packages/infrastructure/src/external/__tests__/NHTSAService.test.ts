@@ -11,7 +11,7 @@ const mockLogger: ILogger = {
     info: vi.fn(),
     debug: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
 };
 
 describe('NHTSAService', () => {
@@ -46,7 +46,7 @@ describe('NHTSAService', () => {
                         NHTSAActionNumber: 'ACTION-001',
                         ModelYear: '2020',
                         Make: 'Honda',
-                        Model: 'Civic'
+                        Model: 'Civic',
                     },
                     {
                         ReportReceivedDate: '2023-06-20',
@@ -63,14 +63,14 @@ describe('NHTSAService', () => {
                         NHTSAActionNumber: 'ACTION-002',
                         ModelYear: '2020',
                         Make: 'Honda',
-                        Model: 'Civic'
-                    }
-                ]
+                        Model: 'Civic',
+                    },
+                ],
             };
 
             mockFetch.mockResolvedValueOnce({
                 ok: true,
-                json: () => Promise.resolve(mockRecalls)
+                json: () => Promise.resolve(mockRecalls),
             });
 
             const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
@@ -84,7 +84,7 @@ describe('NHTSAService', () => {
         it('should return empty array when no recalls found', async () => {
             mockFetch.mockResolvedValueOnce({
                 ok: true,
-                json: () => Promise.resolve({ Count: 0, results: [] })
+                json: () => Promise.resolve({ Count: 0, results: [] }),
             });
 
             const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
@@ -97,23 +97,20 @@ describe('NHTSAService', () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: false,
                     status: 500,
-                    statusText: 'Internal Server Error'
+                    statusText: 'Internal Server Error',
                 });
 
                 const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
 
                 expect(recalls).toEqual([]);
-                expect(mockLogger.error).toHaveBeenCalledWith(
-                    expect.stringContaining('API Error'),
-                    undefined
-                );
+                expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('API Error'), undefined);
             });
 
             it('should return empty array on 503 service unavailable', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: false,
                     status: 503,
-                    statusText: 'Service Unavailable'
+                    statusText: 'Service Unavailable',
                 });
 
                 const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
@@ -125,7 +122,7 @@ describe('NHTSAService', () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: false,
                     status: 429,
-                    statusText: 'Too Many Requests'
+                    statusText: 'Too Many Requests',
                 });
 
                 const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
@@ -141,7 +138,7 @@ describe('NHTSAService', () => {
                 expect(recalls).toEqual([]);
                 expect(mockLogger.error).toHaveBeenCalledWith(
                     expect.stringContaining('Failed to fetch recalls'),
-                    expect.any(Error)
+                    expect.any(Error),
                 );
             });
 
@@ -166,7 +163,7 @@ describe('NHTSAService', () => {
             it('should return empty array when response is not JSON', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.reject(new SyntaxError('Unexpected token'))
+                    json: () => Promise.reject(new SyntaxError('Unexpected token')),
                 });
 
                 const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
@@ -177,7 +174,7 @@ describe('NHTSAService', () => {
             it('should return empty array when Count field is missing', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.resolve({ results: [] })
+                    json: () => Promise.resolve({ results: [] }),
                 });
 
                 const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
@@ -188,7 +185,7 @@ describe('NHTSAService', () => {
             it('should return empty array when results is not an array', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.resolve({ Count: 1, results: 'not-an-array' })
+                    json: () => Promise.resolve({ Count: 1, results: 'not-an-array' }),
                 });
 
                 const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
@@ -199,7 +196,7 @@ describe('NHTSAService', () => {
             it('should handle null response body', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.resolve(null)
+                    json: () => Promise.resolve(null),
                 });
 
                 const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
@@ -210,13 +207,16 @@ describe('NHTSAService', () => {
             it('should handle partial recall data with missing fields', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.resolve({
-                        Count: 1,
-                        results: [{
-                            // Missing most fields
-                            Component: 'BRAKES'
-                        }]
-                    })
+                    json: () =>
+                        Promise.resolve({
+                            Count: 1,
+                            results: [
+                                {
+                                    // Missing most fields
+                                    Component: 'BRAKES',
+                                },
+                            ],
+                        }),
                 });
 
                 const recalls = await service.checkRecalls(2020, 'Honda', 'Civic');
@@ -232,23 +232,19 @@ describe('NHTSAService', () => {
             it('should encode special characters in make/model', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.resolve({ Count: 0, results: [] })
+                    json: () => Promise.resolve({ Count: 0, results: [] }),
                 });
 
                 await service.checkRecalls(2020, 'Mercedes-Benz', 'C-Class AMG');
 
-                expect(mockFetch).toHaveBeenCalledWith(
-                    expect.stringContaining('Mercedes-Benz')
-                );
-                expect(mockFetch).toHaveBeenCalledWith(
-                    expect.stringContaining('C-Class%20AMG')
-                );
+                expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('Mercedes-Benz'));
+                expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('C-Class%20AMG'));
             });
 
             it('should handle empty make', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.resolve({ Count: 0, results: [] })
+                    json: () => Promise.resolve({ Count: 0, results: [] }),
                 });
 
                 const recalls = await service.checkRecalls(2020, '', 'Civic');
@@ -260,7 +256,7 @@ describe('NHTSAService', () => {
             it('should handle empty model', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.resolve({ Count: 0, results: [] })
+                    json: () => Promise.resolve({ Count: 0, results: [] }),
                 });
 
                 const recalls = await service.checkRecalls(2020, 'Honda', '');
@@ -271,21 +267,19 @@ describe('NHTSAService', () => {
             it('should handle very old vehicle year', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.resolve({ Count: 0, results: [] })
+                    json: () => Promise.resolve({ Count: 0, results: [] }),
                 });
 
                 const recalls = await service.checkRecalls(1950, 'Ford', 'Model T');
 
                 expect(recalls).toEqual([]);
-                expect(mockFetch).toHaveBeenCalledWith(
-                    expect.stringContaining('modelYear=1950')
-                );
+                expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('modelYear=1950'));
             });
 
             it('should handle future vehicle year', async () => {
                 mockFetch.mockResolvedValueOnce({
                     ok: true,
-                    json: () => Promise.resolve({ Count: 0, results: [] })
+                    json: () => Promise.resolve({ Count: 0, results: [] }),
                 });
 
                 const recalls = await service.checkRecalls(2030, 'Tesla', 'Model S');
@@ -300,9 +294,10 @@ describe('NHTSAService', () => {
         it('should return true for valid VIN', async () => {
             mockFetch.mockResolvedValueOnce({
                 ok: true,
-                json: () => Promise.resolve({
-                    Results: [{ ErrorCode: '0' }]
-                })
+                json: () =>
+                    Promise.resolve({
+                        Results: [{ ErrorCode: '0' }],
+                    }),
             });
 
             const isValid = await service.validateVin('1HGBH41JXMN109186');
@@ -313,9 +308,10 @@ describe('NHTSAService', () => {
         it('should return false for invalid VIN', async () => {
             mockFetch.mockResolvedValueOnce({
                 ok: true,
-                json: () => Promise.resolve({
-                    Results: [{ ErrorCode: '1' }]
-                })
+                json: () =>
+                    Promise.resolve({
+                        Results: [{ ErrorCode: '1' }],
+                    }),
             });
 
             const isValid = await service.validateVin('INVALID-VIN');
@@ -326,7 +322,7 @@ describe('NHTSAService', () => {
         it('should return false on API error', async () => {
             mockFetch.mockResolvedValueOnce({
                 ok: false,
-                status: 500
+                status: 500,
             });
 
             const isValid = await service.validateVin('1HGBH41JXMN109186');
@@ -342,14 +338,14 @@ describe('NHTSAService', () => {
             expect(isValid).toBe(false);
             expect(mockLogger.error).toHaveBeenCalledWith(
                 expect.stringContaining('VIN check failed'),
-                expect.any(Error)
+                expect.any(Error),
             );
         });
 
         it('should return false when Results is empty', async () => {
             mockFetch.mockResolvedValueOnce({
                 ok: true,
-                json: () => Promise.resolve({ Results: [] })
+                json: () => Promise.resolve({ Results: [] }),
             });
 
             const isValid = await service.validateVin('1HGBH41JXMN109186');
@@ -360,7 +356,7 @@ describe('NHTSAService', () => {
         it('should return false when Results is null', async () => {
             mockFetch.mockResolvedValueOnce({
                 ok: true,
-                json: () => Promise.resolve({ Results: null })
+                json: () => Promise.resolve({ Results: null }),
             });
 
             const isValid = await service.validateVin('1HGBH41JXMN109186');
@@ -371,7 +367,7 @@ describe('NHTSAService', () => {
         it('should return false on malformed JSON', async () => {
             mockFetch.mockResolvedValueOnce({
                 ok: true,
-                json: () => Promise.reject(new SyntaxError('Invalid JSON'))
+                json: () => Promise.reject(new SyntaxError('Invalid JSON')),
             });
 
             const isValid = await service.validateVin('1HGBH41JXMN109186');

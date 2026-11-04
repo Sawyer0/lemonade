@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, View, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import {
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    ActivityIndicator,
+    View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+} from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { Theme } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
@@ -33,10 +42,7 @@ export default function SignupScreen() {
 
     return (
         <ThemedView style={styles.container}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-            >
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.header}>
                         <ThemedText type="title">Create Account</ThemedText>
@@ -44,9 +50,7 @@ export default function SignupScreen() {
                     </View>
 
                     <View style={styles.form}>
-                        {error && (
-                            <ThemedText style={styles.errorText}>{error}</ThemedText>
-                        )}
+                        {error && <ThemedText style={styles.errorText}>{error}</ThemedText>}
 
                         <TextInput
                             testID="signup-username-input"
@@ -103,7 +107,9 @@ export default function SignupScreen() {
                             disabled={loading}
                         >
                             <Ionicons name="logo-google" size={20} color="white" style={{ marginRight: 10 }} />
-                            <ThemedText style={[styles.buttonText, { color: 'white' }]}>Continue with Google</ThemedText>
+                            <ThemedText style={[styles.buttonText, { color: 'white' }]}>
+                                Continue with Google
+                            </ThemedText>
                         </TouchableOpacity>
 
                         <View style={styles.footer}>

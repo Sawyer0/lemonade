@@ -54,14 +54,14 @@ export async function middleware(request: NextRequest) {
             logger.error('Security: Rate Limit Exceeded', undefined, { traceId, userId, userTier });
             return NextResponse.json(
                 { error: 'Too Many Requests', code: 'RATE_LIMIT_EXCEEDED' },
-                { 
+                {
                     status: 429,
                     headers: {
                         'X-RateLimit-Limit': ratelimit.limit.toString(),
                         'X-RateLimit-Remaining': ratelimit.remaining.toString(),
                         'X-RateLimit-Reset': ratelimit.reset.toString(),
-                    }
-                }
+                    },
+                },
             );
         }
 
@@ -69,22 +69,19 @@ export async function middleware(request: NextRequest) {
         if (isProOnlyApiPath(pathname)) {
             if (userTier !== 'pro') {
                 logger.warn('Security: Access Denied - Pro Tier Required', { traceId, userId, pathname });
-                return NextResponse.json(
-                    { error: 'Upgrade Required', code: 'PRO_REQUIRED' },
-                    { status: 403 }
-                );
+                return NextResponse.json({ error: 'Upgrade Required', code: 'PRO_REQUIRED' }, { status: 403 });
             }
         }
 
         // 3. Inject & Seal Headers
         requestHeaders.set('x-user-id', userId);
         requestHeaders.set('x-user-tier', userTier);
-        
+
         // HMAC Seal
         const signature = await securityService.signPayload({
             'x-user-id': userId,
             'x-user-tier': userTier,
-            'x-trace-id': traceId
+            'x-trace-id': traceId,
         });
         requestHeaders.set('x-security-seal', signature);
 
@@ -97,8 +94,8 @@ export async function middleware(request: NextRequest) {
 
     return NextResponse.next({
         request: {
-            headers: requestHeaders
-        }
+            headers: requestHeaders,
+        },
     });
 }
 

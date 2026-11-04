@@ -18,7 +18,6 @@ interface NativeWebViewProps {
     route?: string;
 }
 
-
 export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
     const webviewRef = useRef<WebView>(null);
     const router = useRouter();
@@ -92,13 +91,16 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
     const fullUri = `${CONFIG.API.BASE_URL}${route}`;
 
     // Memoize the source object to prevent WebView reloads on every render
-    const webViewSource = React.useMemo(() => ({
-        uri: fullUri,
-        headers: {
-            'Bypass-Tunnel-Reminder': 'true',
-            'User-Agent': CONFIG.API.USER_AGENT
-        }
-    }), [fullUri]);
+    const webViewSource = React.useMemo(
+        () => ({
+            uri: fullUri,
+            headers: {
+                'Bypass-Tunnel-Reminder': 'true',
+                'User-Agent': CONFIG.API.USER_AGENT,
+            },
+        }),
+        [fullUri],
+    );
 
     const handleVinScanned = (vin: string) => {
         if (webviewRef.current) {
@@ -149,7 +151,7 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
                             if (cameraPermission?.granted) {
                                 setShowScanner(true);
                             } else {
-                                requestCameraPermission().then(res => {
+                                requestCameraPermission().then((res) => {
                                     if (res.granted) setShowScanner(true);
                                     else alert('Camera permission needed to scan VIN');
                                 });
@@ -162,7 +164,7 @@ export default function NativeWebView({ route = '/' }: NativeWebViewProps) {
             />
 
             {/* Auth Overlay */}
-            {(!idToken && !isWebLoggedIn && !showScanner) && (
+            {!idToken && !isWebLoggedIn && !showScanner && (
                 <View style={styles.authOverlay}>
                     <GlassCard>
                         <GoogleSigninButton
@@ -212,7 +214,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         justifyContent: 'center',
         alignItems: 'center', // Center content
-        backgroundColor: 'white'
+        backgroundColor: 'white',
     },
     authOverlay: {
         position: 'absolute',
@@ -237,5 +239,5 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
         zIndex: 1000,
-    }
+    },
 });

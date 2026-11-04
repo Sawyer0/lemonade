@@ -15,7 +15,7 @@ export default function VehicleDetailScreen() {
     const router = useRouter();
 
     // Filter sessions for this vehicle
-    const vehicleSessions = sessions.filter(s => s.vehicleId === id);
+    const vehicleSessions = sessions.filter((s) => s.vehicleId === id);
 
     const startNewSession = () => {
         // Implement logic to start a new session for this vehicle
@@ -25,19 +25,23 @@ export default function VehicleDetailScreen() {
 
     return (
         <ThemedView style={styles.container}>
-            <Stack.Screen options={{ 
-                title: vehicle ? `${vehicle.specs.make} ${vehicle.specs.model}` : 'Vehicle' 
-            }} />
-            
+            <Stack.Screen
+                options={{
+                    title: vehicle ? `${vehicle.specs.make} ${vehicle.specs.model}` : 'Vehicle',
+                }}
+            />
+
             <ScrollView>
                 {vehicle && (
                     <View style={styles.header}>
                         <View style={styles.carIcon}>
                             <Ionicons name="car-sport" size={40} color={Theme.tint} />
                         </View>
-                        <ThemedText type="title">{vehicle.specs.year} {vehicle.specs.make} {vehicle.specs.model}</ThemedText>
+                        <ThemedText type="title">
+                            {vehicle.specs.year} {vehicle.specs.make} {vehicle.specs.model}
+                        </ThemedText>
                         <ThemedText style={styles.vin}>{vehicle.vin}</ThemedText>
-                        
+
                         <View style={styles.statsRow}>
                             <View style={styles.stat}>
                                 <ThemedText type="defaultSemiBold">{vehicleSessions.length}</ThemedText>
@@ -62,7 +66,7 @@ export default function VehicleDetailScreen() {
 
                     {vehicleSessions.length > 0 ? (
                         vehicleSessions.map((session) => (
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 key={session.id}
                                 style={styles.sessionItem}
                                 onPress={() => router.push(`/session/${session.id}`)}
@@ -170,5 +174,5 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         color: Theme.textSecondary,
-    }
+    },
 });

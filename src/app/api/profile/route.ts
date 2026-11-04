@@ -33,7 +33,6 @@ export const GET = withContext(async (req: NextRequest) => {
         }
 
         return NextResponse.json({ data: userData } satisfies UserResponseDTO);
-
     } catch (error) {
         return createErrorResponse(error);
     }
@@ -61,11 +60,7 @@ export const PATCH = withContext(async (req: NextRequest) => {
         const userData = UserSchema.parse(updatedUserDoc.data());
 
         return NextResponse.json({ data: userData } satisfies UserResponseDTO);
-
     } catch (error) {
         return createErrorResponse(error);
     }
 });
-
-
-

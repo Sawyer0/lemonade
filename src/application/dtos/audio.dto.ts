@@ -17,4 +17,3 @@ export const AudioChunkResponseSchema = z.object({
 });
 
 export type AudioChunkResponseDTO = z.infer<typeof AudioChunkResponseSchema>;
-

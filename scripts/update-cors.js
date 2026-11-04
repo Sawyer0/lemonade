@@ -9,7 +9,7 @@ function loadEnv() {
         if (!fs.existsSync(envPath)) return {};
         const content = fs.readFileSync(envPath, 'utf8');
         const env = {};
-        content.split('\n').forEach(line => {
+        content.split('\n').forEach((line) => {
             const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
             if (match) {
                 let value = match[2] || '';
@@ -30,7 +30,11 @@ const env = loadEnv();
 async function updateCors() {
     try {
         const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || env.FIREBASE_SERVICE_ACCOUNT_KEY;
-        const bucketName = process.env.GCLOUD_MEDIA_BUCKET || env.GCLOUD_MEDIA_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+        const bucketName =
+            process.env.GCLOUD_MEDIA_BUCKET ||
+            env.GCLOUD_MEDIA_BUCKET ||
+            process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+            env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
         if (!serviceAccount) throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY not found');
 
@@ -41,18 +45,18 @@ async function updateCors() {
 
         const storage = new Storage({
             projectId: credentials.project_id,
-            credentials
+            credentials,
         });
 
         // Try to list buckets (Requires Storage Admin or Viewer)
         try {
-            console.log("Listing buckets (verifying permissions)...");
+            console.log('Listing buckets (verifying permissions)...');
             const [buckets] = await storage.getBuckets();
             if (buckets.length === 0) {
-                console.log("⚠️  No buckets found. (Permissions might still be missing or project is empty)");
+                console.log('⚠️  No buckets found. (Permissions might still be missing or project is empty)');
             } else {
-                console.log("✅ Found buckets:");
-                buckets.forEach(b => console.log(`   - ${b.name}`));
+                console.log('✅ Found buckets:');
+                buckets.forEach((b) => console.log(`   - ${b.name}`));
             }
         } catch (e) {
             console.log("⚠️  Could not list buckets (Likely missing 'Storage Admin' permission)", e);
@@ -62,7 +66,7 @@ async function updateCors() {
         const targets = [
             bucketName, // from env
             `${credentials.project_id}.appspot.com`, // classic firebase
-            `staging.${credentials.project_id}.appspot.com` // staging
+            `staging.${credentials.project_id}.appspot.com`, // staging
         ].filter(Boolean);
 
         // Remove duplicates
@@ -77,8 +81,8 @@ async function updateCors() {
                         maxAgeSeconds: 3600,
                         method: ['GET', 'PUT', 'POST', 'OPTIONS'],
                         origin: ['*'],
-                        responseHeader: ['Content-Type', 'x-goog-resumable']
-                    }
+                        responseHeader: ['Content-Type', 'x-goog-resumable'],
+                    },
                 ]);
                 console.log(`✅ SUCCESS! CORS updated for ${target}`);
                 return; // Exit after first success
@@ -87,13 +91,12 @@ async function updateCors() {
                     console.log(`❌ Bucket ${target} not found.`);
                 } else {
                     console.error(`❌ Error on ${target}:`, e.message);
-                    if (e.code === 403) console.log("   (Access Denied - Check IAM Permissions!)");
+                    if (e.code === 403) console.log('   (Access Denied - Check IAM Permissions!)');
                 }
             }
         }
 
-        console.log("\n❌ Could not update CORS on any candidate bucket.");
-
+        console.log('\n❌ Could not update CORS on any candidate bucket.');
     } catch (error) {
         console.error('Fatal Error:', error);
     }

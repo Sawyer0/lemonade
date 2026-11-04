@@ -7,7 +7,7 @@ appId: com.dawan.lemonademvp
 
 # Verify garage screen
 - extendedWaitUntil:
-    visible: "My Garage"
+    visible: 'My Garage'
     timeout: 5000
 
 # Wait for vehicles to load
@@ -15,11 +15,11 @@ appId: com.dawan.lemonademvp
     timeout: 5000
 
 # Tap on test vehicle card - uses the year in the title
-- tapOn: "2017 Honda Civic"
+- tapOn: '2017 Honda Civic'
 
 # Wait for vehicle detail to load
 - waitForAnimationToEnd:
     timeout: 5000
 
 # Vehicle detail should show the VIN
-- assertVisible: "1HGBH41JXMN109186"
+- assertVisible: '1HGBH41JXMN109186'

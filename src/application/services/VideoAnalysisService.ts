@@ -1,12 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
 import type { ISessionRepository, IVehicleRepository, IMechanicReasoningService, ILogger } from '@lemonade/core';
-import {
-    IVideoAnalysisService,
-    AIAnalysis,
-    AppError,
-    ErrorCode
-} from '@lemonade/core';
+import { IVideoAnalysisService, AIAnalysis, AppError, ErrorCode } from '@lemonade/core';
 
 @injectable()
 export class VideoAnalysisService implements IVideoAnalysisService {
@@ -14,27 +9,31 @@ export class VideoAnalysisService implements IVideoAnalysisService {
         @inject(TYPES.MechanicReasoningService) private mechanicReasoning: IMechanicReasoningService,
         @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
         @inject(TYPES.VehicleRepo) private vehicleRepo: IVehicleRepository,
-        @inject(TYPES.Logger) private logger: ILogger
-    ) { }
+        @inject(TYPES.Logger) private logger: ILogger,
+    ) {}
 
     async processVideoUpload(sessionId: string, videoUrl: string, videoDurationMinutes?: number) {
-        this.logger.info('[VideoAnalysisService] processVideoUpload started', { sessionId, videoUrl, videoDurationMinutes });
+        this.logger.info('[VideoAnalysisService] processVideoUpload started', {
+            sessionId,
+            videoUrl,
+            videoDurationMinutes,
+        });
 
         try {
             const session = await this.sessionRepo.findById(sessionId);
             if (!session) {
                 this.logger.error('[VideoAnalysisService] Session not found', { sessionId });
-                throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
+                throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Session not found');
             }
 
             const vehicle = await this.vehicleRepo.findById(session.vehicleId, session.userId);
             if (!vehicle) {
                 this.logger.error('[VideoAnalysisService] Vehicle not found', { vehicleId: session.vehicleId });
-                throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
+                throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Vehicle not found');
             }
 
             await this.sessionRepo.addMessage(sessionId, 'user', [
-                { type: 'text', text: `[System] User uploaded a video for mechanical analysis: ${videoUrl}` }
+                { type: 'text', text: `[System] User uploaded a video for mechanical analysis: ${videoUrl}` },
             ]);
             this.logger.info('[VideoAnalysisService] Added user message for video', { sessionId });
 
@@ -60,7 +59,7 @@ export class VideoAnalysisService implements IVideoAnalysisService {
             const reasoningState = await this.mechanicReasoning.diagnose({
                 userId: session.userId,
                 sessionId: session.id,
-                userQuery: "Analyze this video for mechanical issues.",
+                userQuery: 'Analyze this video for mechanical issues.',
                 videoUrl: videoUri,
                 vehicleContext: vehicle.specs,
                 videoDurationMinutes: videoDurationMinutes,
@@ -74,9 +73,7 @@ export class VideoAnalysisService implements IVideoAnalysisService {
 **Reasoning:** ${finalVerdict.reasoningTrace}
 ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + finalVerdict.requiredActions.join('\n- ') : ''}`;
 
-            await this.sessionRepo.addMessage(sessionId, 'assistant', [
-                { type: 'text', text: summaryMessage }
-            ]);
+            await this.sessionRepo.addMessage(sessionId, 'assistant', [{ type: 'text', text: summaryMessage }]);
 
             if (finalVerdict.decision === 'STOP_DANGER') {
                 await this.sessionRepo.flagSafetyStop(sessionId, finalVerdict.userOutput);
@@ -88,9 +85,12 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
                 investigationPlan: reasoningState.intuition.investigationPlan,
                 visual_evidence: reasoningState.intuition.reasoning.split('; '),
                 acoustic_evidence: [],
-                severity: (finalVerdict.decision === 'STOP_DANGER' ? 'critical' :
-                    finalVerdict.decision === 'REQUEST_MORE_INFO' ? 'medium' :
-                        'low'),
+                severity:
+                    finalVerdict.decision === 'STOP_DANGER'
+                        ? 'critical'
+                        : finalVerdict.decision === 'REQUEST_MORE_INFO'
+                          ? 'medium'
+                          : 'low',
                 safety_alert: finalVerdict.decision === 'STOP_DANGER',
                 suggested_actions: finalVerdict.requiredActions,
                 engineDescription: reasoningState.visualGrounding.engineDescription,
@@ -101,13 +101,12 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
                 verification: {
                     isVerified: reasoningState.verification.isVerified,
                     verifiedSource: reasoningState.verification.verifiedSource,
-                    conflictingEvidence: reasoningState.verification.conflictingEvidence
-                }
+                    conflictingEvidence: reasoningState.verification.conflictingEvidence,
+                },
             };
 
             await this.sessionRepo.updateAnalysis(sessionId, analysisAdapter);
             this.logger.info('[VideoAnalysisService] Analysis saved', { sessionId });
-
         } catch (error) {
             this.logger.error('[VideoAnalysisService] Video processing failed', error, { sessionId });
             await this.sessionRepo.updateStatus(sessionId, 'active');
@@ -120,28 +119,28 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
         context: string,
         mimeType: string,
         userId: string,
-        sessionId: string
-        ): Promise<AIAnalysis> {
+        sessionId: string,
+    ): Promise<AIAnalysis> {
         this.logger.info('[VideoAnalysisService] analyzeVideo called', { sessionId, url });
 
         const session = await this.sessionRepo.findById(sessionId);
         if (!session) {
             this.logger.error('[VideoAnalysisService] Session not found', { sessionId });
-            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Session not found");
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Session not found');
         }
 
         const vehicle = await this.vehicleRepo.findById(session.vehicleId, session.userId);
         if (!vehicle) {
             this.logger.error('[VideoAnalysisService] Vehicle not found', { vehicleId: session.vehicleId });
-            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, "Vehicle not found");
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Vehicle not found');
         }
 
         const reasoningState = await this.mechanicReasoning.diagnose({
             userId,
             sessionId,
-            userQuery: context || "Analyze this video.",
+            userQuery: context || 'Analyze this video.',
             videoUrl: url,
-            vehicleContext: vehicle.specs
+            vehicleContext: vehicle.specs,
         });
 
         const finalVerdict = reasoningState.finalDiagnosis;
@@ -152,9 +151,12 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
             investigationPlan: reasoningState.intuition.investigationPlan,
             visual_evidence: reasoningState.intuition.reasoning.split('; '),
             acoustic_evidence: [],
-            severity: (finalVerdict.decision === 'STOP_DANGER' ? 'critical' :
-                finalVerdict.decision === 'REQUEST_MORE_INFO' ? 'medium' :
-                    'low'),
+            severity:
+                finalVerdict.decision === 'STOP_DANGER'
+                    ? 'critical'
+                    : finalVerdict.decision === 'REQUEST_MORE_INFO'
+                      ? 'medium'
+                      : 'low',
             safety_alert: finalVerdict.decision === 'STOP_DANGER',
             suggested_actions: finalVerdict.requiredActions,
             engineDescription: reasoningState.visualGrounding.engineDescription,
@@ -165,8 +167,8 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
             verification: {
                 isVerified: reasoningState.verification.isVerified,
                 verifiedSource: reasoningState.verification.verifiedSource,
-                conflictingEvidence: reasoningState.verification.conflictingEvidence
-            }
+                conflictingEvidence: reasoningState.verification.conflictingEvidence,
+            },
         };
     }
 }

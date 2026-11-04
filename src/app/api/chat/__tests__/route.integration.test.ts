@@ -6,22 +6,22 @@ import { StreamingEvent } from '@lemonade/core';
 
 // Mocks
 const mockSecurity = {
-    getAuthenticatedUser: vi.fn()
+    getAuthenticatedUser: vi.fn(),
 };
 const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 };
 const mockBillingService = {
-    recordUsage: vi.fn().mockResolvedValue(undefined)
+    recordUsage: vi.fn().mockResolvedValue(undefined),
 };
 const mockSessionService = {
-    getSessionContext: vi.fn()
+    getSessionContext: vi.fn(),
 };
 const mockChatService = {
-    handleChatInteractionStream: vi.fn()
+    handleChatInteractionStream: vi.fn(),
 };
 
 // Helper to create mock stream generator yielding NDJSON events
@@ -42,9 +42,9 @@ function createAuthenticatedRequest(body: object, headers: Record<string, string
             'x-trace-id': 'trace-123',
             'Content-Type': 'application/json',
             'x-session-id': 'session-123',
-            ...headers
+            ...headers,
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
     });
 }
 
@@ -76,7 +76,7 @@ describe('Chat API Route Integration', () => {
         mockSecurity.getAuthenticatedUser.mockResolvedValue({
             userId: 'user-123',
             tier: 'pro',
-            traceId: 'trace-123'
+            traceId: 'trace-123',
         });
     });
 
@@ -91,7 +91,7 @@ describe('Chat API Route Integration', () => {
 
             const req = new Request('http://localhost/api/chat', {
                 method: 'POST',
-                headers: { 'x-trace-id': 'test-trace' }
+                headers: { 'x-trace-id': 'test-trace' },
             });
 
             const res = await POST(req);
@@ -106,7 +106,7 @@ describe('Chat API Route Integration', () => {
             const req = new Request('http://localhost/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [{ role: 'user', content: 'hello' }] })
+                body: JSON.stringify({ messages: [{ role: 'user', content: 'hello' }] }),
             });
 
             const res = await POST(req);
@@ -119,7 +119,7 @@ describe('Chat API Route Integration', () => {
             mockChatService.handleChatInteractionStream.mockReturnValue(createMockStream(['response'])());
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'assistant', content: 'I am AI' }]
+                messages: [{ role: 'assistant', content: 'I am AI' }],
             });
 
             const res = await POST(req);
@@ -132,8 +132,8 @@ describe('Chat API Route Integration', () => {
             const req = createAuthenticatedRequest({
                 messages: [
                     { role: 'user', content: 'hello' },
-                    { role: 'assistant', content: 'hi there' }
-                ]
+                    { role: 'assistant', content: 'hi there' },
+                ],
             });
 
             const res = await POST(req);
@@ -145,24 +145,24 @@ describe('Chat API Route Integration', () => {
             mockChatService.handleChatInteractionStream.mockReturnValue(createMockStream(['response'])());
 
             const req = createAuthenticatedRequest({
-                messages: [{
-                    role: 'user',
-                    content: [
-                        { type: 'text', text: 'What is this?' },
-                        { type: 'image', image: 'data:image/jpeg;base64,...' }
-                    ]
-                }]
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: 'What is this?' },
+                            { type: 'image', image: 'data:image/jpeg;base64,...' },
+                        ],
+                    },
+                ],
             });
 
             const res = await POST(req);
             expect(res.status).toBe(200);
             expect(mockChatService.handleChatInteractionStream).toHaveBeenCalledWith(
                 'session-123',
-                expect.arrayContaining([
-                    expect.objectContaining({ type: 'text', text: 'What is this?' })
-                ]),
+                expect.arrayContaining([expect.objectContaining({ type: 'text', text: 'What is this?' })]),
                 undefined,
-                undefined
+                undefined,
             );
         });
 
@@ -170,7 +170,7 @@ describe('Chat API Route Integration', () => {
             mockChatService.handleChatInteractionStream.mockReturnValue(createMockStream(['response'])());
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'user', content: 'simple text message' }]
+                messages: [{ role: 'user', content: 'simple text message' }],
             });
 
             const res = await POST(req);
@@ -179,7 +179,7 @@ describe('Chat API Route Integration', () => {
                 'session-123',
                 'simple text message',
                 undefined,
-                undefined
+                undefined,
             );
         });
 
@@ -189,11 +189,11 @@ describe('Chat API Route Integration', () => {
             const req = new Request('http://localhost/api/chat', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    messages: [{ role: 'user', content: 'hello' }]
-                })
+                    messages: [{ role: 'user', content: 'hello' }],
+                }),
             });
 
             const res = await POST(req);
@@ -202,25 +202,25 @@ describe('Chat API Route Integration', () => {
                 '00000000-0000-0000-0000-000000000000',
                 'hello',
                 undefined,
-                undefined
+                undefined,
             );
         });
     });
 
     describe('Streaming Response', () => {
         it('should process a valid request', async () => {
-            mockChatService.handleChatInteractionStream.mockReturnValue(createMockStream(["AI Response Chunk"])());
+            mockChatService.handleChatInteractionStream.mockReturnValue(createMockStream(['AI Response Chunk'])());
 
             const req = new Request('http://localhost/api/chat', {
                 method: 'POST',
                 headers: {
                     'x-trace-id': 'trace-123',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     messages: [{ role: 'user', content: 'hello' }],
-                    vehicleContext: 'test car'
-                })
+                    vehicleContext: 'test car',
+                }),
             });
 
             const res = await POST(req);
@@ -235,7 +235,7 @@ describe('Chat API Route Integration', () => {
             mockChatService.handleChatInteractionStream.mockReturnValue(createMockStream(['chunk'])());
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'user', content: 'hello' }]
+                messages: [{ role: 'user', content: 'hello' }],
             });
 
             const res = await POST(req);
@@ -244,11 +244,11 @@ describe('Chat API Route Integration', () => {
 
         it('should stream multiple chunks correctly', async () => {
             mockChatService.handleChatInteractionStream.mockReturnValue(
-                createMockStream(['Hello', ' ', 'World', '!'])()
+                createMockStream(['Hello', ' ', 'World', '!'])(),
             );
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'user', content: 'hello' }]
+                messages: [{ role: 'user', content: 'hello' }],
             });
 
             const res = await POST(req);
@@ -261,11 +261,13 @@ describe('Chat API Route Integration', () => {
         });
 
         it('should handle empty stream response', async () => {
-            async function* emptyStream() { yield { type: 'done' }; } // Explicitly yield done
+            async function* emptyStream() {
+                yield { type: 'done' };
+            } // Explicitly yield done
             mockChatService.handleChatInteractionStream.mockReturnValue(emptyStream());
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'user', content: 'hello' }]
+                messages: [{ role: 'user', content: 'hello' }],
             });
 
             const res = await POST(req);
@@ -277,7 +279,7 @@ describe('Chat API Route Integration', () => {
             mockChatService.handleChatInteractionStream.mockReturnValue(createMockStream(['test'])());
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'user', content: 'hello' }]
+                messages: [{ role: 'user', content: 'hello' }],
             });
 
             const res = await POST(req);
@@ -293,12 +295,12 @@ describe('Chat API Route Integration', () => {
                 year: 2020,
                 make: 'Toyota',
                 model: 'Camry',
-                vin: '1234567890ABCDEFG'
+                vin: '1234567890ABCDEFG',
             };
 
             const req = createAuthenticatedRequest({
                 messages: [{ role: 'user', content: 'what is wrong with my car?' }],
-                vehicleContext
+                vehicleContext,
             });
 
             const res = await POST(req);
@@ -307,7 +309,7 @@ describe('Chat API Route Integration', () => {
                 'session-123',
                 'what is wrong with my car?',
                 vehicleContext,
-                undefined
+                undefined,
             );
         });
 
@@ -315,7 +317,7 @@ describe('Chat API Route Integration', () => {
             mockChatService.handleChatInteractionStream.mockReturnValue(createMockStream(['response'])());
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'user', content: 'hello' }]
+                messages: [{ role: 'user', content: 'hello' }],
             });
 
             const res = await POST(req);
@@ -324,7 +326,7 @@ describe('Chat API Route Integration', () => {
                 'session-123',
                 'hello',
                 undefined,
-                undefined
+                undefined,
             );
         });
 
@@ -334,12 +336,12 @@ describe('Chat API Route Integration', () => {
             const diagnosticContext = {
                 diagnosis: 'Engine noise detected',
                 confidence: 0.85,
-                investigationPlan: []
+                investigationPlan: [],
             };
 
             const req = createAuthenticatedRequest({
                 messages: [{ role: 'user', content: 'analyze this' }],
-                diagnosticContext
+                diagnosticContext,
             });
 
             const res = await POST(req);
@@ -348,7 +350,7 @@ describe('Chat API Route Integration', () => {
                 'session-123',
                 'analyze this',
                 undefined,
-                diagnosticContext
+                diagnosticContext,
             );
         });
     });
@@ -360,7 +362,7 @@ describe('Chat API Route Integration', () => {
             });
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'user', content: 'hello' }]
+                messages: [{ role: 'user', content: 'hello' }],
             });
 
             const res = await POST(req);
@@ -374,23 +376,20 @@ describe('Chat API Route Integration', () => {
             });
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'user', content: 'hello' }]
+                messages: [{ role: 'user', content: 'hello' }],
             });
 
             await POST(req);
-            expect(mockLogger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Chat Failed'),
-                expect.any(Error)
-            );
+            expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('Chat Failed'), expect.any(Error));
         });
 
         it('should handle malformed JSON body', async () => {
             const req = new Request('http://localhost/api/chat', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
-                body: 'not valid json'
+                body: 'not valid json',
             });
 
             const res = await POST(req);
@@ -403,7 +402,7 @@ describe('Chat API Route Integration', () => {
             });
 
             const req = createAuthenticatedRequest({
-                messages: [{ role: 'user', content: 'hello' }]
+                messages: [{ role: 'user', content: 'hello' }],
             });
 
             const res = await POST(req);

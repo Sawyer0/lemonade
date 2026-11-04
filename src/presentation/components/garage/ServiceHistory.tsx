@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,7 +20,7 @@ interface ServiceHistoryProps {
 const SwipeableKonstaItem = ({
     session,
     onDelete,
-    onClick
+    onClick,
 }: {
     session: DiagnosticSession;
     onDelete: (id: string) => void;
@@ -30,12 +30,17 @@ const SwipeableKonstaItem = ({
     let title = session.aiAnalysis?.diagnosis;
 
     if (!title) {
-        if (session.complaint && session.complaint !== "New Session") {
+        if (session.complaint && session.complaint !== 'New Session') {
             title = session.complaint;
         } else {
             title = session.updatedAt
-                ? new Date(session.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })
-                : "Untitled Diagnosis";
+                ? new Date(session.updatedAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: 'numeric',
+                  })
+                : 'Untitled Diagnosis';
         }
     }
 
@@ -140,13 +145,7 @@ export function ServiceHistory({ sessions, loading }: ServiceHistoryProps) {
     return (
         <Page className="!bg-black">
             {/* Official Konsta Navbar with Transparency */}
-            <Navbar
-                transparent
-                title="History"
-                left={
-                    <NavbarBackLink onClick={() => router.back()} text="" />
-                }
-            />
+            <Navbar transparent title="History" left={<NavbarBackLink onClick={() => router.back()} text="" />} />
 
             <div className="relative min-h-screen">
                 {isLoading && items.length === 0 ? (
@@ -160,7 +159,11 @@ export function ServiceHistory({ sessions, loading }: ServiceHistoryProps) {
                         <p className="text-zinc-500 text-sm">Start a new diagnosis to see it here.</p>
                     </div>
                 ) : (
-                    <List strong inset className={`!m-0 !bg-transparent ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <List
+                        strong
+                        inset
+                        className={`!m-0 !bg-transparent ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
+                    >
                         <AnimatePresence initial={false}>
                             {sortedItems.map((session) => (
                                 <SwipeableKonstaItem
@@ -174,7 +177,6 @@ export function ServiceHistory({ sessions, loading }: ServiceHistoryProps) {
                     </List>
                 )}
             </div>
-        </Page >
+        </Page>
     );
 }
-

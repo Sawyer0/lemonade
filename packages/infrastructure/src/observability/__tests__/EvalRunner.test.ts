@@ -15,10 +15,10 @@ vi.mock('@google-cloud/vertexai', () => {
                 update: vi.fn(),
                 delete: vi.fn(),
                 list: vi.fn(),
-            }
+            },
         };
     }
-    return { 
+    return {
         VertexAI,
         SchemaType: {
             OBJECT: 'OBJECT',

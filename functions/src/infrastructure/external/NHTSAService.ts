@@ -6,7 +6,7 @@ import { injectable, inject } from 'inversify';
 export class NHTSAService implements INHTSAService {
     private readonly BASE_URL = 'https://api.nhtsa.gov';
 
-    constructor(@inject(TYPES.Logger) private logger: ILogger) { }
+    constructor(@inject(TYPES.Logger) private logger: ILogger) {}
 
     async checkRecalls(year: number, make: string, model: string): Promise<SafetyRecall[]> {
         try {
@@ -64,7 +64,7 @@ export class NHTSAService implements INHTSAService {
 
             if (data.Results && Array.isArray(data.Results)) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const make = data.Results.find((r: any) => r.VariableId === 26 || r.Variable === "Make")?.Value;
+                const make = data.Results.find((r: any) => r.VariableId === 26 || r.Variable === 'Make')?.Value;
                 return !!make;
             }
             return false;

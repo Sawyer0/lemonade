@@ -10,10 +10,7 @@ export const MemoryTags = {
     /**
      * Creates a standard isolation set for a vehicle context.
      */
-    forVehicle: (userId: string, vin: string) => [
-        MemoryTags.user(userId),
-        MemoryTags.vin(vin)
-    ],
+    forVehicle: (userId: string, vin: string) => [MemoryTags.user(userId), MemoryTags.vin(vin)],
 
     /**
      * Parses a tag string back into its parts.
@@ -23,7 +20,7 @@ export const MemoryTags = {
         if (parts.length < 2) return null;
         return {
             key: parts[0],
-            value: parts.slice(1).join(':')
+            value: parts.slice(1).join(':'),
         };
-    }
+    },
 };

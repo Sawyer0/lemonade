@@ -15,9 +15,8 @@ export function SafetyOverlay({
     reason,
     onAcknowledge,
     verificationPending = false,
-    onCaptureFrame
+    onCaptureFrame,
 }: SafetyOverlayProps) {
-
     // State 1: Safety Verification Required (Yellow Zone)
     if (verificationPending) {
         return (
@@ -27,14 +26,9 @@ export function SafetyOverlay({
                 </View>
                 <Text style={styles.title}>SAFETY VERIFICATION REQUIRED</Text>
                 <Text style={[styles.text, styles.yellowText]}>
-                    Before you proceed, I need to verify your safety setup.
-                    Please point your camera at the jack stands.
+                    Before you proceed, I need to verify your safety setup. Please point your camera at the jack stands.
                 </Text>
-                <TouchableOpacity
-                    onPress={() => onCaptureFrame?.()}
-                    style={styles.button}
-                    disabled={!onCaptureFrame}
-                >
+                <TouchableOpacity onPress={() => onCaptureFrame?.()} style={styles.button} disabled={!onCaptureFrame}>
                     <Ionicons name="camera" size={20} color="#713F12" />
                     <Text style={[styles.buttonText, { color: '#713F12' }]}>SHOW JACK STANDS</Text>
                 </TouchableOpacity>
@@ -48,13 +42,8 @@ export function SafetyOverlay({
             <View style={[styles.container, styles.redBg]}>
                 <Text style={{ fontSize: 60, marginBottom: 20 }}>🛑</Text>
                 <Text style={styles.title}>SAFETY STOP TRIGGERED</Text>
-                <Text style={[styles.text, styles.redText]}>
-                    {reason || "Safety Violation Detected"}
-                </Text>
-                <TouchableOpacity
-                    onPress={onAcknowledge}
-                    style={styles.button}
-                >
+                <Text style={[styles.text, styles.redText]}>{reason || 'Safety Violation Detected'}</Text>
+                <TouchableOpacity onPress={onAcknowledge} style={styles.button}>
                     <Text style={[styles.buttonText, { color: '#7F1D1D' }]}>I ACKNOWLEDGE THE RISK</Text>
                 </TouchableOpacity>
             </View>
@@ -110,5 +99,5 @@ const styles = StyleSheet.create({
     buttonText: {
         fontWeight: 'bold',
         fontSize: 16,
-    }
+    },
 });

@@ -9,7 +9,7 @@ import { TYPES } from '../di/types';
 export class BillingFirestoreRepository implements IBillingRepository {
     private readonly COLLECTION = 'ai_usage_logs';
 
-    constructor(@inject(TYPES.Logger) private logger: ILogger) { }
+    constructor(@inject(TYPES.Logger) private logger: ILogger) {}
 
     async recordUsage(usage: AIUsageRecord, traceId?: string): Promise<void> {
         try {
@@ -17,7 +17,7 @@ export class BillingFirestoreRepository implements IBillingRepository {
             const dataWithTimestamp = {
                 ...data,
                 timestamp: data.timestamp || new Date(),
-                ...(traceId ? { traceId } : {})
+                ...(traceId ? { traceId } : {}),
             };
 
             if (traceId) {
@@ -29,17 +29,23 @@ export class BillingFirestoreRepository implements IBillingRepository {
             if (userId) {
                 const statsRef = adminDb.doc(`users/${userId}/usage/stats`);
 
-                await statsRef.set({
-                    totalInputTokens: FieldValue.increment(data.inputTokens),
-                    totalOutputTokens: FieldValue.increment(data.outputTokens),
-                    totalSearchQueries: FieldValue.increment(data.searchQueries || 0),
-                    lastUpdated: new Date()
-                }, { merge: true });
+                await statsRef.set(
+                    {
+                        totalInputTokens: FieldValue.increment(data.inputTokens),
+                        totalOutputTokens: FieldValue.increment(data.outputTokens),
+                        totalSearchQueries: FieldValue.increment(data.searchQueries || 0),
+                        lastUpdated: new Date(),
+                    },
+                    { merge: true },
+                );
             }
 
             this.logger.debug('AI usage recorded successfully', { usage: dataWithTimestamp, traceId });
         } catch (error) {
-            this.logger.error('Failed to record AI usage - Non-blocking (Billing Stats)', error as Error, { usage, traceId });
+            this.logger.error('Failed to record AI usage - Non-blocking (Billing Stats)', error as Error, {
+                usage,
+                traceId,
+            });
         }
     }
 }

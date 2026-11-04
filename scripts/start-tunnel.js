@@ -11,7 +11,7 @@ const localtunnel = require('localtunnel');
         });
 
         // Keep alive
-        setInterval(() => { }, 1000);
+        setInterval(() => {}, 1000);
     } catch (err) {
         console.error('Tunnel error:', err);
     }

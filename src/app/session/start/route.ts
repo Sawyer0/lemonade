@@ -22,13 +22,13 @@ export const GET = withContext(async (req: NextRequest) => {
         }
 
         const logger = container.get<ILogger>(TYPES.Logger);
-        
+
         // --- Security Check: Ownership ---
         const vehicleRepo = container.get<IVehicleRepository>(TYPES.VehicleRepo);
         const vehicle = await vehicleRepo.findById(vehicleId, userId);
-        
+
         if (!vehicle) {
-             return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
         }
 
         if (vehicle.userId !== userId) {
@@ -50,19 +50,16 @@ export const GET = withContext(async (req: NextRequest) => {
             logger.error('Failed to start session', error as Error);
         } catch (diError: unknown) {
             // Last resort: If the logging subsystem itself is down, use safe console output
-            console.error(JSON.stringify({
-                level: 'FATAL',
-                message: 'DI Container failed to resolve Logger during exception handling',
-                originalError: error instanceof Error ? error.message : String(error),
-                diError: diError instanceof Error ? diError.message : String(diError)
-            }));
+            console.error(
+                JSON.stringify({
+                    level: 'FATAL',
+                    message: 'DI Container failed to resolve Logger during exception handling',
+                    originalError: error instanceof Error ? error.message : String(error),
+                    diError: diError instanceof Error ? diError.message : String(diError),
+                }),
+            );
         }
 
-        return NextResponse.json(
-            { error: 'Internal Server Error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 });
-
-

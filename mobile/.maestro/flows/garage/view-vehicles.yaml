@@ -6,7 +6,7 @@ appId: com.dawan.lemonademvp
 
 # Verify garage screen
 - extendedWaitUntil:
-    visible: "My Garage"
+    visible: 'My Garage'
     timeout: 5000
 
 # Wait for vehicles to load
@@ -15,6 +15,6 @@ appId: com.dawan.lemonademvp
 
 # Verify we can see the welcome message and FAB
 - assertVisible:
-    id: "welcome-message"
+    id: 'welcome-message'
 - assertVisible:
-    id: "add-vehicle-fab"
+    id: 'add-vehicle-fab'

@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -24,34 +20,16 @@
     ],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-                "paths": {
-                  "@/*": [
-                    "./src/*"
-                  ],
-                  "@lemonade/core": [
-                    "./packages/core/src/index.ts"
-                  ],
-                  "@lemonade/core/*": [
-                    "./packages/core/src/*"
-                  ],
-                  "@infrastructure/*": [
-                    "./src/infrastructure/*"
-                  ],
-                  "@application/*": [
-                    "./src/application/*"
-                  ],
-                  "@presentation/*": [
-                    "./src/presentation/*"
-                  ]
-                }  },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-  ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@lemonade/core": ["./packages/core/src/index.ts"],
+      "@lemonade/core/*": ["./packages/core/src/*"],
+      "@infrastructure/*": ["./src/infrastructure/*"],
+      "@application/*": ["./src/application/*"],
+      "@presentation/*": ["./src/presentation/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts", "**/*.mts"],
   "exclude": [
     "node_modules",
     "functions",

@@ -22,11 +22,11 @@ import {
 import { useCameraVisionStream } from './useCameraVisionStream';
 
 // LiveKit Data Channel Topics
-const AI_RESPONSE_TOPIC = "ai_response";
-const TOOL_RESPONSE_TOPIC = "tool_response";
-const VISUAL_BURST_REQUEST = "capture_visual_burst";
-const VISUAL_BURST_RESPONSE = "visual_burst_response";
-const PROACTIVE_PING_TOPIC = "proactive_ping";
+const AI_RESPONSE_TOPIC = 'ai_response';
+const TOOL_RESPONSE_TOPIC = 'tool_response';
+const VISUAL_BURST_REQUEST = 'capture_visual_burst';
+const VISUAL_BURST_RESPONSE = 'visual_burst_response';
+const PROACTIVE_PING_TOPIC = 'proactive_ping';
 
 interface ToolCall {
     functionCall: {
@@ -52,7 +52,7 @@ const COMPLEX_SYSTEMS = ['hybrid', 'abs', 'transmission', 'ecu', 'airbag', 'high
 export function useGeminiSession(
     sessionId: string,
     vehicle: Vehicle | null,
-    onToolCall?: (toolCall: ToolCall['functionCall'], actions: { sendResponse: (res: unknown) => void }) => void
+    onToolCall?: (toolCall: ToolCall['functionCall'], actions: { sendResponse: (res: unknown) => void }) => void,
 ) {
     const logger = useRef(new MobileLogger()).current;
 
@@ -93,142 +93,158 @@ export function useGeminiSession(
     /**
      * Tool response sender
      */
-    const sendToolResponse = useCallback(async (response: unknown, toolCallId: string) => {
-        const currentRoom = livekitRoomRef.current;
-        const currentParticipant = currentRoom?.localParticipant;
+    const sendToolResponse = useCallback(
+        async (response: unknown, toolCallId: string) => {
+            const currentRoom = livekitRoomRef.current;
+            const currentParticipant = currentRoom?.localParticipant;
 
-        if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) {
-            logger.warn("Cannot send tool response: Not connected. Queuing.");
-            pendingToolResponses.current.push({ toolCallId, response });
-            return;
-        }
-        try {
-            const encoder = new TextEncoder();
-            const payload = encoder.encode(JSON.stringify({ toolCallId, response }));
-            await currentParticipant.publishData(payload, {
-                reliable: true,
-                topic: TOOL_RESPONSE_TOPIC
-            });
-            logger.info(`Tool response for ${toolCallId} sent.`);
-        } catch (e) {
-            logger.error("Failed to send tool response", e as Error);
-        }
-    }, [logger]);
+            if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) {
+                logger.warn('Cannot send tool response: Not connected. Queuing.');
+                pendingToolResponses.current.push({ toolCallId, response });
+                return;
+            }
+            try {
+                const encoder = new TextEncoder();
+                const payload = encoder.encode(JSON.stringify({ toolCallId, response }));
+                await currentParticipant.publishData(payload, {
+                    reliable: true,
+                    topic: TOOL_RESPONSE_TOPIC,
+                });
+                logger.info(`Tool response for ${toolCallId} sent.`);
+            } catch (e) {
+                logger.error('Failed to send tool response', e as Error);
+            }
+        },
+        [logger],
+    );
 
     /**
      * AI Response handler
      */
-    const handleAiResponseFromDataChannel = useCallback(async (responseData: AiResponseData) => {
-        if (responseData.type === 'audio' || responseData.type === 'vision' || responseData.type === 'chat') {
-            if (responseData.analysis?.diagnosis) {
-                const aiMsg = {
-                    role: 'assistant',
-                    content: responseData.analysis.diagnosis,
-                    timestamp: new Date()
-                };
-                await updateDoc(doc(db, 'sessions', sessionId), {
-                    messages: arrayUnion(aiMsg)
-                });
-                setAiResponses(prev => [...prev, responseData]);
+    const handleAiResponseFromDataChannel = useCallback(
+        async (responseData: AiResponseData) => {
+            if (responseData.type === 'audio' || responseData.type === 'vision' || responseData.type === 'chat') {
+                if (responseData.analysis?.diagnosis) {
+                    const aiMsg = {
+                        role: 'assistant',
+                        content: responseData.analysis.diagnosis,
+                        timestamp: new Date(),
+                    };
+                    await updateDoc(doc(db, 'sessions', sessionId), {
+                        messages: arrayUnion(aiMsg),
+                    });
+                    setAiResponses((prev) => [...prev, responseData]);
+                }
+                // Clear Ghost Card when analysis returns
+                setGhostCard(null);
+            } else if (responseData.type === 'tool_call' && responseData.toolCall) {
+                logger.info(`Received tool call: ${responseData.toolCall.name}`);
+                if (onToolCall) {
+                    const toolCallId = responseData.toolCall.id;
+                    onToolCall(
+                        { name: responseData.toolCall.name, args: responseData.toolCall.args },
+                        {
+                            sendResponse: (res: unknown) => sendToolResponse(res, toolCallId),
+                        },
+                    );
+                }
             }
-            // Clear Ghost Card when analysis returns
-            setGhostCard(null);
-        } else if (responseData.type === 'tool_call' && responseData.toolCall) {
-            logger.info(`Received tool call: ${responseData.toolCall.name}`);
-            if (onToolCall) {
-                const toolCallId = responseData.toolCall.id;
-                onToolCall(
-                    { name: responseData.toolCall.name, args: responseData.toolCall.args },
-                    {
-                        sendResponse: (res: unknown) => sendToolResponse(res, toolCallId)
-                    }
-                );
-            }
-        }
-        // AI responded, so it's done thinking
-        setAgentState('idle');
-    }, [sessionId, onToolCall, sendToolResponse, logger]);
+            // AI responded, so it's done thinking
+            setAgentState('idle');
+        },
+        [sessionId, onToolCall, sendToolResponse, logger],
+    );
 
     /**
      * Handoff logic
      */
-    const handoffToCloud = useCallback(async (reason: string, metadata?: Record<string, unknown>) => {
-        const currentRoom = livekitRoomRef.current;
-        const currentParticipant = currentRoom?.localParticipant;
+    const handoffToCloud = useCallback(
+        async (reason: string, metadata?: Record<string, unknown>) => {
+            const currentRoom = livekitRoomRef.current;
+            const currentParticipant = currentRoom?.localParticipant;
 
-        if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) return;
+            if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) return;
 
-        const peak = await getSemanticPeak();
-        if (!peak) return;
+            const peak = await getSemanticPeak();
+            if (!peak) return;
 
-        try {
-            const base64 = await FileSystem.readAsStringAsync(peak.path, {
-                encoding: FileSystem.EncodingType.Base64,
-            });
+            try {
+                const base64 = await FileSystem.readAsStringAsync(peak.path, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
 
-            const payload = new TextEncoder().encode(JSON.stringify({
-                frames: [base64],
-                metadata: {
-                    reason,
-                    localDetections: peak.detections,
-                    timestamp: Date.now(),
-                    sessionId,
-                    ...metadata
-                }
-            }));
+                const payload = new TextEncoder().encode(
+                    JSON.stringify({
+                        frames: [base64],
+                        metadata: {
+                            reason,
+                            localDetections: peak.detections,
+                            timestamp: Date.now(),
+                            sessionId,
+                            ...metadata,
+                        },
+                    }),
+                );
 
-            await currentParticipant.publishData(payload, {
-                reliable: true,
-                topic: VISUAL_BURST_RESPONSE
-            });
-            logger.info("Handoff packet synchronized.", { reason });
-        } catch (e) {
-            logger.error("Handoff failed", e as Error);
-        }
-    }, [getSemanticPeak, sessionId, logger]);
+                await currentParticipant.publishData(payload, {
+                    reliable: true,
+                    topic: VISUAL_BURST_RESPONSE,
+                });
+                logger.info('Handoff packet synchronized.', { reason });
+            } catch (e) {
+                logger.error('Handoff failed', e as Error);
+            }
+        },
+        [getSemanticPeak, sessionId, logger],
+    );
 
     const sendVisualBurst = useCallback(async () => {
         setAgentState('thinking');
-        await handoffToCloud("Agent Request (Visual Burst)");
+        await handoffToCloud('Agent Request (Visual Burst)');
     }, [handoffToCloud]);
 
     /**
      * Proactive Ping (Semantic Triage)
      */
-    const sendProactivePing = useCallback(async (detection: SemanticTriageResult) => {
-        const currentRoom = livekitRoomRef.current;
-        const currentParticipant = currentRoom?.localParticipant;
+    const sendProactivePing = useCallback(
+        async (detection: SemanticTriageResult) => {
+            const currentRoom = livekitRoomRef.current;
+            const currentParticipant = currentRoom?.localParticipant;
 
-        if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) return;
+            if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) return;
 
-        try {
-            // 1. UI/Audio Feedback (The "Ghost")
-            setGhostCard({ id: detection.id.obj, title: `Inspecting ${detection.id.obj}...` });
-            await triggerGhostFeedback();
+            try {
+                // 1. UI/Audio Feedback (The "Ghost")
+                setGhostCard({ id: detection.id.obj, title: `Inspecting ${detection.id.obj}...` });
+                await triggerGhostFeedback();
 
-            // 2. Notify Agent
-            const payload = new TextEncoder().encode(JSON.stringify({
-                type: "PROACTIVE_PING",
-                detection,
-                sessionId,
-                timestamp: Date.now()
-            }));
+                // 2. Notify Agent
+                const payload = new TextEncoder().encode(
+                    JSON.stringify({
+                        type: 'PROACTIVE_PING',
+                        detection,
+                        sessionId,
+                        timestamp: Date.now(),
+                    }),
+                );
 
-            await currentParticipant.publishData(payload, {
-                reliable: true,
-                topic: PROACTIVE_PING_TOPIC
-            });
+                await currentParticipant.publishData(payload, {
+                    reliable: true,
+                    topic: PROACTIVE_PING_TOPIC,
+                });
 
-            // 3. Auto-handoff the peak frame if it's critical
-            if (detection.eval.risk || detection.eval.stat === 'CRITICAL') {
-                await handoffToCloud(`Proactive Escalation: ${detection.eval.note}`, { detection });
+                // 3. Auto-handoff the peak frame if it's critical
+                if (detection.eval.risk || detection.eval.stat === 'CRITICAL') {
+                    await handoffToCloud(`Proactive Escalation: ${detection.eval.note}`, { detection });
+                }
+
+                logger.info('Proactive Ping sent', { part: detection.id.obj });
+            } catch (e) {
+                logger.error('Proactive Ping failed', e as Error);
             }
-
-            logger.info("Proactive Ping sent", { part: detection.id.obj });
-        } catch (e) {
-            logger.error("Proactive Ping failed", e as Error);
-        }
-    }, [sessionId, handoffToCloud, logger]);
+        },
+        [sessionId, handoffToCloud, logger],
+    );
 
     /**
      * Triage Monitoring Effect
@@ -242,8 +258,9 @@ export function useGeminiSession(
         // Avoid re-triggering for the same part in one session
         if (escalatedIds.current.has(partId)) return;
 
-        const isComplex = COMPLEX_SYSTEMS.some(sys => best.id.cat.toLowerCase().includes(sys));
-        const shouldEscalate = best.eval.risk || best.eval.stat === 'CRITICAL' || isComplex || best.eval.stat === 'UNCERTAIN';
+        const isComplex = COMPLEX_SYSTEMS.some((sys) => best.id.cat.toLowerCase().includes(sys));
+        const shouldEscalate =
+            best.eval.risk || best.eval.stat === 'CRITICAL' || isComplex || best.eval.stat === 'UNCERTAIN';
 
         if (shouldEscalate) {
             escalatedIds.current.add(partId);
@@ -254,40 +271,45 @@ export function useGeminiSession(
     /**
      * Send External Image (e.g. from Meta Glasses)
      */
-    const sendExternalImage = useCallback(async (uri: string) => {
-        const currentRoom = livekitRoomRef.current;
-        const currentParticipant = currentRoom?.localParticipant;
+    const sendExternalImage = useCallback(
+        async (uri: string) => {
+            const currentRoom = livekitRoomRef.current;
+            const currentParticipant = currentRoom?.localParticipant;
 
-        if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) {
-            logger.warn("Cannot send external image: Not connected.");
-            return;
-        }
+            if (!currentRoom || !currentParticipant || currentRoom.state !== ConnectionState.Connected) {
+                logger.warn('Cannot send external image: Not connected.');
+                return;
+            }
 
-        setAgentState('thinking');
-        try {
-            const base64 = await FileSystem.readAsStringAsync(uri, {
-                encoding: FileSystem.EncodingType.Base64,
-            });
+            setAgentState('thinking');
+            try {
+                const base64 = await FileSystem.readAsStringAsync(uri, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
 
-            const payload = new TextEncoder().encode(JSON.stringify({
-                frames: [base64],
-                metadata: {
-                    reason: "Meta Glasses Capture",
-                    timestamp: Date.now(),
-                    sessionId
-                }
-            }));
+                const payload = new TextEncoder().encode(
+                    JSON.stringify({
+                        frames: [base64],
+                        metadata: {
+                            reason: 'Meta Glasses Capture',
+                            timestamp: Date.now(),
+                            sessionId,
+                        },
+                    }),
+                );
 
-            await currentParticipant.publishData(payload, {
-                reliable: true,
-                topic: VISUAL_BURST_RESPONSE
-            });
-            logger.info("External image sent via Visual Burst.");
-        } catch (e) {
-            logger.error("Failed to send external image", e as Error);
-            setAgentState('idle');
-        }
-    }, [sessionId, logger]);
+                await currentParticipant.publishData(payload, {
+                    reliable: true,
+                    topic: VISUAL_BURST_RESPONSE,
+                });
+                logger.info('External image sent via Visual Burst.');
+            } catch (e) {
+                logger.error('Failed to send external image', e as Error);
+                setAgentState('idle');
+            }
+        },
+        [sessionId, logger],
+    );
 
     /**
      * Connector
@@ -310,16 +332,16 @@ export function useGeminiSession(
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
+                    Authorization: `Bearer ${idToken}`,
                 },
                 body: JSON.stringify({
                     roomName: sessionId,
                     participantName: auth.currentUser.uid,
-                    metadata: JSON.stringify({ vehicleContext: JSON.stringify(vehicle), userId: auth.currentUser.uid })
-                })
+                    metadata: JSON.stringify({ vehicleContext: JSON.stringify(vehicle), userId: auth.currentUser.uid }),
+                }),
             });
 
-            if (!response.ok) throw new Error("Failed to fetch token");
+            if (!response.ok) throw new Error('Failed to fetch token');
             const { token: livekitToken } = await response.json();
 
             const newRoom = new Room();
@@ -333,17 +355,22 @@ export function useGeminiSession(
                 try {
                     await newRoom.localParticipant.enableCameraAndMicrophone();
                 } catch (e) {
-                    logger.error("Failed to enable media", e as Error);
+                    logger.error('Failed to enable media', e as Error);
                 }
 
-                const onDataReceived = (payload: Uint8Array, participant?: RemoteParticipant, _kind?: DataPacket_Kind, topic?: string) => {
+                const onDataReceived = (
+                    payload: Uint8Array,
+                    participant?: RemoteParticipant,
+                    _kind?: DataPacket_Kind,
+                    topic?: string,
+                ) => {
                     if (participant?.identity === LIVEKIT_AGENT_CONFIG.AGENT_IDENTITY) {
                         if (topic === AI_RESPONSE_TOPIC) {
                             try {
                                 const data = JSON.parse(new TextDecoder().decode(payload));
                                 handleAiResponseFromDataChannel(data);
                             } catch (e) {
-                                logger.error("Parse error", e as Error);
+                                logger.error('Parse error', e as Error);
                             }
                         } else if (topic === VISUAL_BURST_REQUEST) {
                             sendVisualBurst();
@@ -354,7 +381,7 @@ export function useGeminiSession(
 
                 // --- Context Latch: Proactive Visual Burst on VAD ---
                 const onActiveSpeakersChanged = (speakers: Participant[]) => {
-                    const isUserSpeaking = speakers.some(s => s.identity === auth.currentUser?.uid);
+                    const isUserSpeaking = speakers.some((s) => s.identity === auth.currentUser?.uid);
 
                     if (isUserSpeaking) {
                         setAgentState('listening');
@@ -381,11 +408,22 @@ export function useGeminiSession(
 
             await newRoom.connect(livekitHost, livekitToken, { autoSubscribe: false });
         } catch (e) {
-            logger.error("Connection error", e as Error);
+            logger.error('Connection error', e as Error);
         } finally {
             setLoading(false);
         }
-    }, [sessionId, vehicle, cameraPermissionGranted, requestCameraPermission, logger, handleAiResponseFromDataChannel, sendVisualBurst, sendToolResponse, LIVEKIT_AGENT_CONFIG.AGENT_IDENTITY, room]);
+    }, [
+        sessionId,
+        vehicle,
+        cameraPermissionGranted,
+        requestCameraPermission,
+        logger,
+        handleAiResponseFromDataChannel,
+        sendVisualBurst,
+        sendToolResponse,
+        LIVEKIT_AGENT_CONFIG.AGENT_IDENTITY,
+        room,
+    ]);
 
     const disconnect = useCallback(() => {
         livekitRoomRef.current?.disconnect();

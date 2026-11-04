@@ -29,7 +29,7 @@ export class EnvConfigProvider implements IConfigProvider {
             storageBucket: process.env.GCLOUD_MEDIA_BUCKET || SHARED_CONFIG.GCLOUD.MEDIA_BUCKET,
             messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '',
             appId: process.env.FIREBASE_APP_ID || '',
-            serviceAccountKey: process.env.FIREBASE_SERVICE_ACCOUNT_KEY || ''
+            serviceAccountKey: process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '',
         };
     }
 
@@ -44,14 +44,14 @@ export class EnvConfigProvider implements IConfigProvider {
     getStripeConfig() {
         return {
             secretKey: process.env.STRIPE_SECRET_KEY || '',
-            webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || ''
+            webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
         };
     }
 
     getLangSmithConfig() {
         return {
             enabled: process.env.LANGCHAIN_TRACING_V2 === 'true',
-            project: process.env.LANGCHAIN_PROJECT || SHARED_CONFIG.OBSERVABILITY.LANGSMITH_PROJECT
+            project: process.env.LANGCHAIN_PROJECT || SHARED_CONFIG.OBSERVABILITY.LANGSMITH_PROJECT,
         };
     }
 
@@ -59,7 +59,7 @@ export class EnvConfigProvider implements IConfigProvider {
         return {
             projectId: process.env.GCLOUD_PROJECT || SHARED_CONFIG.GCLOUD.PROJECT_ID,
             location: process.env.GCLOUD_LOCATION || 'us-central1',
-            apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || ''
+            apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
         };
     }
 
@@ -70,7 +70,7 @@ export class EnvConfigProvider implements IConfigProvider {
     getSupermemoryConfig() {
         return {
             API_KEY: process.env.SUPERMEMORY_API_KEY || '',
-            SPACE_ID: process.env.SUPERMEMORY_SPACE_ID || ''
+            SPACE_ID: process.env.SUPERMEMORY_SPACE_ID || '',
         };
     }
 

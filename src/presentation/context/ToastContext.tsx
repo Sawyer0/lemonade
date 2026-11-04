@@ -51,12 +51,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                     <div
                         key={toast.id}
                         className={clsx(
-                            "px-4 py-2 rounded-lg shadow-lg text-white text-sm font-medium animate-in slide-in-from-bottom-2 pointer-events-auto transition-all",
+                            'px-4 py-2 rounded-lg shadow-lg text-white text-sm font-medium animate-in slide-in-from-bottom-2 pointer-events-auto transition-all',
                             {
                                 'bg-green-600': toast.type === 'success',
                                 'bg-red-600': toast.type === 'error',
                                 'bg-blue-600': toast.type === 'info',
-                            }
+                            },
                         )}
                     >
                         {toast.message}
@@ -74,4 +74,3 @@ export function useToast() {
     }
     return context;
 }
-

@@ -10,7 +10,7 @@ export class TestFactory {
             createdAt: new Date(),
             updatedAt: new Date(),
             preferences: { autoOpenCamera: false },
-            ...overrides
+            ...overrides,
         };
     }
 
@@ -24,11 +24,11 @@ export class TestFactory {
                 make: 'Toyota',
                 model: 'Camry',
                 engine: '2.5L 4-Cyl',
-                trim: 'SE'
+                trim: 'SE',
             },
             activeIssuesCount: 0,
             createdAt: new Date(),
-            ...overrides
+            ...overrides,
         };
     }
 
@@ -47,7 +47,7 @@ export class TestFactory {
             cumulativeAudioDurationProcessedMinutes: 0,
             startedAt: new Date(),
             updatedAt: new Date(),
-            ...overrides
+            ...overrides,
         };
     }
 }

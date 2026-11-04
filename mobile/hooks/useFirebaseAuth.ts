@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword, 
+import {
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
     signOut as firebaseSignOut,
     onAuthStateChanged,
     User,
     GoogleAuthProvider,
     signInWithCredential,
-    updateProfile
+    updateProfile,
 } from 'firebase/auth';
 import { auth } from '../infrastructure/firebase/config';
 import { useNativeAuth } from './useNativeAuth';
@@ -20,17 +20,20 @@ export function useFirebaseAuth() {
     const { signIn: signInWithGoogleNative, idToken } = useNativeAuth();
     const isMounted = useIsMounted();
 
-    const handleGoogleSignIn = useCallback(async (token: string) => {
-        try {
-            if (isMounted()) setLoading(true);
-            const credential = GoogleAuthProvider.credential(token);
-            await signInWithCredential(auth, credential);
-        } catch (err: unknown) {
-            if (isMounted()) setError(err instanceof Error ? err.message : 'Google sign-in failed');
-        } finally {
-            if (isMounted()) setLoading(false);
-        }
-    }, [isMounted]);
+    const handleGoogleSignIn = useCallback(
+        async (token: string) => {
+            try {
+                if (isMounted()) setLoading(true);
+                const credential = GoogleAuthProvider.credential(token);
+                await signInWithCredential(auth, credential);
+            } catch (err: unknown) {
+                if (isMounted()) setError(err instanceof Error ? err.message : 'Google sign-in failed');
+            } finally {
+                if (isMounted()) setLoading(false);
+            }
+        },
+        [isMounted],
+    );
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -95,6 +98,6 @@ export function useFirebaseAuth() {
         login,
         signup,
         signOut,
-        signInWithGoogle: signInWithGoogleNative
+        signInWithGoogle: signInWithGoogleNative,
     };
 }

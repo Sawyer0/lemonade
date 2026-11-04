@@ -10,20 +10,20 @@ The frontend will handle the camera activation and stream the video feed.`,
         properties: {
             reason: {
                 type: SchemaType.STRING,
-                description: 'The reason for opening the camera (e.g., "Inspect the valve cover for leaks")'
+                description: 'The reason for opening the camera (e.g., "Inspect the valve cover for leaks")',
             },
             targetComponent: {
                 type: SchemaType.STRING,
-                description: 'The specific part to focus on (e.g., "valve cover", "brake caliper", "engine bay")'
+                description: 'The specific part to focus on (e.g., "valve cover", "brake caliper", "engine bay")',
             },
             focusArea: {
                 type: SchemaType.STRING,
                 enum: ['engine_bay', 'undercarriage', 'interior', 'exterior', 'specific_component'],
-                description: 'The general area to focus the camera on'
-            }
+                description: 'The general area to focus the camera on',
+            },
         },
-        required: ['reason', 'focusArea']
-    }
+        required: ['reason', 'focusArea'],
+    },
 };
 
 export interface StartVideoRequest {

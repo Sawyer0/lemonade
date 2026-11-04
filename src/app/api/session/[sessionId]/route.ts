@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@lemonade/infrastructure';
 import type { ISessionRepository } from '@lemonade/core';
-import {
-    AppError,
-    ErrorCode,
-    DiagnosticSessionSchema
-} from '@lemonade/core';
+import { AppError, ErrorCode, DiagnosticSessionSchema } from '@lemonade/core';
 import { createErrorResponse } from '@/application/utils/validateRequest';
 import { withContext } from '@/application/utils/apiHandler';
 import { container } from '@/infrastructure/di/container';
@@ -21,7 +17,7 @@ type SessionRouteContext = {
 
 export const GET = withContext(async (req: NextRequest, context: unknown) => {
     const { params } = context as SessionRouteContext;
-    
+
     try {
         const authHeader = req.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
@@ -50,7 +46,6 @@ export const GET = withContext(async (req: NextRequest, context: unknown) => {
         const validatedSession = DiagnosticSessionSchema.parse(session);
 
         return NextResponse.json({ data: validatedSession } satisfies SessionDetailsResponseDTO);
-
     } catch (error) {
         return createErrorResponse(error);
     }

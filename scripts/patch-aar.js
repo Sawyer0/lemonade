@@ -19,7 +19,7 @@ try {
     const aarZip = new AdmZip(inputPath);
     const aarEntries = aarZip.getEntries();
 
-    const classesJarEntry = aarEntries.find(entry => entry.entryName === 'classes.jar');
+    const classesJarEntry = aarEntries.find((entry) => entry.entryName === 'classes.jar');
 
     if (!classesJarEntry) {
         console.error('Error: classes.jar not found in AAR');
@@ -36,7 +36,7 @@ try {
     // Create new JAR content
     const newJarZip = new AdmZip();
 
-    jarEntries.forEach(entry => {
+    jarEntries.forEach((entry) => {
         if (entry.entryName.startsWith('com/facebook/jni/')) {
             console.log(`Removing ${entry.entryName}`);
             deletedCount++;
@@ -59,7 +59,6 @@ try {
     console.log(`Writing ${OUTPUT_AAR}...`);
     aarZip.writeZip(outputPath);
     console.log('Success! Patched AAR created.');
-
 } catch (err) {
     console.error('Error processing AAR:', err);
     process.exit(1);

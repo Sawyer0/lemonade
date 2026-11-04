@@ -13,7 +13,7 @@ describe('SupermemoryService', () => {
             debug: vi.fn(),
             info: vi.fn(),
             warn: vi.fn(),
-            error: vi.fn()
+            error: vi.fn(),
         } as unknown as ILogger;
 
         mockConfig = {
@@ -22,12 +22,12 @@ describe('SupermemoryService', () => {
             getGeminiModel: vi.fn(),
             getSupermemoryConfig: vi.fn().mockReturnValue({
                 API_KEY: 'test-key',
-                SPACE_ID: 'test-space'
-            })
+                SPACE_ID: 'test-space',
+            }),
         } as unknown as IConfigProvider;
 
         service = new SupermemoryService(mockLogger, mockConfig);
-        
+
         // Mock global fetch
         global.fetch = vi.fn();
     });
@@ -35,7 +35,7 @@ describe('SupermemoryService', () => {
     it('should call Supermemory API to add a document', async () => {
         vi.mocked(fetch).mockResolvedValue({
             ok: true,
-            json: async () => ({ status: 'success' })
+            json: async () => ({ status: 'success' }),
         } as unknown as Response);
 
         await service.addDocument({ content: 'test content', tags: ['tag1'] }, 'custom-space');
@@ -45,37 +45,39 @@ describe('SupermemoryService', () => {
             expect.objectContaining({
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Bearer test-key',
+                    Authorization: 'Bearer test-key',
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     content: 'test content',
                     tags: ['tag1'],
-                    spaceId: 'custom-space'
-                })
-            })
+                    spaceId: 'custom-space',
+                }),
+            }),
         );
     });
 
     it('should call Supermemory API to search using v4', async () => {
         const mockResponse = {
-            results: [
-                { content: 'result 1', metadata: {}, score: 0.9 }
-            ]
+            results: [{ content: 'result 1', metadata: {}, score: 0.9 }],
         };
         vi.mocked(fetch).mockResolvedValue({
             ok: true,
-            json: async () => mockResponse
+            json: async () => mockResponse,
         } as unknown as Response);
 
-        const results = await service.search('test query', { spaceId: 'test-space', includeForgotten: true, tags: ['tag1'] });
+        const results = await service.search('test query', {
+            spaceId: 'test-space',
+            includeForgotten: true,
+            tags: ['tag1'],
+        });
 
         expect(global.fetch).toHaveBeenCalledWith(
             expect.stringContaining('api.supermemory.ai/v4/search'),
             expect.objectContaining({
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Bearer test-key',
+                    Authorization: 'Bearer test-key',
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -83,12 +85,12 @@ describe('SupermemoryService', () => {
                     spaceId: 'test-space',
                     top_k: 3,
                     include: {
-                        forgottenMemories: true
+                        forgottenMemories: true,
                     },
                     filters: [],
-                    tags: ['tag1']
-                })
-            })
+                    tags: ['tag1'],
+                }),
+            }),
         );
         expect(results).toEqual(mockResponse.results);
     });
@@ -98,7 +100,7 @@ describe('SupermemoryService', () => {
             ok: false,
             status: 401,
             statusText: 'Unauthorized',
-            text: async () => 'Unauthorized access'
+            text: async () => 'Unauthorized access',
         } as unknown as Response);
 
         await expect(service.addDocument({ content: 'test' })).rejects.toThrow('Supermemory API error: Unauthorized');

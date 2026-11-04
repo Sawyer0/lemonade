@@ -8,7 +8,7 @@ import { db } from '@/infrastructure/firebase/config';
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const { session, loading: sessionLoading } = useLiveSession(id, db);
-    const { } = useToast();
+    const {} = useToast();
     const { user, loading: authLoading } = useAuth();
     const [token, setToken] = useState<string | null>(null);
 
@@ -45,10 +45,5 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         );
     }
 
-    return (
-        <SessionWorkspace
-            session={session}
-            token={token}
-        />
-    );
+    return <SessionWorkspace session={session} token={token} />;
 }

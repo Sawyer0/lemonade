@@ -3,14 +3,14 @@ import { GoogleAuth } from 'google-auth-library';
 import { CONFIG } from '@/infrastructure/config';
 import { container } from '@/infrastructure/di/container';
 import { withContext } from '@/application/utils/apiHandler';
-import type { ISessionRepository, IVehicleRepository, INHTSAService, ILogger, IEdgeSecurityService } from '@lemonade/core';
-import {
-    DiagnosticSession,
-    AppError,
-    ErrorCode,
-    SystemPrompts,
-    SafetyPrompts
+import type {
+    ISessionRepository,
+    IVehicleRepository,
+    INHTSAService,
+    ILogger,
+    IEdgeSecurityService,
 } from '@lemonade/core';
+import { DiagnosticSession, AppError, ErrorCode, SystemPrompts, SafetyPrompts } from '@lemonade/core';
 import { TYPES } from '@/infrastructure/di/types';
 
 /**
@@ -29,7 +29,9 @@ export const GET = withContext(async (req: NextRequest) => {
         }
 
         if (authenticatedUser.tier !== 'pro') {
-            logger.warn(`Access Denied: Pro tier required for Live Mechanic session.`, { tier: authenticatedUser.tier });
+            logger.warn(`Access Denied: Pro tier required for Live Mechanic session.`, {
+                tier: authenticatedUser.tier,
+            });
             return NextResponse.json({ error: 'Upgrade Required', code: 'PRO_REQUIRED' }, { status: 403 });
         }
 
@@ -40,7 +42,7 @@ export const GET = withContext(async (req: NextRequest) => {
         const url = new URL(req.url);
         const sessionId = url.searchParams.get('sessionId');
 
-        let systemInstruction = "";
+        let systemInstruction = '';
 
         if (sessionId) {
             const sessionRepo = container.get<ISessionRepository>(TYPES.SessionRepo);
@@ -58,12 +60,12 @@ export const GET = withContext(async (req: NextRequest) => {
                 const recalls = await nhtsaService.checkRecalls(
                     vehicle.specs.year,
                     vehicle.specs.make,
-                    vehicle.specs.model
+                    vehicle.specs.model,
                 );
 
-                let recallSummary = "No active recalls found.";
+                let recallSummary = 'No active recalls found.';
                 if (recalls.length > 0) {
-                    recallSummary = recalls.map(r => `- Component: ${r.Component}, Summary: ${r.Summary}`).join('\n');
+                    recallSummary = recalls.map((r) => `- Component: ${r.Component}, Summary: ${r.Summary}`).join('\n');
                 }
 
                 // Construct the Contextual Prompt (The "Brain")
@@ -79,7 +81,10 @@ Vehicle: ${vehicleStr}
 VIN: ${vehicle.vin}
 Active Recalls:
 ${recallSummary}
-History Summary: ${session.messages.slice(-3).map(m => (typeof m.content === 'string' ? m.content : 'multimodal content')).join(' | ')}
+History Summary: ${session.messages
+                    .slice(-3)
+                    .map((m) => (typeof m.content === 'string' ? m.content : 'multimodal content'))
+                    .join(' | ')}
 
 ${SafetyPrompts.masterTechInstruction()}
 `;
@@ -95,7 +100,7 @@ ${SafetyPrompts.masterTechInstruction()}
             scopes: ['https://www.googleapis.com/auth/cloud-platform'],
             projectId: CONFIG.GCLOUD.PROJECT_ID,
             // Uses GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_KEY if set in env
-            credentials: CONFIG.FIREBASE.SERVICE_ACCOUNT
+            credentials: CONFIG.FIREBASE.SERVICE_ACCOUNT,
         });
 
         const client = await auth.getClient();
@@ -111,16 +116,11 @@ ${SafetyPrompts.masterTechInstruction()}
             expiresAt: accessToken.res?.data?.expiry_date,
             projectId: CONFIG.GCLOUD.PROJECT_ID,
             location: 'us-central1',
-            systemInstruction // The Backend-generated Brain
+            systemInstruction, // The Backend-generated Brain
         });
-
-
     } catch (error) {
         const logger = container.get<ILogger>(TYPES.Logger);
         logger.error('Token Generation Failed', error as Error);
-        return NextResponse.json(
-            { error: 'Failed to generate token' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 });
     }
 });

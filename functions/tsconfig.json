@@ -1,31 +1,23 @@
 {
-    "compilerOptions": {
-        "module": "commonjs",
-        "noImplicitReturns": true,
-        "noUnusedLocals": true,
-        "outDir": "lib",
-        "sourceMap": true,
-        "strict": true,
-        "target": "es2017",
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "baseUrl": ".",
-        "paths": {
-            "@core/*": [
-                "../src/core/*"
-            ],
-            "@infrastructure/*": [
-                "../src/infrastructure/*"
-            ],
-            "@application/*": [
-                "../src/application/*"
-            ]
-        },
-        "experimentalDecorators": true,
-        "emitDecoratorMetadata": true
+  "compilerOptions": {
+    "module": "commonjs",
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "outDir": "lib",
+    "sourceMap": true,
+    "strict": true,
+    "target": "es2017",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["../src/core/*"],
+      "@infrastructure/*": ["../src/infrastructure/*"],
+      "@application/*": ["../src/application/*"]
     },
-    "compileOnSave": true,
-    "include": [
-        "src"
-    ]
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "compileOnSave": true,
+  "include": ["src"]
 }

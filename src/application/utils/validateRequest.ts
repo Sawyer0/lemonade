@@ -5,10 +5,7 @@ import { AppError, ErrorCode } from '@lemonade/core';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 
-export async function validateRequest<T>(
-    request: Request,
-    schema: ZodSchema<T>
-): Promise<T> {
+export async function validateRequest<T>(request: Request, schema: ZodSchema<T>): Promise<T> {
     try {
         const body = await request.json();
         return schema.parse(body);
@@ -16,18 +13,15 @@ export async function validateRequest<T>(
         if (error instanceof z.ZodError) {
             throw new AppError(
                 ErrorCode.INVALID_INPUT,
-                `Validation failed: ${error.issues.map(i => i.message).join(', ')}`,
-                400
+                `Validation failed: ${error.issues.map((i) => i.message).join(', ')}`,
+                400,
             );
         }
         throw error;
     }
 }
 
-export function validateQueryParams<T>(
-    request: Request,
-    schema: ZodSchema<T>
-): T {
+export function validateQueryParams<T>(request: Request, schema: ZodSchema<T>): T {
     try {
         const { searchParams } = new URL(request.url);
         const params: Record<string, string | string[]> = {};
@@ -44,33 +38,30 @@ export function validateQueryParams<T>(
         if (error instanceof z.ZodError) {
             throw new AppError(
                 ErrorCode.INVALID_INPUT,
-                `Query validation failed: ${error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ')}`,
-                400
+                `Query validation failed: ${error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`,
+                400,
             );
         }
         throw error;
     }
 }
 
-export function validateResponse<T>(
-    data: unknown,
-    schema: ZodSchema<T>
-): T {
+export function validateResponse<T>(data: unknown, schema: ZodSchema<T>): T {
     try {
         return schema.parse(data);
     } catch (error) {
         const logger = container.get<ILogger>(TYPES.Logger);
 
         if (error instanceof z.ZodError) {
-            const message = `Response validation failed: ${error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`;
+            const message = `Response validation failed: ${error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`;
             logger.error(message, error, {
                 dataType: typeof data,
-                failedPaths: error.issues.map(i => i.path.join('.'))
+                failedPaths: error.issues.map((i) => i.path.join('.')),
             });
             throw new AppError(
                 ErrorCode.INTERNAL_SERVER_ERROR,
                 'Failed to serialize response. Check server logs.',
-                500
+                500,
             );
         }
         throw error;
@@ -83,11 +74,8 @@ export function createErrorResponse(error: unknown): NextResponse {
 
     logger.error(appError.message, error, {
         code: appError.code,
-        statusCode: appError.statusCode
+        statusCode: appError.statusCode,
     });
 
-    return NextResponse.json(
-        { error: appError.message, code: appError.code },
-        { status: appError.statusCode }
-    );
+    return NextResponse.json({ error: appError.message, code: appError.code }, { status: appError.statusCode });
 }

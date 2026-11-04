@@ -7,7 +7,7 @@ import { TYPES } from '../di/types';
 export class NHTSAService implements INHTSAService {
     private readonly BASE_URL = 'https://api.nhtsa.gov';
 
-    constructor(@inject(TYPES.Logger) private logger: ILogger) { }
+    constructor(@inject(TYPES.Logger) private logger: ILogger) {}
 
     async checkRecalls(year: number, make: string, model: string): Promise<SafetyRecall[]> {
         this.logger.info(`[NHTSAService] Checking recalls for ${year} ${make} ${model}`);
@@ -62,7 +62,7 @@ export class NHTSAService implements INHTSAService {
             if (!response.ok) return false;
 
             const data = await response.json();
-            return !!(data.Results && data.Results.length > 0 && data.Results[0].ErrorCode === "0");
+            return !!(data.Results && data.Results.length > 0 && data.Results[0].ErrorCode === '0');
         } catch (error) {
             this.logger.error('[NHTSAService] VIN check failed', error);
             return false;

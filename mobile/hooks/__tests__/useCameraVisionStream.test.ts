@@ -19,7 +19,7 @@ describe('useCameraVisionStream', () => {
             },
         });
         mockUseResizePlugin.mockReturnValue({
-            resize: jest.fn()
+            resize: jest.fn(),
         });
     });
 

@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@lemonade/infrastructure';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
-import {
-    IMultimodalUploadAnalyzer,
-    ILiveStreamAnalyzer,
-    AppError,
-    ErrorCode,
-    ILogger
-} from '@lemonade/core';
+import { IMultimodalUploadAnalyzer, ILiveStreamAnalyzer, AppError, ErrorCode, ILogger } from '@lemonade/core';
 import { verifyApiKey } from '@/app/api/utils/auth';
 import { createErrorResponse } from '@/application/utils/validateRequest';
 import { withContext } from '@/application/utils/apiHandler';
@@ -37,7 +31,10 @@ export const POST = withContext(async (request: NextRequest) => {
         const { content, modelType } = body;
 
         if (!content || !modelType) {
-            throw new AppError(ErrorCode.MISSING_REQUIRED_PARAMETERS, "Missing 'content' or 'modelType' for token counting.");
+            throw new AppError(
+                ErrorCode.MISSING_REQUIRED_PARAMETERS,
+                "Missing 'content' or 'modelType' for token counting.",
+            );
         }
 
         let tokenCount: number = 0;
@@ -58,4 +55,3 @@ export const POST = withContext(async (request: NextRequest) => {
         return createErrorResponse(error);
     }
 });
-

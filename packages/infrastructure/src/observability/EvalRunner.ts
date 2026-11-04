@@ -13,7 +13,7 @@ export class EvalRunner {
     constructor(
         @inject(TYPES.ConfigProvider) private config: IConfigProvider,
         @inject(TYPES.MechanicReasoningService) private mechanicReasoning: IMechanicReasoningService,
-        @inject(TYPES.Logger) private logger: ILogger
+        @inject(TYPES.Logger) private logger: ILogger,
     ) {
         this.client = new Client();
         this.reasoningEvaluator = new ReasoningEvaluator(config);
@@ -21,7 +21,7 @@ export class EvalRunner {
 
     async runSuite(datasetName: string): Promise<EvalResult[]> {
         this.logger.info(`Starting evaluation suite: ${datasetName}`);
-        
+
         try {
             const examples = this.client.listExamples({ datasetName });
             const results: EvalResult[] = [];
@@ -29,11 +29,11 @@ export class EvalRunner {
             for await (const example of examples) {
                 const metadata = (example as unknown as { metadata: Record<string, unknown> }).metadata || {};
                 const scenario = {
-                    id: metadata.id as string || example.id,
-                    name: metadata.name as string || 'Unnamed Scenario',
+                    id: (metadata.id as string) || example.id,
+                    name: (metadata.name as string) || 'Unnamed Scenario',
                     input: example.inputs,
                     ground_truth: example.outputs,
-                    expected_behavior: metadata.expected_behavior as string
+                    expected_behavior: metadata.expected_behavior as string,
                 } as unknown as EvalScenario;
 
                 this.logger.info(`Running scenario: ${scenario.name}`);

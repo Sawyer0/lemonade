@@ -62,11 +62,7 @@ export function InputBar({ onSend, onMediaSelect, loading }: InputBarProps) {
                 onPress={handleSend}
                 disabled={!text.trim() || loading}
             >
-                {loading ? (
-                    <ActivityIndicator color="white" size="small" />
-                ) : (
-                    <Send size={20} color="white" />
-                )}
+                {loading ? <ActivityIndicator color="white" size="small" /> : <Send size={20} color="white" />}
             </TouchableOpacity>
         </View>
     );
@@ -113,5 +109,5 @@ const styles = StyleSheet.create({
     disabled: {
         backgroundColor: Theme.border,
         opacity: 0.5,
-    }
+    },
 });

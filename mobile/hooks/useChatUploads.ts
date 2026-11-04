@@ -26,7 +26,7 @@ export function useChatUploads(sessionId: string) {
             // 1. Prepare File
             const response = await fetch(uri);
             const blob = await response.blob();
-            
+
             // 2. Generate Path
             const ext = type === 'image' ? 'jpg' : 'mp4';
             const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
@@ -48,7 +48,7 @@ export function useChatUploads(sessionId: string) {
                         setProgress(p);
                     },
                     (error) => {
-                        console.error("Upload failed:", error);
+                        console.error('Upload failed:', error);
                         setError(error.message);
                         setUploading(false);
                         reject(error);
@@ -64,8 +64,8 @@ export function useChatUploads(sessionId: string) {
                                 metadata: {
                                     contentType: blob.type,
                                     size: blob.size,
-                                    path: storagePath
-                                }
+                                    path: storagePath,
+                                },
                             });
                         } catch (e: unknown) {
                             const errorMsg = e instanceof Error ? e.message : 'Unknown download URL error';
@@ -73,11 +73,11 @@ export function useChatUploads(sessionId: string) {
                             setUploading(false);
                             reject(e);
                         }
-                    }
+                    },
                 );
             });
         } catch (err: unknown) {
-            console.error("File preparation failed:", err);
+            console.error('File preparation failed:', err);
             const errorMsg = err instanceof Error ? err.message : 'Unknown upload preparation error';
             setError(errorMsg);
             setUploading(false);

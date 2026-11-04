@@ -7,19 +7,19 @@ import { Vehicle } from '@lemonade/core';
 
 // Mocks
 const mockSecurity = {
-    getAuthenticatedUser: vi.fn()
+    getAuthenticatedUser: vi.fn(),
 };
 const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 };
 const mockVehicleRepo = {
     findByUser: vi.fn(),
     findById: vi.fn(),
     create: vi.fn(),
-    update: vi.fn()
+    update: vi.fn(),
 };
 
 // Helper to create request with query params
@@ -31,8 +31,8 @@ function createRequest(queryParams: Record<string, string> = {}) {
     return new Request(url.toString(), {
         method: 'GET',
         headers: {
-            'Content-Type': 'application/json'
-        }
+            'Content-Type': 'application/json',
+        },
     });
 }
 
@@ -40,15 +40,15 @@ function createRequest(queryParams: Record<string, string> = {}) {
 const sampleVehicle: Vehicle = {
     id: '123e4567-e89b-12d3-a456-426614174000',
     userId: 'user-123',
-    vin: '1HGBH41JXMN109186',  // 17 chars
+    vin: '1HGBH41JXMN109186', // 17 chars
     specs: {
         year: 2020,
         make: 'Honda',
         model: 'Accord',
-        engine: '2.0L Turbo'
+        engine: '2.0L Turbo',
     },
     activeIssuesCount: 0,
-    createdAt: new Date('2024-01-01')
+    createdAt: new Date('2024-01-01'),
 };
 
 describe('GET /api/vehicles', () => {
@@ -70,7 +70,7 @@ describe('GET /api/vehicles', () => {
         mockSecurity.getAuthenticatedUser.mockResolvedValue({
             userId: 'user-123',
             tier: 'free',
-            traceId: 'trace-123'
+            traceId: 'trace-123',
         });
     });
 
@@ -95,7 +95,7 @@ describe('GET /api/vehicles', () => {
             mockSecurity.getAuthenticatedUser.mockResolvedValue({
                 userId: 'different-user',
                 tier: 'free',
-                traceId: 'trace-123'
+                traceId: 'trace-123',
             });
 
             const req = createRequest({ userId: 'user-123' });
@@ -153,8 +153,8 @@ describe('GET /api/vehicles', () => {
                 {
                     ...sampleVehicle,
                     id: '123e4567-e89b-12d3-a456-426614174001',
-                    specs: { ...sampleVehicle.specs, model: 'Civic' }
-                }
+                    specs: { ...sampleVehicle.specs, model: 'Civic' },
+                },
             ];
             mockVehicleRepo.findByUser.mockResolvedValue(vehicles);
 

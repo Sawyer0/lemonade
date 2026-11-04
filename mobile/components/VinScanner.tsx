@@ -20,7 +20,7 @@ export function VinScanner({ onScan, onClose }: VinScannerProps) {
         // Basic validation: 17 chars
         const raw = result.data;
         if (raw && raw.length >= 17) {
-            // Simple heuristic to clear non-alphanumeric if needed, 
+            // Simple heuristic to clear non-alphanumeric if needed,
             // but usually raw barcode is clean.
             // Take the last 17 characters if longer (sometimes prefixed)
             const vin = raw.substring(raw.length - 17);
@@ -37,7 +37,7 @@ export function VinScanner({ onScan, onClose }: VinScannerProps) {
                 facing="back"
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                 barcodeScannerSettings={{
-                    barcodeTypes: ["qr", "code39", "code128", "datamatrix"],
+                    barcodeTypes: ['qr', 'code39', 'code128', 'datamatrix'],
                 }}
             />
 
@@ -106,5 +106,5 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.8)',
         marginTop: 20,
         fontSize: 16,
-    }
+    },
 });

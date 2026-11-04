@@ -1,6 +1,14 @@
 import { injectable } from 'inversify';
 import type { User } from 'firebase/auth';
-import { onAuthStateChanged, GoogleAuthProvider, signInWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, signInWithPopup } from 'firebase/auth';
+import {
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    signInWithCredential,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    updateProfile,
+    signInWithPopup,
+} from 'firebase/auth';
 import { auth } from '@/infrastructure/firebase/config';
 import { IAuthService } from '@lemonade/core';
 
@@ -38,7 +46,7 @@ export class AuthService implements IAuthService {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         if (userCredential.user) {
             await updateProfile(userCredential.user, {
-                displayName: username
+                displayName: username,
             });
         }
     }
@@ -60,4 +68,3 @@ export class AuthService implements IAuthService {
         return this.currentUser?.getIdToken();
     }
 }
-

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { DetectionHUD } from '../DetectionHUD';
@@ -28,8 +27,8 @@ describe('DetectionHUD', () => {
             eval: { stat: 'CRITICAL', risk: true, note: 'Severe rust' },
             confidence: 0.9,
             timestamp: Date.now(),
-            steadyStrikeCount: 1
-        }
+            steadyStrikeCount: 1,
+        },
     ];
 
     it('should render nothing when no detections', () => {

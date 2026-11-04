@@ -55,7 +55,7 @@ export class AppError extends Error {
 
         // Handle Zod validation errors
         if (error instanceof ZodError) {
-            const messages = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+            const messages = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
             return new AppError(ErrorCode.VALIDATION_ERROR, messages);
         }
 

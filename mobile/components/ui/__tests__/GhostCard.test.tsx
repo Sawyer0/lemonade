@@ -21,7 +21,7 @@ jest.mock('react-native-reanimated', () => {
 
 // Mock GlassCard
 jest.mock('../GlassCard.native', () => ({
-    GlassCard: ({ children }: { children: React.ReactNode }) => <>{children}</>
+    GlassCard: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 describe('GhostCard', () => {
@@ -55,9 +55,7 @@ describe('GhostCard', () => {
 
         it('renders with very long subtitle', () => {
             const longSubtitle = 'B'.repeat(500);
-            const { getByText } = render(
-                <GhostCard title="Title" subtitle={longSubtitle} />
-            );
+            const { getByText } = render(<GhostCard title="Title" subtitle={longSubtitle} />);
             expect(getByText(longSubtitle)).toBeTruthy();
         });
 
@@ -69,9 +67,7 @@ describe('GhostCard', () => {
 
         it('renders with special characters in subtitle', () => {
             const specialSubtitle = 'émojis 🚗 && "special" <chars>';
-            const { getByText } = render(
-                <GhostCard title="Title" subtitle={specialSubtitle} />
-            );
+            const { getByText } = render(<GhostCard title="Title" subtitle={specialSubtitle} />);
             expect(getByText(specialSubtitle)).toBeTruthy();
         });
 
@@ -148,9 +144,7 @@ describe('GhostCard', () => {
 
         it('handles subtitle as optional string', () => {
             // With subtitle
-            const { rerender, getByText, queryByText } = render(
-                <GhostCard title="Title" subtitle="Subtitle" />
-            );
+            const { rerender, getByText, queryByText } = render(<GhostCard title="Title" subtitle="Subtitle" />);
             expect(getByText('Subtitle')).toBeTruthy();
 
             // Without subtitle

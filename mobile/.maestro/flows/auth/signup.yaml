@@ -7,33 +7,33 @@ appId: com.dawan.lemonademvp
 # Wait for login screen to load
 - extendedWaitUntil:
     visible:
-        id: "login-submit-button"
+      id: 'login-submit-button'
     timeout: 180000
 
 # Navigate to signup
-- tapOn: "Sign Up"
+- tapOn: 'Sign Up'
 
 # Verify signup screen loads
 - extendedWaitUntil:
-    visible: "Create Account"
+    visible: 'Create Account'
     timeout: 10000
 
-- assertVisible: "Create Account"
+- assertVisible: 'Create Account'
 
 # Verify form elements
 - assertVisible:
-    id: "signup-username-input"
+    id: 'signup-username-input'
 - assertVisible:
-    id: "signup-email-input"
+    id: 'signup-email-input'
 - assertVisible:
-    id: "signup-password-input"
+    id: 'signup-password-input'
 - assertVisible:
-    id: "signup-submit-button"
+    id: 'signup-submit-button'
 
 # Navigate back to login
-- tapOn: "Login"
+- tapOn: 'Login'
 
 # Wait for login screen
 - extendedWaitUntil:
-    visible: "Lemonade"
+    visible: 'Lemonade'
     timeout: 5000

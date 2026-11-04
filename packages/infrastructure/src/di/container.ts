@@ -19,7 +19,7 @@ import {
     ILiveStreamAnalyzer,
     IBillingService,
     IBillingRepository,
-    IContextCacheService
+    IContextCacheService,
 } from '@lemonade/core';
 import { IConfigProvider } from '../interfaces/IConfigProvider';
 import { TYPES } from './types';
@@ -54,7 +54,10 @@ export function createContainer(): Container {
 
     // 1. Core / Utils
     container.bind<IConfigProvider>(TYPES.ConfigProvider).to(EnvConfigProvider).inSingletonScope();
-    container.bind<ILogger>(TYPES.Logger).toDynamicValue(() => new Logger(undefined)).inSingletonScope();
+    container
+        .bind<ILogger>(TYPES.Logger)
+        .toDynamicValue(() => new Logger(undefined))
+        .inSingletonScope();
     container.bind<ITracingService>(TYPES.TracingService).to(TracingService).inSingletonScope();
 
     // Core Adapter for Vertex/Gemini
@@ -68,7 +71,10 @@ export function createContainer(): Container {
 
     // 2. AI Adapters
     container.bind<IChatAssistantAI>(TYPES.ChatAI).to(GeminiFlashChatAndUploadsAdapter).inSingletonScope();
-    container.bind<IMultimodalUploadAnalyzer>(TYPES.MultimodalUploadAI).to(GeminiFlashChatAndUploadsAdapter).inSingletonScope();
+    container
+        .bind<IMultimodalUploadAnalyzer>(TYPES.MultimodalUploadAI)
+        .to(GeminiFlashChatAndUploadsAdapter)
+        .inSingletonScope();
     container.bind<ILiveStreamAnalyzer>(TYPES.LiveStreamAI).to(GeminiFlashLiveStreamAdapter).inSingletonScope();
     container.bind<ISafetyAI>(TYPES.SafetyAI).to(VertexAISafetyAdapter).inSingletonScope();
 
@@ -87,7 +93,10 @@ export function createContainer(): Container {
     container.bind<ISafetyMonitor>(TYPES.SafetyMonitor).to(SafetyMonitor).inSingletonScope();
 
     // 6. Reasoning Core
-    container.bind<IMechanicReasoningService>(TYPES.MechanicReasoningService).to(MechanicReasoningService).inSingletonScope();
+    container
+        .bind<IMechanicReasoningService>(TYPES.MechanicReasoningService)
+        .to(MechanicReasoningService)
+        .inSingletonScope();
 
     // 7. Agent Interface
     container.bind<IFieldTechAgent>(TYPES.FieldTechAgent).to(FieldTechAgent).inSingletonScope();

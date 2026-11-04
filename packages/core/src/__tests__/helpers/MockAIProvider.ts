@@ -7,8 +7,8 @@ export class MockAIProvider {
             usage: {
                 promptTokens: 100,
                 completionTokens: 50,
-                totalTokens: 150
-            }
+                totalTokens: 150,
+            },
         };
     }
 
@@ -17,15 +17,15 @@ export class MockAIProvider {
         vi.mock('ai', () => ({
             streamText: vi.fn().mockImplementation(async ({ onFinish }) => {
                 // Simulate async processing
-                await new Promise(resolve => setTimeout(resolve, 10));
-                
+                await new Promise((resolve) => setTimeout(resolve, 10));
+
                 const result = {
-                    toTextStreamResponse: vi.fn().mockReturnValue(new Response("Mocked AI Response")),
+                    toTextStreamResponse: vi.fn().mockReturnValue(new Response('Mocked AI Response')),
                     usage: {
                         promptTokens: 100,
                         completionTokens: 50,
-                        totalTokens: 150
-                    }
+                        totalTokens: 150,
+                    },
                 };
 
                 // Trigger the onFinish callback to test billing
@@ -34,7 +34,7 @@ export class MockAIProvider {
                 }
 
                 return result;
-            })
+            }),
         }));
     }
 }

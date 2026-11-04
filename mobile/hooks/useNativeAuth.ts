@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-    GoogleSignin,
-    statusCodes,
-    SignInResponse,
-} from '@react-native-google-signin/google-signin';
+import { GoogleSignin, statusCodes, SignInResponse } from '@react-native-google-signin/google-signin';
 import { CONFIG } from '@mobile/constants/config';
 
 export interface UseNativeAuthResult {
@@ -40,7 +36,7 @@ export function useNativeAuth(): UseNativeAuthResult {
             } else if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
                 // play services not available or outdated
             } else {
-                console.error("Google Sign-In Error", error);
+                console.error('Google Sign-In Error', error);
             }
         } finally {
             setIsSigningIn(false);
@@ -52,7 +48,7 @@ export function useNativeAuth(): UseNativeAuthResult {
             await GoogleSignin.signOut();
             setUserInfo(null);
         } catch (error) {
-            console.error("Native Sign Out Error", error);
+            console.error('Native Sign Out Error', error);
         }
     };
 

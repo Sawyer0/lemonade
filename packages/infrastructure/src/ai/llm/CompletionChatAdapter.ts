@@ -54,7 +54,9 @@ export class CompletionChatAdapter implements IChatAssistantAI {
 
     async verifyHypothesis(request: VerificationRequest): Promise<VerificationResponse> {
         const raw = await this.client.complete({
-            messages: [{ role: 'user', content: VerificationPrompts.factChecker(request.hypothesis, request.evidence) }],
+            messages: [
+                { role: 'user', content: VerificationPrompts.factChecker(request.hypothesis, request.evidence) },
+            ],
             temperature: 0,
             jsonMode: true,
         });
@@ -91,7 +93,12 @@ export class CompletionChatAdapter implements IChatAssistantAI {
 }
 
 function toCompletionMessage(entry: HistoryEntry): ChatCompletionMessage {
-    const role = entry.role === 'assistant' || entry.role === 'model' ? 'assistant' : entry.role === 'system' ? 'system' : 'user';
+    const role =
+        entry.role === 'assistant' || entry.role === 'model'
+            ? 'assistant'
+            : entry.role === 'system'
+              ? 'system'
+              : 'user';
     return { role, content: historyText(entry.content) };
 }
 

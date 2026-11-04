@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, View, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import {
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    ActivityIndicator,
+    View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+} from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { Theme } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
@@ -25,7 +34,7 @@ export default function LoginScreen() {
     const handleGoogleLogin = async () => {
         try {
             await signInWithGoogle();
-            // Google login logic in useAuth will handle redirect via state change if needed, 
+            // Google login logic in useAuth will handle redirect via state change if needed,
             // but usually we can just wait for user state to change.
         } catch (_e) {
             console.error(_e);
@@ -34,21 +43,18 @@ export default function LoginScreen() {
 
     return (
         <ThemedView style={styles.container}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-            >
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.header}>
                         <Ionicons name="car-sport" size={60} color={Theme.tint} />
-                        <ThemedText type="title" style={styles.title}>Lemonade</ThemedText>
+                        <ThemedText type="title" style={styles.title}>
+                            Lemonade
+                        </ThemedText>
                         <ThemedText style={styles.subtitle}>Master Tech in your pocket</ThemedText>
                     </View>
 
                     <View style={styles.form}>
-                        {error && (
-                            <ThemedText style={styles.errorText}>{error}</ThemedText>
-                        )}
+                        {error && <ThemedText style={styles.errorText}>{error}</ThemedText>}
 
                         <TextInput
                             testID="login-email-input"
@@ -97,7 +103,9 @@ export default function LoginScreen() {
                             disabled={loading}
                         >
                             <Ionicons name="logo-google" size={20} color="white" style={{ marginRight: 10 }} />
-                            <ThemedText style={[styles.buttonText, { color: 'white' }]}>Continue with Google</ThemedText>
+                            <ThemedText style={[styles.buttonText, { color: 'white' }]}>
+                                Continue with Google
+                            </ThemedText>
                         </TouchableOpacity>
 
                         <View style={styles.footer}>

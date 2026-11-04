@@ -21,21 +21,23 @@ export function useVehicleOnboarding() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
+                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({ vin, userId }),
             });
 
             if (!res.ok) {
                 const errorData = await res.json();
-                throw new AppError(ErrorCode.VALIDATION_ERROR, errorData.details || errorData.error || 'Failed to decode VIN');
+                throw new AppError(
+                    ErrorCode.VALIDATION_ERROR,
+                    errorData.details || errorData.error || 'Failed to decode VIN',
+                );
             }
 
             const data = await res.json();
             setNewVehicle(data.data);
             setStatus('success');
             return data.data;
-
         } catch (err) {
             logger.error('Failed to decode VIN', err as Error);
             setStatus('error');
@@ -44,5 +46,3 @@ export function useVehicleOnboarding() {
 
     return { status, submitVin, newVehicle, setStatus };
 }
-
-

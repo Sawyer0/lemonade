@@ -1,6 +1,6 @@
 import { IRateLimiter, IRateLimitResult } from '@lemonade/core';
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
 import { injectable } from 'inversify';
 import { CONFIG } from '../config';
 
@@ -19,17 +19,17 @@ export class UpstashRateLimiter implements IRateLimiter {
             // Free Tier: 10 requests per minute
             this.freeLimiter = new Ratelimit({
                 redis,
-                limiter: Ratelimit.slidingWindow(10, "1 m"),
+                limiter: Ratelimit.slidingWindow(10, '1 m'),
                 analytics: true,
-                prefix: "ratelimit:free",
+                prefix: 'ratelimit:free',
             });
 
             // Pro Tier: 100 requests per minute
             this.proLimiter = new Ratelimit({
                 redis,
-                limiter: Ratelimit.slidingWindow(100, "1 m"),
+                limiter: Ratelimit.slidingWindow(100, '1 m'),
                 analytics: true,
-                prefix: "ratelimit:pro",
+                prefix: 'ratelimit:pro',
             });
         }
     }
@@ -43,7 +43,7 @@ export class UpstashRateLimiter implements IRateLimiter {
                 success: true,
                 limit: 0,
                 remaining: 0,
-                reset: 0
+                reset: 0,
             };
         }
 

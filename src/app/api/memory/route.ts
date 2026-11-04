@@ -11,7 +11,7 @@ const MemoryFilterSchema = z.object({
     field: z.string(),
     operator: z.enum(['eq', 'contains', 'not_eq', 'not_contains']),
     value: z.string(),
-    ignoreCase: z.boolean().optional()
+    ignoreCase: z.boolean().optional(),
 });
 
 const MemorySearchOptionsSchema = z.object({
@@ -19,7 +19,7 @@ const MemorySearchOptionsSchema = z.object({
     limit: z.number().optional(),
     includeForgotten: z.boolean().optional(),
     filters: z.array(MemoryFilterSchema).optional(),
-    tags: z.array(z.string()).optional()
+    tags: z.array(z.string()).optional(),
 });
 
 const MemoryDocumentSchema = z.object({
@@ -27,20 +27,20 @@ const MemoryDocumentSchema = z.object({
     url: z.string().optional(),
     fileUri: z.string().optional(),
     tags: z.array(z.string()).optional(),
-    metadata: z.record(z.unknown()).optional()
+    metadata: z.record(z.unknown()).optional(),
 });
 
 const MemoryActionSchema = z.discriminatedUnion('action', [
     z.object({
         action: z.literal('search'),
         query: z.string().min(1),
-        options: MemorySearchOptionsSchema.optional()
+        options: MemorySearchOptionsSchema.optional(),
     }),
     z.object({
         action: z.literal('add'),
         doc: MemoryDocumentSchema,
-        spaceId: z.string().optional()
-    })
+        spaceId: z.string().optional(),
+    }),
 ]);
 
 export const POST = withContext(async (req: Request) => {

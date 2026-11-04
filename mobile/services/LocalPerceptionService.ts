@@ -10,8 +10,8 @@ export class LocalPerceptionService implements ILocalPerceptionService {
 
     constructor(
         private logger: ILogger,
-        private performanceMonitor: PerformanceMonitor
-    ) { }
+        private performanceMonitor: PerformanceMonitor,
+    ) {}
 
     async initialize(modelPath: string): Promise<void> {
         if (this.ready) return;
@@ -46,15 +46,16 @@ export class LocalPerceptionService implements ILocalPerceptionService {
             this.logger.info('Starting Model Warmup (Dummy Inference)...');
             const warmupPath = `${FileSystem.cacheDirectory}warmup.jpg`;
             // 1x1 Black Pixel (JPEG Base64)
-            const dummyBase64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEGMkMAAAABABQRAP/EABQAAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AP/Z';
+            const dummyBase64 =
+                '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEGMkMAAAABABQRAP/EABQAAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AP/Z';
 
             await FileSystem.writeAsStringAsync(warmupPath, dummyBase64, {
-                encoding: FileSystem.EncodingType.Base64
+                encoding: FileSystem.EncodingType.Base64,
             });
 
             // Run a trivial completion to force tensor allocation
             await this.context.completion({
-                prompt: "Identify.",
+                prompt: 'Identify.',
                 media_paths: [warmupPath],
                 n_predict: 1,
             });
@@ -89,7 +90,7 @@ Output strictly valid JSON.`;
                 prompt,
                 media_paths: [framePath],
                 n_predict: 64, // Increased for JSON
-                stop: ["\n\n", "```"], // Stop at end of block
+                stop: ['\n\n', '```'], // Stop at end of block
                 temperature: 0.1,
             });
 
@@ -99,7 +100,10 @@ Output strictly valid JSON.`;
             try {
                 // Attempt to parse JSON
                 // Clean up potential Markdown code blocks if the model adds them
-                const cleanJson = output.replace(/```json/g, '').replace(/```/g, '').trim();
+                const cleanJson = output
+                    .replace(/```json/g, '')
+                    .replace(/```/g, '')
+                    .trim();
                 const parsed = JSON.parse(cleanJson);
 
                 // Validation using Zod Schema
@@ -107,7 +111,7 @@ Output strictly valid JSON.`;
                     ...parsed,
                     confidence: 0.85, // Placeholder until model outputs confidence
                     timestamp: Date.now(),
-                    steadyStrikeCount: 1
+                    steadyStrikeCount: 1,
                 });
 
                 if (validation.success) {
@@ -115,26 +119,28 @@ Output strictly valid JSON.`;
                 } else {
                     this.logger.warn('Local LLM output failed validation', { errors: validation.error.format() });
                     // Fallback to UNCERTAIN if structure is invalid
-                    return [{
-                        id: { obj: parsed.id?.obj || 'Unknown', cat: parsed.id?.cat || 'Unknown' },
-                        eval: { stat: 'UNCERTAIN', risk: false, note: 'Validation error' },
-                        timestamp: Date.now(),
-                        confidence: 0.0,
-                    }];
+                    return [
+                        {
+                            id: { obj: parsed.id?.obj || 'Unknown', cat: parsed.id?.cat || 'Unknown' },
+                            eval: { stat: 'UNCERTAIN', risk: false, note: 'Validation error' },
+                            timestamp: Date.now(),
+                            confidence: 0.0,
+                        },
+                    ];
                 }
-
             } catch (jsonErr) {
                 this.logger.warn('Failed to parse Local LLM JSON output', { output, error: jsonErr });
 
                 // Fallback for non-JSON output or parsing failure
-                return [{
-                    id: { obj: 'Unknown', cat: 'Unknown' },
-                    eval: { stat: 'UNCERTAIN', risk: false, note: 'AI parsing error' },
-                    timestamp: Date.now(),
-                    confidence: 0.0,
-                }];
+                return [
+                    {
+                        id: { obj: 'Unknown', cat: 'Unknown' },
+                        eval: { stat: 'UNCERTAIN', risk: false, note: 'AI parsing error' },
+                        timestamp: Date.now(),
+                        confidence: 0.0,
+                    },
+                ];
             }
-
         } catch (e) {
             this.logger.error('Inference pipeline failure', e);
             return [];

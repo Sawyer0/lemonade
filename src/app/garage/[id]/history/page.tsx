@@ -19,15 +19,12 @@ export default function HistoryPage({ params }: { params: Promise<{ id: string }
         const vehicleService = clientContainer.get<VehicleService>(TYPES.VehicleService);
         const [vehicle, history] = await Promise.all([
             vehicleService.getVehicle(id, user.uid),
-            vehicleService.getHistory(id) // Note: getHistory might also need userId later
+            vehicleService.getHistory(id), // Note: getHistory might also need userId later
         ]);
         return { vehicle, history };
     };
 
-    const { data, isLoading: dataLoading, error } = useSWR(
-        user ? `vehicle-history-${id}-${user.uid}` : null,
-        fetcher
-    );
+    const { data, isLoading: dataLoading, error } = useSWR(user ? `vehicle-history-${id}-${user.uid}` : null, fetcher);
 
     if (error) {
         return (
@@ -74,11 +71,7 @@ export default function HistoryPage({ params }: { params: Promise<{ id: string }
                     </div>
                 </div>
 
-                <ServiceHistory
-                    sessions={history}
-                    vehicleId={id}
-                    loading={false}
-                />
+                <ServiceHistory sessions={history} vehicleId={id} loading={false} />
             </div>
         </div>
     );

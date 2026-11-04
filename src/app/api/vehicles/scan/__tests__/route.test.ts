@@ -10,10 +10,10 @@ const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
 };
 const mockVehicleService = {
-    onboardVehicle: vi.fn()
+    onboardVehicle: vi.fn(),
 };
 
 // Helper to create request
@@ -22,9 +22,9 @@ function createRequest(body: object, headers: Record<string, string> = {}) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            ...headers
+            ...headers,
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
     });
 }
 
@@ -37,10 +37,10 @@ const sampleVehicle: Vehicle = {
         year: 2020,
         make: 'Honda',
         model: 'Accord',
-        engine: '2.0L Turbo'
+        engine: '2.0L Turbo',
     },
     activeIssuesCount: 0,
-    createdAt: new Date('2024-01-01')
+    createdAt: new Date('2024-01-01'),
 };
 
 describe('POST /api/vehicles/scan', () => {
@@ -68,7 +68,7 @@ describe('POST /api/vehicles/scan', () => {
         it('returns 403 when x-user-id header missing', async () => {
             const req = createRequest({
                 vin: '1HGBH41JXMN109186',
-                userId: 'user-123'
+                userId: 'user-123',
             });
             const res = await POST(req);
 
@@ -80,7 +80,7 @@ describe('POST /api/vehicles/scan', () => {
         it('returns 403 when x-user-id does not match body userId', async () => {
             const req = createRequest(
                 { vin: '1HGBH41JXMN109186', userId: 'user-123' },
-                { 'x-user-id': 'different-user' }
+                { 'x-user-id': 'different-user' },
             );
             const res = await POST(req);
 
@@ -90,10 +90,7 @@ describe('POST /api/vehicles/scan', () => {
 
     describe('Validation', () => {
         it('returns 400 when VIN shorter than 17 chars', async () => {
-            const req = createRequest(
-                { vin: '1HGBH41JXMN1091', userId: 'user-123' },
-                { 'x-user-id': 'user-123' }
-            );
+            const req = createRequest({ vin: '1HGBH41JXMN1091', userId: 'user-123' }, { 'x-user-id': 'user-123' });
             const res = await POST(req);
 
             expect(res.status).toBe(400);
@@ -102,30 +99,21 @@ describe('POST /api/vehicles/scan', () => {
         });
 
         it('returns 400 when VIN longer than 17 chars', async () => {
-            const req = createRequest(
-                { vin: '1HGBH41JXMN10918611', userId: 'user-123' },
-                { 'x-user-id': 'user-123' }
-            );
+            const req = createRequest({ vin: '1HGBH41JXMN10918611', userId: 'user-123' }, { 'x-user-id': 'user-123' });
             const res = await POST(req);
 
             expect(res.status).toBe(400);
         });
 
         it('returns 400 when userId missing', async () => {
-            const req = createRequest(
-                { vin: '1HGBH41JXMN109186' },
-                { 'x-user-id': 'user-123' }
-            );
+            const req = createRequest({ vin: '1HGBH41JXMN109186' }, { 'x-user-id': 'user-123' });
             const res = await POST(req);
 
             expect(res.status).toBe(400);
         });
 
         it('returns 400 when VIN missing', async () => {
-            const req = createRequest(
-                { userId: 'user-123' },
-                { 'x-user-id': 'user-123' }
-            );
+            const req = createRequest({ userId: 'user-123' }, { 'x-user-id': 'user-123' });
             const res = await POST(req);
 
             expect(res.status).toBe(400);
@@ -134,10 +122,7 @@ describe('POST /api/vehicles/scan', () => {
 
     describe('Success Cases', () => {
         it('returns 200 with vehicle data on valid VIN', async () => {
-            const req = createRequest(
-                { vin: '1HGBH41JXMN109186', userId: 'user-123' },
-                { 'x-user-id': 'user-123' }
-            );
+            const req = createRequest({ vin: '1HGBH41JXMN109186', userId: 'user-123' }, { 'x-user-id': 'user-123' });
             const res = await POST(req);
 
             expect(res.status).toBe(200);
@@ -148,28 +133,19 @@ describe('POST /api/vehicles/scan', () => {
         });
 
         it('calls VehicleService.onboardVehicle with correct params', async () => {
-            const req = createRequest(
-                { vin: '1HGBH41JXMN109186', userId: 'user-123' },
-                { 'x-user-id': 'user-123' }
-            );
+            const req = createRequest({ vin: '1HGBH41JXMN109186', userId: 'user-123' }, { 'x-user-id': 'user-123' });
             await POST(req);
 
-            expect(mockVehicleService.onboardVehicle).toHaveBeenCalledWith(
-                '1HGBH41JXMN109186',
-                'user-123'
-            );
+            expect(mockVehicleService.onboardVehicle).toHaveBeenCalledWith('1HGBH41JXMN109186', 'user-123');
         });
 
         it('logs VIN masked to last 4 characters', async () => {
-            const req = createRequest(
-                { vin: '1HGBH41JXMN109186', userId: 'user-123' },
-                { 'x-user-id': 'user-123' }
-            );
+            const req = createRequest({ vin: '1HGBH41JXMN109186', userId: 'user-123' }, { 'x-user-id': 'user-123' });
             await POST(req);
 
             expect(mockLogger.info).toHaveBeenCalledWith(
                 'Vehicle scan initiated',
-                expect.objectContaining({ vin: '9186' })
+                expect.objectContaining({ vin: '9186' }),
             );
         });
     });
@@ -178,10 +154,7 @@ describe('POST /api/vehicles/scan', () => {
         it('returns 500 when VehicleService.onboardVehicle fails', async () => {
             mockVehicleService.onboardVehicle.mockRejectedValue(new Error('VIN decode failed'));
 
-            const req = createRequest(
-                { vin: '1HGBH41JXMN109186', userId: 'user-123' },
-                { 'x-user-id': 'user-123' }
-            );
+            const req = createRequest({ vin: '1HGBH41JXMN109186', userId: 'user-123' }, { 'x-user-id': 'user-123' });
             const res = await POST(req);
 
             expect(res.status).toBe(500);
@@ -190,10 +163,7 @@ describe('POST /api/vehicles/scan', () => {
         it('logs error when service fails', async () => {
             mockVehicleService.onboardVehicle.mockRejectedValue(new Error('Service error'));
 
-            const req = createRequest(
-                { vin: '1HGBH41JXMN109186', userId: 'user-123' },
-                { 'x-user-id': 'user-123' }
-            );
+            const req = createRequest({ vin: '1HGBH41JXMN109186', userId: 'user-123' }, { 'x-user-id': 'user-123' });
             await POST(req);
 
             expect(mockLogger.error).toHaveBeenCalled();

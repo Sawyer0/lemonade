@@ -1,9 +1,9 @@
 export class VideoPrompts {
-  /**
-   * Generates the prompt for structured video analysis.
-   */
-  static analysis(vehicleContext: string): string {
-    return `
+    /**
+     * Generates the prompt for structured video analysis.
+     */
+    static analysis(vehicleContext: string): string {
+        return `
 Analyze this video of a ${vehicleContext}.
 
 STRICT VISUAL ONLY RULE:
@@ -26,35 +26,35 @@ Output JSON matching this schema:
   "confidence": number (0.0 to 1.0)
 }
 `.trim();
-  }
+    }
 
-  /**
-   * Generates the prompt for live video frame analysis.
-   */
-  static liveImageAnalysis(vehicleContext: string): string {
-    return `
+    /**
+     * Generates the prompt for live video frame analysis.
+     */
+    static liveImageAnalysis(vehicleContext: string): string {
+        return `
 You are analyzing a LIVE video frame of a ${vehicleContext}.
 STRICT VISUAL ONLY RULE: Describe only what is visible in this single frame.
 Output JSON matching the standard AIAnalysis schema.
 `.trim();
-  }
+    }
 
-  /**
-   * Generates the prompt for live audio analysis.
-   */
-  static liveAudioAnalysis(vehicleContext: string): string {
-    return `
+    /**
+     * Generates the prompt for live audio analysis.
+     */
+    static liveAudioAnalysis(vehicleContext: string): string {
+        return `
 You are analyzing a LIVE audio chunk from a ${vehicleContext}.
 Diagnose based on sound patterns (knocking, hissing, grinding).
 Output JSON matching the standard AIAnalysis schema.
 `.trim();
-  }
+    }
 
-  /**
-   * Generates the prompt for static image analysis.
-   */
-  static imageAnalysis(vehicleContext: string): string {
-    return `
+    /**
+     * Generates the prompt for static image analysis.
+     */
+    static imageAnalysis(vehicleContext: string): string {
+        return `
 Analyze this image of a ${vehicleContext}.
 
 STRICT VISUAL ONLY RULE:
@@ -76,5 +76,5 @@ Output JSON matching this schema:
   "confidence": number (0.0 to 1.0)
 }
 `.trim();
-  }
+    }
 }

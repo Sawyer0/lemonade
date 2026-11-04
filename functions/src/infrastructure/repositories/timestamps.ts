@@ -2,12 +2,13 @@ import { Timestamp } from 'firebase-admin/firestore';
 
 // Type guard for Firestore Timestamp
 function isTimestamp(value: unknown): value is Timestamp {
-    return value instanceof Timestamp || (
-        typeof value === 'object' &&
-        value !== null &&
-        typeof (value as Timestamp).toDate === 'function' &&
-        typeof (value as Timestamp).seconds === 'number' &&
-        typeof (value as Timestamp).nanoseconds === 'number'
+    return (
+        value instanceof Timestamp ||
+        (typeof value === 'object' &&
+            value !== null &&
+            typeof (value as Timestamp).toDate === 'function' &&
+            typeof (value as Timestamp).seconds === 'number' &&
+            typeof (value as Timestamp).nanoseconds === 'number')
     );
 }
 
@@ -21,7 +22,7 @@ export function convertTimestamps<T>(obj: T): T {
     }
 
     if (Array.isArray(obj)) {
-        return obj.map(item => convertTimestamps(item)) as T;
+        return obj.map((item) => convertTimestamps(item)) as T;
     }
 
     const newObj: { [key: string]: unknown } = {};

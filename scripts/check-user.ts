@@ -10,7 +10,9 @@ if (!admin.apps.length) {
         try {
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
             credential = admin.credential.cert(serviceAccount);
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+        }
     }
     if (!credential) credential = admin.credential.applicationDefault();
 
@@ -33,7 +35,7 @@ async function checkUser() {
         console.log('Disabled:', user.disabled);
         console.log('Password Hash (exists):', !!user.passwordHash);
         console.log('Providers:', user.providerData);
-        
+
         console.log('\n✅ User exists in Authentication system.');
     } catch (error) {
         console.error('❌ Error fetching user:', error);
