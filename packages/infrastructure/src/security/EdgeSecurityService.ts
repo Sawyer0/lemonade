@@ -1,8 +1,42 @@
 import { IEdgeSecurityService } from '@lemonade/core';
-import { jwtVerify, createRemoteJWKSet } from 'jose';
+import { jwtVerify, createRemoteJWKSet, decodeJwt, decodeProtectedHeader } from 'jose';
 import { injectable } from 'inversify';
 import { CONFIG } from '../config';
 import { resolveInternalSecret } from './internalSecret';
+
+/**
+ * Tokens from the Firebase Auth emulator are unsigned (alg "none"). They are
+ * accepted only when FIREBASE_AUTH_EMULATOR_HOST is set and the project id uses
+ * Firebase's reserved `demo-` prefix, which can never name a real project.
+ */
+export function isAuthEmulatorEnabled(env: Record<string, string | undefined>, projectId: string): boolean {
+    return !!env.FIREBASE_AUTH_EMULATOR_HOST && projectId.startsWith('demo-');
+}
+
+function verifyEmulatorToken(token: string, projectId: string): Record<string, unknown> | null {
+    try {
+        if (decodeProtectedHeader(token).alg !== 'none') return null;
+        const payload = decodeJwt(token);
+        const now = Math.floor(Date.now() / 1000);
+        const valid =
+            payload.iss === `https://securetoken.google.com/${projectId}` &&
+            payload.aud === projectId &&
+            typeof payload.sub === 'string' &&
+            payload.sub.length > 0 &&
+            (payload.exp ?? 0) > now;
+        return valid ? payload : null;
+    } catch {
+        return null;
+    }
+}
+
+/** Compares two hex strings without short-circuiting on the first difference. */
+function constantTimeEqual(a: string, b: string): boolean {
+    if (a.length !== b.length) return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return diff === 0;
+}
 
 const JWKS = createRemoteJWKSet(
     new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'),
@@ -27,6 +61,7 @@ export class EdgeSecurityService implements IEdgeSecurityService {
     async verifyToken(token: string): Promise<Record<string, unknown> | null> {
         const projectId = CONFIG.GCLOUD.PROJECT_ID;
         if (!projectId) return null;
+        if (isAuthEmulatorEnabled(process.env, projectId)) return verifyEmulatorToken(token, projectId);
 
         try {
             const { payload } = await jwtVerify(token, JWKS, {
@@ -57,7 +92,7 @@ export class EdgeSecurityService implements IEdgeSecurityService {
 
     async verifyPayloadSignature(payload: Record<string, string>, signature: string): Promise<boolean> {
         const expectedSignature = await this.signPayload(payload);
-        return expectedSignature === signature;
+        return constantTimeEqual(expectedSignature, signature);
     }
 
     async getAuthenticatedUser(
