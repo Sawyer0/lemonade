@@ -1,6 +1,7 @@
 {
   "name": "functions",
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "description": "Lemonade MVP Cloud Functions",
   "main": "lib/index.js",
   "scripts": {
@@ -17,7 +18,6 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
   "dependencies": {
     "@google-cloud/vertexai": "^1.9.2",
     "firebase-admin": "^13.0.1",
