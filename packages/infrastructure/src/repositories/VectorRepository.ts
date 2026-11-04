@@ -1,42 +1,21 @@
-import {
-    IVectorRepository,
-    VectorDocument,
-    SimilarCase,
-    VectorDocumentSchema,
-    ILogger,
-    SHARED_CONFIG,
-    EmbedContentResponse,
-} from '@lemonade/core';
+import type { IEmbeddingService, ILogger, IVectorRepository, SimilarCase, VectorDocument } from '@lemonade/core';
+import { VectorDocumentSchema } from '@lemonade/core';
 import { injectable, inject } from 'inversify';
 import { getFirestore, FieldValue, Filter, Timestamp } from 'firebase-admin/firestore';
-import { GenerativeModel } from '@google-cloud/vertexai';
 import { TYPES } from '../di/types';
-import { GeminiCoreAdapter } from '../ai/GeminiCoreAdapter';
-
-interface EmbeddingModel extends GenerativeModel {
-    embedContent(request: string | object): Promise<EmbedContentResponse>;
-}
 
 @injectable()
 export class VectorRepository implements IVectorRepository {
     private readonly COLLECTION = 'knowledge_base';
-    private model: EmbeddingModel;
 
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
-        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
-    ) {
-        this.model = this.coreAdapter.getGenerativeModel(
-            SHARED_CONFIG.AI_MODELS.EMBEDDING,
-        ) as unknown as EmbeddingModel;
-    }
+        @inject(TYPES.EmbeddingService) private embeddings: IEmbeddingService,
+    ) {}
 
     private async embedQuery(text: string): Promise<number[]> {
         try {
-            const result = await this.model.embedContent(text);
-            const values = result.embedding?.values;
-            if (!values) throw new Error('No embedding returned');
-            return values;
+            return await this.embeddings.embed(text);
         } catch (error) {
             this.logger.error('[VectorRepository] Embedding generation failed', error);
             throw error;
