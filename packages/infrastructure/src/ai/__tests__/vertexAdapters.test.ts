@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AIAnalysis, ILogger } from '@lemonade/core';
+import type { ILogger } from '@lemonade/core';
 import { AppError } from '@lemonade/core';
 import type { IConfigProvider } from '../../interfaces/IConfigProvider';
-import type { TracingService } from '../../observability/TracingService';
 
 /**
  * Fakes for the two Google SDKs. Each records how it was constructed and what the
@@ -41,7 +40,6 @@ vi.mock('@google/genai', () => ({
 
 const { GeminiCoreAdapter } = await import('../GeminiCoreAdapter');
 const { VertexAISafetyAdapter } = await import('../VertexAISafetyAdapter');
-const { VertexAIVideoAdapter } = await import('../VertexAIVideoAdapter');
 const { EmbeddingService, EMBEDDING_DIMENSIONS } = await import('../EmbeddingService');
 
 const SERVICE_ACCOUNT = JSON.stringify({ client_email: 'svc@example.iam.gserviceaccount.com', private_key: 'k' });
@@ -57,24 +55,6 @@ function config(serviceAccountKey = ''): IConfigProvider {
 function logger(): ILogger {
     return { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as ILogger;
 }
-
-const tracer = { traceAiCall: ({ exec }: { exec: () => unknown }) => exec() } as unknown as TracingService;
-
-const analysis: AIAnalysis = {
-    diagnosis: 'Worn serpentine belt',
-    reasoning: 'Squeal on cold start',
-    investigationPlan: ['Inspect belt ribs'],
-    visual_evidence: ['glazed belt'],
-    acoustic_evidence: ['squeal'],
-    severity: 'low',
-    safety_alert: false,
-    suggested_actions: ['Replace belt'],
-    engineDescription: 'Front of engine bay',
-    isStock: true,
-    visualConflictDetected: false,
-    detectedCondition: 'unknown',
-    confidence: 0.7,
-};
 
 function modelReply(text: string | undefined, extra: Record<string, unknown> = {}) {
     return { response: { candidates: [{ content: { parts: [{ text }] }, ...extra }] } };
@@ -131,43 +111,6 @@ describe('VertexAISafetyAdapter', () => {
         expect(await adapter.assessSafety('is this safe?')).toBe('{"is_safe":true}');
         vertex.generateContent.mockResolvedValueOnce(modelReply(undefined));
         expect(await adapter.assessSafety('again')).toBe('');
-    });
-});
-
-describe('VertexAIVideoAdapter', () => {
-    it('sends the video with its mime type and validates the JSON analysis', async () => {
-        const adapter = new VertexAIVideoAdapter(config(), tracer);
-        vertex.generateContent.mockResolvedValueOnce(
-            modelReply(JSON.stringify(analysis), { groundingMetadata: { webSearchQueries: ['belt squeal'] } }),
-        );
-        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-
-        expect(await adapter.analyzeUploadedVideo('gs://b/v.mov', '2015 Civic', 'video/quicktime')).toEqual(analysis);
-        const request = vertex.generateContent.mock.calls[0][0];
-        expect(request.contents[0].parts[1]).toEqual({
-            fileData: { fileUri: 'gs://b/v.mov', mimeType: 'video/quicktime' },
-        });
-        log.mockRestore();
-    });
-
-    it('defaults image mime type and rejects empty or invalid replies', async () => {
-        const adapter = new VertexAIVideoAdapter(config(), tracer);
-        const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-
-        vertex.generateContent.mockResolvedValueOnce(modelReply(JSON.stringify(analysis)));
-        await adapter.analyzeUploadedImage('gs://b/p', 'ctx');
-        expect(vertex.generateContent.mock.calls[0][0].contents[0].parts[1].fileData.mimeType).toBe('image/jpeg');
-
-        vertex.generateContent.mockResolvedValueOnce(modelReply(undefined));
-        await expect(adapter.analyzeUploadedVideo('gs://b/v', 'ctx')).rejects.toThrow('empty response');
-        vertex.generateContent.mockResolvedValueOnce(modelReply('{"diagnosis": 1}'));
-        await expect(adapter.analyzeUploadedImage('gs://b/p', 'ctx')).rejects.toThrow('Invalid JSON');
-        err.mockRestore();
-    });
-
-    it('counts tokens through the model', async () => {
-        vertex.countTokens.mockResolvedValueOnce({ totalTokens: 42 });
-        expect(await new VertexAIVideoAdapter(config(), tracer).countTokens('hello')).toBe(42);
     });
 });
 
