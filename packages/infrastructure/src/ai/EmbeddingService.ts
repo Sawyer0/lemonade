@@ -1,77 +1,63 @@
 import { injectable, inject } from 'inversify';
-import { GenerativeModel } from '@google-cloud/vertexai';
+import { GoogleGenAI } from '@google/genai';
 import type { ILogger } from '@lemonade/core';
-import {
-    IEmbeddingService,
-    AppError,
-    ErrorCode,
-    SHARED_CONFIG,
-    EmbedContentResponse,
-    BatchEmbedContentsResponse,
-} from '@lemonade/core';
+import { IEmbeddingService, AppError, ErrorCode, SHARED_CONFIG } from '@lemonade/core';
+import type { IConfigProvider } from '../interfaces/IConfigProvider';
 import { TYPES } from '../di/types';
-import { GeminiCoreAdapter } from './GeminiCoreAdapter';
+
+/** Embedding dimension stored in Firestore vector indexes (text-embedding-004 default). */
+export const EMBEDDING_DIMENSIONS = 768;
 
 /**
- * Extension of GenerativeModel to include embedding methods
- * that are missing from the @google-cloud/vertexai types.
+ * Text embeddings on Vertex AI through the Gen AI SDK. The Vertex `GenerativeModel`
+ * this used to call has no embed methods, so every call failed at runtime.
+ * Credentials: an explicit service account key when set, otherwise Application
+ * Default Credentials.
  */
-interface EmbeddingModel extends GenerativeModel {
-    embedContent(request: string | object): Promise<EmbedContentResponse>;
-    batchEmbedContents(request: { requests: object[] }): Promise<BatchEmbedContentsResponse>;
-}
-
 @injectable()
 export class EmbeddingService implements IEmbeddingService {
-    private model: EmbeddingModel;
+    private readonly client: GoogleGenAI;
+    private readonly model = SHARED_CONFIG.AI_MODELS.EMBEDDING;
 
     constructor(
-        @inject(TYPES.Logger) private logger: ILogger,
-        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
+        @inject(TYPES.Logger) private readonly logger: ILogger,
+        @inject(TYPES.ConfigProvider) config: IConfigProvider,
     ) {
-        this.model = this.coreAdapter.getGenerativeModel(
-            SHARED_CONFIG.AI_MODELS.EMBEDDING,
-        ) as unknown as EmbeddingModel;
+        const { projectId, location } = config.getGoogleCloudConfig();
+        const key = config.getFirebaseConfig().serviceAccountKey;
+        this.client = new GoogleGenAI({
+            vertexai: true,
+            project: projectId,
+            location: location || 'us-central1',
+            googleAuthOptions: key ? { credentials: JSON.parse(key) } : undefined,
+        });
     }
 
     async embed(text: string): Promise<number[]> {
-        try {
-            const result = await this.model.embedContent(text);
-            const embedding = result.embedding?.values;
-
-            if (!embedding) {
-                throw new Error('No embedding returned from model');
-            }
-
-            return embedding;
-        } catch (error) {
-            this.logger.error('[EmbeddingService] Failed to embed text', error);
-            throw new AppError(ErrorCode.AI_SERVICE_ERROR, 'Failed to generate embedding');
-        }
+        const [vector] = await this.request([text], 'RETRIEVAL_QUERY', 'Failed to generate embedding');
+        return vector;
     }
 
     async embedBatch(texts: string[]): Promise<number[][]> {
+        if (texts.length === 0) return [];
+        return this.request(texts, 'RETRIEVAL_DOCUMENT', 'Failed to generate embeddings');
+    }
+
+    private async request(texts: string[], taskType: string, failure: string): Promise<number[][]> {
         try {
-            if (texts.length === 0) return [];
-
-            const response = await this.model.batchEmbedContents({
-                requests: texts.map((t) => ({
-                    content: { role: 'user', parts: [{ text: t }] },
-                    taskType: 'RETRIEVAL_DOCUMENT',
-                })),
+            const response = await this.client.models.embedContent({
+                model: this.model,
+                contents: texts,
+                config: { taskType, outputDimensionality: EMBEDDING_DIMENSIONS },
             });
-
-            if (!response.embeddings) {
-                throw new Error('No embeddings returned from batch request');
+            const vectors = (response.embeddings ?? []).map((e) => e.values ?? []);
+            if (vectors.length !== texts.length || vectors.some((v) => v.length === 0)) {
+                throw new Error(`Expected ${texts.length} embeddings, got ${vectors.length}`);
             }
-
-            return response.embeddings.map((e, index: number) => {
-                if (!e.values) throw new Error(`Embedding missing for item ${index}`);
-                return e.values;
-            });
+            return vectors;
         } catch (error) {
-            this.logger.error('[EmbeddingService] Batch intent failed', error);
-            throw error;
+            this.logger.error(`[EmbeddingService] ${failure}`, error as Error);
+            throw new AppError(ErrorCode.AI_SERVICE_ERROR, failure);
         }
     }
 }

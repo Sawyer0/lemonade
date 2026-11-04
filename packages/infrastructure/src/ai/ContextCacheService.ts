@@ -16,7 +16,7 @@ export class ContextCacheService implements IContextCacheService {
 
         const fbConfig = config.getFirebaseConfig();
         const key = fbConfig.serviceAccountKey;
-        let credentials = {};
+        let credentials: object | undefined;
         if (key) {
             try {
                 credentials = JSON.parse(key);
@@ -34,7 +34,8 @@ export class ContextCacheService implements IContextCacheService {
         this.vertex = new VertexAI({
             project: gcloudConfig.projectId,
             location: 'us', // Context Cache is typically strictly region-bound, often 'us-central1' or 'us'
-            googleAuthOptions: { credentials },
+            // Without a key, Application Default Credentials (an empty credentials object breaks them).
+            googleAuthOptions: credentials ? { credentials } : undefined,
         });
     }
 
