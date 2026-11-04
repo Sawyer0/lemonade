@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { IMemoryService, MemorySearchResult } from '@lemonade/core';
-import { validateRequest, createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { validateRequest, createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 
 // Define schemas for multiplexed operations
 const MemoryFilterSchema = z.object({

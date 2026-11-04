@@ -4,8 +4,8 @@ import { TYPES } from '@/infrastructure/di/types';
 import { StorageService } from '@/infrastructure/storage/StorageService';
 import { AppError, ErrorCode, ILogger, ISessionRepository } from '@lemonade/core';
 import { SignRequestSchema, SignResponseSchema } from '@/application/dtos';
-import { validateRequest, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { validateRequest, validateResponse, createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 
 export const POST = withContext(async (req: Request) => {
     const logger = container.get<ILogger>(TYPES.Logger);

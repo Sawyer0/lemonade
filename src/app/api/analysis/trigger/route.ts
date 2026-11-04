@@ -4,10 +4,10 @@ import { TYPES } from '@/infrastructure/di/types';
 import { VideoAnalysisService } from '@/application/services/VideoAnalysisService';
 import { ILogger, ISessionRepository, IEdgeSecurityService } from '@lemonade/core';
 import { AnalysisTriggerRequestSchema, AnalysisTriggerResponseSchema } from '@/application/dtos';
-import { validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
+import { validateResponse, createErrorResponse } from '@/application/http/validateRequest';
 import { Storage } from '@google-cloud/storage';
 import { z } from 'zod';
-import { withContext } from '@/application/utils/apiHandler';
+import { withContext } from '@/application/http/withContext';
 
 const storage = new Storage();
 const GCS_MEDIA_BUCKET = process.env.GCLOUD_MEDIA_BUCKET || 'your-gcs-media-bucket';

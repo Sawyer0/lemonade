@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@lemonade/infrastructure';
 import { AppError, ErrorCode, ILiveStreamAnalyzer, DiagnosticSessionSchema, ILogger } from '@lemonade/core';
-import { createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { AudioChunkRequestSchema, AudioChunkResponseDTO } from '@/application/dtos/audio.dto';
-import { verifyApiKey } from '@/app/api/utils/auth';
+import { verifyApiKey } from '@/infrastructure/auth/verifyApiKey';
 
 type AudioChunkRouteContext = {
     params: {

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@lemonade/infrastructure';
 import { AppError, ErrorCode, UserSchema, User } from '@lemonade/core';
-import { createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 import { UpdateUserProfileRequestSchema, type UserResponseDTO } from '@/application/dtos/user.dto';
 
 export const GET = withContext(async (req: NextRequest) => {

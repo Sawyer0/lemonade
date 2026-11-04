@@ -4,8 +4,8 @@ import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { IVehicleRepository, IEdgeSecurityService } from '@lemonade/core';
 import { VehicleListResponseSchema } from '@/application/dtos/vehicle.dto';
-import { validateQueryParams, validateResponse, createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { validateQueryParams, validateResponse, createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 
 const VehicleListRequestSchema = z.object({
     userId: z.string().min(1),

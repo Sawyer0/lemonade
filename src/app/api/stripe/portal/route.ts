@@ -3,9 +3,9 @@ import Stripe from 'stripe';
 import { adminDb } from '@lemonade/infrastructure';
 import { CONFIG } from '@/infrastructure/config';
 
-import { createErrorResponse } from '@/application/utils/validateRequest';
+import { createErrorResponse } from '@/application/http/validateRequest';
 import { AppError, ErrorCode } from '@lemonade/core';
-import { withContext } from '@/application/utils/apiHandler';
+import { withContext } from '@/application/http/withContext';
 import { BillingPortalResponseDTO } from '@/application/dtos/billing.dto';
 
 const getStripe = () => {

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { ISessionRepository, ISummarizationService, ILogger, IEdgeSecurityService, MessagePart } from '@lemonade/core';
-import { withContext } from '@/application/utils/apiHandler';
+import { withContext } from '@/application/http/withContext';
 
 export const POST = withContext(async (req: Request, { params }: { params: Promise<{ sessionId: string }> }) => {
     const { sessionId } = await params;

@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import { INHTSAService } from '@lemonade/core';
-import { validateQueryParams, createErrorResponse } from '@/application/utils/validateRequest';
-import { withContext } from '@/application/utils/apiHandler';
+import { validateQueryParams, createErrorResponse } from '@/application/http/validateRequest';
+import { withContext } from '@/application/http/withContext';
 
 const RecallsRequestSchema = z.object({
     year: z.coerce.number(),
