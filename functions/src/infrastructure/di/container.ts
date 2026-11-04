@@ -19,13 +19,13 @@ import {
     EnvConfigProvider,
     TracingService,
     FirestoreSessionRepository,
+    FirestoreVehicleRepository,
     NHTSAService,
     VectorRepository,
     SafetyMonitor,
     TYPES as INFRA_TYPES,
 } from '@lemonade/infrastructure';
 
-import { FirestoreVehicleRepository } from '../repositories/FirestoreVehicleRepository';
 import { VideoAnalysisService } from '../../application/services/VideoAnalysisService';
 
 const container = new Container();
