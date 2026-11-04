@@ -36,3 +36,4 @@ export * from './external/NHTSAService';
 export * from './security/EdgeSecurityService';
 export * from './security/UpstashRateLimiter';
 export * from './FieldTechSDK';
+export * from './ai/llm';
