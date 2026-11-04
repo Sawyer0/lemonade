@@ -35,8 +35,11 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Typecheck
+      - name: Typecheck (web + packages)
         run: npm run typecheck
+
+      - name: Typecheck (mobile)
+        run: npm run typecheck:mobile
 
       - name: Test (web + packages)
         run: npm test
