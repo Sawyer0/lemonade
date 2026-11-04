@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+coverage/
+**/dist/
+**/build/
+functions/lib/
+mobile/android/
+mobile/ios/
+package-lock.json
+**/package-lock.json
+bun.lock
+docs/
+*.md
+!README.md
+*.png
+*.mp3
