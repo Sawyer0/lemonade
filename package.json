@@ -22,6 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:smoke": "vitest run --config vitest.smoke.config.ts",
     "test:mobile": "npm --workspace mobile test -- --ci",
     "demo": "tsx --tsconfig tsconfig.json scripts/demo-chat.ts",
     "android": "expo run:android",
