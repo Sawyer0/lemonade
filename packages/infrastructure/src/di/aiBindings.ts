@@ -20,16 +20,31 @@ import { CompletionChatAdapter } from '../ai/llm/CompletionChatAdapter';
 import { CompletionSafetyAdapter } from '../ai/llm/CompletionSafetyAdapter';
 import { CompletionMediaModel } from '../ai/llm/CompletionMediaModel';
 import { type LlmProvider, createGroqClient, createGroqVisionClient, resolveLlmProvider } from '../ai/llm/groq';
+import { createOfflineChatClient, createOfflineMediaClient, createOfflineSafetyClient } from '../ai/llm/offlineDemo';
 
 /**
  * Binds the model ports (chat, System 1 safety, media) to one provider and the
  * provider-neutral upload and live analyzers on top of them. Vertex AI is the
- * default; LLM_PROVIDER=groq uses Groq's OpenAI-compatible API (GROQ_API_KEY).
+ * default; LLM_PROVIDER=groq uses Groq's OpenAI-compatible API (GROQ_API_KEY), and
+ * LLM_PROVIDER=offline uses canned replies so the app runs with no key or network.
  * The container must already bind Logger, Billing, cache, tracing, the user and
  * session repositories and, for Vertex, GeminiCoreAdapter and FunctionCallService.
  */
 export function bindAiProviders(container: Container, provider: LlmProvider = resolveLlmProvider()): void {
-    if (provider === 'groq') {
+    if (provider === 'offline') {
+        container
+            .bind<IChatAssistantAI>(TYPES.ChatAI)
+            .toDynamicValue(() => new CompletionChatAdapter(createOfflineChatClient()))
+            .inSingletonScope();
+        container
+            .bind<ISafetyAI>(TYPES.SafetyAI)
+            .toDynamicValue(() => new CompletionSafetyAdapter(createOfflineSafetyClient()))
+            .inSingletonScope();
+        container
+            .bind<IMediaAnalysisModel>(TYPES.MediaAnalysisModel)
+            .toDynamicValue(() => new CompletionMediaModel(createOfflineMediaClient()))
+            .inSingletonScope();
+    } else if (provider === 'groq') {
         container
             .bind<IChatAssistantAI>(TYPES.ChatAI)
             .toDynamicValue(() => new CompletionChatAdapter(createGroqClient()))

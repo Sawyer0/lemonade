@@ -112,9 +112,10 @@ describe('createGroqClient', () => {
 });
 
 describe('resolveLlmProvider', () => {
-    it('defaults to vertex and accepts groq', () => {
+    it('defaults to vertex and accepts groq and offline', () => {
         expect(resolveLlmProvider({})).toBe('vertex');
         expect(resolveLlmProvider({ LLM_PROVIDER: 'GROQ' })).toBe('groq');
+        expect(resolveLlmProvider({ LLM_PROVIDER: 'offline' })).toBe('offline');
     });
 
     it('rejects unknown providers', () => {

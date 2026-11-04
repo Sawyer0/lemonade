@@ -5,3 +5,4 @@ export * from './CompletionSafetyAdapter';
 export * from './CompletionMediaModel';
 export * from './groq';
 export * from './FakeChatCompletionClient';
+export * from './offlineDemo';

@@ -42,12 +42,15 @@ function createGroqClientFor(model: string, env: Env, fetchImpl?: typeof fetch):
     });
 }
 
-export type LlmProvider = 'vertex' | 'groq';
+export type LlmProvider = 'vertex' | 'groq' | 'offline';
 
-/** Reads LLM_PROVIDER; Vertex AI stays the default so existing deployments are unchanged. */
+/**
+ * Reads LLM_PROVIDER; Vertex AI stays the default so existing deployments are unchanged.
+ * `offline` uses canned replies (offlineDemo.ts) and needs no key or network.
+ */
 export function resolveLlmProvider(env: Env = process.env): LlmProvider {
     const value = env.LLM_PROVIDER?.trim().toLowerCase();
     if (!value || value === 'vertex') return 'vertex';
-    if (value === 'groq') return 'groq';
-    throw new Error(`Unsupported LLM_PROVIDER "${env.LLM_PROVIDER}". Use "vertex" or "groq".`);
+    if (value === 'groq' || value === 'offline') return value;
+    throw new Error(`Unsupported LLM_PROVIDER "${env.LLM_PROVIDER}". Use "vertex", "groq" or "offline".`);
 }
