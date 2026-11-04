@@ -6,27 +6,26 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
-    Text,
     TouchableOpacity,
 } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Theme } from '@mobile/constants/theme';
 import { ThemedText } from '@mobile/components/themed-text';
 import { ThemedView } from '@mobile/components/themed-view';
 import { useMobileChat } from '@mobile/hooks/useMobileChat';
-import { useChatUploads } from '@mobile/hooks/useChatUploads'; // Import the upload hook
-import { useGeminiSession } from '@mobile/hooks/useGeminiSession';
+import { useChatUploads } from '@mobile/hooks/useChatUploads';
+import { useSessionVehicle } from '@mobile/hooks/useSessionVehicle';
 import { ChatBubble } from '../domain/chat/ChatBubble.native';
 import { InputBar } from '../domain/chat/InputBar.native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ChatScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const sessionId = id;
+    const router = useRouter();
+    const { vehicleId } = useSessionVehicle(sessionId);
 
-    // Use the robust Firestore-based chat hook
     const {
         messages,
         sendMessage,
@@ -41,35 +40,29 @@ export default function ChatScreen() {
     const [showResumeSummary, setShowResumeSummary] = useState(false);
     const [summaryText, setSummaryText] = useState<string | null>(null);
     const [loadingSummary, setLoadingSummary] = useState(false);
+    const summaryRequested = useRef(false);
 
-    const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-
+    // Offer a "where we left off" recap once per visit, when the session already has history.
     useEffect(() => {
-        const checkResume = async () => {
-            if (messages.length > 2) {
-                // Only summarize if there's actual history
-                setLoadingSummary(true);
-                const summary = await getResumeSummary();
-                setSummaryText(summary);
-                setShowResumeSummary(true);
-                setLoadingSummary(false);
-            }
+        if (summaryRequested.current || messages.length <= 2) return;
+        summaryRequested.current = true;
+
+        const loadSummary = async () => {
+            setLoadingSummary(true);
+            setShowResumeSummary(true);
+            setSummaryText(await getResumeSummary());
+            setLoadingSummary(false);
         };
-        checkResume();
-    }, [getResumeSummary, messages.length]); // Added missing dependencies
+        loadSummary();
+    }, [getResumeSummary, messages.length]);
 
-    const handleContinue = () => {
-        setShowResumeSummary(false);
-    };
+    const handleContinue = () => setShowResumeSummary(false);
 
+    // A fresh start opens a new diagnostic session for the same vehicle; this one stays in history.
     const handleFreshStart = () => {
-        // For MVP, "Fresh Start" just means ignore the summary and keep typing.
-        // In future, we could archive the session.
         setShowResumeSummary(false);
+        if (vehicleId) router.replace(`/session/new?vehicleId=${vehicleId}`);
     };
-    const [cameraActive, setCameraActive] = useState(false);
-    const cameraRef = useRef<CameraView>(null);
-    const frameInterval = useRef<NodeJS.Timeout | null>(null);
 
     const handleMediaSelect = async (uri: string, type: 'image' | 'video') => {
         try {
@@ -79,63 +72,6 @@ export default function ChatScreen() {
             console.error('Media send failed:', err);
         }
     };
-
-    // Tool Handler Logic (kept from original)
-    const handleToolCall = (
-        toolCall: { name: string; args: Record<string, unknown> },
-        { sendResponse }: { sendResponse: (response: unknown) => void },
-    ) => {
-        // ... (Tool handling logic remains same) ...
-        console.log('Tool Call Received:', toolCall.name);
-        // Use sendResponse to satisfy linter if logic is omitted for brevity
-        sendResponse({ status: 'acknowledged', tool: toolCall.name });
-    };
-
-    // Connect to LiveKit only if camera is active or for background events
-    const { connect, client } = useGeminiSession(sessionId, null, handleToolCall);
-
-    useEffect(() => {
-        // Optional: Connect to LiveKit only when needed to save resources,
-        // or connect on mount if that's the desired UX.
-        // connect();
-    }, [connect]);
-
-    // Camera Frame Loop
-    useEffect(() => {
-        let isProcessing = false;
-        if (cameraActive && client && client.isConnected) {
-            frameInterval.current = setInterval(async () => {
-                if (cameraRef.current && !isProcessing) {
-                    isProcessing = true;
-                    try {
-                        const photo = await cameraRef.current.takePictureAsync({
-                            base64: true,
-                            quality: 0.5,
-                            skipProcessing: true,
-                        });
-                        if (photo?.base64 && client.isConnected) {
-                            client.sendRealtimeInput([
-                                {
-                                    mimeType: 'image/jpeg',
-                                    data: photo.base64,
-                                },
-                            ]);
-                        }
-                    } catch (err) {
-                        console.warn('Frame capture skipped:', err);
-                    } finally {
-                        isProcessing = false;
-                    }
-                }
-            }, 1000);
-        }
-        return () => {
-            if (frameInterval.current) {
-                clearInterval(frameInterval.current);
-                frameInterval.current = null;
-            }
-        };
-    }, [cameraActive, client, client?.isConnected]);
 
     const flatListRef = useRef<FlatList>(null);
 
@@ -171,13 +107,24 @@ export default function ChatScreen() {
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <Stack.Screen
                 options={{
-                    title: cameraActive ? 'Live Vision' : `Diagnostic Session`,
+                    title: 'Diagnostic Session',
                     headerStyle: { backgroundColor: Theme.background },
                     headerTintColor: Theme.text,
                     headerRight: () => (
-                        <TouchableOpacity onPress={() => setCameraActive(!cameraActive)}>
-                            <Ionicons name={cameraActive ? 'videocam-off' : 'videocam'} size={24} color={Theme.tint} />
-                        </TouchableOpacity>
+                        <View style={styles.headerActions}>
+                            <TouchableOpacity
+                                accessibilityLabel="Open live camera with the Master Tech"
+                                onPress={() => router.push(`/live-mechanic?sessionId=${sessionId}`)}
+                            >
+                                <Ionicons name="videocam" size={24} color={Theme.tint} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                accessibilityLabel="Stream from Ray-Ban Meta glasses"
+                                onPress={() => router.push(`/connect-glasses?sessionId=${sessionId}`)}
+                            >
+                                <Ionicons name="glasses-outline" size={24} color={Theme.tint} />
+                            </TouchableOpacity>
+                        </View>
                     ),
                 }}
             />
@@ -207,25 +154,9 @@ export default function ChatScreen() {
                     </View>
                 )}
 
-                {/* Camera Layer */}
-                {cameraActive && (
-                    <View style={styles.cameraContainer}>
-                        {!cameraPermission?.granted ? (
-                            <TouchableOpacity onPress={requestCameraPermission} style={styles.permButton}>
-                                <Text>Enable Camera</Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
-                        )}
-                        <TouchableOpacity style={styles.closeCam} onPress={() => setCameraActive(false)}>
-                            <Ionicons name="close-circle" size={40} color="white" />
-                        </TouchableOpacity>
-                    </View>
-                )}
-
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={{ flex: 1, display: cameraActive ? 'none' : 'flex' }}
+                    style={{ flex: 1 }}
                     keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
                 >
                     <FlatList
@@ -264,23 +195,9 @@ const styles = StyleSheet.create({
         padding: 16,
         paddingBottom: 20,
     },
-    cameraContainer: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'black',
-        zIndex: 10,
-    },
-    permButton: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'white',
-    },
-    closeCam: {
-        position: 'absolute',
-        top: 20,
-        right: 20,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        borderRadius: 25,
+    headerActions: {
+        flexDirection: 'row',
+        gap: 16,
     },
     summaryOverlay: {
         ...StyleSheet.absoluteFillObject,

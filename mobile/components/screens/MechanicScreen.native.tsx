@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Theme } from '@mobile/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useGeminiSession } from '@mobile/hooks/useGeminiSession';
+import { useLiveMechanicSession } from '@mobile/hooks/useLiveMechanicSession';
 import { useSessionVehicle } from '@mobile/hooks/useSessionVehicle';
 import { Camera } from 'react-native-vision-camera';
 
@@ -100,9 +100,9 @@ export default function MechanicScreenNative() {
         frameProcessor,
         agentState,
         ghostCard,
-    } = useGeminiSession(sessionId, vehicle, handleToolCall);
+    } = useLiveMechanicSession(sessionId, vehicle, handleToolCall);
 
-    // Keep refs updated with the latest state/functions from useGeminiSession
+    // Keep refs updated with the latest state/functions from useLiveMechanicSession
     useEffect(() => {
         cameraActiveRef.current = cameraActive;
     }, [cameraActive]);

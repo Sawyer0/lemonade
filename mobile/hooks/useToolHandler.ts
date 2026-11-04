@@ -29,9 +29,7 @@ export function useToolHandler(session: DiagnosticSession | null) {
                     if (user?.preferences?.autoOpenCamera) {
                         console.log(`[Auto-Tool] Opening camera for ${toolCall.toolName}`);
                         lastHandledMessageId.current = msgId;
-                        router.push(
-                            `/live-mechanic?roomName=${session.id}&sessionId=${session.id}&tool=${toolCall.toolName}`,
-                        );
+                        router.push(`/live-mechanic?sessionId=${session.id}`);
                     }
                 } else if (toolCall.toolName === 'display_content') {
                     const args = toolCall.args as Record<string, unknown>;
