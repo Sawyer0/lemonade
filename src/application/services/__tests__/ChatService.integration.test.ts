@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ChatService } from '../ChatService';
-import { TestFactory } from '../../../../packages/core/src/__tests__/helpers/TestFactory';
+import { TestFactory } from '../../../../packages/core/src/__tests__/fixtures/TestFactory';
 import type {
     IChatAssistantAI,
     ISessionRepository,
