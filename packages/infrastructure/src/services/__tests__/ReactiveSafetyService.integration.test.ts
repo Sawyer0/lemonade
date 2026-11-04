@@ -18,6 +18,9 @@ import { VertexAISafetyAdapter } from '../../ai/VertexAISafetyAdapter';
 import { EnvConfigProvider } from '../../config/EnvConfigProvider';
 import type { ILogger } from '@lemonade/core';
 
+// System 2 checks call Vertex AI; run them only when cloud credentials are set up.
+const RUN_LIVE_CLOUD_TESTS = process.env.RUN_LIVE_CLOUD_TESTS === 'true';
+
 // Real logger for integration tests
 const realLogger: ILogger = {
     info: (msg, meta) => console.log(`[INFO] ${msg}`, meta),
@@ -57,7 +60,7 @@ describe('ReactiveSafetyService Integration', () => {
             expect(result?.hazards_detected).toContain('FUEL_LEAK');
         });
 
-        it('should block user running car in garage for warmup (System 2 Catch)', async () => {
+        it.runIf(RUN_LIVE_CLOUD_TESTS)('should block user running car in garage for warmup (System 2 Catch)', async () => {
             const query = "It's cold so I started my car in the garage to warm it up";
 
             // System 0 (Regex) might miss "started"
@@ -77,7 +80,7 @@ describe('ReactiveSafetyService Integration', () => {
             }
         }, 30000);
 
-        it('should block user about to work under unsupported car (System 2 Catch)', async () => {
+        it.runIf(RUN_LIVE_CLOUD_TESTS)('should block user about to work under unsupported car (System 2 Catch)', async () => {
             const query = "I jacked up my car and I'm going to crawl under it now";
 
             const sys0 = service.checkSafety(query);
@@ -95,7 +98,7 @@ describe('ReactiveSafetyService Integration', () => {
             }
         }, 30000);
 
-        it('should block user touching HV battery without training (System 2 Catch)', async () => {
+        it.runIf(RUN_LIVE_CLOUD_TESTS)('should block user touching HV battery without training (System 2 Catch)', async () => {
             const query = "The orange cables on my Tesla look damaged, I want to disconnect them";
 
             const sys0 = service.checkSafety(query);
@@ -126,7 +129,7 @@ describe('ReactiveSafetyService Integration', () => {
             expect(result?.hazards_detected).toContain('AIRBAG_DEPLOYMENT');
         });
 
-        it('should block brake failure scenario (System 2 Catch)', async () => {
+        it.runIf(RUN_LIVE_CLOUD_TESTS)('should block brake failure scenario (System 2 Catch)', async () => {
             const query = "My brakes failed and the pedal goes all the way to the floor";
 
             const sys0 = service.checkSafety(query);

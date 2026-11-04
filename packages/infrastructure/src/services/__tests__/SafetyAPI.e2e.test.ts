@@ -5,6 +5,8 @@ import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 const TEST_SESSION_ID = 'cb9fd194-7977-49ab-8e5e-d89b58ce7f4b'; // Test session from memory
 const DEV_BYPASS_SECRET = process.env.DEV_BYPASS_SECRET;
+// The Firestore tests write to a real project; run them only when credentials are set up.
+const RUN_LIVE_CLOUD_TESTS = process.env.RUN_LIVE_CLOUD_TESTS === 'true';
 
 describe('Safety API E2E Tests', () => {
     beforeAll(async () => {
@@ -108,7 +110,7 @@ describe('LangSmith Trace Verification', () => {
  * DIRECT FIRESTORE INTEGRATION TESTS
  * These bypass the API and test direct Firestore operations.
  */
-describe('Firestore Direct Integration', async () => {
+describe.runIf(RUN_LIVE_CLOUD_TESTS)('Firestore Direct Integration', async () => {
     // Dynamic import to handle module resolution
     let adminDb: Firestore;
 
