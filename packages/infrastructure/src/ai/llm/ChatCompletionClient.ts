@@ -5,9 +5,12 @@
  */
 export type ChatRole = 'system' | 'user' | 'assistant';
 
+/** OpenAI-style multimodal content: text, or an image by https or data: URL. */
+export type ChatContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+
 export interface ChatCompletionMessage {
     role: ChatRole;
-    content: string;
+    content: string | ChatContentPart[];
 }
 
 export interface ChatCompletionRequest {
@@ -17,8 +20,20 @@ export interface ChatCompletionRequest {
     jsonMode?: boolean;
 }
 
+export interface ChatCompletionUsage {
+    inputTokens: number;
+    outputTokens: number;
+}
+
+export interface ChatCompletionResult {
+    content: string;
+    usage?: ChatCompletionUsage;
+}
+
 export interface ChatCompletionClient {
     readonly model: string;
     complete(request: ChatCompletionRequest): Promise<string>;
+    /** Like complete, plus the token usage the provider reported. */
+    completeWithUsage(request: ChatCompletionRequest): Promise<ChatCompletionResult>;
     stream(request: ChatCompletionRequest): AsyncIterable<string>;
 }

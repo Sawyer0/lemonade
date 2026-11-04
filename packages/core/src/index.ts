@@ -17,6 +17,7 @@ export * from './interfaces/IGoogleSearchService';
 export * from './interfaces/ILogger';
 export * from './interfaces/IMemoryService';
 export * from './interfaces/IMechanicReasoningService';
+export * from './interfaces/IMediaAnalysisModel';
 export * from './interfaces/IModelManagerService';
 export * from './interfaces/INHTSAService';
 export * from './interfaces/IRateLimiter';
