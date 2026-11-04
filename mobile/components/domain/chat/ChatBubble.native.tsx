@@ -38,9 +38,7 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
                         return (
                             <TouchableOpacity
                                 key={index}
-                                onPress={() =>
-                                    router.push(`/live-mechanic?roomName=${sessionId}&sessionId=${sessionId}`)
-                                }
+                                onPress={() => router.push(`/live-mechanic?sessionId=${sessionId}`)}
                                 style={{ marginTop: 8 }}
                             >
                                 <GlassCard

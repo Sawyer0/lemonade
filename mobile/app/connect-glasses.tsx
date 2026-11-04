@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIn
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as MetaWearables from '../modules/meta-wearables';
 import { MetaStreamView } from '../modules/meta-wearables';
-import { useGeminiSession } from '../hooks/useGeminiSession';
+import { useLiveMechanicSession } from '../hooks/useLiveMechanicSession';
 import { useSessionVehicle } from '../hooks/useSessionVehicle';
 
 export default function ConnectGlassesScreen() {
@@ -32,7 +32,7 @@ export default function ConnectGlassesScreen() {
         aiResponses,
         agentState,
         sendExternalImage,
-    } = useGeminiSession(sessionId, vehicle);
+    } = useLiveMechanicSession(sessionId, vehicle);
 
     useEffect(() => {
         const regSub = MetaWearables.addRegistrationChangeListener((event) => {
