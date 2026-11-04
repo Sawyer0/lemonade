@@ -16,6 +16,7 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.dawan.lemonademvp",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera for video diagnostics.",
         "NSMicrophoneUsageDescription": "This app uses the microphone for voice commands and diagnostics."
