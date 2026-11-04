@@ -2,6 +2,7 @@ import { IEdgeSecurityService } from '@lemonade/core';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { injectable } from 'inversify';
 import { CONFIG } from '../config';
+import { resolveInternalSecret } from './internalSecret';
 
 const JWKS = createRemoteJWKSet(
     new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'),
@@ -9,16 +10,18 @@ const JWKS = createRemoteJWKSet(
 
 @injectable()
 export class EdgeSecurityService implements IEdgeSecurityService {
-    private secretKey: Promise<CryptoKey>;
+    private secretKey?: Promise<CryptoKey>;
 
-    constructor() {
-        // Prepare the key for HMAC
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(CONFIG.SECURITY.INTERNAL_SECRET);
-        this.secretKey = crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, [
-            'sign',
-            'verify',
-        ]);
+    /** Imported on first use, so a missing production secret fails the first sealed request, not the build. */
+    private hmacKey(): Promise<CryptoKey> {
+        this.secretKey ??= crypto.subtle.importKey(
+            'raw',
+            new TextEncoder().encode(resolveInternalSecret()),
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign', 'verify'],
+        );
+        return this.secretKey;
     }
 
     async verifyToken(token: string): Promise<Record<string, unknown> | null> {
@@ -43,7 +46,7 @@ export class EdgeSecurityService implements IEdgeSecurityService {
         const sortedKeys = Object.keys(payload).sort();
         const dataToSign = sortedKeys.map((k) => `${k}:${payload[k]}`).join('|');
 
-        const key = await this.secretKey;
+        const key = await this.hmacKey();
         const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(dataToSign));
 
         // Convert to hex string

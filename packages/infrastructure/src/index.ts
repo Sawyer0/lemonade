@@ -37,5 +37,6 @@ export * from './ai/SafetyMonitor';
 export * from './repositories/VectorRepository';
 export * from './external/NHTSAService';
 export * from './security/EdgeSecurityService';
+export * from './security/internalSecret';
 export * from './security/UpstashRateLimiter';
 export * from './ai/llm';
