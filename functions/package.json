@@ -1,5 +1,5 @@
 {
-  "name": "functions",
+  "name": "@lemonade/functions",
   "version": "1.0.0",
   "license": "Apache-2.0",
   "description": "Lemonade MVP Cloud Functions",
@@ -11,7 +11,8 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": "20"
@@ -19,10 +20,10 @@
   "keywords": [],
   "author": "",
   "dependencies": {
-    "@google-cloud/vertexai": "^1.9.2",
+    "@google-cloud/vertexai": "^1.10.0",
     "firebase-admin": "^13.0.1",
     "firebase-functions": "^6.3.0",
-    "inversify": "^6.0.2",
+    "inversify": "^7.10.5",
     "langsmith": "^0.3.87",
     "reflect-metadata": "^0.2.1",
     "stripe": "^20.0.0",
@@ -35,5 +36,6 @@
     "@types/node": "^22.10.2",
     "@types/uuid": "^10.0.0",
     "typescript": "^5.7.2"
-  }
+  },
+  "private": true
 }

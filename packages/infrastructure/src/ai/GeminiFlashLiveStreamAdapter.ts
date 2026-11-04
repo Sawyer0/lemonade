@@ -35,7 +35,7 @@ export class GeminiFlashLiveStreamAdapter implements ILiveStreamAnalyzer {
     constructor(
         @inject(TYPES.Logger) private logger: ILogger,
         @inject(TYPES.BillingService) private billingService: IBillingService, // Depends on the Service interface
-        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
+        @inject(TYPES.GeminiCoreAdapter) coreAdapter: GeminiCoreAdapter,
         @inject(TYPES.FunctionCallService) private functionCallService: FunctionCallService,
         @inject(TYPES.ContextCacheService) private cacheService: IContextCacheService,
         @inject(TYPES.UserRepo) private userRepo: IUserRepository,

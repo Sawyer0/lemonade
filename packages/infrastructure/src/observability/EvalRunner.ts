@@ -11,7 +11,7 @@ export class EvalRunner {
     private reasoningEvaluator: ReasoningEvaluator;
 
     constructor(
-        @inject(TYPES.ConfigProvider) private config: IConfigProvider,
+        @inject(TYPES.ConfigProvider) config: IConfigProvider,
         @inject(TYPES.MechanicReasoningService) private mechanicReasoning: IMechanicReasoningService,
         @inject(TYPES.Logger) private logger: ILogger,
     ) {

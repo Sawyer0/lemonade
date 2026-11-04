@@ -44,6 +44,9 @@ jobs:
       - name: Typecheck (agent)
         run: npm run typecheck:agent
 
+      - name: Typecheck (functions)
+        run: npm run typecheck:functions
+
       - name: Test (web, packages, agent)
         run: npm test
 
