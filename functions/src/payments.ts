@@ -55,14 +55,21 @@ export const stripeWebhook = onRequest(async (req, res) => {
     const sig = req.headers['stripe-signature'];
     const endpointSecret = CONFIG.STRIPE.WEBHOOK_SECRET;
 
+    // Fail closed: an unsigned body could otherwise upgrade any user to Pro.
+    if (!endpointSecret) {
+        logger.error('STRIPE_WEBHOOK_SECRET is not set; rejecting webhook');
+        res.status(500).send('Webhook not configured');
+        return;
+    }
+    if (!sig) {
+        res.status(400).send('Missing stripe-signature header');
+        return;
+    }
+
     let event;
 
     try {
-        if (endpointSecret && sig) {
-            event = getStripe().webhooks.constructEvent(req.rawBody, sig, endpointSecret);
-        } else {
-            event = req.body;
-        }
+        event = getStripe().webhooks.constructEvent(req.rawBody, sig, endpointSecret);
     } catch (err) {
         logger.error(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown'}`, err as Error);
         res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown'}`);
