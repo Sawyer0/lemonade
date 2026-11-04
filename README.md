@@ -1,402 +1,127 @@
-# Lemonade MVP
+# Lemonade
 
-AI-powered vehicle diagnostic platform. A "Master Technician" in your pocket.
+AI vehicle diagnostics: a driver or technician describes a problem in chat (or shows it on a phone camera) and
+Lemonade answers like a master mechanic, grounded in the vehicle's NHTSA recalls, past sessions and web sources.
 
-## Overview
-
-Lemonade provides accurate, safe, and instant mechanical diagnostics via video and chat. The platform utilizes a sophisticated **Neuro-symbolic 4-Layered Architecture** (System 2) combined with **Reactive Safety Gating** (System 0) to ensure grounded reasoning and absolute user safety.
-
-**Core Philosophy**: Safety First, Accuracy Second, Speed Third.
-
-## Tech Stack
-
-| Layer      | Technology                          |
-| ---------- | ----------------------------------- |
-| Framework  | Next.js 15 (App Router)             |
-| Language   | TypeScript (Strict Mode)            |
-| Database   | Firebase Firestore                  |
-| Auth       | Firebase Authentication (Google)    |
-| Storage    | Google Cloud Storage                |
-| AI         | Google Vertex AI (Gemini 2.5 Flash), Context Caching |
-| Real-Time  | LiveKit (WebRTC)                    |
-| Mobile     | React Native (Expo) + WebView Hybrid, New Architecture (Fabric) |
-| On-Device AI| llama.rn (GGUF Inference)          |
-| Deployment | Google Cloud Run                    |
-
-## Prerequisites
-
-- Node.js 20+
-- npm 10+
-- Google Cloud Project with:
-  - Vertex AI API enabled
-  - Firebase project configured
-  - Cloud Storage bucket
-- Firebase Service Account Key (JSON)
-
-## Environment Setup
-
-Create `.env.local` in the project root:
-
-```env
-# Firebase Client
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-
-# Firebase Admin (Server)
-FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
-
-# Google Cloud
-GCLOUD_PROJECT=your_project_id
-GCLOUD_MEDIA_BUCKET=your_bucket.firebasestorage.app
-
-# Stripe (Payments)
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_SECRET_KEY=sk_test_...
-
-# LangSmith (AI Observability)
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_langsmith_key
-LANGCHAIN_PROJECT=lemonade-master-tech
-```
-
-## Installation
-
-```bash
-# Install dependencies
-npm install
-
-# Install Firebase Functions dependencies
-cd functions && npm install && cd ..
-
-> **Important**: React 19.1.0 is required for react-native compatibility.
-> The root `package.json` pins this version via `overrides`. Do not manually upgrade React without verifying react-native support.
-```
-
-## Development
-
-```bash
-# Start development server
-npm run dev
-
-# Run linting
-npm run lint
-
-# Run tests
-npx vitest run
-
-# Build for production
-npm run build
-
-# Start Mobile App (Android)
-cd mobile
-npx expo run:android
-
-# Start Mobile App (iOS)
-cd mobile
-npx expo run:ios
-```
-
-## Mobile Development
-
-### Prerequisites
-- **Android**: Android Studio with SDK 35/36.
-- **iOS**: Xcode (Mac only).
-- **Device**: Physical device recommended for Camera/AI features.
-
-### Key Configuration
-- **New Architecture (Fabric)**: Enabled via `newArchEnabled: true` in `app.json`.
-- **Async Routes**: Enabled (`asyncRoutes: true`) to prevent eager loading crashes with native modules.
-- **On-Device AI**: `llama.rn` is bundled for local inference. Verify GPU settings in `app.json`.
-
-### Platform-Specific Extensions
-We use the standard React Native pattern for platform separation:
-- `*.ts` / `*.tsx` : **Native** implementation (Android/iOS) - Defaults for Expo.
-- `*.web.ts` / `*.web.tsx` : **Web** mock/fallback implementation.
-
-*Note: For `meta-wearables`, `index.ts` is the native entry and `index.web.tsx` is the web mock.*
-
-## Project Structure
-
-```
-packages/
-├── core/                 # Pure domain logic (entities, interfaces, types)
-├── infrastructure/       # Shared adapters (AI, Firebase, Logging)
-└── ...
-src/
-├── app/                  # Next.js App Router (API Routes & Pages)
-├── application/          # Business logic orchestration
-├── infrastructure/       # Web-specific implementations & DI container
-└── presentation/         # React UI layer (Components, Hooks)
-mobile/                   # React Native Application (Expo)
-├── app/                  # Native routing (expo-router)
-├── components/           # Native UI components
-├── modules/              # Custom native modules (MetaWearables)
-└── infrastructure/       # Native hardware implementations
-lemonade-backend/         # Backend models (GGUF files)
-
-```
+Car problems are expensive to misread and some are dangerous to touch. Lemonade's design rule is _safety first,
+accuracy second, speed third_: every message passes a deterministic hazard check before any model sees it, then a
+model-based safety check, and only then reaches the diagnostic assistant.
 
 ## Architecture
 
-The application follows a strict layered architecture with InversifyJS for dependency injection:
-
-1. **Core (`packages/core`)** → Pure domain logic and contracts, zero external dependencies.
-2. **Infrastructure (`packages/infrastructure`)** → Shared adapters for external integrations (Firebase, Vertex AI, Tracing).
-3. **Application (`src/application`)** → Business logic orchestration and neuro-symbolic reasoning.
-4. **Presentation (`src/presentation`)** → React UI components and state management.
-5. **Mobile (`mobile/`)** → Hybrid Architecture (Native Camera + Shared WebViews).
-
-See `docs/LEMONADE-ARCHITECTURE.md` for detailed documentation.
-
-### Hybrid Mobile Architecture
-
-The mobile app follows a "Hybrid" approach to leverage the best of both worlds:
-- **"Native" Zone (React Native)**: Critical real-time features like Camera, Microphone, and LiveKit video streams run natively for 60fps performance and raw hardware access.
-- **"WebView" Zone (Next.js)**: Complex content like PDF Manuals, Chat History, and Billing are rendered in a shared Web View, allowing rapid iteration and reusing the robust web frontend.
-- **The Bridge**: The user seamlessly toggles between "Live Mode" (Native) and "Chat Mode" (WebView).
-
-### High-Level Architecture Diagram
-
-```mermaid
-flowchart TD
-  %% Layers
-  subgraph Client[Client]
-    Browser[User Browser]
-  end
-
-  subgraph NextJS[Next.js App Router\nsrc/app, src/presentation]
-    AuthUI[Auth / Landing]
-    Garage[Garage / Vehicles]
-    Session[Session Workspace]
-  end
-
-  subgraph DI[Inversify DI Container\nsrc/infrastructure/di]
-    Types[Bindings & Types]
-  end
-
-  subgraph App[Application Layer\nsrc/application/services]
-    DS[DiagnosticService]
-    VS[VehicleService]
-    RS[ReactiveSafetyService]
-  end
-
-  subgraph Infra[Infrastructure Layer\nsrc/infrastructure]
-    Repos[Firestore Repositories\nSession / Vehicle]
-    Firebase[Firebase Admin & Auth]
-    Vertex[Vertex AI Adapters\nGeminiProAdapter / GeminiFlashAdapter]
-    Storage[StorageService\nGCS Signed URLs]
-    Tracing[TracingService\nLangSmith Integration]
-  end
-
-  subgraph GCP[Backend Services]
-    GCS[(Cloud Storage)]
-    FFVideo[Cloud Function\nanalyzeUploadedVideo]
-    FFPay[Cloud Function\nStripe payments]
-    Firestore[(Firestore)]
-    Stripe[(Stripe)]
-    NHTSA[(NHTSA API)]
-  end
-
-  %% Layer wiring
-  Browser --> NextJS
-  NextJS --> DI --> App --> Infra
-
-  %% Video upload → AI analysis → real-time UI
-  Session -->|upload video| Storage
-  Storage -->|signed URL write| GCS
-  GCS -->|onObjectFinalized| FFVideo
-  FFVideo -->|call Gemini 2.5 Flash| Vertex
-  FFVideo -->|update analysis| Firestore
-  Firestore -->|onSnapshot| Session
-
-  %% Safety & tools (function calling)
-  Session -->|chat / voice| DS
-  DS --> Vertex
-  Vertex -->|tools: verifySafeSupport, openCamera, webSearch| Session
-
-  %% Vehicle onboarding (VIN scan)
-  Garage --> VS
-  VS --> Repos
-  VS --> NHTSA
-
-  %% Auth & user context
-  AuthUI --> Firebase --> Firestore
-
-  %% Billing and Pro tier gating
-  Garage -->|Upgrade to Pro| Stripe
-  Stripe --> FFPay --> Firestore
-  Firestore -->|user tier| NextJS
+```
+src/            Next.js 16 web app (App Router): pages, API routes, application services, DI wiring
+packages/core   Domain types (Zod), service interfaces, prompts and the XState diagnostic state machine
+packages/infrastructure
+                Adapters: Vertex AI / Gemini, Groq, Firestore, NHTSA, Google Search, Supermemory, Stripe usage,
+                edge auth + rate limiting, LangSmith tracing
+functions/      Firebase Cloud Functions: video analysis on upload, Stripe checkout and webhook
+mobile/         Expo / React Native app: camera, VIN scanner, LiveKit, on-device llama.rn, Meta wearables
+                module (in progress)
+agent/          LiveKit voice agent (work in progress)
 ```
 
-### Tool-Calling & Camera Flow
+Request flow for chat (`POST /api/chat`, streamed as NDJSON):
 
-```mermaid
-sequenceDiagram
-    autonumber
+1. **Middleware** (`src/middleware.ts`) verifies the Firebase ID token, applies Upstash rate limits and Pro-tier gates,
+   and seals the user identity into HMAC-signed headers. Route rules live in `src/infrastructure/security/routeAccess.ts`.
+2. **System 0, reactive safety** (`ReactiveSafetyService`): regex rules for fuel leaks, battery fires, high-voltage
+   parts and working under an unsupported car. Hand-written rules run first, then 35 generated rules; observation
+   verbs ("I see orange cables") are allowed through. A match returns a fixed safety message and no model is called.
+3. **System 1, semantic safety** (`SafetyMonitor`): an LLM rates the message and fails closed if the check errors.
+4. **Chat** (`ChatService`): prunes history to a token budget (summarising older turns), streams the assistant reply
+   and stores both turns on the session.
 
-    participant U as User
-    participant UI as Session Workspace<br/>(CameraWorkspace / ChatStream)
-    participant API as Next.js API Routes
-    participant RS as ReactiveSafetyService (System 0)
-    participant DS as DiagnosticService
-    participant GX as GeminiFlashAdapter
-    participant GXModel as Gemini 2.5 Flash
-    participant Tools as Tools<br/>(verifySafeSupport, openCamera, webSearch)
-    participant Cam as CameraView
-    participant GCS as Cloud Storage
-    participant FF as Cloud Function<br/>analyzeUploadedVideo
-    participant FS as Firestore
+Deeper diagnosis runs through `mechanicMachine` (XState): gather recalls, history and similar cases → form a
+hypothesis → search and fact-check it in parallel → check uploaded video → synthesise.
 
-    %% User starts interaction
-    U->>UI: Chat / Voice message
-    UI->>API: POST /api/chat or /api/voice
-    API->>RS: checkSafety(userQuery)
-    
-    alt Dangerous Query
-        RS-->>API: STOP_DANGER + Safety Message
-        API-->>UI: Immediate Hazard Alert
-    else Safe Query
-        API->>DS: handleChatInteraction / processVoiceCommand
-    end
+Services are bound in an Inversify container (`src/infrastructure/di/container.ts`) against interfaces from
+`packages/core`. The chat and safety models sit behind `IChatAssistantAI` / `ISafetyAI`: Vertex AI (Gemini) by
+default, or Groq's OpenAI-compatible API with `LLM_PROVIDER=groq`. Video, image and live-stream analysis need Vertex AI.
 
-    %% DiagnosticService calls Gemini through adapter
-    DS->>GX: generateReply / processAudioCommand
-    GX->>GXModel: send prompt + history
+## Quick start
 
-    %% Model decides to call tools
-    GXModel-->>GX: functionCall(openCamera / verifySafeSupport / webSearch)
-    GX-->>UI: Tool invocation metadata
-
-    %% Camera tool path
-    UI->>Cam: Render CameraView for live capture
-    U->>Cam: Point camera at target area
-    Cam->>GCS: Upload captured image/video
-    GCS-->>FF: onObjectFinalized trigger (optional video pipeline)
-    FF->>FS: Update session analysis / safety fields
-
-    %% Safety verification tool path
-    GXModel-->>Tools: verifySafeSupport(reason, required_equipment)
-    Tools-->>GXModel: safety result (safe / unsafe, concerns, recommendation)
-    GXModel-->>GX: final assistant message
-    GX-->>DS: reply text + safety state
-    DS->>FS: append messages / safety flags
-    FS-->>UI: onSnapshot live update
-
-    %% Web search tool path
-    GXModel-->>Tools: webSearch(query, searchType)
-    Tools-->>GXModel: grounded results
-    GXModel-->>GX: grounded explanation
-    GX-->>DS: final answer
-    DS-->>API: response payload
-    API-->>UI: chat response
-    UI-->>U: updated chat + safety / camera UI
-```
-
-### Neuro-symbolic Reasoning Loop (System 2)
-
-Lemonade implements a "System 2" deliberate reasoning process to eliminate AI hallucinations and ensure safety:
-
-1. **Node 1: Perception (Intuition)**: AI generates a hypothesis from visual/acoustic evidence.
-2. **Node 2: Authority (The Law)**: NHTSA recall/TSB check overrides AI intuition for safety-critical issues.
-3. **Node 3: Consensus (Collective Memory)**: Vector search of verified community fixes validates the repair pattern.
-4. **Node 4: Reality Anchor (Grounding)**: Symbolic verification of specs (torque, fluid types) against extracted metadata and live visual state.
-
-**Reactive Safety Gating (System 0)**: A deterministic layer that monitors user input for high-risk keywords (e.g., "gas leak", "orange cables") to trigger immediate safety stops before AI processing.
-
-## Key Features
-
-- **Neuro-symbolic Reasoning (System 2)**: A 4-node loop (Perception, Authority, Consensus, Reality Anchor) that validates AI intuition against technical manuals and physical reality.
-- **Reactive Safety Gating (System 0)**: Deterministic, instant protection against critical hazards (fuel leaks, high voltage) bypassing deep reasoning for immediate response.
-- **Agentic Custom Grounding**: Proprietary metadata extraction from TSBs, recalls, and technical documentation for precision diagnostic verification.
-- **Real-time Chat** with Gemini 2.5 Flash and LangSmith observability.
-- **Video Analysis** for high-fidelity visual diagnostics and physical state verification.
-- **Voice Input** with VAD (Voice Activity Detection) for hands-free shop use.
-- **Live Session Sync** via Firestore real-time listeners.
-- **Robust Context Caching**: Caches Technical Service Manuals (PDFs) in Vertex AI for low-latency retrieval.
-- **Hybrid Mobile Experience**: Native camera performance mixed with web-based rich content.
-
-## Deployment
-
-### Docker (Cloud Run)
+Requires Node.js 22 and npm 10.
 
 ```bash
-# Build image
-docker build -t lemonade-mvp .
-
-# Run locally
-docker run -p 3000:3000 --env-file .env.local lemonade-mvp
+npm ci
+npm run demo
 ```
 
-### Cloud Run Deployment
+`npm run demo` needs no accounts or keys. It runs the real `ChatService`, both safety gates and the chat adapter
+against in-memory storage with scripted model replies:
+
+```text
+$ npm run demo
+Lemonade chat demo (offline model)
+
+> My 2015 Civic squeals when I brake, mostly in the morning. What should I check?
+Morning-only squeal that fades after a few stops is usually surface rust on the rotors or glazed pads. Check pad thickness through the wheel spokes (replace under 3 mm) and look for a lip on the rotor edge.
+
+> I smell gas leaking under the hood, can I keep driving to work?
+CRITICAL SAFETY STOP: Fuel leak detected. Extinguish all smoking materials, do not use electronic devices near the vehicle, and evacuate the area immediately.
+
+Session now holds 4 messages.
+```
+
+The first answer is the scripted offline reply; the second comes from the System 0 regex gate, which stops the
+request before any model is called. For live model answers, get a free key at
+[console.groq.com/keys](https://console.groq.com/keys), put it in `.env.local` and run `npm run demo -- --groq`:
 
 ```bash
-# Deploy to Cloud Run
-gcloud run deploy lemonade-mvp \
-  --image gcr.io/PROJECT_ID/lemonade-mvp \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated
+cp .env.example .env.local   # then set GROQ_API_KEY
+npm run demo -- --groq
 ```
 
-## Firebase Setup
+### Running the full app
+
+The web app needs a Firebase project (Authentication with Google sign-in, Firestore, Storage) and, for the default
+provider, Vertex AI on the same Google Cloud project. Fill in `.env.local` from `.env.example`, then:
 
 ```bash
-# Deploy Firestore rules
-firebase deploy --only firestore:rules
-
-# Deploy Storage rules
-firebase deploy --only storage
-
-# Deploy Cloud Functions
-firebase deploy --only functions
+npm run dev                          # http://localhost:3000
+firebase deploy --only firestore:rules,storage,functions
 ```
+
+Set `LLM_PROVIDER=groq` with `GROQ_API_KEY` to run chat and safety checks on Groq instead of Vertex AI.
+
+The mobile app is in `mobile/` (`npx expo run:android` or `run:ios` from that folder); see `mobile/README.md`.
 
 ## Testing
 
 ```bash
-# Run all tests
-npx vitest run
-
-# Run specific test suite
-npx vitest run src/core/tools/__tests__
-
-# Run with coverage
-npx vitest run --coverage
-
-# E2E tests (Playwright)
-npx playwright test
+npm run lint           # ESLint, zero warnings allowed
+npm run format:check   # Prettier
+npm run typecheck      # tsc, strict mode
+npm test               # Vitest: web app and packages
+npm run test:mobile    # Jest: mobile app
+npm run build          # Next.js production build
 ```
 
-## API Routes
+GitHub Actions runs all of these on every pull request (`.github/workflows/ci.yml`). Tests use fakes for every model
+and cloud service. Tests that call Vertex AI or write to a real Firestore project run only with
+`RUN_LIVE_CLOUD_TESTS=true` and credentials in `.env.local`. Playwright end-to-end specs are in `e2e/`
+(`npx playwright test`, which starts the dev server).
 
-| Endpoint                | Method | Description                      |
-| ----------------------- | ------ | -------------------------------- |
-| `/api/chat`             | POST   | AI chat with web search          |
-| `/api/vehicles/scan`    | POST   | VIN decode & vehicle onboarding  |
-| `/api/upload/sign`      | POST   | Get signed URL for direct upload |
-| `/api/analysis/trigger` | POST   | Trigger video analysis           |
-| `/api/stripe/checkout`  | POST   | Create Stripe checkout session   |
-| `/api/stripe/portal`    | POST   | Access billing portal            |
+## API routes
 
-## Security
+| Route                                       | Method     | Purpose                                               |
+| ------------------------------------------- | ---------- | ----------------------------------------------------- |
+| `/api/chat`                                 | POST       | Streamed chat reply behind both safety gates          |
+| `/api/chat/message`                         | POST       | Non-streamed chat reply                               |
+| `/api/session`                              | GET, POST  | List or start diagnostic sessions                     |
+| `/api/session/[sessionId]`                  | GET        | Read a session                                        |
+| `/api/session/[sessionId]/summarize`        | POST       | Summarise a session                                   |
+| `/api/session/token`                        | GET        | LiveKit room token (Pro)                              |
+| `/api/vehicles`                             | GET        | List the user's vehicles                              |
+| `/api/vehicles/scan`                        | POST       | Decode a VIN via NHTSA and add the vehicle            |
+| `/api/nhtsa/recalls`                        | GET        | NHTSA recalls by year, make and model                 |
+| `/api/upload/sign`                          | POST       | Signed URL for direct upload to Cloud Storage         |
+| `/api/analysis/trigger`                     | POST       | Start video analysis (Pro)                            |
+| `/api/stripe/portal`                        | POST       | Stripe billing portal                                 |
+| `/api/profile`                              | GET, PATCH | Read or update the user profile                       |
+| `/api/search`, `/api/memory`, `/api/vector` | POST       | Web search, long-term memory and similar-case lookups |
 
-- All API routes protected by middleware authentication
-- Firebase Auth tokens validated server-side
-- Firestore security rules enforce user-level access
-- Service account credentials never exposed to client
+## License
 
-## Monitoring
-
-- **LangSmith**: AI request tracing and safety evaluations
-- **Firebase Console**: Firestore usage, Auth metrics
-- **Cloud Run**: Request logs, error tracking
-
----
-
-**© 2025 Lemonade. All Rights Reserved.**
-
-This software is proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited.
+No license file is included; all rights reserved by the author.
