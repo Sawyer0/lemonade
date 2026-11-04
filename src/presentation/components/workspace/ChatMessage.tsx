@@ -17,6 +17,13 @@ interface Message {
     toolInvocations?: ToolInvocation[];
 }
 
+/** The fields of a stored message part this bubble renders. */
+interface RenderablePart {
+    type?: string;
+    text?: string;
+    toolName?: string;
+}
+
 interface ChatMessageProps {
     msg: Message;
     isVideoMode: boolean;
@@ -31,8 +38,7 @@ export function ChatMessage({ msg, isVideoMode, onImageCapture, handleCloseTool,
     // Helper to render content parts
     const renderContent = () => {
         if (Array.isArray(msg.content)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return msg.content.map((p: any, i: number) => {
+            return (msg.content as RenderablePart[]).map((p, i) => {
                 if (p.type === 'text' || (p.text && !p.type))
                     return (
                         <span key={i} className="whitespace-pre-wrap block mb-2 last:mb-0">
@@ -52,10 +58,9 @@ export function ChatMessage({ msg, isVideoMode, onImageCapture, handleCloseTool,
         // Attempt to parse if it looks like a JSON array string
         if (contentStr.startsWith('[')) {
             try {
-                const parsed = JSON.parse(contentStr);
+                const parsed: unknown = JSON.parse(contentStr);
                 if (Array.isArray(parsed)) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    return parsed.map((p: any, i: number) => {
+                    return (parsed as RenderablePart[]).map((p, i) => {
                         if (p.type === 'text' || (p.text && !p.type))
                             return (
                                 <span key={i} className="whitespace-pre-wrap block mb-2 last:mb-0">

@@ -187,7 +187,7 @@ export const VectorDocumentSchema = z.object({
     id: z.string(),
     text: z.string(),
     vector: z.array(z.number()),
-    metadata: z.record(z.any()), // Assuming metadata can be any key-value pair
+    metadata: z.record(z.unknown()),
     createdAt: z.date(),
 });
 
