@@ -14,6 +14,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "typecheck:mobile": "tsc --noEmit -p mobile",
+    "typecheck:agent": "tsc --noEmit -p agent",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
