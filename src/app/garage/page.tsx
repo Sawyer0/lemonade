@@ -10,6 +10,7 @@ import { Vehicle, IAuthService } from '@lemonade/core';
 import { useAuth } from '@/presentation/context/AuthContext';
 import { useToast } from '@/presentation/context/ToastContext';
 import { ApiClient } from '@/infrastructure/api/ApiClient';
+import type { VehicleListResponseDTO } from '@/application/dtos/vehicle.dto';
 import { CONFIG } from '@/infrastructure/config';
 import { clientContainer } from '@/infrastructure/di/clientContainer';
 import { TYPES } from '@/infrastructure/di/types';
@@ -42,12 +43,13 @@ export default function GaragePage() {
     const { data: userData } = useSWR<{ data: { tier: string } }>(user ? CONFIG.API.ROUTES.PROFILE : null, fetcher);
     const userTier = userData?.data?.tier === 'pro' ? 'pro' : 'free';
 
+    // The API derives the owner from the ID token, so no userId goes in the URL.
     const {
         data: vehiclesData,
         isLoading,
         mutate,
-    } = useSWR<Vehicle[]>(user ? CONFIG.API.ROUTES.VEHICLES : null, fetcher);
-    const vehicles: Vehicle[] = vehiclesData || [];
+    } = useSWR<VehicleListResponseDTO>(user ? CONFIG.API.ROUTES.VEHICLES : null, fetcher);
+    const vehicles: Vehicle[] = vehiclesData?.data ?? [];
 
     const { showToast } = useToast();
     const [portalLoading, setPortalLoading] = useState(false);

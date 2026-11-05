@@ -80,18 +80,18 @@ describe('GET /api/vehicles', () => {
     });
 
     describe('Authentication', () => {
-        it('returns 403 when security check fails', async () => {
+        it('returns 401 when there is no authenticated user', async () => {
             mockSecurity.getAuthenticatedUser.mockResolvedValue(null);
 
-            const req = createRequest({ userId: 'user-123' });
-            const res = await GET(req);
+            const res = await GET(createRequest());
 
-            expect(res.status).toBe(403);
+            expect(res.status).toBe(401);
             const body = await res.json();
             expect(body.error).toContain('Unauthorized');
+            expect(mockVehicleRepo.findByUser).not.toHaveBeenCalled();
         });
 
-        it('returns 403 when userId query param does not match auth userId', async () => {
+        it('returns 403 when a legacy userId query param names another user', async () => {
             mockSecurity.getAuthenticatedUser.mockResolvedValue({
                 userId: 'different-user',
                 tier: 'free',
@@ -102,24 +102,36 @@ describe('GET /api/vehicles', () => {
             const res = await GET(req);
 
             expect(res.status).toBe(403);
+            expect(mockVehicleRepo.findByUser).not.toHaveBeenCalled();
         });
     });
 
-    describe('Validation', () => {
-        it('returns 400 when userId query param missing', async () => {
-            const req = createRequest({});
-            const res = await GET(req);
+    describe('Identity', () => {
+        it("lists the token owner's vehicles when no userId is given (what the web garage sends)", async () => {
+            mockVehicleRepo.findByUser.mockResolvedValue([sampleVehicle]);
+
+            const res = await GET(createRequest());
+
+            expect(res.status).toBe(200);
+            expect(mockVehicleRepo.findByUser).toHaveBeenCalledWith('user-123');
+            const body = await res.json();
+            expect(body.data).toHaveLength(1);
+        });
+
+        it('accepts a matching legacy userId query param', async () => {
+            mockVehicleRepo.findByUser.mockResolvedValue([]);
+
+            const res = await GET(createRequest({ userId: 'user-123' }));
+
+            expect(res.status).toBe(200);
+        });
+
+        it('returns 400 for an empty userId', async () => {
+            const res = await GET(createRequest({ userId: '' }));
 
             expect(res.status).toBe(400);
             const body = await res.json();
             expect(body.code).toBe('INVALID_INPUT');
-        });
-
-        it('returns 400 when userId is empty string', async () => {
-            const req = createRequest({ userId: '' });
-            const res = await GET(req);
-
-            expect(res.status).toBe(400);
         });
     });
 
