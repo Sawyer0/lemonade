@@ -51,7 +51,9 @@ describe('pages', () => {
 
 describe('auth-guarded API routes', () => {
     it.each([
+        ['GET', '/api/vehicles'],
         ['GET', '/api/vehicles?userId=someone'],
+        ['GET', `/api/vehicles/${randomUUID()}/history`],
         ['GET', '/api/session'],
         ['POST', '/api/chat'],
         ['POST', '/api/vehicles/scan'],
@@ -82,8 +84,8 @@ describe('signed-in flow', () => {
         user = await signUp();
     });
 
-    it('starts with an empty garage', async () => {
-        const res = await api(`/api/vehicles?userId=${user.uid}`, { token: user.idToken });
+    it('starts with an empty garage (owner taken from the token)', async () => {
+        const res = await api('/api/vehicles', { token: user.idToken });
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({ data: [] });
     });
@@ -104,7 +106,7 @@ describe('signed-in flow', () => {
         expect(scanned.data.specs).toMatchObject({ ...FIXTURE_VEHICLE, engine: '3.0L V-Shaped Gasoline' });
         vehicleId = scanned.data.id;
 
-        const list = await api(`/api/vehicles?userId=${user.uid}`, { token: user.idToken });
+        const list = await api('/api/vehicles', { token: user.idToken });
         const garage = (await list.json()) as { data: Array<{ id: string; vin: string }> };
         expect(garage.data).toEqual([expect.objectContaining({ id: vehicleId, vin: FIXTURE_VIN })]);
     });
@@ -130,6 +132,18 @@ describe('signed-in flow', () => {
         const list = await api('/api/session', { token: user.idToken });
         const sessions = (await list.json()) as { data: Array<{ id: string; vehicleId: string }> };
         expect(sessions.data).toEqual([expect.objectContaining({ id: sessionId, vehicleId })]);
+    });
+
+    it("returns the vehicle's history with that session, and hides it from other users", async () => {
+        const res = await api(`/api/vehicles/${vehicleId}/history`, { token: user.idToken });
+        expect(res.status).toBe(200);
+        const { data } = (await res.json()) as { data: { vehicle: { id: string }; sessions: Array<{ id: string }> } };
+        expect(data.vehicle.id).toBe(vehicleId);
+        expect(data.sessions.map((s) => s.id)).toEqual([sessionId]);
+
+        const stranger = await signUp();
+        const denied = await api(`/api/vehicles/${vehicleId}/history`, { token: stranger.idToken });
+        expect(denied.status).toBe(404);
     });
 
     it('streams a chat reply from the offline model', async () => {
