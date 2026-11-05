@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
     testDir: './e2e',
+    // e2e/emulators has its own config (playwright.emulators.config.ts); smoke runs under Vitest.
+    testIgnore: ['emulators/**', 'smoke/**'],
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,

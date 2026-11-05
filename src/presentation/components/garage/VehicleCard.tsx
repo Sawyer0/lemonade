@@ -6,10 +6,10 @@ import { Car, Loader2 } from 'lucide-react';
 import { Button } from 'konsta/react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { db } from '@/infrastructure/firebase/config';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/presentation/context/AuthContext';
+import { ApiClient } from '@/infrastructure/api/ApiClient';
+import { CONFIG } from '@/infrastructure/config';
+import type { StartSessionRequestDTO, StartSessionResponseDTO } from '@/application/dtos/session.dto';
 
 interface VehicleCardProps {
     vehicle: Vehicle;
@@ -33,22 +33,11 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
 
         setDiagnosing(true);
         try {
-            const sessionId = uuidv4();
-            // Create session directly via Client SDK to use current Auth context
-            await setDoc(doc(db, 'sessions', sessionId), {
-                id: sessionId,
-                vehicleId: vehicle.id,
-                userId: user.uid, // Use authenticated user ID
-                status: 'active',
-                complaint: 'New Session',
-                obdCodes: [],
-                messages: [],
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                startedAt: serverTimestamp(),
-                aiAnalysis: null,
-                safety_stop: false,
-            });
+            // The API stamps the owner from the ID token and writes a schema-valid session.
+            const { sessionId } = await ApiClient.post<StartSessionResponseDTO, StartSessionRequestDTO>(
+                CONFIG.API.ROUTES.SESSIONS,
+                { vehicleId: vehicle.id },
+            );
 
             router.push(`/session/${sessionId}`);
         } catch (error) {
