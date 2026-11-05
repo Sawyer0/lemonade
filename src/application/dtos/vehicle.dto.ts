@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { VehicleSchema } from '@lemonade/core';
+import { VehicleSchema, DiagnosticSessionSchema } from '@lemonade/core';
 
 export const VehicleScanRequestSchema = z.object({
     vin: z.string().length(17, 'VIN must be exactly 17 characters'),
@@ -20,3 +20,12 @@ export const VehicleScanResponseSchema = z.object({
 });
 
 export type VehicleScanResponseDTO = z.infer<typeof VehicleScanResponseSchema>;
+
+export const VehicleHistoryResponseSchema = z.object({
+    data: z.object({
+        vehicle: VehicleSchema,
+        sessions: z.array(DiagnosticSessionSchema),
+    }),
+});
+
+export type VehicleHistoryResponseDTO = z.infer<typeof VehicleHistoryResponseSchema>;

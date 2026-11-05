@@ -14,6 +14,8 @@ interface ServiceHistoryProps {
     sessions: DiagnosticSession[];
     vehicleId: string;
     loading: boolean;
+    /** Shown under the title, e.g. "2003 HONDA Accord • VIN". */
+    subtitle?: string;
 }
 
 // 1. Swipeable Wrapper for Konsta ListItem
@@ -99,7 +101,7 @@ const HistorySkeleton = () => (
 
 // --- MAIN COMPONENT ---
 
-export function ServiceHistory({ sessions, loading }: ServiceHistoryProps) {
+export function ServiceHistory({ sessions, loading, subtitle }: ServiceHistoryProps) {
     const [items, setItems] = useState<DiagnosticSession[]>(sessions || []);
     const router = useRouter();
     const { showToast } = useToast();
@@ -145,7 +147,11 @@ export function ServiceHistory({ sessions, loading }: ServiceHistoryProps) {
     return (
         <Page className="!bg-black">
             {/* Official Konsta Navbar with Transparency */}
-            <Navbar transparent title="History" left={<NavbarBackLink onClick={() => router.back()} text="" />} />
+            <Navbar
+                title="Service History"
+                subtitle={subtitle}
+                left={<NavbarBackLink onClick={() => router.push('/garage')} text="Garage" />}
+            />
 
             <div className="relative min-h-screen">
                 {isLoading && items.length === 0 ? (

@@ -38,7 +38,9 @@ export class VehicleService {
         return this.vehicleRepo.findById(id, userId);
     }
 
-    async getHistory(vehicleId: string): Promise<DiagnosticSession[]> {
-        return this.sessionRepo.findByVehicleId(vehicleId);
+    /** Sessions for a vehicle, limited to the ones the user owns. */
+    async getHistory(vehicleId: string, userId: string): Promise<DiagnosticSession[]> {
+        const sessions = await this.sessionRepo.findByVehicleId(vehicleId);
+        return sessions.filter((session) => session.userId === userId);
     }
 }
