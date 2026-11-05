@@ -55,7 +55,7 @@ export default function LandingPage() {
                 </Block>
 
                 {/* GOOGLE AUTH SECTION */}
-                <Block className="mt-8">
+                <Block className="mt-8 w-full max-w-md mx-auto">
                     <div className="relative mb-6">
                         <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t border-zinc-800" />
