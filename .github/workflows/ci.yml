@@ -121,7 +121,8 @@ jobs:
 
   e2e:
     name: Browser e2e (Playwright + Firebase emulators)
-    runs-on: ubuntu-latest
+    # Playwright 1.57 can't install Chromium's system deps on ubuntu-latest (26.04) yet.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       NEXT_TELEMETRY_DISABLED: '1'
