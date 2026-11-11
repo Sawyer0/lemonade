@@ -7,11 +7,19 @@ This document summarizes the audit of AI tools and their orchestration within th
 
 | Tool Name | Source File | Status | Purpose |
 | --- | --- | --- | --- |
-| `display_content` | `packages/infrastructure/src/ai/tools/displayContent.ts` | **DEAD** | Display diagrams/manuals. Not handled by server or client. |
+| `display_content` | `packages/infrastructure/src/ai/tools/displayContent.ts` | **OK (client)** | Display diagrams/manuals. Client-side: the mobile app opens the URL in a modal (`mobile/hooks/useToolHandler.ts`, `mobile/hooks/useHybridBridge.ts`). The server loop returns the call to the client untouched. |
 | `google_search` | `packages/infrastructure/src/ai/tools/googleSearch.ts` | **OK** | Server-side search. Functional. |
-| `start_video_stream` | `packages/infrastructure/src/ai/tools/startVideoStream.ts` | **PARTIAL** | Request camera. Handled manually in Chat Adapter. |
-| `verifySafeSupport` | `packages/infrastructure/src/ai/tools/verifySafeSupport.ts` | **BUGGY** | Verify jack stands. Returns dummy failure server-side. |
-| `inspect_vehicle_component` | `agent/src/livekit-agent.ts` | **REDUNDANT** | Overlaps with `start_video_stream` but specific to LiveKit. |
+| `start_video_stream` | `packages/infrastructure/src/ai/tools/startVideoStream.ts` | **OK (client)** | Request camera. Handled by the mobile app (`mobile/hooks/useToolHandler.ts`). |
+| `verify_safe_support` | `packages/infrastructure/src/ai/tools/verifySafeSupport.ts` | **OK (client)** | Verify jack stands. Client-side since LM-16: the mobile app opens the camera for it. The server used to intercept it with a canned failure; that branch is deleted and the registry marks it client-side. |
+| `save_to_memory` | — (schema in `packages/core/src/types/tools.ts`) | **OK** | Server-side save to vehicle memory. Functional. |
+| `inspect_vehicle_component` | `agent/src/livekit-agent.ts` | **REMOVED** | No longer exists anywhere in the repo; the LiveKit agent no longer declares it. Nothing to delete. |
+
+One typed, namespaced tool registry (`packages/core/src/tools/`, LM-16) is
+the single source of truth for these tools' names, sides and argument
+schemas. Chat tools are registered under `chat.*` with their legacy flat
+model-facing name kept as `modelName`; the reasoner's tools live under
+`diag.*`. `FunctionCallHandler` reads the server/client split from the
+registry instead of a hardcoded list.
 
 ## Critical Redundancies & Gaps
 
@@ -25,11 +33,11 @@ This document summarizes the audit of AI tools and their orchestration within th
     - Result: Tools work in some internal services but **NOT in the main user chat**.
 
 3. **Prompt Contradictions:**
-    - `packages/core/src/prompts/chat.ts` explicitly tells the AI **NOT** to use `google_search`, despite it being a core grounded feature.
+    - ~~`packages/core/src/prompts/chat.ts` explicitly tells the AI **NOT** to use `google_search`, despite it being a core grounded feature.~~ Stale: `packages/core/src/prompts/ChatPrompts.ts` now lists `google_search` as a tool to use.
 
 4. **Implementation Errors:**
-    - `verifySafeSupport` is handled server-side in `FunctionCallHandler` but it has no way to actually "see" the frame there (it's a text-based loop). This should be a client-side tool or coordinated with the Vision layer.
-    - `display_content` is registered with the model but the response is never passed to the client.
+    - ~~`verifySafeSupport` is handled server-side in `FunctionCallHandler` but it has no way to actually "see" the frame there (it's a text-based loop). This should be a client-side tool or coordinated with the Vision layer.~~ Fixed in LM-16: the server-side branch is deleted and the registry marks it client-side; the mobile app opens the camera for it.
+    - ~~`display_content` is registered with the model but the response is never passed to the client.~~ Stale: the mobile app handles it (`mobile/hooks/useToolHandler.ts`) and the server loop returns the call to the client untouched.
 
 ## Refactor Status (Phase 2 & 3 Complete)
 

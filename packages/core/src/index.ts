@@ -79,6 +79,7 @@ export * from './types/neurosymbolic';
 export * from './types/reasoning'; // Exports ReasoningInput
 export * from './types/safety'; // Exports SafetyAssessment, SAFETY_RAW_SCHEMA
 export * from './types/tools';
+export * from './tools/index'; // Typed, namespaced tool registry shared by chat, Live and the reasoner (LM-16)
 export * from './types/verification';
 // Exports SearchRequest, SearchResponse, VerificationRequest, VerificationResponse
 export * from './types/video';
