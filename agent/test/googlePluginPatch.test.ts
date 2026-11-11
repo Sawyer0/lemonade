@@ -129,8 +129,37 @@ interface DecodedPng {
     pixels: Buffer;
 }
 
+/**
+ * CRC-32 (IEEE, polynomial 0xEDB88320 = 3988292384) — node:zlib has no
+ * CRC-32, so the test carries its own table-driven check.
+ */
+const PNG_CRC_TABLE = (() => {
+    const table = new Int32Array(256);
+    for (let n = 0; n < 256; n += 1) {
+        let c = n;
+        for (let k = 0; k < 8; k += 1) {
+            c = c & 1 ? 3988292384 ^ (c >>> 1) : c >>> 1;
+        }
+        table[n] = c;
+    }
+    return table;
+})();
+
+function pngCrc32(bytes: Buffer): number {
+    let crc = -1;
+    for (const byte of bytes) {
+        crc = PNG_CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8);
+    }
+    return (crc ^ -1) >>> 0;
+}
+
 /** Decodes the PNGs the patch emits, asserting structure, not just that bytes arrived. */
 function readPng(pngBytes: Buffer): DecodedPng {
+    // Anchor the table to a known value: CRC-32 of the ASCII bytes "IEND"
+    // is 0xae426082. Without this, a wrong polynomial in this table would
+    // still pass every chunk whose CRC was computed with the same wrong
+    // polynomial — exactly how a corrupt CRC slipped through before.
+    expect(pngCrc32(Buffer.from('IEND', 'ascii'))).toBe(0xae426082);
     expect(pngBytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
     let offset = 8;
     let width = 0;
@@ -140,6 +169,11 @@ function readPng(pngBytes: Buffer): DecodedPng {
         const length = pngBytes.readUInt32BE(offset);
         const type = pngBytes.toString('ascii', offset + 4, offset + 8);
         const chunk = pngBytes.subarray(offset + 8, offset + 8 + length);
+        // A chunk's CRC covers its type bytes plus its data. Assert it on
+        // every chunk (including IEND, checked before the break below), so
+        // a corrupt encoder can never pass by emitting well-formed pixels.
+        const storedCrc = pngBytes.readUInt32BE(offset + 8 + length);
+        expect(pngCrc32(Buffer.concat([pngBytes.subarray(offset + 4, offset + 8), chunk]))).toBe(storedCrc);
         if (type === 'IHDR') {
             width = chunk.readUInt32BE(0);
             height = chunk.readUInt32BE(4);
