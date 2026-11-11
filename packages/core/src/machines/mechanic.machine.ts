@@ -6,6 +6,7 @@ import type { IVectorRepository } from '../interfaces/IVectorRepository';
 import type { IGoogleSearchService } from '../interfaces/IGoogleSearchService';
 import type { IMemoryService, MemorySearchResult } from '../interfaces/IMemoryService';
 import type { AIAnalysis, SafetyRecall, VectorDocument } from '../types/models';
+import type { ParsedDtc } from '../dtc/types';
 import type { VerificationRequest, VerificationResponse, SearchRequest, SearchResponse } from '../types/verification';
 import type { LocalTriageResult } from '../types/localPerception';
 
@@ -57,6 +58,9 @@ export interface MechanicInput {
     videoDuration?: number;
     services: MechanicServices;
     localTriage?: LocalTriageResult;
+    // Parsed DTCs for this session (LM-02). The machine never invents a code
+    // meaning: these come from the deterministic parser, via the session.
+    dtcCodes?: ParsedDtc[];
 }
 
 export interface MechanicContext extends MechanicInput {
@@ -69,6 +73,7 @@ export interface MechanicContext extends MechanicInput {
     result?: NeurosymbolicState;
     error?: string;
     localTriage?: LocalTriageResult;
+    dtcCodes: ParsedDtc[];
 }
 
 export interface MechanicServices {
@@ -90,6 +95,7 @@ export type MechanicEvent =
           videoUrl?: string;
           videoDuration?: number;
           localTriage?: LocalTriageResult;
+          dtcCodes?: ParsedDtc[];
       }
     | { type: 'UPDATE_SERVICES'; services: MechanicServices };
 
@@ -164,6 +170,7 @@ export const mechanicMachine = setup({
         videoUrl: input.videoUrl,
         videoDuration: input.videoDuration,
         services: input.services,
+        dtcCodes: input.dtcCodes ?? [],
         nhtsaResults: [],
         embeddingInfo: [],
         vehicleHistory: [],
@@ -183,6 +190,7 @@ export const mechanicMachine = setup({
                                 videoUrl: event.videoUrl,
                                 videoDuration: event.videoDuration,
                                 localTriage: event.localTriage,
+                                dtcCodes: event.dtcCodes ?? [],
                             };
                         }
                         return {};

@@ -134,6 +134,45 @@ describe('mechanicMachine', () => {
         });
     });
 
+    describe('diagnosis context', () => {
+        it('carries parsed DTCs from the DIAGNOSE event into context', async () => {
+            const actor = createActor(mechanicMachine, { input: createDefaultInput() });
+            actor.start();
+
+            actor.send({
+                type: 'DIAGNOSE',
+                userId: 'user-1',
+                sessionId: 'session-1',
+                vehicleContext: { year: 2020, make: 'Honda', model: 'Civic' },
+                userQuery: 'check engine light',
+                dtcCodes: [
+                    {
+                        code: 'P0300',
+                        system: 'P',
+                        systemName: 'Powertrain',
+                        generic: true,
+                        subsystemDigit: '3',
+                        subsystem: 'Ignition system or misfire',
+                        description: 'Random/multiple cylinder misfire detected',
+                    },
+                ],
+            });
+
+            await waitFor(actor, (s) => s.matches('intuition') || s.matches('investigating'), { timeout: 2000 });
+            expect(actor.getSnapshot().context.dtcCodes.map((code) => code.code)).toEqual(['P0300']);
+
+            actor.stop();
+        });
+
+        it('defaults dtcCodes to an empty list when none are given', () => {
+            const actor = createActor(mechanicMachine, { input: createDefaultInput() });
+            actor.start();
+
+            expect(actor.getSnapshot().context.dtcCodes).toEqual([]);
+            actor.stop();
+        });
+    });
+
     describe('vision_verifying state', () => {
         it('should store visualAnalysis on success', async () => {
             const mockAnalysis = {

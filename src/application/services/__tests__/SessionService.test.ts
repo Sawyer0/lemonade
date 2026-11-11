@@ -26,6 +26,8 @@ function buildService() {
     const userId = 'user-1';
     const sessionRepo = {
         create: vi.fn<[DiagnosticSession], Promise<void>>(),
+        findById: vi.fn<[string], Promise<DiagnosticSession | null>>(),
+        addObdCodes: vi.fn<[string, string[]], Promise<void>>(),
     };
     const vehicleRepo = {
         findById: vi.fn<[string, string], Promise<Vehicle | null>>(),
@@ -33,6 +35,7 @@ function buildService() {
     const caseRepo = {
         findCaseById: vi.fn<[string], Promise<Case | null>>(),
         attachSession: vi.fn<[string, string], Promise<void>>(),
+        appendEntry: vi.fn<[string, unknown], Promise<unknown>>(),
     };
     vehicleRepo.findById.mockResolvedValue({ id: vehicleId, userId } as Vehicle);
     const service = new SessionService(
@@ -97,5 +100,147 @@ describe('SessionService startSession with a case', () => {
         });
         expect(sessionRepo.create).not.toHaveBeenCalled();
         expect(caseRepo.attachSession).not.toHaveBeenCalled();
+    });
+
+    it('rejects a case owned by another user with 403 and creates nothing', async () => {
+        const { service, vehicleId, userId, sessionRepo, caseRepo } = buildService();
+        caseRepo.findCaseById.mockResolvedValue({
+            id: uuidv4(),
+            vehicleId,
+            userId: 'someone-else',
+            status: 'open',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
+
+        await expect(service.startSession(vehicleId, userId, uuidv4())).rejects.toMatchObject({
+            code: ErrorCode.FORBIDDEN,
+            statusCode: 403,
+        });
+        expect(sessionRepo.create).not.toHaveBeenCalled();
+        expect(caseRepo.attachSession).not.toHaveBeenCalled();
+    });
+
+    it('rejects a case for a different vehicle with 403 and creates nothing', async () => {
+        const { service, vehicleId, userId, sessionRepo, caseRepo } = buildService();
+        caseRepo.findCaseById.mockResolvedValue({
+            id: uuidv4(),
+            vehicleId: uuidv4(),
+            userId,
+            status: 'open',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
+
+        await expect(service.startSession(vehicleId, userId, uuidv4())).rejects.toMatchObject({
+            code: ErrorCode.FORBIDDEN,
+            statusCode: 403,
+        });
+        expect(sessionRepo.create).not.toHaveBeenCalled();
+        expect(caseRepo.attachSession).not.toHaveBeenCalled();
+    });
+});
+
+describe('SessionService addDtcCodes', () => {
+    function buildSessionService(session: DiagnosticSession) {
+        const { service, sessionRepo, caseRepo } = buildService();
+        sessionRepo.findById.mockResolvedValue(session);
+        return { service, sessionRepo, caseRepo };
+    }
+
+    function buildSession(overrides: Partial<DiagnosticSession> = {}): DiagnosticSession {
+        return {
+            id: uuidv4(),
+            vehicleId: uuidv4(),
+            userId: 'user-1',
+            status: 'active',
+            complaint: 'New Session',
+            obdCodes: [],
+            messages: [],
+            updatedAt: new Date(),
+            startedAt: new Date(),
+            aiAnalysis: null,
+            safety_stop: false,
+            cumulativeVideoDurationProcessedMinutes: 0,
+            cumulativeAudioDurationProcessedMinutes: 0,
+            ...overrides,
+        };
+    }
+
+    it('parses raw codes, stores canonical codes, and writes a dtc_read ledger entry', async () => {
+        const caseId = uuidv4();
+        const session = buildSession({ caseId });
+        const { service, sessionRepo, caseRepo } = buildSessionService(session);
+
+        const parsed = await service.addDtcCodes(session.id, 'user-1', ['p0300', 'P 0420']);
+
+        expect(parsed.map((code) => code.code)).toEqual(['P0300', 'P0420']);
+        expect(parsed[0].description).toBe('Random/multiple cylinder misfire detected');
+        expect(sessionRepo.addObdCodes).toHaveBeenCalledWith(session.id, ['P0300', 'P0420']);
+        expect(caseRepo.appendEntry).toHaveBeenCalledWith(
+            caseId,
+            expect.objectContaining({
+                type: 'dtc_read',
+                source: 'OBD',
+                payload: { codes: ['P0300', 'P0420'] },
+            }),
+        );
+    });
+
+    it('stores codes on the session without touching the ledger when there is no case', async () => {
+        const session = buildSession();
+        const { service, sessionRepo, caseRepo } = buildSessionService(session);
+
+        const parsed = await service.addDtcCodes(session.id, 'user-1', ['U0100']);
+
+        expect(parsed.map((code) => code.code)).toEqual(['U0100']);
+        expect(sessionRepo.addObdCodes).toHaveBeenCalledWith(session.id, ['U0100']);
+        expect(caseRepo.appendEntry).not.toHaveBeenCalled();
+    });
+
+    it('rejects the whole batch on one invalid code and writes nothing', async () => {
+        const caseId = uuidv4();
+        const session = buildSession({ caseId });
+        const { service, sessionRepo, caseRepo } = buildSessionService(session);
+
+        await expect(service.addDtcCodes(session.id, 'user-1', ['P0300', 'X9999'])).rejects.toMatchObject({
+            code: ErrorCode.INVALID_INPUT,
+            statusCode: 400,
+        });
+        expect(sessionRepo.addObdCodes).not.toHaveBeenCalled();
+        expect(caseRepo.appendEntry).not.toHaveBeenCalled();
+    });
+
+    it('rejects an empty batch with 400', async () => {
+        const session = buildSession();
+        const { service, sessionRepo } = buildSessionService(session);
+
+        await expect(service.addDtcCodes(session.id, 'user-1', [])).rejects.toMatchObject({
+            code: ErrorCode.INVALID_INPUT,
+            statusCode: 400,
+        });
+        expect(sessionRepo.addObdCodes).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown session with 404', async () => {
+        const { service, sessionRepo } = buildService();
+        sessionRepo.findById.mockResolvedValue(null);
+
+        await expect(service.addDtcCodes(uuidv4(), 'user-1', ['P0300'])).rejects.toMatchObject({
+            code: ErrorCode.RESOURCE_NOT_FOUND,
+            statusCode: 404,
+        });
+        expect(sessionRepo.addObdCodes).not.toHaveBeenCalled();
+    });
+
+    it('rejects a session owned by another user with 403', async () => {
+        const session = buildSession({ userId: 'someone-else' });
+        const { service, sessionRepo } = buildSessionService(session);
+
+        await expect(service.addDtcCodes(session.id, 'user-1', ['P0300'])).rejects.toMatchObject({
+            code: ErrorCode.FORBIDDEN,
+            statusCode: 403,
+        });
+        expect(sessionRepo.addObdCodes).not.toHaveBeenCalled();
     });
 });
