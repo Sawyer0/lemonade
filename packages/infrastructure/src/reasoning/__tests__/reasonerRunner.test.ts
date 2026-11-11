@@ -3,7 +3,14 @@ import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { AppendLedgerEntryInput, ICaseRepository, ILogger, LedgerEntry, ReasonerAction, ReasonerModel } from '@lemonade/core';
+import type {
+    AppendLedgerEntryInput,
+    ICaseRepository,
+    ILogger,
+    LedgerEntry,
+    ReasonerAction,
+    ReasonerModel,
+} from '@lemonade/core';
 import { LocalSandbox } from '../../sandbox/LocalSandbox';
 import { ReasonerRunner } from '../ReasonerRunner';
 
@@ -109,7 +116,10 @@ describe.skipIf(!sandbox.available)('ReasonerRunner replay fixture', () => {
         // And the output is cited in the ledger.
         expect(result.ledgerEntryId).toBe('22222222-2222-2222-2222-222222222222');
         expect(appended).toHaveLength(1);
-        const entry = appended[0] as unknown as { type: string; payload: { testName: string; result: string; notes: string } };
+        const entry = appended[0] as unknown as {
+            type: string;
+            payload: { testName: string; result: string; notes: string };
+        };
         expect(entry.type).toBe('test_result');
         expect(entry.payload.testName).toBe('reasoner_sandbox_computation');
         expect(entry.payload.result).toBe('pass');

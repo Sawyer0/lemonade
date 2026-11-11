@@ -18,7 +18,12 @@ const FinishArgsSchema = z.object({ summary: z.string().min(1), citations: z.arr
 const NeedsTechArgsSchema = z.object({ reason: z.string().min(1) });
 const SafetyStopArgsSchema = z.object({ reason: z.string().min(1) });
 
-function declaration(name: string, description: string, properties: Record<string, object>, required: string[]): FunctionDeclaration {
+function declaration(
+    name: string,
+    description: string,
+    properties: Record<string, object>,
+    required: string[],
+): FunctionDeclaration {
     return {
         name,
         description,
@@ -72,9 +77,7 @@ export const REASONER_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
 
 /** The narrow surface GeminiReasonerModel needs from a generative model. */
 export interface ReasonerGenerativeModel {
-    generateContent(request: {
-        contents: Array<{ role: string; parts: Array<{ text: string }> }>;
-    }): Promise<{
+    generateContent(request: { contents: Array<{ role: string; parts: Array<{ text: string }> }> }): Promise<{
         functionCall?: { name: string; args: Record<string, unknown> };
         text?: string;
     }>;
@@ -148,7 +151,10 @@ export class GeminiReasonerModel implements ReasonerModel {
     }
 }
 
-function parseModelResponse(response: { functionCall?: { name: string; args: Record<string, unknown> }; text?: string }): ReasonerAction {
+function parseModelResponse(response: {
+    functionCall?: { name: string; args: Record<string, unknown> };
+    text?: string;
+}): ReasonerAction {
     const call = response.functionCall;
     if (!call) {
         if (response.text?.trim()) {

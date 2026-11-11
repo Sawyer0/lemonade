@@ -32,7 +32,10 @@ class ScriptedModel implements ReasonerModel {
     private readonly queue: ReasonerAction[];
     private readonly fallback: ReasonerAction;
 
-    constructor(actions: ReasonerAction[], fallback: ReasonerAction = { kind: 'finish', summary: 'done', citations: [] }) {
+    constructor(
+        actions: ReasonerAction[],
+        fallback: ReasonerAction = { kind: 'finish', summary: 'done', citations: [] },
+    ) {
         this.queue = [...actions];
         this.fallback = fallback;
     }
@@ -149,8 +152,8 @@ describe('runReasonerLoop', () => {
 
     it('rejects an empty goal', async () => {
         const model = new ScriptedModel([]);
-        await expect(
-            runReasonerLoop({ model, tools: registryWithStubTools(), goal: '   ' }),
-        ).rejects.toThrow('goal must not be empty');
+        await expect(runReasonerLoop({ model, tools: registryWithStubTools(), goal: '   ' })).rejects.toThrow(
+            'goal must not be empty',
+        );
     });
 });

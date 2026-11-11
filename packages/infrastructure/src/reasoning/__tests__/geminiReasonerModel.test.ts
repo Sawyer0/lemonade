@@ -58,9 +58,7 @@ describe('GeminiReasonerModel', () => {
     });
 
     it('passes an unknown function name through as a tool call, for the registry to reject', async () => {
-        const model = new GeminiReasonerModel(() =>
-            stubModel({ functionCall: { name: 'diag_nope', args: {} } }),
-        );
+        const model = new GeminiReasonerModel(() => stubModel({ functionCall: { name: 'diag_nope', args: {} } }));
         const action = await model.nextAction(modelInput());
         expect(action).toEqual({ kind: 'tool', tool: 'diag_nope', args: {} });
     });

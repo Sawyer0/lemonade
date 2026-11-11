@@ -1,9 +1,5 @@
 import { canonicalJson } from '../types/case';
-import type {
-    ReasonerLoopResult,
-    ReasonerStepRecord,
-    RunReasonerLoopInput,
-} from './types';
+import type { ReasonerLoopResult, ReasonerStepRecord, RunReasonerLoopInput } from './types';
 
 const DEFAULT_MAX_STEPS = 12;
 const DEFAULT_MAX_REPEATED_FAILURES = 3;

@@ -99,7 +99,10 @@ describe.skipIf(!sandbox.available)('LocalSandbox', () => {
             `/home/evil-${stamp}.txt`,
             `/home/hatch/evil-${stamp}.txt`,
         ];
-        const attempts = outsidePaths.map((path) => `try:\n    open(${JSON.stringify(path)}, "w").write("escape")\n    print("WROTE ${path}")\nexcept Exception as error:\n    print("BLOCKED ${path}:", type(error).__name__)`);
+        const attempts = outsidePaths.map(
+            (path) =>
+                `try:\n    open(${JSON.stringify(path)}, "w").write("escape")\n    print("WROTE ${path}")\nexcept Exception as error:\n    print("BLOCKED ${path}:", type(error).__name__)`,
+        );
         const { workdir, result } = await runInFreshWorkdir(
             [...attempts, 'open("/work/inside.txt", "w").write("ok")', 'print("WROTE INSIDE")'].join('\n'),
         );
@@ -114,7 +117,9 @@ describe.skipIf(!sandbox.available)('LocalSandbox', () => {
 
     it('proves the root and diaglib are read-only', async () => {
         const diaglibPath = join(sandboxDiaglibPath(), 'diaglib', 'dtc.py');
-        const before = createHash('sha256').update(await readFile(diaglibPath)).digest('hex');
+        const before = createHash('sha256')
+            .update(await readFile(diaglibPath))
+            .digest('hex');
         const { result } = await runInFreshWorkdir(
             [
                 'try:',
@@ -131,7 +136,9 @@ describe.skipIf(!sandbox.available)('LocalSandbox', () => {
         );
         expect(result.stdoutPreview).toContain('DIAGLIB BLOCKED');
         expect(result.stdoutPreview).toContain('USR BLOCKED');
-        const after = createHash('sha256').update(await readFile(diaglibPath)).digest('hex');
+        const after = createHash('sha256')
+            .update(await readFile(diaglibPath))
+            .digest('hex');
         expect(after).toBe(before);
     });
 
