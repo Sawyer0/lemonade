@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -78,9 +79,30 @@ describe('first-case seed graph', () => {
         }
         // The misfire suspects carry their FMEA modes; the MAF sensor is a
         // suspect for P0171 with no failure mode yet, because the test
-        // library has no MAF test to link one to — no mode is invented.
+        // library has no MAF test to link one to, and the cylinder 1
+        // injector is a misfire suspect with no failure mode yet, because
+        // the library has no injector hypothesis to link one to — no mode
+        // is invented.
         const misfire = graph.answerForDtc('P0300', library);
         expect(misfire.candidates[0]?.failureModes.length).toBeGreaterThan(0);
+    });
+
+    it('maps P0301 to cylinder 1 components, not cylinder 3', () => {
+        // P0301 is cylinder 1 misfire detected (P0303 is cylinder 3); the
+        // seed once named cylinder 3 parts here, so assert the cylinder.
+        const graph = loadSeedGraph();
+        const library = loadSeedLibrary();
+        const answer = graph.answerForDtc('P0301', library);
+        expect(answer.candidates.map((candidate) => candidate.component.id)).toEqual([
+            'ignition-coil-cyl-1',
+            'spark-plug-cyl-1',
+            'fuel-injector-cyl-1',
+        ]);
+        for (const candidate of answer.candidates) {
+            expect(candidate.component.id).not.toContain('cyl-3');
+            expect(candidate.component.name).toContain('cylinder 1');
+        }
+        expect(graph.untestedHypothesisIds(library)).toEqual([]);
     });
 
     it('links every failure mode to a hypothesis the library has a test for', () => {
@@ -91,17 +113,17 @@ describe('first-case seed graph', () => {
     it('traces fault propagation downstream from the ECM', () => {
         const graph = loadSeedGraph();
         const downstream = graph.downstreamComponents('ecm').map((component) => component.id);
-        expect(downstream).toContain('ignition-coil-cyl-3');
-        expect(downstream).toContain('spark-plug-cyl-3');
+        expect(downstream).toContain('ignition-coil-cyl-1');
+        expect(downstream).toContain('spark-plug-cyl-1');
         expect(downstream).not.toContain('ecm');
     });
 
     it('finds TSBs and recalls by component and by VIN', () => {
         const graph = loadSeedGraph();
-        expect(graph.tsbRecallsForComponent('ignition-coil-cyl-3')).toHaveLength(1);
+        expect(graph.tsbRecallsForComponent('ignition-coil-cyl-1')).toHaveLength(1);
         expect(graph.tsbRecallsForComponent('thermostat')).toHaveLength(0);
         expect(graph.tsbRecallsForVin('1HGCM82633A004352')).toHaveLength(2);
-        expect(graph.tsbRecallsForVin('')).toHaveLength(2);
+        expect(graph.tsbRecallsForVin('')).toHaveLength(0);
     });
 });
 
@@ -131,6 +153,20 @@ describe('VehicleGraphFileSchema', () => {
         const file = validGraphFile();
         file.dtcSuspects = [{ dtcCode: 'P0300', componentId: 'no-such-part', rank: 1, basis: 'Guess.' }];
         expect(() => VehicleGraphFileSchema.parse(file)).toThrow(/unknown component/i);
+    });
+
+    it('reports an unknown connection component with segmented paths', () => {
+        const file = validGraphFile();
+        file.connections = [
+            { id: 'ecm-to-ghost', fromComponentId: 'ecm', toComponentId: 'ghost', kind: 'wiring', label: 'harness' },
+        ];
+        try {
+            VehicleGraphFileSchema.parse(file);
+            expect.unreachable('parse should have thrown for an unknown component');
+        } catch (error) {
+            expect(error).toBeInstanceOf(z.ZodError);
+            expect((error as z.ZodError).issues[0]?.path).toEqual(['connections', 0, 'toComponentId']);
+        }
     });
 
     it('rejects a duplicate rank for one DTC', () => {

@@ -162,12 +162,12 @@ export const VehicleGraphFileSchema = z
     .strict()
     .superRefine((file, ctx) => {
         const componentIds = new Set(file.components.map((component) => component.id));
-        const checkComponent = (id: string, path: string): void => {
+        const checkComponent = (id: string, path: (string | number)[]): void => {
             if (!componentIds.has(id)) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     message: `References unknown component: ${id}`,
-                    path: [path],
+                    path,
                 });
             }
         };
@@ -192,12 +192,12 @@ export const VehicleGraphFileSchema = z
                 });
             }
             seenConnections.add(connection.id);
-            checkComponent(connection.fromComponentId, `connections.${index}.fromComponentId`);
-            checkComponent(connection.toComponentId, `connections.${index}.toComponentId`);
+            checkComponent(connection.fromComponentId, ['connections', index, 'fromComponentId']);
+            checkComponent(connection.toComponentId, ['connections', index, 'toComponentId']);
         }
         const ranksByDtc = new Map<string, Set<number>>();
         for (const [index, suspect] of file.dtcSuspects.entries()) {
-            checkComponent(suspect.componentId, `dtcSuspects.${index}.componentId`);
+            checkComponent(suspect.componentId, ['dtcSuspects', index, 'componentId']);
             const ranks = ranksByDtc.get(suspect.dtcCode) ?? new Set<number>();
             if (ranks.has(suspect.rank)) {
                 ctx.addIssue({
@@ -219,7 +219,7 @@ export const VehicleGraphFileSchema = z
                 });
             }
             seenModes.add(mode.id);
-            checkComponent(mode.componentId, `failureModes.${index}.componentId`);
+            checkComponent(mode.componentId, ['failureModes', index, 'componentId']);
         }
         const seenEntries = new Set<string>();
         for (const [index, entry] of file.tsbRecalls.entries()) {
@@ -231,8 +231,8 @@ export const VehicleGraphFileSchema = z
                 });
             }
             seenEntries.add(entry.id);
-            for (const componentId of entry.componentIds) {
-                checkComponent(componentId, `tsbRecalls.${index}.componentIds`);
+            for (const [componentIndex, componentId] of entry.componentIds.entries()) {
+                checkComponent(componentId, ['tsbRecalls', index, 'componentIds', componentIndex]);
             }
         }
     });

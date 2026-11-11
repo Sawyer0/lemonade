@@ -39,6 +39,23 @@ describe('DbcDatabase.parse', () => {
         ).toThrow(/multiplexed signal 'Muxed' is not supported/);
     });
 
+    it('rejects an Intel signal that runs past the end of the message', () => {
+        expect(() =>
+            DbcDatabase.parse('BO_ 100 A: 8 Vector__XXX\n SG_ Overrun : 56|16@1+ (1,0) [0|65535] "" Vector__XXX\n'),
+        ).toThrow(/runs past the end of message 'A'/);
+    });
+
+    it('rejects a Motorola signal that runs past the end of the message', () => {
+        expect(() =>
+            DbcDatabase.parse('BO_ 200 B: 8 Vector__XXX\n SG_ Overrun : 56|16@0+ (1,0) [0|65535] "" Vector__XXX\n'),
+        ).toThrow(/runs past the end of message 'B'/);
+    });
+
+    it('ignores lines that match no known pattern instead of failing', () => {
+        const database = DbcDatabase.parse('BO_ 100 A: 8 Vector__XXX\n# a comment\nNS_ :\n');
+        expect(database.allMessages()).toHaveLength(1);
+    });
+
     it('rejects a signal before any message', () => {
         expect(() => DbcDatabase.parse(' SG_ Orphan : 0|8@1+ (1,0) [0|255] "" Vector__XXX\n')).toThrow(
             /before any message/,

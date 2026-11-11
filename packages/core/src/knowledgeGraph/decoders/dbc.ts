@@ -95,7 +95,7 @@ export class DbcDatabase {
         this.messagesByName = new Map(messages.map((message) => [message.name, message]));
     }
 
-    /** Parses DBC text into a database; any malformed line fails the whole parse by name. */
+    /** Parses DBC text into a database. Lines that match no known pattern are ignored; only specific malformed patterns (a duplicate message or signal, a multiplexed signal, a signal before any message, or a signal that runs past the end of its message) fail the whole parse. */
     static parse(dbcText: string): DbcDatabase {
         const messages: DbcMessage[] = [];
         let current: DbcMessage | undefined;
@@ -144,7 +144,7 @@ export class DbcDatabase {
                         .map((receiver) => receiver.trim())
                         .filter(Boolean),
                 });
-                if (signal.startBit + signal.lengthBits > current.dlc * 8 && signal.littleEndian) {
+                if (signal.startBit + signal.lengthBits > current.dlc * 8) {
                     throw new Error(`DBC signal '${signal.name}' runs past the end of message '${current.name}'`);
                 }
                 if (current.signals.some((existing) => existing.name === signal.name)) {

@@ -68,7 +68,7 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         status: 'not-vendored',
         note:
             'Provenance does NOT clear this data for use. The repository is MIT-licensed, ' +
-            'but its 28,220+ DTC descriptions include 9,415 generic SAE J2012 definitions, ' +
+            'but its 18,805 DTC description rows (12,128 unique codes) include 9,415 generic SAE J2012 definitions, ' +
             'and J2012 text is copyrighted by SAE: an MIT license on the container does not ' +
             'license the SAE text inside it. The SQLite is therefore NOT vendored and no ' +
             'description from it ships. DTC text comes only from the generic-descriptions ' +

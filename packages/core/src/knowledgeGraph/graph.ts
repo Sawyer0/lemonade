@@ -142,10 +142,14 @@ export class VehicleKnowledgeGraph {
      * TSBs and recalls whose VIN pattern matches this VIN. A pattern is a
      * VIN prefix (the first characters of the VIN), or `any` for the whole
      * vehicle line. A pattern that is not a prefix of the VIN does not
-     * match; nothing is matched by guessing.
+     * match; nothing is matched by guessing. An empty VIN matches nothing,
+     * not even the `any` entries.
      */
     tsbRecallsForVin(vin: string): TsbRecall[] {
         const normalizedVin = vin.trim().toUpperCase();
+        if (normalizedVin === '') {
+            return [];
+        }
         return this.file.tsbRecalls.filter(
             (entry) => entry.vinPattern === 'any' || normalizedVin.startsWith(entry.vinPattern.toUpperCase()),
         );
