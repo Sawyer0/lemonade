@@ -1,4 +1,15 @@
-import { TERMINAL_JOB_EVENT_KINDS, type DiagnosticJob, type DiagnosticJobEvent, type ILogger } from '@lemonade/core';
+import {
+    TERMINAL_JOB_EVENT_KINDS,
+    buildConfirmationPrompt,
+    jobStepOrigin,
+    jobStepToPhysicalStep,
+    type DiagnosticJob,
+    type DiagnosticJobEvent,
+    type ILogger,
+    type PhysicalStep,
+    type PreActionDecision,
+    type PreActionHook,
+} from '@lemonade/core';
 import type { JobEventHandlers } from '../jobs/JobClient';
 import type { TalkerSession } from './TalkerSession';
 
@@ -25,6 +36,15 @@ interface TrackedJob {
     deliveredSeq: number;
 }
 
+/** A scripted step held for the tech's spoken confirmation. */
+export interface PendingStep {
+    step: PhysicalStep;
+    decision: PreActionDecision;
+    jobId: string;
+    event: DiagnosticJobEvent;
+    state: TrackedJob;
+}
+
 /**
  * Maps diagnostic job events onto the talker session (LM-14).
  *
@@ -41,15 +61,27 @@ interface TrackedJob {
  * The ack is best-effort (retried a few times, then only logged), so a
  * failed ack can replay a result that was already spoken: delivery is
  * at-least-once, not exactly-once.
+ *
+ * LM-20: a `measure` event carrying a scripted step passes the pre-action
+ * hook before it is spoken. A denied step is never spoken. A risky step is
+ * held: the injector speaks a confirmation request instead, and the step
+ * itself is spoken only after the tech confirms out loud and the
+ * confirmation is logged (see StepConfirmationTool). A `measure` event
+ * without step metadata is unstructured reasoner text, not a scripted
+ * step, and passes through as before — it has no step id or VIN for a
+ * confirmation to bind to.
  */
 export class ResultInjector {
     private readonly tracked = new Map<string, TrackedJob>();
+    private readonly pendingSteps = new Map<string, PendingStep>();
     private stopped = false;
 
     constructor(
         private readonly jobs: JobEventSource,
         private readonly session: TalkerSession,
         private readonly logger: ILogger,
+        /** LM-20: when absent, structured steps pass through ungated (tests, legacy paths). */
+        private readonly preActionHook?: PreActionHook,
     ) {}
 
     /** Starts delivering a job's events. Safe to call twice for one job. */
@@ -84,11 +116,42 @@ export class ResultInjector {
         for (const job of jobs) this.track(job.id, job.ackedSeq);
     }
 
+    /** A step held for spoken confirmation, for the confirmation tool to check. */
+    pendingStep(stepId: string): PendingStep | undefined {
+        return this.pendingSteps.get(stepId);
+    }
+
+    /**
+     * Speaks a held step after its confirmation is logged. Returns false
+     * when there is no such pending step, or the step could not be spoken:
+     * the step stays pending, unacked, so a resume replays the event and
+     * the hook re-evaluates it (the logged confirmation then allows it).
+     */
+    async releasePendingStep(stepId: string): Promise<boolean> {
+        const pending = this.pendingSteps.get(stepId);
+        if (!pending || this.stopped) return false;
+        const delivered = await this.deliverAtIdle(pending.jobId, pending.event.text);
+        if (!delivered) {
+            this.logger.warn('Held step delivery abandoned after retries, step stays pending', {
+                jobId: pending.jobId,
+                stepId,
+                seq: pending.event.seq,
+            });
+            return false;
+        }
+        this.pendingSteps.delete(stepId);
+        pending.state.deliveredSeq = pending.event.seq;
+        this.acknowledge(pending.jobId, pending.event.seq);
+        if (TERMINAL_JOB_EVENT_KINDS.has(pending.event.kind)) this.untrack(pending.jobId);
+        return true;
+    }
+
     /** Stops every subscription. Call when the session ends. */
     stop(): void {
         this.stopped = true;
         for (const state of this.tracked.values()) state.unsubscribe();
         this.tracked.clear();
+        this.pendingSteps.clear();
     }
 
     private async deliver(jobId: string, event: DiagnosticJobEvent, state: TrackedJob): Promise<void> {
@@ -106,13 +169,17 @@ export class ResultInjector {
             case 'snapshot':
                 await this.session.addSilentContext(event.text);
                 break;
-            case 'finding':
-            case 'measure': {
+            case 'finding': {
                 const delivered = await this.deliverAtIdle(jobId, event.text);
                 if (!delivered) {
                     this.logger.warn('Finding delivery abandoned after retries', { jobId, seq: event.seq });
                     return;
                 }
+                break;
+            }
+            case 'measure': {
+                const gated = await this.deliverMeasure(jobId, event, state);
+                if (!gated) return;
                 break;
             }
             case 'safety_stop':
@@ -126,6 +193,75 @@ export class ResultInjector {
         state.deliveredSeq = event.seq;
         this.acknowledge(jobId, event.seq);
         if (TERMINAL_JOB_EVENT_KINDS.has(event.kind)) this.untrack(jobId);
+    }
+
+    /**
+     * Delivers a `measure` event. Returns false when the event is held or
+     * abandoned: it stays unacked, so a resume replays it.
+     *
+     * With step metadata and a hook, the pre-action hook decides: deny
+     * never speaks the step; ask holds it for spoken confirmation; allow
+     * speaks it at the next idle gap. Without metadata, or without a hook,
+     * the text is spoken as before.
+     */
+    private async deliverMeasure(jobId: string, event: DiagnosticJobEvent, state: TrackedJob): Promise<boolean> {
+        if (!event.step || !this.preActionHook) {
+            return this.deliverAtIdle(jobId, event.text);
+        }
+        const step = jobStepToPhysicalStep(event.step);
+        const origin = jobStepOrigin(event.step);
+        let decision: PreActionDecision;
+        try {
+            decision = await this.preActionHook.checkStep(step, origin);
+        } catch (error) {
+            // The hook failed: fail closed. The step is never spoken.
+            this.logger.error('Pre-action hook failed, step denied', error, { jobId, stepId: step.stepId });
+            await this.session.addSilentContext(
+                `[Diagnostic update. Context only, do not answer this directly.]\n` +
+                    `A physical step was blocked because the safety check failed: step ${step.stepId}. ` +
+                    `Tell the technician the step is blocked, without describing how to perform it.`,
+            );
+            return true;
+        }
+        if (decision.verdict === 'deny') {
+            this.logger.warn('Pre-action hook denied a step, never spoken', {
+                jobId,
+                stepId: step.stepId,
+                reason: decision.reason,
+            });
+            await this.session.addSilentContext(
+                `[Diagnostic update. Context only, do not answer this directly.]\n` +
+                    `A physical step was blocked by the safety hook and must never be spoken or performed: ` +
+                    `step ${step.stepId}: ${step.instruction}. Reason: ${decision.reason}. ` +
+                    `Tell the technician the step is blocked and why, without describing how to perform it.`,
+            );
+            return true;
+        }
+        if (decision.verdict === 'ask') {
+            this.pendingSteps.set(step.stepId, { step, decision, jobId, event, state });
+            const prompt = buildConfirmationPrompt(step, decision);
+            const delivered = await this.deliverAtIdle(jobId, prompt);
+            if (!delivered) {
+                this.logger.warn('Confirmation request abandoned after retries, step stays pending', {
+                    jobId,
+                    stepId: step.stepId,
+                    seq: event.seq,
+                });
+                return false;
+            }
+            await this.session.addSilentContext(
+                `[Diagnostic update. Context only, do not answer this directly.]\n` +
+                    `A physical step is held for spoken confirmation and must NOT be spoken yet: ` +
+                    `step ${step.stepId}: ${step.instruction}. ${decision.reason} ` +
+                    `When the technician says confirmed, call confirm_physical_step with step_id "${step.stepId}". ` +
+                    `Do not describe the step or tell the technician to start it until the confirmation is recorded.`,
+            );
+            // Held, not delivered: no ack, no untrack. A resume replays the
+            // event and the hook re-evaluates it — with the logged
+            // confirmation on file, it is then allowed.
+            return false;
+        }
+        return this.deliverAtIdle(jobId, event.text);
     }
 
     /**

@@ -1,8 +1,16 @@
 import { type JobContext, defineAgent, voice } from '@livekit/agents';
 import * as silero from '@livekit/agents-plugin-silero';
 import { RoomEvent, type RemoteParticipant } from '@livekit/rtc-node';
-import type { ICaseRepository, ILiveStreamAnalyzer, IMechanicReasoningService } from '@lemonade/core';
-import { Logger, TYPES, createContainer } from '@lemonade/infrastructure';
+import type {
+    ICaseRepository,
+    ILiveStreamAnalyzer,
+    IMechanicReasoningService,
+    IReactiveSafetyService,
+    ISafetyMonitor,
+    PreActionHook,
+} from '@lemonade/core';
+import { InMemoryConfirmationStore } from '@lemonade/core';
+import { DiagnosisSafetyGate, Logger, TYPES, createContainer } from '@lemonade/infrastructure';
 import { loadEnv } from './env';
 import { LiveChannelRouter, type Conversation } from './channel/LiveChannelRouter';
 import { FrameStreamHandler } from './channel/frameStreamHandler';
@@ -13,6 +21,10 @@ import { describeVehicle, parseSessionContext } from './diagnosis/sessionContext
 import { JobClient } from './jobs/JobClient';
 import { createDiagnosticJobTools } from './talker/DiagnosticJobTools';
 import { ResultInjector } from './talker/ResultInjector';
+import {
+    createLedgerStepConfirmationRecorder,
+    createStepConfirmationTools,
+} from './talker/StepConfirmationTool';
 import type { TalkerSession } from './talker/TalkerSession';
 import { masterTechInstructions } from './voice/instructions';
 import { createMasterTechTools } from './voice/tools';
@@ -152,8 +164,35 @@ export default defineAgent({
         // Talker/reasoner split (LM-14): the talker files diagnostic jobs
         // with the Lemonade job service and keeps talking; the injector
         // delivers the reasoner's events back onto this session.
+        //
+        // Pre-action safety hook (LM-20): one confirmation store shared by
+        // the gate and the confirmation tool, so a logged confirmation
+        // releases exactly the step it was recorded for. The gate is built
+        // lazily, like the burst analyzer, so a voice-only call never pays
+        // for the safety graph; it is only constructed when a structured
+        // step actually arrives.
+        const confirmations = new InMemoryConfirmationStore();
+        let safetyGate: DiagnosisSafetyGate | undefined;
+        const preActionHook: PreActionHook = {
+            checkStep: (step, origin) => {
+                if (!safetyGate) {
+                    const container = createContainer();
+                    safetyGate = new DiagnosisSafetyGate(
+                        container.get<IReactiveSafetyService>(TYPES.ReactiveSafetyService),
+                        container.get<ISafetyMonitor>(TYPES.SafetyMonitor),
+                        logger,
+                        confirmations,
+                    );
+                }
+                return safetyGate.checkStep(step, origin);
+            },
+        };
+        const stepConfirmationRecorder = createLedgerStepConfirmationRecorder(
+            () => createContainer().get<ICaseRepository>(TYPES.CaseRepo),
+            logger,
+        );
         const jobClient = new JobClient(env.JOBS_BASE_URL, env.MAIN_APP_API_KEY);
-        const injector = new ResultInjector(jobClient, talkerSessionFor(session), logger);
+        const injector = new ResultInjector(jobClient, talkerSessionFor(session), logger, preActionHook);
         const jobSubmission: DiagnosticJobSubmission = {
             submitJob: (request) => jobClient.submitJob(request),
             trackJob: (jobId) => injector.track(jobId),
@@ -191,6 +230,13 @@ export default defineAgent({
                 tools: {
                     ...createMasterTechTools(publisher),
                     ...createDiagnosticJobTools(jobClient, injector, sessionContext),
+                    ...createStepConfirmationTools(
+                        injector,
+                        confirmations,
+                        stepConfirmationRecorder,
+                        sessionContext,
+                        logger,
+                    ),
                 },
             }),
             room: ctx.room,
