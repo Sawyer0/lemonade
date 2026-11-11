@@ -111,11 +111,28 @@ export const SafetyStopPayloadSchema = z.object({
 });
 export type SafetyStopPayload = z.infer<typeof SafetyStopPayloadSchema>;
 
-export const OutcomePayloadSchema = z.object({
-    resolution: z.string().min(1),
-    repaired: z.boolean().optional(),
-    notes: z.string().optional(),
-});
+export const OutcomePayloadSchema = z
+    .object({
+        repairPerformed: z.string().min(1),
+        partsReplaced: z.array(z.string().min(1)).default([]),
+        codesCleared: z.boolean(),
+        symptomGone: z.boolean(),
+        retestPassed: z.boolean(),
+        confirmed: z.boolean(),
+        notes: z.string().optional(),
+    })
+    .superRefine((outcome, ctx) => {
+        // Confirmed means the fault is proven fixed: codes cleared, symptom
+        // gone, and re-test passed. All three must hold; anything less closes
+        // the case as unconfirmed.
+        if (outcome.confirmed && !(outcome.codesCleared && outcome.symptomGone && outcome.retestPassed)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'A confirmed outcome requires codes cleared, symptom gone, and re-test passed',
+                path: ['confirmed'],
+            });
+        }
+    });
 export type OutcomePayload = z.infer<typeof OutcomePayloadSchema>;
 
 export const CorrectionPayloadSchema = z.object({

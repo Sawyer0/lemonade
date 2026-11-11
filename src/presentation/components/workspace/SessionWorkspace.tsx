@@ -9,6 +9,7 @@ import { CONFIG } from '@/infrastructure/config';
 import { Page, Navbar, Link, Block, BlockTitle, Button } from 'konsta/react';
 
 import { SessionStatusHeader } from './SessionStatusHeader';
+import { OutcomeCapture } from './OutcomeCapture';
 import { ChatStream } from './ChatStream';
 import { AnalysisCard } from './AnalysisCard';
 import { InputBar } from './InputBar';
@@ -103,6 +104,9 @@ export function SessionWorkspace({ session, token }: SessionWorkspaceProps) {
 
             {/* Session Status */}
             <SessionStatusHeader sessionId={session.id} vehicleId={session.vehicleId} status={session.status} />
+
+            {/* Repair outcome: closes the case this session belongs to. */}
+            {session.caseId ? <OutcomeCapture caseId={session.caseId} token={token} /> : null}
 
             {/* Chat Area */}
             <div className="flex-1 min-h-0 relative flex flex-col h-[calc(100vh-200px)]">

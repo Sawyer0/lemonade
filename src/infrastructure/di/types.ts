@@ -31,6 +31,7 @@ export const TYPES = {
     VehicleService: Symbol.for('VehicleService'),
     BillingService: Symbol.for('BillingService'),
     SessionService: Symbol.for('SessionService'),
+    CaseService: Symbol.for('CaseService'),
     ChatService: Symbol.for('ChatService'),
     VideoAnalysisService: Symbol.for('VideoAnalysisService'),
     SummarizationService: Symbol.for('SummarizationService'),

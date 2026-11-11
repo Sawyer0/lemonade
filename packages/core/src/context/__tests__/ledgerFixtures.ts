@@ -116,8 +116,21 @@ function payloadFor(type: LedgerEntry['type'], index: number): LedgerEntry['payl
             return { text: `hypothesis-fact-${index}`, confidence: 0.5 };
         case 'safety_stop':
             return { reason: `safety-fact-${index}`, hazard: `hazard-${index}` };
-        case 'outcome':
-            return { resolution: `outcome-fact-${index}`, repaired: index % 2 === 0, notes: `outcome-note-${index}` };
+        case 'outcome': {
+            // LM-05 outcome shape: repair performed, parts replaced, and the
+            // confirmed-fixed flags. `confirmed` tracks the three flags so
+            // the payload always satisfies the confirmed-outcome rule.
+            const fixed = index % 2 === 0;
+            return {
+                repairPerformed: `outcome-fact-${index}`,
+                partsReplaced: [`part-${index}`],
+                codesCleared: fixed,
+                symptomGone: fixed,
+                retestPassed: fixed,
+                confirmed: fixed,
+                notes: `outcome-note-${index}`,
+            };
+        }
         case 'correction':
             return { text: `correction-fact-${index}` };
     }

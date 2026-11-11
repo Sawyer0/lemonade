@@ -293,4 +293,206 @@ describe('PostgresCaseRepository', () => {
         expect(sequences).toEqual([1, 2, 3, 4, 5]);
         expect(await repository.verifyLedger(caseRecord.id)).toBe(true);
     });
+
+    // LM-05: closing a case appends the outcome entry and flips the status
+    // in one transaction; afterwards the ledger is read-only.
+    it('closes a case with a confirmed outcome and keeps the chain verifiable', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-10', userId: 'user-1' });
+        await repository.appendEntry(caseRecord.id, {
+            type: 'dtc_read',
+            actor,
+            source: 'OBD',
+            occurredAt,
+            payload: { codes: ['P0300'] },
+        });
+        const { closedCase, outcomeEntry } = await repository.closeCase(caseRecord.id, {
+            type: 'outcome',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                repairPerformed: 'Replaced radiator hose',
+                partsReplaced: ['Radiator hose'],
+                codesCleared: true,
+                symptomGone: true,
+                retestPassed: true,
+                confirmed: true,
+            },
+        });
+        expect(closedCase.status).toBe('closed');
+        expect(outcomeEntry.type).toBe('outcome');
+        expect(outcomeEntry.sequence).toBe(2);
+        expect(await repository.verifyLedger(caseRecord.id)).toBe(true);
+        expect((await repository.findCaseById(caseRecord.id))?.status).toBe('closed');
+    });
+
+    it('closes a case with an unconfirmed outcome', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-11', userId: 'user-1' });
+        const { closedCase, outcomeEntry } = await repository.closeCase(caseRecord.id, {
+            type: 'outcome',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                repairPerformed: 'Tightened hose clamp',
+                partsReplaced: [],
+                codesCleared: false,
+                symptomGone: false,
+                retestPassed: false,
+                confirmed: false,
+            },
+        });
+        expect(closedCase.status).toBe('closed');
+        expect(outcomeEntry.type).toBe('outcome');
+        expect(await repository.verifyLedger(caseRecord.id)).toBe(true);
+    });
+
+    it('rejects a second close and leaves the ledger untouched', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-12', userId: 'user-1' });
+        await repository.closeCase(caseRecord.id, {
+            type: 'outcome',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                repairPerformed: 'Replaced radiator hose',
+                partsReplaced: [],
+                codesCleared: true,
+                symptomGone: true,
+                retestPassed: true,
+                confirmed: true,
+            },
+        });
+        await expect(
+            repository.closeCase(caseRecord.id, {
+                type: 'outcome',
+                actor,
+                source: 'tech',
+                occurredAt,
+                payload: {
+                    repairPerformed: 'Replaced radiator hose again',
+                    partsReplaced: [],
+                    codesCleared: true,
+                    symptomGone: true,
+                    retestPassed: true,
+                    confirmed: true,
+                },
+            }),
+        ).rejects.toThrow('already closed');
+        expect((await repository.listEntries(caseRecord.id)).length).toBe(1);
+    });
+
+    it('rejects a close with a non-outcome entry', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-13', userId: 'user-1' });
+        await expect(
+            repository.closeCase(caseRecord.id, {
+                type: 'observation',
+                actor,
+                source: 'tech',
+                occurredAt,
+                payload: { text: 'Not an outcome' },
+            }),
+        ).rejects.toThrow('requires an outcome entry');
+        expect((await repository.findCaseById(caseRecord.id))?.status).toBe('open');
+    });
+
+    it('rejects a close of a missing case', async () => {
+        await expect(
+            repository.closeCase(uuidv4(), {
+                type: 'outcome',
+                actor,
+                source: 'tech',
+                occurredAt,
+                payload: {
+                    repairPerformed: 'Replaced radiator hose',
+                    partsReplaced: [],
+                    codesCleared: true,
+                    symptomGone: true,
+                    retestPassed: true,
+                    confirmed: true,
+                },
+            }),
+        ).rejects.toThrow('Case not found');
+    });
+
+    it('rejects appends to a closed case', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-14', userId: 'user-1' });
+        await repository.closeCase(caseRecord.id, {
+            type: 'outcome',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                repairPerformed: 'Replaced radiator hose',
+                partsReplaced: [],
+                codesCleared: true,
+                symptomGone: true,
+                retestPassed: true,
+                confirmed: true,
+            },
+        });
+        await expect(
+            repository.appendEntry(caseRecord.id, {
+                type: 'observation',
+                actor,
+                source: 'tech',
+                occurredAt,
+                payload: { text: 'One more note after the close' },
+            }),
+        ).rejects.toThrow('already closed');
+        expect((await repository.listEntries(caseRecord.id)).length).toBe(1);
+    });
+
+    it('lists only confirmed outcomes for a vehicle, newest first', async () => {
+        const vehicleId = 'vehicle-15';
+        const confirmedCase = await repository.createCase({ vehicleId, userId: 'user-1' });
+        const unconfirmedCase = await repository.createCase({ vehicleId, userId: 'user-1' });
+        const otherVehicleCase = await repository.createCase({ vehicleId: 'vehicle-16', userId: 'user-1' });
+        await repository.closeCase(confirmedCase.id, {
+            type: 'outcome',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                repairPerformed: 'Replaced radiator hose',
+                partsReplaced: ['Radiator hose'],
+                codesCleared: true,
+                symptomGone: true,
+                retestPassed: true,
+                confirmed: true,
+            },
+        });
+        await repository.closeCase(unconfirmedCase.id, {
+            type: 'outcome',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                repairPerformed: 'Tightened hose clamp',
+                partsReplaced: [],
+                codesCleared: false,
+                symptomGone: false,
+                retestPassed: false,
+                confirmed: false,
+            },
+        });
+        await repository.closeCase(otherVehicleCase.id, {
+            type: 'outcome',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                repairPerformed: 'Replaced radiator hose',
+                partsReplaced: [],
+                codesCleared: true,
+                symptomGone: true,
+                retestPassed: true,
+                confirmed: true,
+            },
+        });
+        const confirmed = await repository.findConfirmedOutcomes(vehicleId);
+        expect(confirmed.length).toBe(1);
+        expect(confirmed[0]?.caseId).toBe(confirmedCase.id);
+        expect(confirmed[0]?.type).toBe('outcome');
+    });
 });

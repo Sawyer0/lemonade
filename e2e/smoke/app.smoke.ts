@@ -55,6 +55,11 @@ describe('auth-guarded API routes', () => {
         ['GET', '/api/session'],
         ['POST', '/api/chat'],
         ['POST', '/api/vehicles/scan'],
+        // LM-05: closing a case and reading it are auth-guarded; the auth
+        // check runs before any case-ledger access, so no Postgres is needed
+        // for these assertions.
+        ['GET', '/api/cases/123e4567-e89b-12d3-a456-426614174000'],
+        ['POST', '/api/cases/123e4567-e89b-12d3-a456-426614174000/close'],
     ])('%s %s answers 401 without a token', async (method, path) => {
         const res = await api(path, { method });
         expect(res.status).toBe(401);

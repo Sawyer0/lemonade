@@ -1,5 +1,5 @@
 import { injectable, inject } from 'inversify';
-import { Pool, type QueryResultRow } from 'pg';
+import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import {
@@ -115,10 +115,7 @@ export class PostgresCaseRepository implements ICaseRepository {
         let insertedRow: LedgerEntryRow | undefined;
         try {
             await client.query('BEGIN');
-            const caseResult = await client.query<CaseIdRow>('SELECT id FROM cases WHERE id = $1 FOR UPDATE', [caseId]);
-            if (caseResult.rowCount === 0) {
-                throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, `Case not found: ${caseId}`);
-            }
+            await this.lockOpenCase(client, caseId);
             // LM-17: every ledger append advances the case version by one, so
             // a run that started before this append finds its read version
             // stale when it commits.
@@ -135,55 +132,18 @@ export class PostgresCaseRepository implements ICaseRepository {
                     );
                 }
             }
-            const last = await client.query<LastEntryRow>(
-                'SELECT sequence, entry_hash FROM case_ledger_entries WHERE case_id = $1 ORDER BY sequence DESC LIMIT 1',
-                [caseId],
-            );
-            const lastRow = last.rows[0];
-            const sequence = lastRow ? lastRow.sequence + 1 : 1;
-            const previousHash = lastRow ? lastRow.entry_hash : LEDGER_GENESIS_HASH;
-            const entryHash = computeLedgerEntryHash(this.hasher, {
-                caseId,
-                sequence,
-                type: parsed.type,
-                actor: parsed.actor,
-                source: parsed.source,
-                occurredAt: parsed.occurredAt,
-                payload: parsed.payload,
-                previousHash,
-                ...(parsed.type === 'correction' ? { correctsEntryId: parsed.correctsEntryId } : {}),
-            });
-            const inserted = await client.query<LedgerEntryRow>(
-                `INSERT INTO case_ledger_entries
-                    (id, case_id, sequence, type, actor_kind, actor_id, source, occurred_at,
-                     payload, previous_hash, entry_hash, corrects_entry_id, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
-                [
-                    uuidv4(),
-                    caseId,
-                    sequence,
-                    parsed.type,
-                    parsed.actor.kind,
-                    parsed.actor.id,
-                    parsed.source,
-                    parsed.occurredAt,
-                    JSON.stringify(parsed.payload),
-                    previousHash,
-                    entryHash,
-                    parsed.type === 'correction' ? parsed.correctsEntryId : null,
-                    new Date(),
-                ],
-            );
+            insertedRow = await this.insertEntry(client, caseId, parsed);
             await client.query('COMMIT');
-            insertedRow = inserted.rows[0];
         } catch (error) {
             await client.query('ROLLBACK').catch(() => undefined);
             if (
                 error instanceof AppError &&
-                (error.code === ErrorCode.RESOURCE_NOT_FOUND || error.code === ErrorCode.INVALID_INPUT)
+                (error.code === ErrorCode.RESOURCE_NOT_FOUND ||
+                    error.code === ErrorCode.INVALID_INPUT ||
+                    error.code === ErrorCode.RESOURCE_ALREADY_EXISTS)
             ) {
                 // Expected client errors (unknown case, bad correction
-                // reference): a warning, not an error log.
+                // reference, append to a closed case): a warning, not an error log.
                 this.logger.warn('Rejected ledger append', { caseId, code: error.code });
             } else {
                 this.logger.error('Failed to append ledger entry', error as Error, { caseId });
@@ -198,6 +158,66 @@ export class PostgresCaseRepository implements ICaseRepository {
             throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Ledger insert returned no row');
         }
         return this.ledgerEntryFromRow(insertedRow);
+    }
+
+    async closeCase(
+        caseId: string,
+        input: AppendLedgerEntryInput,
+    ): Promise<{ closedCase: Case; outcomeEntry: LedgerEntry }> {
+        const parsed = AppendLedgerEntryInputSchema.parse(input);
+        this.validateCaseId(caseId);
+        if (parsed.type !== 'outcome') {
+            throw new AppError(ErrorCode.INVALID_INPUT, `closeCase requires an outcome entry, received ${parsed.type}`);
+        }
+        const client = await this.pool.connect();
+        let outcomeRow: LedgerEntryRow | undefined;
+        let closedRow: CaseRow | undefined;
+        try {
+            await client.query('BEGIN');
+            // Locks the case row, so a concurrent append and a concurrent
+            // close cannot interleave: the outcome and the status flip land
+            // in the same transaction or not at all.
+            await this.lockOpenCase(client, caseId);
+            outcomeRow = await this.insertEntry(client, caseId, parsed);
+            const updated = await client.query<CaseRow>(
+                `UPDATE cases SET status = 'closed', updated_at = $2 WHERE id = $1 RETURNING *`,
+                [caseId, new Date()],
+            );
+            closedRow = updated.rows[0];
+            await client.query('COMMIT');
+        } catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            if (
+                error instanceof AppError &&
+                (error.code === ErrorCode.RESOURCE_NOT_FOUND ||
+                    error.code === ErrorCode.INVALID_INPUT ||
+                    error.code === ErrorCode.RESOURCE_ALREADY_EXISTS)
+            ) {
+                this.logger.warn('Rejected case close', { caseId, code: error.code });
+            } else {
+                this.logger.error('Failed to close case', error as Error, { caseId });
+            }
+            throw error;
+        } finally {
+            client.release();
+        }
+        if (!outcomeRow || !closedRow) {
+            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Case close returned no row');
+        }
+        return { closedCase: this.rowToCase(closedRow), outcomeEntry: this.ledgerEntryFromRow(outcomeRow) };
+    }
+
+    async findConfirmedOutcomes(vehicleId: string): Promise<LedgerEntry[]> {
+        const result = await this.pool.query<LedgerEntryRow>(
+            `SELECT e.* FROM case_ledger_entries e
+             JOIN cases c ON c.id = e.case_id
+             WHERE c.vehicle_id = $1
+               AND e.type = 'outcome'
+               AND (e.payload ->> 'confirmed')::boolean IS TRUE
+             ORDER BY e.created_at DESC, e.sequence DESC`,
+            [vehicleId],
+        );
+        return result.rows.map((row) => this.ledgerEntryFromRow(row));
     }
 
     async listEntries(caseId: string): Promise<LedgerEntry[]> {
@@ -282,6 +302,80 @@ export class PostgresCaseRepository implements ICaseRepository {
      */
     async close(): Promise<void> {
         await this.pool.end();
+    }
+
+    /**
+     * Locks the case row and rejects the write when the case does not exist
+     * (404) or is already closed (409): closed cases are read-only, so no
+     * entry — outcome or otherwise — may be appended after the close.
+     */
+    private async lockOpenCase(client: PoolClient, caseId: string): Promise<void> {
+        const caseResult = await client.query<{ status: string }>('SELECT status FROM cases WHERE id = $1 FOR UPDATE', [
+            caseId,
+        ]);
+        if (caseResult.rowCount === 0) {
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, `Case not found: ${caseId}`);
+        }
+        if (caseResult.rows[0]?.status === 'closed') {
+            throw new AppError(ErrorCode.RESOURCE_ALREADY_EXISTS, `Case is already closed: ${caseId}`);
+        }
+    }
+
+    /**
+     * Appends one entry inside the caller's transaction: claims the next
+     * sequence, chains the hash, and inserts the row. The caller owns
+     * BEGIN/COMMIT, so appendEntry and closeCase share this without ever
+     * claiming the same sequence twice.
+     */
+    private async insertEntry(
+        client: PoolClient,
+        caseId: string,
+        parsed: AppendLedgerEntryInput,
+    ): Promise<LedgerEntryRow> {
+        const last = await client.query<LastEntryRow>(
+            'SELECT sequence, entry_hash FROM case_ledger_entries WHERE case_id = $1 ORDER BY sequence DESC LIMIT 1',
+            [caseId],
+        );
+        const lastRow = last.rows[0];
+        const sequence = lastRow ? lastRow.sequence + 1 : 1;
+        const previousHash = lastRow ? lastRow.entry_hash : LEDGER_GENESIS_HASH;
+        const entryHash = computeLedgerEntryHash(this.hasher, {
+            caseId,
+            sequence,
+            type: parsed.type,
+            actor: parsed.actor,
+            source: parsed.source,
+            occurredAt: parsed.occurredAt,
+            payload: parsed.payload,
+            previousHash,
+            ...(parsed.type === 'correction' ? { correctsEntryId: parsed.correctsEntryId } : {}),
+        });
+        const inserted = await client.query<LedgerEntryRow>(
+            `INSERT INTO case_ledger_entries
+                (id, case_id, sequence, type, actor_kind, actor_id, source, occurred_at,
+                 payload, previous_hash, entry_hash, corrects_entry_id, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+            [
+                uuidv4(),
+                caseId,
+                sequence,
+                parsed.type,
+                parsed.actor.kind,
+                parsed.actor.id,
+                parsed.source,
+                parsed.occurredAt,
+                JSON.stringify(parsed.payload),
+                previousHash,
+                entryHash,
+                parsed.type === 'correction' ? parsed.correctsEntryId : null,
+                new Date(),
+            ],
+        );
+        const row = inserted.rows[0];
+        if (!row) {
+            throw new AppError(ErrorCode.INTERNAL_SERVER_ERROR, 'Ledger insert returned no row');
+        }
+        return row;
     }
 
     private validateCaseId(caseId: string): void {
