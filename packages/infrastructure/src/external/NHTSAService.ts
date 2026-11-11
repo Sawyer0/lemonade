@@ -40,47 +40,57 @@ export class NHTSAService implements INHTSAService, IVehicleInfoProvider {
     constructor(@inject(TYPES.Logger) private logger: ILogger) {}
 
     async checkRecalls(year: number, make: string, model: string): Promise<SafetyRecall[]> {
-        this.logger.info(`[NHTSAService] Checking recalls for ${year} ${make} ${model}`);
-
         try {
-            const url = `${this.recallsBaseUrl}/recalls/recallsByVehicle?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&modelYear=${year}`;
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                this.logger.error(`[NHTSAService] API Error: ${response.statusText}`, undefined);
-                return [];
-            }
-
-            const data = await response.json();
-
-            if (data.Count > 0 && Array.isArray(data.results)) {
-                this.logger.info(`[NHTSAService] Found ${data.Count} recalls`);
-                return data.results.map((r: Record<string, unknown>) =>
-                    SafetyRecallSchema.parse({
-                        ReportReceivedDate: String(r.ReportReceivedDate || ''),
-                        Component: String(r.Component || ''),
-                        Summary: String(r.Summary || ''),
-                        Consequence: String(r.Consequence || ''),
-                        Remedy: String(r.Remedy || ''),
-                        Notes: String(r.Notes || ''),
-                        NHTSACampaignNumber: String(r.NHTSACampaignNumber || ''),
-                        Manufacturer: String(r.Manufacturer || ''),
-                        parkIt: !!r.parkIt,
-                        parkOutSide: !!r.parkOutSide,
-                        overTheAirUpdate: !!r.overTheAirUpdate,
-                        NHTSAActionNumber: String(r.NHTSAActionNumber || ''),
-                        ModelYear: String(r.ModelYear || ''),
-                        Make: String(r.Make || ''),
-                        Model: String(r.Model || ''),
-                    }),
-                );
-            }
-
-            return [];
+            return await this.checkRecallsStrict(year, make, model);
         } catch (error) {
             this.logger.error('[NHTSAService] Failed to fetch recalls', error);
             return [];
         }
+    }
+
+    /**
+     * Like checkRecalls, but a failure throws instead of returning an empty
+     * list, so the caller can tell "no recalls" apart from "the lookup
+     * failed" (LM-18: a failed lookup is 'recall status unknown', never 'no
+     * recalls'). checkRecalls stays forgiving for its existing callers.
+     */
+    async checkRecallsStrict(year: number, make: string, model: string): Promise<SafetyRecall[]> {
+        this.logger.info(`[NHTSAService] Checking recalls for ${year} ${make} ${model}`);
+
+        const url = `${this.recallsBaseUrl}/recalls/recallsByVehicle?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&modelYear=${year}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            this.logger.error(`[NHTSAService] API Error: ${response.statusText}`, undefined);
+            throw new Error(`NHTSA recalls lookup failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.Count > 0 && Array.isArray(data.results)) {
+            this.logger.info(`[NHTSAService] Found ${data.Count} recalls`);
+            return data.results.map((r: Record<string, unknown>) =>
+                SafetyRecallSchema.parse({
+                    ReportReceivedDate: String(r.ReportReceivedDate || ''),
+                    Component: String(r.Component || ''),
+                    Summary: String(r.Summary || ''),
+                    Consequence: String(r.Consequence || ''),
+                    Remedy: String(r.Remedy || ''),
+                    Notes: String(r.Notes || ''),
+                    NHTSACampaignNumber: String(r.NHTSACampaignNumber || ''),
+                    Manufacturer: String(r.Manufacturer || ''),
+                    parkIt: !!r.parkIt,
+                    parkOutSide: !!r.parkOutSide,
+                    overTheAirUpdate: !!r.overTheAirUpdate,
+                    NHTSAActionNumber: String(r.NHTSAActionNumber || ''),
+                    ModelYear: String(r.ModelYear || ''),
+                    Make: String(r.Make || ''),
+                    Model: String(r.Model || ''),
+                }),
+            );
+        }
+
+        return [];
     }
 
     async validateVin(vin: string): Promise<boolean> {

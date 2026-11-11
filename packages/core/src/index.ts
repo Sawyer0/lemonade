@@ -81,6 +81,7 @@ export * from './context/reinjection';
 export * from './types/localPerception';
 export * from './types/liveChannel';
 export * from './types/jobs';
+export * from './jobs/index'; // Background evidence sub-agents (LM-18)
 export * from './types/neurosymbolic';
 export * from './types/reasoning'; // Exports ReasoningInput
 export * from './reasoning/index'; // Bounded model-driven tool loop (LM-16)

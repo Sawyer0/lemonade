@@ -16,6 +16,8 @@ import {
     IBillingService,
     IBillingRepository,
     IResponseCache,
+    ICaseRepository,
+    type EvidenceChildSource,
 } from '@lemonade/core';
 import { IConfigProvider } from '../interfaces/IConfigProvider';
 import { TYPES } from './types';
@@ -23,6 +25,8 @@ import { TYPES } from './types';
 // Implementations
 import { MechanicReasoningService } from '../services/MechanicReasoningService';
 import { CaseRunCoordinator } from '../services/CaseRunCoordinator';
+import { EvidenceSubagentRunner } from '../services/research/EvidenceSubagentRunner';
+import { createDefaultEvidenceSources } from '../services/research/sources/createDefaultEvidenceSources';
 import { FirestoreSessionRepository } from '../repositories/FirestoreSessionRepository';
 import { TavilySearchService } from '../external/TavilySearchService';
 import { SupermemoryService } from '../external/SupermemoryService';
@@ -95,6 +99,20 @@ export function createContainer(): Container {
     // LM-17: one coordinator per process, so the single-active-run rule
     // holds across every caller that resolves the reasoning service.
     container.bind<CaseRunCoordinator>(TYPES.CaseRunCoordinator).to(CaseRunCoordinator).inSingletonScope();
+
+    // LM-18: one evidence runner per process, so the once-per-case launch
+    // rule holds across every caller that triggers a VIN decode.
+    container
+        .bind<EvidenceChildSource[]>(TYPES.EvidenceSubagentSources)
+        .toDynamicValue((context) =>
+            createDefaultEvidenceSources({
+                nhtsa: context.container.get<INHTSAService>(TYPES.NHTSAService),
+                search: context.container.get<IGoogleSearchService>(TYPES.GoogleSearchService),
+                caseRepo: context.container.get<ICaseRepository>(TYPES.CaseRepo),
+            }),
+        )
+        .inSingletonScope();
+    container.bind<EvidenceSubagentRunner>(TYPES.EvidenceSubagentRunner).to(EvidenceSubagentRunner).inSingletonScope();
 
     return container;
 }
