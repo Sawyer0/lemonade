@@ -98,6 +98,16 @@ export const SHARED_CONFIG = {
         REFLECTION_AUTHORITY: 'reflection_only', // Every nightly-review output is stamped with this
     },
 
+    // Case-shaped context (LM-21): every model call is built from a fixed
+    // system prompt, one ledger snapshot, and the recent turns. The snapshot
+    // is never compressed; only raw tool output and old turns are.
+    CONTEXT: {
+        TOOL_RESULT_WINDOW_SHARE: 0.3, // Tool results are capped at ~30% of the context window
+        RECENT_TURN_LIMIT: 20, // Recent turns kept verbatim per model call
+        HANDOFF_SUMMARY_MAX_CHARS: 2000, // Cap on the compaction handoff summary
+        ESTIMATED_CHARS_PER_TOKEN: 4, // Character-based token estimate (no tokenizer in core)
+    },
+
     THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
 
     // Google Cloud
