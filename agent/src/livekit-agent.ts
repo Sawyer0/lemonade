@@ -1,7 +1,7 @@
 import { type JobContext, defineAgent, voice } from '@livekit/agents';
 import * as silero from '@livekit/agents-plugin-silero';
 import { RoomEvent, type RemoteParticipant } from '@livekit/rtc-node';
-import type { ILiveStreamAnalyzer, IMechanicReasoningService } from '@lemonade/core';
+import type { ICaseRepository, ILiveStreamAnalyzer, IMechanicReasoningService } from '@lemonade/core';
 import { Logger, TYPES, createContainer } from '@lemonade/infrastructure';
 import { loadEnv } from './env';
 import { LiveChannelRouter, type Conversation } from './channel/LiveChannelRouter';
@@ -10,8 +10,9 @@ import { BurstAnalyzer } from './diagnosis/BurstAnalyzer';
 import { describeVehicle, parseSessionContext } from './diagnosis/sessionContext';
 import { masterTechInstructions } from './voice/instructions';
 import { createMasterTechTools } from './voice/tools';
-import { createVoice } from './voice/voice';
-import { livekitVoiceProviders } from './voice/livekitVoiceProviders';
+import { createVoiceProvider } from './voice/provider';
+import { livekitPlugins } from './voice/livekitPlugins';
+import { createTranscriptSink } from './voice/transcriptLedger';
 
 const env = loadEnv();
 const logger = new Logger();
@@ -46,9 +47,11 @@ function conversationFor(session: voice.AgentSession): Conversation {
 
 /**
  * LiveKit worker entry: one Master Tech per diagnostic-session room. Speech in
- * and out runs through the voice port (Gemini native audio by default); frames
- * and typed messages arrive on the data channel and are routed by
- * LiveChannelRouter.
+ * and out runs through the voice provider named by VOICE_PROVIDER (gemini,
+ * grok, or cascade); the AgentSession owns start/stop, audio, tools,
+ * interrupt and transcripts for every provider, so switching providers is a
+ * config change. Frames and typed messages arrive on the data channel and
+ * are routed by LiveChannelRouter.
  */
 export default defineAgent({
     prewarm: async (proc) => {
@@ -65,11 +68,22 @@ export default defineAgent({
         logger.info('Master Tech joined room', { sessionId: sessionContext.sessionId });
 
         const publisher = new RoomPublisher(() => ctx.room.localParticipant);
-        const voiceProfile = createVoice(env, livekitVoiceProviders);
+        const provider = createVoiceProvider(env, livekitPlugins);
+
+        // Every turn's transcript lands in the case ledger as a `transcript`
+        // event, whatever the provider. The repository resolves lazily on the
+        // first turn; a missing database fails the ledger, never the call.
+        const transcripts = createTranscriptSink({
+            caseId: sessionContext.caseId,
+            userId: sessionContext.userId,
+            provider: provider.id,
+            repository: () => createContainer().get<ICaseRepository>(TYPES.CaseRepo),
+            logger,
+        });
 
         const session = new voice.AgentSession({
             vad: ctx.proc.userData.vad as silero.VAD,
-            llm: voiceProfile.model,
+            ...provider.sessionParts(),
         });
 
         // Mirror everything the agent says into the client's transcript.
@@ -78,6 +92,15 @@ export default defineAgent({
         session.on(voice.AgentSessionEventTypes.ConversationItemAdded, ({ item }) => {
             if (item.type === 'message' && item.role === 'assistant' && item.textContent) {
                 void publisher.transcript(item.textContent);
+                void transcripts.record('assistant', item.textContent);
+            }
+        });
+
+        // Record what the user said. Interim transcripts are skipped: only
+        // the final text of a turn belongs in the ledger.
+        session.on(voice.AgentSessionEventTypes.UserInputTranscribed, ({ transcript, isFinal }) => {
+            if (isFinal && transcript) {
+                void transcripts.record('user', transcript);
             }
         });
 
@@ -105,6 +128,6 @@ export default defineAgent({
             }),
             room: ctx.room,
         });
-        logger.info('Master Tech ready', { voice: voiceProfile.kind });
+        logger.info('Master Tech ready', { voice: provider.id });
     },
 });

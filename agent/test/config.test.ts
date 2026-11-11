@@ -6,7 +6,7 @@ import { issueRoomToken } from '../src/tokens';
 
 describe('loadEnv', () => {
     it('uses livekit dev defaults outside production', () => {
-        expect(loadEnv({})).toMatchObject({
+        expect(loadEnv({ GOOGLE_API_KEY: 'g' })).toMatchObject({
             LIVEKIT_URL: 'ws://localhost:7880',
             LIVEKIT_API_KEY: 'devkey',
             PORT: 3001,
@@ -19,6 +19,39 @@ describe('loadEnv', () => {
 
     it('accepts GEMINI_API_KEY as the google key', () => {
         expect(loadEnv({ GEMINI_API_KEY: 'g' }).GOOGLE_API_KEY).toBe('g');
+    });
+
+    it('defaults VOICE_PROVIDER to gemini', () => {
+        expect(loadEnv({ GOOGLE_API_KEY: 'g' }).VOICE_PROVIDER).toBe('gemini');
+        expect(loadEnv({ VOICE_PROVIDER: 'grok', XAI_API_KEY: 'x' }).VOICE_PROVIDER).toBe('grok');
+        expect(
+            loadEnv({
+                VOICE_PROVIDER: 'cascade',
+                GOOGLE_API_KEY: 'g',
+                DEEPGRAM_API_KEY: 'd',
+                CARTESIA_API_KEY: 'c',
+            }).VOICE_PROVIDER,
+        ).toBe('cascade');
+    });
+
+    it('refuses to start without the selected provider keys', () => {
+        expect(() => loadEnv({})).toThrow('GOOGLE_API_KEY must be set for the selected voice provider');
+        expect(() => loadEnv({ VOICE_PROVIDER: 'grok' })).toThrow(
+            'XAI_API_KEY must be set for the selected voice provider',
+        );
+        expect(() => loadEnv({ VOICE_PROVIDER: 'cascade', GOOGLE_API_KEY: 'g', DEEPGRAM_API_KEY: 'd' })).toThrow(
+            'CARTESIA_API_KEY must be set for the selected voice provider',
+        );
+        expect(() => loadEnv({ VOICE_PROVIDER: 'cascade', GOOGLE_API_KEY: 'g', CARTESIA_API_KEY: 'c' })).toThrow(
+            'DEEPGRAM_API_KEY must be set for the selected voice provider',
+        );
+        expect(() => loadEnv({ VOICE_PROVIDER: 'cascade', DEEPGRAM_API_KEY: 'd', CARTESIA_API_KEY: 'c' })).toThrow(
+            'GOOGLE_API_KEY must be set for the selected voice provider',
+        );
+    });
+
+    it('rejects an unknown VOICE_PROVIDER at startup', () => {
+        expect(() => loadEnv({ VOICE_PROVIDER: 'resemble' })).toThrow('Unknown VOICE_PROVIDER');
     });
 });
 
@@ -37,6 +70,20 @@ describe('parseSessionContext', () => {
         const context = parseSessionContext('room-1', 'identity', 'not json');
         expect(context.userId).toBe('identity');
         expect(describeVehicle(context.vehicle)).toBe('unknown vehicle');
+    });
+
+    it('reads a case id from client metadata when it is a UUID', () => {
+        const metadata = JSON.stringify({
+            userId: 'uid-7',
+            caseId: '123e4567-e89b-12d3-a456-426614174000',
+            vehicleContext: JSON.stringify({ year: 2018, make: 'Ford' }),
+        });
+        expect(parseSessionContext('room-1', 'identity', metadata).caseId).toBe('123e4567-e89b-12d3-a456-426614174000');
+    });
+
+    it('drops a case id that is not a UUID', () => {
+        const metadata = JSON.stringify({ userId: 'uid-7', caseId: 'session-42' });
+        expect(parseSessionContext('room-1', 'identity', metadata).caseId).toBeUndefined();
     });
 });
 

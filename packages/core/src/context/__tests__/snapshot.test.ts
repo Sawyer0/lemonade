@@ -66,6 +66,21 @@ describe('renderCaseSnapshot', () => {
         expect(snapshot).toContain(`superseded by correction entry #${correction.sequence}`);
     });
 
+    it('renders a transcript turn with its role and provider', () => {
+        const caseRecord = buildCase();
+        const entries: LedgerEntry[] = [];
+        const turn = appendToChain(entries, 'transcript', {
+            role: 'assistant',
+            text: 'Check the brake pads first.',
+            provider: 'gemini',
+        });
+        entries.push(turn);
+        const snapshot = renderCaseSnapshot({ ...caseRecord, id: turn.caseId }, entries);
+        expect(snapshot).toContain('role: assistant');
+        expect(snapshot).toContain('Check the brake pads first.');
+        expect(snapshot).toContain('provider: "gemini"');
+    });
+
     it('renders an empty ledger as a header with no entries', () => {
         const snapshot = renderCaseSnapshot(buildCase(), []);
         expect(snapshot).toContain('ledger entries: 0');

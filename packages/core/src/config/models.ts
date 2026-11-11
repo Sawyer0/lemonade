@@ -10,6 +10,21 @@
 /** Realtime voice model for the LiveKit agent (Gemini Developer API). */
 export const GEMINI_LIVE_MODEL = 'gemini-3.8-live';
 
+/** Voice for the Gemini live model (prebuilt voice). */
+export const GEMINI_VOICE = 'Puck';
+
+/** Grok voice model for the LiveKit agent (xAI Voice Agent API, WebSocket). */
+export const GROK_VOICE_MODEL = 'grok-voice-3.0';
+
+/** Voice for the Grok voice model (xAI built-in voice). */
+export const GROK_VOICE = 'eve';
+
+/** Streaming speech-to-text model for the cascade voice provider (Deepgram). */
+export const DEEPGRAM_STT_MODEL = 'nova-3';
+
+/** Text-to-speech model for the cascade voice provider (Cartesia). */
+export const CARTESIA_TTS_MODEL = 'sonic-3';
+
 /** Realtime voice model on Vertex AI. Retires Dec 13, 2026; do not use for new paths. */
 export const GEMINI_LIVE_VERTEX_MODEL = 'gemini-live-2.5-flash-native-audio';
 

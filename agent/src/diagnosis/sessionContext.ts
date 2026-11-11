@@ -9,11 +9,25 @@ export interface SessionContext {
     vehicle: VehicleContext;
     /** The vehicle as the client sent it, passed through to analyzers that take raw context. */
     vehicleJson: string;
+    /**
+     * Case the session belongs to, when the client sends one in token
+     * metadata. Voice transcripts are appended to this case's ledger (LM-39);
+     * without it the session still runs, but nothing reaches the ledger.
+     */
+    caseId?: string;
 }
 
 interface ClientMetadata {
     vehicleContext?: unknown;
     userId?: unknown;
+    caseId?: unknown;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A case id is only usable when it is a UUID; anything else is ignored, like other malformed metadata. */
+function toCaseId(value: unknown): string | undefined {
+    return typeof value === 'string' && UUID_PATTERN.test(value) ? value : undefined;
 }
 
 function parseJson(raw: string | undefined): unknown {
@@ -54,6 +68,7 @@ export function parseSessionContext(roomName: string, participantIdentity: strin
         userId: typeof parsed?.userId === 'string' ? parsed.userId : participantIdentity,
         vehicle,
         vehicleJson: JSON.stringify(vehicle),
+        caseId: toCaseId(parsed?.caseId),
     };
 }
 

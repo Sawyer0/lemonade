@@ -93,6 +93,12 @@ function renderPayloadLines(entry: LedgerEntry): string[] {
                     ? 'corrects entry: (missing)'
                     : `corrects entry: ${quoted(entry.correctsEntryId)}`,
             ];
+        case 'transcript':
+            return [
+                `role: ${entry.payload.role}`,
+                `text: ${quoted(entry.payload.text)}`,
+                `provider: ${quoted(entry.payload.provider)}`,
+            ];
     }
 }
 
