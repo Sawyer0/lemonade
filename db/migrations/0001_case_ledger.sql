@@ -6,9 +6,9 @@
 -- sessions link to a case through the session's caseId and case_sessions.
 --
 -- Append-only is enforced two ways:
---   1. A trigger rejects every UPDATE and DELETE on case_ledger_entries.
---   2. UPDATE/DELETE are revoked from PUBLIC (the app role must be granted
---      SELECT and INSERT only — see db/migrations/README.md).
+--   1. Triggers reject every UPDATE, DELETE, and TRUNCATE on case_ledger_entries.
+--   2. UPDATE/DELETE/TRUNCATE are revoked from PUBLIC (the app role must be
+--      granted SELECT and INSERT only — see db/migrations/README.md).
 -- Mistakes are fixed by appending a `correction` entry that references the
 -- original (corrects_entry_id). Nothing is edited.
 -- Photos and frames live in object storage; the ledger stores their hash and
@@ -64,4 +64,10 @@ CREATE TRIGGER case_ledger_entries_append_only
     BEFORE UPDATE OR DELETE ON case_ledger_entries
     FOR EACH ROW EXECUTE FUNCTION reject_ledger_entry_mutation();
 
-REVOKE UPDATE, DELETE ON case_ledger_entries FROM PUBLIC;
+-- TRUNCATE takes a statement-level trigger, not a row-level one.
+DROP TRIGGER IF EXISTS case_ledger_entries_append_only_truncate ON case_ledger_entries;
+CREATE TRIGGER case_ledger_entries_append_only_truncate
+    BEFORE TRUNCATE ON case_ledger_entries
+    FOR EACH STATEMENT EXECUTE FUNCTION reject_ledger_entry_mutation();
+
+REVOKE UPDATE, DELETE, TRUNCATE ON case_ledger_entries FROM PUBLIC;

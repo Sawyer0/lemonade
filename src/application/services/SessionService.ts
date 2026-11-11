@@ -1,8 +1,9 @@
-import { injectable, inject } from 'inversify';
+import { injectable, inject, LazyServiceIdentifier } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
-import type { ISessionRepository, IVehicleRepository, ILogger } from '@lemonade/core';
+import type { ISessionRepository, IVehicleRepository, ILogger, ICaseRepository } from '@lemonade/core';
 import { ISessionService, DiagnosticSession, Vehicle, AppError, ErrorCode } from '@lemonade/core';
 import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
 
 @injectable()
 export class SessionService implements ISessionService {
@@ -10,6 +11,9 @@ export class SessionService implements ISessionService {
         @inject(TYPES.SessionRepo) private sessionRepo: ISessionRepository,
         @inject(TYPES.VehicleRepo) private vehicleRepo: IVehicleRepository,
         @inject(TYPES.Logger) private logger: ILogger,
+        // Resolved lazily: sessions without a case must never touch Postgres,
+        // and the case-ledger pool fails fast when its database URL is unset.
+        @inject(new LazyServiceIdentifier(() => TYPES.CaseRepo)) private caseRepo: ICaseRepository,
     ) {}
 
     async startSession(vehicleId: string, userId: string, caseId?: string): Promise<string> {
@@ -23,6 +27,19 @@ export class SessionService implements ISessionService {
                 ownerId: vehicle.userId,
             });
             throw new AppError(ErrorCode.FORBIDDEN, 'You do not own this vehicle', 403);
+        }
+
+        // A case link is validated before the session is created: a malformed
+        // id is a client error (400) and an unknown case is a 404. The case
+        // repo is only resolved when a caseId is given.
+        if (caseId) {
+            if (!z.string().uuid().safeParse(caseId).success) {
+                throw new AppError(ErrorCode.INVALID_INPUT, 'caseId must be a valid UUID');
+            }
+            const existingCase = await this.caseRepo.findCaseById(caseId);
+            if (!existingCase) {
+                throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, `Case not found: ${caseId}`);
+            }
         }
 
         const newSession: DiagnosticSession = {
@@ -43,6 +60,15 @@ export class SessionService implements ISessionService {
         };
 
         await this.sessionRepo.create(newSession);
+
+        // The case ledger is the source of truth for which sessions belong to
+        // a case (what listSessions reads); the session's own caseId field is
+        // set at creation. startSession is the single place the link is
+        // recorded.
+        if (caseId) {
+            await this.caseRepo.attachSession(caseId, newSession.id);
+        }
+
         return newSession.id;
     }
 

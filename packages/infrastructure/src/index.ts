@@ -1,5 +1,6 @@
 export * from './di/types';
 export { createContainer } from './di/container';
+export { bindCaseLedger } from './di/caseLedgerBindings';
 export { bindAiProviders } from './di/aiBindings';
 export * from './interfaces/IConfigProvider';
 export * from './config/EnvConfigProvider';

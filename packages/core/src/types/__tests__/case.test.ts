@@ -17,7 +17,7 @@ import {
 // production hasher lives in infrastructure; core itself stays free of
 // Node-only imports so the mobile app can import it.
 const nodeHasher: LedgerHasher = {
-    digestHex: (data: string) => createHash('sha256').update(data, 'utf8').digest('hex'),
+    digestHex: (content: string) => createHash('sha256').update(content, 'utf8').digest('hex'),
 };
 
 const caseId = uuidv4();
@@ -123,6 +123,24 @@ describe('LedgerEntrySchema', () => {
             payload: { codes: ['P0300'] },
             previousHash: LEDGER_GENESIS_HASH,
             entryHash: 'b'.repeat(64),
+            createdAt: new Date(),
+        });
+        expect(result.success).toBe(false);
+    });
+
+    it('rejects correctsEntryId on a non-correction entry', () => {
+        const result = LedgerEntrySchema.safeParse({
+            id: uuidv4(),
+            caseId,
+            sequence: 1,
+            type: 'observation',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: { text: 'Coolant pooling under the radiator' },
+            previousHash: LEDGER_GENESIS_HASH,
+            entryHash: 'b'.repeat(64),
+            correctsEntryId: uuidv4(),
             createdAt: new Date(),
         });
         expect(result.success).toBe(false);
@@ -255,6 +273,30 @@ describe('computeLedgerEntryHash', () => {
         const first = computeLedgerEntryHash(nodeHasher, { ...base, previousHash: 'a'.repeat(64) });
         const second = computeLedgerEntryHash(nodeHasher, { ...base, previousHash: 'b'.repeat(64) });
         expect(first).not.toBe(second);
+    });
+
+    it('hashes a payload with an explicit undefined exactly like the key absent', () => {
+        // JSONB drops explicitly-undefined keys on storage, so the hash must
+        // not depend on them — otherwise append-time and verify-time hashes
+        // of the same entry would disagree.
+        const base = {
+            caseId,
+            sequence: 1,
+            type: 'test_result' as const,
+            actor: { kind: 'user' as const, id: 'tech-123' },
+            source: 'tech' as const,
+            occurredAt,
+            previousHash: LEDGER_GENESIS_HASH,
+        };
+        const withUndefined = computeLedgerEntryHash(nodeHasher, {
+            ...base,
+            payload: { testName: 'Compression', result: 'pass' as const, measuredValue: undefined },
+        });
+        const withoutKey = computeLedgerEntryHash(nodeHasher, {
+            ...base,
+            payload: { testName: 'Compression', result: 'pass' as const },
+        });
+        expect(withUndefined).toBe(withoutKey);
     });
 });
 

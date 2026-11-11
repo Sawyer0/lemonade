@@ -118,18 +118,6 @@ export const CorrectionPayloadSchema = z.object({
 });
 export type CorrectionPayload = z.infer<typeof CorrectionPayloadSchema>;
 
-export const LedgerEntryPayloadSchemas = {
-    vin_decoded: VinDecodedPayloadSchema,
-    dtc_read: DtcReadPayloadSchema,
-    observation: ObservationPayloadSchema,
-    frame_captured: FrameCapturedPayloadSchema,
-    test_result: TestResultPayloadSchema,
-    hypothesis: HypothesisPayloadSchema,
-    safety_stop: SafetyStopPayloadSchema,
-    outcome: OutcomePayloadSchema,
-    correction: CorrectionPayloadSchema,
-} as const;
-
 const LedgerEntryBaseSchema = z.object({
     id: z.string().uuid(),
     caseId: z.string().uuid(),
@@ -160,6 +148,13 @@ export const LedgerEntrySchema = z
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'A correction entry must reference the original entry',
+                path: ['correctsEntryId'],
+            });
+        }
+        if (entry.type !== 'correction' && entry.correctsEntryId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Only a correction entry may reference another entry',
                 path: ['correctsEntryId'],
             });
         }
@@ -200,7 +195,7 @@ export type AppendLedgerEntryInput = z.infer<typeof AppendLedgerEntryInputSchema
 export const LEDGER_GENESIS_HASH = '0'.repeat(64);
 
 export interface LedgerHasher {
-    digestHex(data: string): string;
+    digestHex(content: string): string;
 }
 
 export interface LedgerEntryHashInput {
@@ -237,7 +232,34 @@ export function computeLedgerEntryHash(hasher: LedgerHasher, input: LedgerEntryH
     // like it was never there, so append-time and verify-time agree.
     const { correctsEntryId, ...rest } = input;
     const hashable = correctsEntryId === undefined ? rest : { ...rest, correctsEntryId };
-    return hasher.digestHex(canonicalJson(hashable));
+    // JSONB drops keys whose value is explicitly `undefined` on storage, so
+    // the hash must not depend on them either — otherwise an append-time hash
+    // and a verify-time hash of the same entry would disagree.
+    return hasher.digestHex(canonicalJson(stripUndefined(hashable)));
+}
+
+/**
+ * Drops keys whose value is explicitly `undefined`, recursively. Dates pass
+ * through untouched; everything else is rebuilt without undefined values.
+ */
+function stripUndefined(value: unknown): unknown {
+    if (value instanceof Date) {
+        return value;
+    }
+    if (Array.isArray(value)) {
+        return value.map(stripUndefined);
+    }
+    if (value !== null && typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        const cleaned: Record<string, unknown> = {};
+        for (const [key, entryValue] of Object.entries(record)) {
+            if (entryValue !== undefined) {
+                cleaned[key] = stripUndefined(entryValue);
+            }
+        }
+        return cleaned;
+    }
+    return value;
 }
 
 /**

@@ -78,9 +78,9 @@ export class EnvConfigProvider implements IConfigProvider {
         return process.env.LANGSMITH_API_KEY || '';
     }
 
-    getCaseLedgerConfig() {
+    getCaseLedgerConfig(): { connectionString: string | undefined } {
         return {
-            connectionString: process.env.LEMONADE_CASE_LEDGER_DATABASE_URL || '',
+            connectionString: process.env.LEMONADE_CASE_LEDGER_DATABASE_URL || undefined,
         };
     }
 }

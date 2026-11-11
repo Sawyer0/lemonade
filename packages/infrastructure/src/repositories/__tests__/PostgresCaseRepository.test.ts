@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { ZodError } from 'zod';
 import { Pool } from 'pg';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { v4 as uuidv4 } from 'uuid';
@@ -37,8 +38,10 @@ describe('PostgresCaseRepository', () => {
     }, 180000);
 
     afterAll(async () => {
-        await repository.close();
-        await container.stop();
+        // Guarded: if beforeAll failed, repository/container were never
+        // assigned, and an unconditional close would mask the real failure.
+        if (repository) await repository.close();
+        if (container) await container.stop();
     });
 
     it('creates a case and finds it by id and by vehicle', async () => {
@@ -102,7 +105,7 @@ describe('PostgresCaseRepository', () => {
                 occurredAt,
                 payload: { codes: ['P0300'] },
             } as never),
-        ).rejects.toThrow();
+        ).rejects.toThrowError(ZodError);
     });
 
     it('fixes a mistake by appending a correction that references the original', async () => {
@@ -171,6 +174,29 @@ describe('PostgresCaseRepository', () => {
             await pool.query('ALTER TABLE case_ledger_entries DISABLE TRIGGER case_ledger_entries_append_only');
             await pool.query('UPDATE case_ledger_entries SET payload = $1 WHERE id = $2', [
                 JSON.stringify({ text: 'Forged reading' }),
+                entry.id,
+            ]);
+        } finally {
+            await pool.query('ALTER TABLE case_ledger_entries ENABLE TRIGGER case_ledger_entries_append_only');
+        }
+        expect(await repository.verifyLedger(caseRecord.id)).toBe(false);
+    });
+
+    it('returns false, not an error, when a tampered row no longer parses', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-9', userId: 'user-1' });
+        const entry = await repository.appendEntry(caseRecord.id, {
+            type: 'hypothesis',
+            actor,
+            source: 'model',
+            occurredAt,
+            payload: { text: 'Head gasket leak', confidence: 0.7 },
+        });
+        try {
+            await pool.query('ALTER TABLE case_ledger_entries DISABLE TRIGGER case_ledger_entries_append_only');
+            // A schema-invalid tamper: confidence outside 0-1 breaks the Zod
+            // shape, not just the hash.
+            await pool.query('UPDATE case_ledger_entries SET payload = $1 WHERE id = $2', [
+                JSON.stringify({ text: 'Head gasket leak', confidence: 2 }),
                 entry.id,
             ]);
         } finally {

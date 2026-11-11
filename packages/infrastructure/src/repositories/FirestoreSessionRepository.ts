@@ -88,10 +88,6 @@ export class FirestoreSessionRepository implements ISessionRepository {
         await adminDb.collection('sessions').doc(sessionId).update({ status });
     }
 
-    async attachCase(sessionId: string, caseId: string): Promise<void> {
-        await adminDb.collection('sessions').doc(sessionId).update({ caseId });
-    }
-
     async delete(sessionId: string): Promise<void> {
         await adminDb.collection('sessions').doc(sessionId).delete();
     }

@@ -17,7 +17,6 @@ The application role must be able to read and append, nothing else:
 
 ```sql
 GRANT SELECT, INSERT ON cases, case_ledger_entries, case_sessions TO <app_role>;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO <app_role>;
 ```
 
 Do not grant UPDATE or DELETE on `case_ledger_entries` to the app role. The

@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
-import { ILogger, IVehicleRepository } from '@lemonade/core';
+import { ILogger, IVehicleRepository, AppError } from '@lemonade/core';
 import { SessionService } from '@/application/services/SessionService';
 import { withContext } from '@/application/http/withContext';
 
 export const GET = withContext(async (req: NextRequest) => {
     const searchParams = req.nextUrl.searchParams;
     const vehicleId = searchParams.get('vehicleId');
+    // Optional: start the session attached to an existing case.
+    const caseId = searchParams.get('caseId');
 
     if (!vehicleId) {
         return NextResponse.json({ error: 'Vehicle ID is required' }, { status: 400 });
@@ -38,12 +40,17 @@ export const GET = withContext(async (req: NextRequest) => {
 
         logger.info(`Starting session`, { vehicleId, userId });
         const sessionService = container.get<SessionService>(TYPES.SessionService);
-        const sessionId = await sessionService.startSession(vehicleId, userId);
+        const sessionId = await sessionService.startSession(vehicleId, userId, caseId ?? undefined);
         logger.info(`Session started`, { sessionId });
 
         // Redirect to the session page
         return NextResponse.redirect(new URL(`/session/${sessionId}`, req.url));
     } catch (error) {
+        // Domain errors (unknown case, malformed caseId) keep their status;
+        // anything else is a 500.
+        if (error instanceof AppError) {
+            return NextResponse.json({ error: error.message, code: error.code }, { status: error.statusCode });
+        }
         // Robust fallback: Attempt to use DI logger, degrade to console if critical infrastructure fails
         try {
             const logger = container.get<ILogger>(TYPES.Logger);

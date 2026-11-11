@@ -7,7 +7,7 @@ import type { LedgerHasher } from '@lemonade/core';
 // injected into the repository as a LedgerHasher.
 @injectable()
 export class NodeCryptoLedgerHasher implements LedgerHasher {
-    digestHex(data: string): string {
-        return createHash('sha256').update(data, 'utf8').digest('hex');
+    digestHex(content: string): string {
+        return createHash('sha256').update(content, 'utf8').digest('hex');
     }
 }

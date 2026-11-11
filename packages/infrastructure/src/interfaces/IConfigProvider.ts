@@ -29,7 +29,7 @@ export interface IConfigProvider {
         project: string;
     };
     getCaseLedgerConfig(): {
-        connectionString: string;
+        connectionString: string | undefined;
     };
 }
 
