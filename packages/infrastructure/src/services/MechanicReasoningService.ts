@@ -21,6 +21,7 @@ import type {
     VerificationData,
     SafetyRecall,
     ICaseRepository,
+    IFixCountStore,
 } from '@lemonade/core';
 import { AppError, ErrorCode, mechanicMachine } from '@lemonade/core';
 import { GEMINI_PRO_MODEL } from '@lemonade/core';
@@ -38,6 +39,7 @@ import { IntuitionGenerator } from './diagnosis/IntuitionGenerator';
 import { EvidenceAnalyzer } from './diagnosis/EvidenceAnalyzer';
 import { DiagnosisMemoryWriter } from './diagnosis/DiagnosisMemoryWriter';
 import { synthesizeDiagnosis } from './diagnosis/DiagnosisSynthesizer';
+import { DiagnosticLoopPreparer } from './diagnosis/DiagnosticLoopPreparer';
 import { createMechanicActors } from './diagnosis/mechanicActors';
 import { CaseRunCoordinator } from './CaseRunCoordinator';
 
@@ -105,6 +107,10 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         @optional()
         private runCoordinator: CaseRunCoordinator = new CaseRunCoordinator(),
         @inject(TYPES.CaseRepo) @optional() private caseRepo?: ICaseRepository,
+        // LM-04: optional for the same reason. Without a fix-count store
+        // (no case-ledger database) the workup's prepare actor returns
+        // null and the diagnosis runs as before.
+        @inject(TYPES.FixCountStore) @optional() private fixCountStore?: IFixCountStore,
     ) {
         this.safetyGate = new DiagnosisSafetyGate(reactiveSafety, safetyMonitor, logger);
         this.memoryWriter = new DiagnosisMemoryWriter(embeddingService, vectorRepo, memoryService, sessionRepo, logger);
@@ -116,6 +122,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             chatAI,
             logger,
             reasoner: this.reasonerActor(),
+            loopPreparer: new DiagnosticLoopPreparer({ fixCountStore: this.fixCountStore }, logger),
         });
     }
 
@@ -377,6 +384,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             queuedEvidence,
             caseId: input.caseId,
             scanData: input.scanData,
+            diagnosticLoopInput: input.diagnosticLoopInput,
         };
         let actor = createActor(providedMachine, {
             input: actorInput,
@@ -495,6 +503,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     dtcCodes: input.dtcCodes,
                     caseId: input.caseId,
                     scanData: input.scanData,
+                    diagnosticLoopInput: input.diagnosticLoopInput,
                 });
             }
 

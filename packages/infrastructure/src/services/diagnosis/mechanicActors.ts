@@ -9,6 +9,7 @@ import type {
     IntuitionInput,
     MemoryInput,
     NhtsaInput,
+    PrepareLoopInput,
     ReasonerActorRunner,
     ReasonerInput,
     ReasonerRegionResult,
@@ -24,6 +25,7 @@ import type {
 import { MemoryTags } from '@lemonade/core';
 import type { IntuitionGenerator } from './IntuitionGenerator';
 import type { EvidenceAnalyzer } from './EvidenceAnalyzer';
+import type { DiagnosticLoopPreparer } from './DiagnosticLoopPreparer';
 
 const SIMILAR_CASE_LIMIT = 3;
 
@@ -40,6 +42,8 @@ export interface MechanicActorDeps {
     logger: ILogger;
     /** LM-16: when bound, the `investigating` reasoner region runs the loop through it. */
     reasoner?: ReasonerActorRunner;
+    /** LM-04: when bound, the `workup` state prepares its loop input through it. */
+    loopPreparer?: DiagnosticLoopPreparer;
 }
 
 /** Runs one context source and degrades to an empty result if it fails; a missing source is routine, so it logs at debug. */
@@ -73,7 +77,7 @@ function caseFilesFromScanData(scanData: ReasonerScanData): SandboxStagedFile[] 
  * blocks a diagnosis.
  */
 export function createMechanicActors(deps: MechanicActorDeps) {
-    const { intuition, evidence, nhtsaService, searchService, chatAI, logger, reasoner } = deps;
+    const { intuition, evidence, nhtsaService, searchService, chatAI, logger, reasoner, loopPreparer } = deps;
 
     return {
         generateIntuition: fromPromise(async ({ input }: { input: IntuitionInput }) =>
@@ -86,6 +90,16 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                 input.queuedEvidence ?? [],
             ),
         ),
+
+        // LM-04: the workup's loop input — priors plus the test library.
+        // Without a bound preparer the workup completes immediately and
+        // the diagnosis runs as before.
+        prepareDiagnosticLoop: fromPromise(async ({ input }: { input: PrepareLoopInput }) => {
+            if (!loopPreparer) {
+                return null;
+            }
+            return loopPreparer.prepare(input);
+        }),
 
         // LM-16: the bounded tool loop, run inside `investigating` when the
         // case has recorded scan data. Without a bound runner the region

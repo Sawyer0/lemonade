@@ -301,7 +301,7 @@ export const mechanicMachine = setup({
             on: {
                 DIAGNOSE: {
                     target: 'gathering_context',
-                    actions: assign(({ event }: { event: MechanicEvent }) => {
+                    actions: assign(({ event, context }) => {
                         if (event.type === 'DIAGNOSE') {
                             return {
                                 sessionId: event.sessionId,
@@ -314,7 +314,7 @@ export const mechanicMachine = setup({
                                 dtcCodes: event.dtcCodes ?? [],
                                 caseId: event.caseId,
                                 scanData: event.scanData,
-                                diagnosticLoopInput: event.diagnosticLoopInput,
+                                diagnosticLoopInput: event.diagnosticLoopInput ?? context.diagnosticLoopInput,
                             };
                         }
                         return {};
