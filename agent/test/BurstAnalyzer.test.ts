@@ -51,7 +51,9 @@ describe('BurstAnalyzer', () => {
         await analyzer.analyze(burst([detection('Wheel speed sensor', 'ABS')]), session, respond, jobs);
 
         expect(respond.say).toHaveBeenCalledWith(
-            expect.stringContaining("The diagnostician is unreachable right now, so I can't check the brakes system yet."),
+            expect.stringContaining(
+                "The diagnostician is unreachable right now, so I can't check the brakes system yet.",
+            ),
         );
         expect(jobs.trackJob).not.toHaveBeenCalled();
     });

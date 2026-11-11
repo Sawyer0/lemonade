@@ -1,11 +1,12 @@
 import {
     AcknowledgeDiagnosticJobRequestSchema,
+    CreateDiagnosticJobRequestSchema,
     DiagnosticJobDetailSchema,
     DiagnosticJobEventSchema,
     DiagnosticJobSchema,
     JOB_SUBMIT_TIMEOUT_MS,
     SubmitDiagnosticJobResponseSchema,
-    type CreateDiagnosticJobRequest,
+    type CreateDiagnosticJobInput,
     type DiagnosticJob,
     type DiagnosticJobDetail,
     type DiagnosticJobEvent,
@@ -52,13 +53,19 @@ export class JobClient {
         this.fetchImpl = fetchImpl;
     }
 
-    async submitJob(request: CreateDiagnosticJobRequest): Promise<SubmitDiagnosticJobResponse> {
-        const response = await this.call('POST', '/api/jobs', request, JOB_SUBMIT_TIMEOUT_MS);
+    async submitJob(request: CreateDiagnosticJobInput): Promise<SubmitDiagnosticJobResponse> {
+        const parsed = CreateDiagnosticJobRequestSchema.parse(request);
+        const response = await this.call('POST', '/api/jobs', parsed, JOB_SUBMIT_TIMEOUT_MS);
         return this.parse(response, SubmitDiagnosticJobResponseSchema, 'submit job');
     }
 
     async getJob(jobId: string): Promise<DiagnosticJobDetail> {
-        const response = await this.call('GET', `/api/jobs/${encodeURIComponent(jobId)}`, undefined, JOB_REQUEST_TIMEOUT_MS);
+        const response = await this.call(
+            'GET',
+            `/api/jobs/${encodeURIComponent(jobId)}`,
+            undefined,
+            JOB_REQUEST_TIMEOUT_MS,
+        );
         return this.parse(response, DiagnosticJobDetailSchema, 'get job');
     }
 
@@ -71,8 +78,13 @@ export class JobClient {
             JOB_REQUEST_TIMEOUT_MS,
         );
         const parsed = await this.json(response, 'list jobs');
-        const jobs = Array.isArray(parsed) ? parsed : parsed?.jobs;
-        if (!Array.isArray(jobs)) throw new JobServiceError('Job service returned an unexpected response for list jobs');
+        const jobs = Array.isArray(parsed)
+            ? parsed
+            : typeof parsed === 'object' && parsed !== null && 'jobs' in parsed
+              ? (parsed as { jobs: unknown }).jobs
+              : undefined;
+        if (!Array.isArray(jobs))
+            throw new JobServiceError('Job service returned an unexpected response for list jobs');
         return jobs.map((job: unknown) => {
             const result = DiagnosticJobSchema.safeParse(job);
             if (!result.success) throw new JobServiceError('Job service returned an unexpected response for list jobs');
@@ -145,12 +157,7 @@ export class JobClient {
         }
     }
 
-    private async call(
-        method: string,
-        path: string,
-        body: unknown,
-        timeoutMs: number,
-    ): Promise<Response> {
+    private async call(method: string, path: string, body: unknown, timeoutMs: number): Promise<Response> {
         let response: Response;
         try {
             response = await this.fetchImpl(`${this.baseUrl}${path}`, {
@@ -166,7 +173,9 @@ export class JobClient {
             if (error instanceof DOMException && error.name === 'AbortError') {
                 throw new JobServiceError(`Job service request aborted after ${timeoutMs} ms`);
             }
-            throw new JobServiceError(`Job service unreachable: ${error instanceof Error ? error.message : String(error)}`);
+            throw new JobServiceError(
+                `Job service unreachable: ${error instanceof Error ? error.message : String(error)}`,
+            );
         }
         if (!response.ok) {
             const detail = await response.text().catch(() => '');
@@ -192,7 +201,11 @@ export class JobClient {
         }
     }
 
-    private async parse<T>(response: Response, schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false } }, action: string): Promise<T> {
+    private async parse<T>(
+        response: Response,
+        schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false } },
+        action: string,
+    ): Promise<T> {
         const result = schema.safeParse(await this.json(response, action));
         if (!result.success) throw new JobServiceError(`Job service returned an unexpected response for ${action}`);
         return result.data;

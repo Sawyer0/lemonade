@@ -32,7 +32,7 @@ function setup(gatewayOverrides: Partial<DiagnosticJobGateway> = {}) {
 }
 
 /** Calls a tool's execute as the agent runtime would, without a live session. */
-async function run(tool: { execute: (args: never, ctx: never) => unknown }, args: never): Promise<unknown> {
+async function run<Args>(tool: { execute: (args: Args, ctx: never) => unknown }, args: Args): Promise<unknown> {
     return tool.execute(args, undefined as never);
 }
 
@@ -59,7 +59,11 @@ describe('DiagnosticJobTools', () => {
     });
 
     it('consult_diagnostician keeps the talker going when the service is down, without throwing', async () => {
-        const { tools } = setup({ submitJob: vi.fn(async () => { throw new Error('service down'); }) });
+        const { tools } = setup({
+            submitJob: vi.fn(async () => {
+                throw new Error('service down');
+            }),
+        });
         const result = await run(tools.consult_diagnostician, { question: 'q', evidence_refs: [] });
         expect(result).toContain('The diagnostician is unavailable right now');
         expect(result).toContain('Do not guess a diagnosis');
@@ -93,7 +97,11 @@ describe('DiagnosticJobTools', () => {
     });
 
     it('cancel_job reports a failure instead of throwing', async () => {
-        const { tools } = setup({ cancelJob: vi.fn(async () => { throw new Error('gone'); }) });
+        const { tools } = setup({
+            cancelJob: vi.fn(async () => {
+                throw new Error('gone');
+            }),
+        });
         const result = await run(tools.cancel_job, { job_id: JOB_ID });
         expect(result).toContain(`I could not cancel job ${JOB_ID}`);
     });

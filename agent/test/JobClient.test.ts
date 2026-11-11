@@ -43,7 +43,9 @@ describe('JobClient', () => {
             return jsonResponse({ jobId: JOB_ID, status: 'pending' }, 202);
         });
         const client = new JobClient('https://jobs.test/', 'key-1', fetchImpl as unknown as typeof fetch);
-        await expect(client.submitJob({ question: 'Why does it squeal?', sessionId: 's', userId: 'u' })).resolves.toEqual({
+        await expect(
+            client.submitJob({ question: 'Why does it squeal?', sessionId: 's', userId: 'u' }),
+        ).resolves.toEqual({
             jobId: JOB_ID,
             status: 'pending',
         });
@@ -107,7 +109,10 @@ describe('JobClient', () => {
     it('lists jobs for a case', async () => {
         const fetchImpl = fakeFetch((url) => {
             expect(url).toBe(`https://jobs.test/api/jobs?caseId=${CASE_ID}`);
-            return jsonResponse([jobJson(), jobJson({ id: '00000000-0000-0000-0000-000000000003', status: 'succeeded' })]);
+            return jsonResponse([
+                jobJson(),
+                jobJson({ id: '00000000-0000-0000-0000-000000000003', status: 'succeeded' }),
+            ]);
         });
         const client = new JobClient('https://jobs.test', 'key-1', fetchImpl as unknown as typeof fetch);
         const jobs = await client.listJobsForCase(CASE_ID);

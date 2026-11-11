@@ -1,9 +1,4 @@
-import {
-    TERMINAL_JOB_EVENT_KINDS,
-    type DiagnosticJob,
-    type DiagnosticJobEvent,
-    type ILogger,
-} from '@lemonade/core';
+import { TERMINAL_JOB_EVENT_KINDS, type DiagnosticJob, type DiagnosticJobEvent, type ILogger } from '@lemonade/core';
 import type { JobEventHandlers } from '../jobs/JobClient';
 import type { TalkerSession } from './TalkerSession';
 

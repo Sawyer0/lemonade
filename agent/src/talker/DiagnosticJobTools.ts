@@ -1,16 +1,12 @@
 import { llm } from '@livekit/agents';
 import { z } from 'zod';
-import type {
-    CreateDiagnosticJobRequest,
-    DiagnosticJobDetail,
-    SubmitDiagnosticJobResponse,
-} from '@lemonade/core';
+import type { CreateDiagnosticJobInput, DiagnosticJobDetail, SubmitDiagnosticJobResponse } from '@lemonade/core';
 import type { SessionContext } from '../diagnosis/sessionContext';
 import type { ResultInjector } from './ResultInjector';
 
 /** The job-service calls the talker tools need. */
 export interface DiagnosticJobGateway {
-    submitJob(request: CreateDiagnosticJobRequest): Promise<SubmitDiagnosticJobResponse>;
+    submitJob(request: CreateDiagnosticJobInput): Promise<SubmitDiagnosticJobResponse>;
     getJob(jobId: string): Promise<DiagnosticJobDetail>;
     cancelJob(jobId: string): Promise<void>;
 }
@@ -36,10 +32,16 @@ export function createDiagnosticJobTools(
             description:
                 'Ask the diagnostician a hard question (a diagnosis, a spec value, a recall status, or a hazardous procedure). Returns a job id immediately; the answer arrives later, so keep helping the tech meanwhile and never state the diagnosis, procedure, spec, or recall status until the result arrives.',
             parameters: z.object({
-                question: z.string().describe('The hard question for the diagnostician, e.g. "Is this squeal the brake pads or the wheel bearing?"'),
+                question: z
+                    .string()
+                    .describe(
+                        'The hard question for the diagnostician, e.g. "Is this squeal the brake pads or the wheel bearing?"',
+                    ),
                 evidence_refs: z
                     .array(z.string())
-                    .describe('Evidence the diagnostician should use, e.g. DTC codes, what the tech saw, or measurements already taken'),
+                    .describe(
+                        'Evidence the diagnostician should use, e.g. DTC codes, what the tech saw, or measurements already taken',
+                    ),
             }),
             execute: async ({ question, evidence_refs }) => {
                 try {
@@ -67,7 +69,8 @@ export function createDiagnosticJobTools(
             },
         }),
         job_status: llm.tool({
-            description: 'Check what a diagnostic job has found so far. Use it when the tech asks whether the answer is ready yet.',
+            description:
+                'Check what a diagnostic job has found so far. Use it when the tech asks whether the answer is ready yet.',
             parameters: z.object({
                 job_id: z.string().describe('The job id returned by consult_diagnostician'),
             }),
@@ -85,7 +88,8 @@ export function createDiagnosticJobTools(
             },
         }),
         cancel_job: llm.tool({
-            description: 'Cancel a diagnostic job that is no longer needed, e.g. the tech moved on to a different problem.',
+            description:
+                'Cancel a diagnostic job that is no longer needed, e.g. the tech moved on to a different problem.',
             parameters: z.object({
                 job_id: z.string().describe('The job id returned by consult_diagnostician'),
             }),

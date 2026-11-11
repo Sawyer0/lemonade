@@ -47,7 +47,10 @@ function fakeTalkerSession(outcomes: DeliveryOutcome[] = []) {
 
 /** A job service fake: subscriptions deliver whatever the test emits. */
 function fakeJobSource(jobsForCase: DiagnosticJob[] = []) {
-    const subscribers = new Map<string, { onEvent: (event: DiagnosticJobEvent) => void; onError: (error: Error) => void }>();
+    const subscribers = new Map<
+        string,
+        { onEvent: (event: DiagnosticJobEvent) => void; onError: (error: Error) => void }
+    >();
     const acks: number[] = [];
     const source: JobEventSource = {
         subscribe: vi.fn((jobId: string, handlers) => {

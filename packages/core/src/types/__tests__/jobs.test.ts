@@ -11,7 +11,10 @@ import {
     type NeurosymbolicState,
 } from '../jobs';
 
-function state(overrides: Partial<NeurosymbolicState['finalDiagnosis']> = {}, alerts: string[] = []): NeurosymbolicState {
+function state(
+    overrides: Partial<NeurosymbolicState['finalDiagnosis']> = {},
+    alerts: string[] = [],
+): NeurosymbolicState {
     return {
         finalDiagnosis: {
             decision: 'PROCEED',
@@ -53,9 +56,15 @@ describe('jobs types', () => {
 
     it('maps REQUEST_MORE_INFO to a measure step with the required actions', () => {
         const events = diagnosisToJobEvents(
-            state({ decision: 'REQUEST_MORE_INFO', userOutput: 'Need a reading.', requiredActions: ['Check fuel pressure'] }),
+            state({
+                decision: 'REQUEST_MORE_INFO',
+                userOutput: 'Need a reading.',
+                requiredActions: ['Check fuel pressure'],
+            }),
         );
-        expect(events).toEqual([{ kind: 'measure', text: 'Need a reading.\nMeasure or check next: Check fuel pressure' }]);
+        expect(events).toEqual([
+            { kind: 'measure', text: 'Need a reading.\nMeasure or check next: Check fuel pressure' },
+        ]);
     });
 
     it('maps PROCEED and REFER_TO_HUMAN to a finding', () => {
@@ -73,11 +82,14 @@ describe('jobs types', () => {
     });
 
     it('rejects an empty question and a non-UUID case id', () => {
+        expect(() => CreateDiagnosticJobRequestSchema.parse({ question: '', sessionId: 's', userId: 'u' })).toThrow();
         expect(() =>
-            CreateDiagnosticJobRequestSchema.parse({ question: '', sessionId: 's', userId: 'u' }),
-        ).toThrow();
-        expect(() =>
-            CreateDiagnosticJobRequestSchema.parse({ question: 'q', caseId: 'not-a-uuid', sessionId: 's', userId: 'u' }),
+            CreateDiagnosticJobRequestSchema.parse({
+                question: 'q',
+                caseId: 'not-a-uuid',
+                sessionId: 's',
+                userId: 'u',
+            }),
         ).toThrow();
     });
 
@@ -94,7 +106,11 @@ describe('jobs types', () => {
 
     it('summarises a job and a vehicle for the snapshot event', () => {
         expect(
-            diagnosticJobSnapshotText({ caseId: '00000000-0000-0000-0000-000000000001', question: 'Why the squeal?', vehicleSummary: '2019 Honda Civic' }),
+            diagnosticJobSnapshotText({
+                caseId: '00000000-0000-0000-0000-000000000001',
+                question: 'Why the squeal?',
+                vehicleSummary: '2019 Honda Civic',
+            }),
         ).toBe('Case 00000000-0000-0000-0000-000000000001 · 2019 Honda Civic · Question: Why the squeal?');
         expect(vehicleSummaryText({ year: 2019, make: 'Honda', model: 'Civic' })).toBe('2019 Honda Civic');
         expect(vehicleSummaryText({})).toBe('unknown vehicle');

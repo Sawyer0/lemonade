@@ -8,8 +8,7 @@ import type { DiagnosticJobStore } from './DiagnosticJobStore';
  */
 export function createJobEventStream(store: DiagnosticJobStore, jobId: string): ReadableStream<Uint8Array> {
     const encoder = new TextEncoder();
-    const encode = (event: DiagnosticJobEvent): Uint8Array =>
-        encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
+    const encode = (event: DiagnosticJobEvent): Uint8Array => encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
     let unsubscribe: (() => void) | undefined;
     return new ReadableStream<Uint8Array>({
         start(controller) {
