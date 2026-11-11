@@ -1,7 +1,12 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
-import { createEmulatorAdapter, type GuidedObdTestOutcome, type ObdScanResult, type VerifyFixResult } from '@lemonade/core';
+import {
+    createEmulatorAdapter,
+    type GuidedObdTestOutcome,
+    type ObdScanResult,
+    type VerifyFixResult,
+} from '@lemonade/core';
 import { useBrandColors } from '@mobile/hooks/useBrandColors';
 import type { ThemeColors } from '@mobile/constants/theme';
 import { ThemedText } from '@mobile/components/themed-text';
@@ -46,7 +51,12 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
         return managerRef.current;
     }, []);
 
-    const busy = status === 'finding' || status === 'connecting' || status === 'scanning' || status === 'testing' || status === 'verifying';
+    const busy =
+        status === 'finding' ||
+        status === 'connecting' ||
+        status === 'scanning' ||
+        status === 'testing' ||
+        status === 'verifying';
     const connected = status === 'ready' || status === 'scanning' || status === 'testing' || status === 'verifying';
 
     const findAdapters = useCallback(async () => {
@@ -64,26 +74,23 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
         }
     }, [bleManager]);
 
-    const connectCapture = useCallback(
-        async (capture: MobileObdCapture) => {
-            setError(null);
-            setNotice(null);
-            setStatus('connecting');
-            try {
-                captureRef.current = capture;
-                await capture.connectAndInitialize();
-                capture.startLiveSampling((reading) => {
-                    if (reading.pid === '0C') setLiveRpm(reading.value);
-                });
-                setStatus('ready');
-            } catch (err) {
-                captureRef.current = null;
-                setError(err instanceof Error ? err.message : 'Could not connect to the adapter.');
-                setStatus('idle');
-            }
-        },
-        [],
-    );
+    const connectCapture = useCallback(async (capture: MobileObdCapture) => {
+        setError(null);
+        setNotice(null);
+        setStatus('connecting');
+        try {
+            captureRef.current = capture;
+            await capture.connectAndInitialize();
+            capture.startLiveSampling((reading) => {
+                if (reading.pid === '0C') setLiveRpm(reading.value);
+            });
+            setStatus('ready');
+        } catch (err) {
+            captureRef.current = null;
+            setError(err instanceof Error ? err.message : 'Could not connect to the adapter.');
+            setStatus('idle');
+        }
+    }, []);
 
     const connectAdapter = useCallback(
         async (device: ScannedObdAdapter) => {
@@ -92,7 +99,7 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
         [bleManager, connectCapture, sessionId],
     );
 
-    const useEmulator = useCallback(async () => {
+    const connectEmulator = useCallback(async () => {
         const emulator = createEmulatorAdapter();
         await emulator.connect();
         await connectCapture(new MobileObdCapture(emulator, sessionId));
@@ -167,7 +174,8 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
         }
     }, [driveCycleDone]);
 
-    const incompleteMonitors = scan?.readiness.monitors.filter((monitor) => monitor.supported && !monitor.complete) ?? [];
+    const incompleteMonitors =
+        scan?.readiness.monitors.filter((monitor) => monitor.supported && !monitor.complete) ?? [];
     const mode06Passed = scan?.mode06.filter((result) => result.passed).length ?? 0;
 
     return (
@@ -212,7 +220,7 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
                             title="Use emulator (dev only)"
                             accessibilityLabel="use-obd-emulator"
                             variant="outline"
-                            onPress={() => void useEmulator()}
+                            onPress={() => void connectEmulator()}
                             disabled={busy}
                         />
                     ) : null}
@@ -244,7 +252,9 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
                         style={styles.checkRow}
                         onPress={() => setDriveCycleDone((done) => !done)}
                     >
-                        <ThemedText>{driveCycleDone ? '✓ Drive cycle completed' : '○ Drive cycle completed'}</ThemedText>
+                        <ThemedText>
+                            {driveCycleDone ? '✓ Drive cycle completed' : '○ Drive cycle completed'}
+                        </ThemedText>
                     </TouchableOpacity>
                     <GradientButton
                         title="Verify fix"
@@ -253,7 +263,12 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
                         onPress={() => void verifyFix()}
                         disabled={busy}
                     />
-                    <GradientButton title="Disconnect" variant="ghost" onPress={() => void disconnect()} disabled={busy} />
+                    <GradientButton
+                        title="Disconnect"
+                        variant="ghost"
+                        onPress={() => void disconnect()}
+                        disabled={busy}
+                    />
                 </View>
             )}
 
@@ -263,7 +278,10 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
                     <ThemedText style={styles.resultLine}>{codeList('Pending', scan.pendingCodes)}</ThemedText>
                     <ThemedText style={styles.resultLine}>{codeList('Permanent', scan.permanentCodes)}</ThemedText>
                     <ThemedText style={styles.resultLine}>
-                        Freeze frame: {scan.freezeFrame ? `${scan.freezeFrame.dtc} (${scan.freezeFrame.readings.length} readings)` : 'none'}
+                        Freeze frame:{' '}
+                        {scan.freezeFrame
+                            ? `${scan.freezeFrame.dtc} (${scan.freezeFrame.readings.length} readings)`
+                            : 'none'}
                     </ThemedText>
                     <ThemedText style={styles.resultLine}>
                         Mode 06: {mode06Passed}/{scan.mode06.length} passed

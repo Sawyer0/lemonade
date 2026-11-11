@@ -5,13 +5,7 @@
 // table below is hand-written from SAE J1979 (a small subset of standard
 // PIDs); no OBDb data is shipped, so no CC-BY-SA asset is bundled.
 import { parseDtc } from '../dtc/parser';
-import type {
-    ObdFreezeFrame,
-    ObdMode06Result,
-    ObdPidReading,
-    ObdReadiness,
-    ObdReadinessMonitor,
-} from './types';
+import type { ObdMode06Result, ObdPidReading, ObdReadiness, ObdReadinessMonitor } from './types';
 
 export type ObdErrorKind = 'no-data' | 'not-connected' | 'invalid-response' | 'timeout' | 'adapter';
 
@@ -71,12 +65,14 @@ export function scrubElm327Response(raw: string, command?: string): { bytes: num
     // count line followed by `N:`-numbered frames: `014` / `0: 49 02 01
     // ...` / `1: ...`. The count line is dropped and the frame numbers are
     // stripped, so the bytes concatenate into one message.
-    if (lines.length > 1 && /^[0-9A-F]+$/.test(lines[0] as string) && lines.slice(1).every((line) => /^\d+:/.test(line))) {
+    if (
+        lines.length > 1 &&
+        /^[0-9A-F]+$/.test(lines[0] as string) &&
+        lines.slice(1).every((line) => /^\d+:/.test(line))
+    ) {
         lines = lines.slice(1);
     }
-    const hex = lines
-        .map((line) => line.replace(/^\d+:\s*/, '').replace(/[^0-9A-F]/g, ''))
-        .join('');
+    const hex = lines.map((line) => line.replace(/^\d+:\s*/, '').replace(/[^0-9A-F]/g, '')).join('');
     if (hex.length === 0) {
         throw new ObdError('invalid-response', 'Adapter returned an empty response.');
     }
@@ -94,7 +90,12 @@ function requireMode(bytes: number[], mode: number, what: string): number[] {
     if (bytes.length === 0 || bytes[0] !== 0x40 + mode) {
         throw new ObdError(
             'invalid-response',
-            `Expected a Mode ${mode.toString(16).toUpperCase()} response (0x${(0x40 + mode).toString(16).toUpperCase()}) for ${what}, got ${bytes.map((byte) => byte.toString(16).padStart(2, '0')).join(' ').toUpperCase() || '(empty)'}`,
+            `Expected a Mode ${mode.toString(16).toUpperCase()} response (0x${(0x40 + mode).toString(16).toUpperCase()}) for ${what}, got ${
+                bytes
+                    .map((byte) => byte.toString(16).padStart(2, '0'))
+                    .join(' ')
+                    .toUpperCase() || '(empty)'
+            }`,
         );
     }
     return bytes.slice(1);
@@ -114,10 +115,14 @@ export function decodeDtcBytes(bytes: readonly number[]): string[] {
         const first = bytes[index] as number;
         const second = bytes[index + 1] as number;
         if (first === 0 && second === 0) continue;
-        const raw = `${systems[(first >> 6) & 0x03]}${((first >> 4) & 0x03).toString(16)}${(first & 0x0f).toString(16)}${((second >> 4) & 0x0f).toString(16)}${(second & 0x0f).toString(16)}`.toUpperCase();
+        const raw =
+            `${systems[(first >> 6) & 0x03]}${((first >> 4) & 0x03).toString(16)}${(first & 0x0f).toString(16)}${((second >> 4) & 0x0f).toString(16)}${(second & 0x0f).toString(16)}`.toUpperCase();
         const parsed = parseDtc(raw);
         if (!parsed.ok) {
-            throw new ObdError('invalid-response', `Adapter returned a malformed DTC '${raw}': ${parsed.failure.reason}`);
+            throw new ObdError(
+                'invalid-response',
+                `Adapter returned a malformed DTC '${raw}': ${parsed.failure.reason}`,
+            );
         }
         codes.push(parsed.parsed.code);
     }
@@ -183,7 +188,10 @@ export const PID_DECODERS: Readonly<Record<string, PidDecoder>> = {
  * Decodes one PID from its data bytes. Returns null for a PID this table
  * does not know: an unknown PID is skipped, never guessed at.
  */
-export function decodePidValue(pid: string, bytes: readonly number[]): { value: number; unit: string; label: string } | null {
+export function decodePidValue(
+    pid: string,
+    bytes: readonly number[],
+): { value: number; unit: string; label: string } | null {
     const decoder = PID_DECODERS[pid.toUpperCase()];
     if (!decoder) return null;
     if (bytes.length < decoder.byteCount) return null;
@@ -401,7 +409,10 @@ export function parseCalibrationVerificationResponse(raw: string): string[] {
         .map((segment) => dropCountByte(segment))
         .filter((segment) => segment.length >= 4)
         .map((segment) =>
-            (segment.slice(0, 4) as number[]).map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase(),
+            (segment.slice(0, 4) as number[])
+                .map((byte) => byte.toString(16).padStart(2, '0'))
+                .join('')
+                .toUpperCase(),
         );
 }
 

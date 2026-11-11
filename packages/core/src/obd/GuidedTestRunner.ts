@@ -4,7 +4,7 @@
 // pass or fail against the expected range, so the tech types nothing.
 // `evaluateGuidedTestSamples` is pure, so the contract is testable without
 // an adapter; `runGuidedObdTest` is the live orchestration over one.
-import { decodePidValue, pidLabel } from './elm327';
+import { pidLabel } from './elm327';
 import type { ObdCaptureService } from './ObdCaptureService';
 import {
     GuidedObdTestOutcomeSchema,
@@ -35,8 +35,7 @@ function checkForRange(
     const observedMax = values.length > 0 ? Math.max(...values) : null;
     // A PID with no samples at all cannot pass: the test is inconclusive
     // for that check, not a silent pass.
-    const passed =
-        observedMin !== null && observedMax !== null && observedMin >= range.min && observedMax <= range.max;
+    const passed = observedMin !== null && observedMax !== null && observedMin >= range.min && observedMax <= range.max;
     const label = pidSamples[0]?.label ?? pidLabel(range.pid) ?? `PID ${range.pid}`;
     return {
         pid: range.pid,
@@ -64,8 +63,7 @@ export function evaluateGuidedTestSamples(
 ): GuidedObdTestOutcome {
     const checks = definition.expectedRanges.map((range) => checkForRange(definition, range, samples));
     const evaluated = checks.filter((check) => check.observedMin !== null);
-    const result =
-        evaluated.length === 0 ? 'inconclusive' : checks.every((check) => check.passed) ? 'pass' : 'fail';
+    const result = evaluated.length === 0 ? 'inconclusive' : checks.every((check) => check.passed) ? 'pass' : 'fail';
     return GuidedObdTestOutcomeSchema.parse({
         definitionId: definition.id,
         definitionName: definition.name,

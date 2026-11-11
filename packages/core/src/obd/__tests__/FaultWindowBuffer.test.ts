@@ -32,9 +32,7 @@ describe('FaultWindowBuffer', () => {
         expect(window.endedAt).toBe(new Date(START_MS + 105_000).toISOString());
         expect(window.samples).toHaveLength(76);
         expect(window.samples[0]?.capturedAt).toBe(new Date(START_MS + 30_000).toISOString());
-        expect(window.samples[window.samples.length - 1]?.capturedAt).toBe(
-            new Date(START_MS + 105_000).toISOString(),
-        );
+        expect(window.samples[window.samples.length - 1]?.capturedAt).toBe(new Date(START_MS + 105_000).toISOString());
     });
 
     it('drops samples older than the capacity', () => {
@@ -68,17 +66,14 @@ describe('FaultWindowBuffer', () => {
 
 describe('findOutOfRange', () => {
     it('finds the first sample outside its range', () => {
-        const found = findOutOfRange(
-            [rpmSample(START_MS, 2500), rpmSample(START_MS + 1000, 4200)],
-            { '0C': { min: 2400, max: 2600 } },
-        );
+        const found = findOutOfRange([rpmSample(START_MS, 2500), rpmSample(START_MS + 1000, 4200)], {
+            '0C': { min: 2400, max: 2600 },
+        });
         expect(found).toMatchObject({ pid: '0C', value: 4200, expectedMin: 2400, expectedMax: 2600 });
     });
 
     it('ignores samples with no range and in-range values', () => {
-        expect(
-            findOutOfRange([rpmSample(START_MS, 2500)], { '0C': { min: 2400, max: 2600 } }),
-        ).toBeNull();
+        expect(findOutOfRange([rpmSample(START_MS, 2500)], { '0C': { min: 2400, max: 2600 } })).toBeNull();
         expect(findOutOfRange([rpmSample(START_MS, 9000)], {})).toBeNull();
     });
 });

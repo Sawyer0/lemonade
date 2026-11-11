@@ -61,6 +61,8 @@ export const CLEAN_CAR_TRANSCRIPT: Readonly<Record<string, string>> = {
 };
 
 /** A connected emulator over the full-scan transcript. */
-export function createEmulatorAdapter(transcript: Readonly<Record<string, string>> = FULL_SCAN_TRANSCRIPT): FakeObdAdapter {
+export function createEmulatorAdapter(
+    transcript: Readonly<Record<string, string>> = FULL_SCAN_TRANSCRIPT,
+): FakeObdAdapter {
     return new FakeObdAdapter(transcript, { adapterInfo: EMULATOR_ADAPTER_INFO });
 }

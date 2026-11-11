@@ -127,7 +127,11 @@ describe('parseReadinessResponse', () => {
         expect(byName.get('Misfire')).toEqual({ name: 'Misfire', supported: true, complete: true });
         expect(byName.get('Catalyst')).toEqual({ name: 'Catalyst', supported: true, complete: true });
         expect(byName.get('Heated catalyst')).toEqual({ name: 'Heated catalyst', supported: false, complete: true });
-        expect(byName.get('Evaporative system')).toEqual({ name: 'Evaporative system', supported: true, complete: true });
+        expect(byName.get('Evaporative system')).toEqual({
+            name: 'Evaporative system',
+            supported: true,
+            complete: true,
+        });
         expect(byName.get('EGR / VVT')).toEqual({ name: 'EGR / VVT', supported: true, complete: true });
     });
 
@@ -149,9 +153,10 @@ describe('parseMode06Response', () => {
     });
 
     it('parses value, min and max and judges pass/fail by range', () => {
-        const [passing, failing] = parseMode06Response(
-            '46 01 01 00 0A 00 00 00 80 0A 11 00 64 00 00 00 36\r\r>',
-        ) as [ReturnType<typeof parseMode06Response>[number], ReturnType<typeof parseMode06Response>[number]];
+        const [passing, failing] = parseMode06Response('46 01 01 00 0A 00 00 00 80 0A 11 00 64 00 00 00 36\r\r>') as [
+            ReturnType<typeof parseMode06Response>[number],
+            ReturnType<typeof parseMode06Response>[number],
+        ];
         expect(passing).toMatchObject({ testId: '01', componentId: '01', value: 10, min: 0, max: 128, passed: true });
         expect(failing).toMatchObject({ testId: '0A', componentId: '11', value: 100, min: 0, max: 54, passed: false });
     });

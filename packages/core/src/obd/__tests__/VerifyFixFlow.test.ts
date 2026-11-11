@@ -14,7 +14,11 @@ function rescanWith(overrides: Partial<ObdScanResult>): ObdScanResult {
         permanentCodes: [],
         freezeFrame: null,
         mode06: [],
-        readiness: { milOn: false, storedCodeCount: 0, monitors: [{ name: 'Catalyst', supported: true, complete: true }] },
+        readiness: {
+            milOn: false,
+            storedCodeCount: 0,
+            monitors: [{ name: 'Catalyst', supported: true, complete: true }],
+        },
         vin: null,
         calibrationIds: [],
         calibrationVerificationNumbers: [],

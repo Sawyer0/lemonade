@@ -286,7 +286,10 @@ export const AppendLedgerEntryInputSchema = z.discriminatedUnion('type', [
         payload: GoalStatusChangedPayloadSchema,
     }).strict(),
     AppendEntryBaseSchema.extend({ type: z.literal('obd_scan'), payload: ObdScanPayloadSchema }).strict(),
-    AppendEntryBaseSchema.extend({ type: z.literal('obd_fault_window'), payload: ObdFaultWindowPayloadSchema }).strict(),
+    AppendEntryBaseSchema.extend({
+        type: z.literal('obd_fault_window'),
+        payload: ObdFaultWindowPayloadSchema,
+    }).strict(),
     AppendEntryBaseSchema.extend({ type: z.literal('guided_test'), payload: GuidedTestPayloadSchema }).strict(),
     AppendEntryBaseSchema.extend({ type: z.literal('verify_fix'), payload: VerifyFixPayloadSchema }).strict(),
 ]);
@@ -295,11 +298,12 @@ export type AppendLedgerEntryInput = z.infer<typeof AppendLedgerEntryInputSchema
 // LM-03: the OBD evidence a session can append after the scan itself:
 // a guided-test outcome, a saved fault window, or a verify-fix verdict.
 // The scan has its own method (recordObdScan) because it also writes the
-// session's obdCodes; these three only touch the ledger.
-export type ObdLedgerEventInput = Extract<
-    AppendLedgerEntryInput,
-    { type: 'guided_test' | 'obd_fault_window' | 'verify_fix' }
->;
+// session's obdCodes; these three only touch the ledger. The service adds
+// the actor, source and occurredAt when it builds the ledger entry.
+export type ObdLedgerEventInput =
+    | { type: 'guided_test'; payload: GuidedTestPayload }
+    | { type: 'obd_fault_window'; payload: ObdFaultWindowPayload }
+    | { type: 'verify_fix'; payload: VerifyFixPayload };
 
 // --- Hash chain ---
 // The chain is the audit spine: each entry's hash covers its content plus the

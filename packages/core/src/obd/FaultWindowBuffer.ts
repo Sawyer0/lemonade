@@ -83,7 +83,9 @@ export class FaultWindowBuffer {
             triggerAtMs + FAULT_WINDOW_AFTER_MS,
         );
         const startedAtMs =
-            windowSamples.length > 0 ? (windowSamples[0] as FaultWindowSample).capturedAtMs : triggerAtMs - FAULT_WINDOW_BEFORE_MS;
+            windowSamples.length > 0
+                ? (windowSamples[0] as FaultWindowSample).capturedAtMs
+                : triggerAtMs - FAULT_WINDOW_BEFORE_MS;
         const endedAtMs =
             windowSamples.length > 0
                 ? (windowSamples[windowSamples.length - 1] as FaultWindowSample).capturedAtMs

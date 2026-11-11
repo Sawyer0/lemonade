@@ -281,7 +281,15 @@ describe('SessionService recordObdScan', () => {
             permanentCodes: [],
             freezeFrame: {
                 dtc: 'P0300',
-                readings: [{ pid: '0C', label: 'Engine RPM', value: 2500, unit: 'rpm', capturedAt: '2026-11-11T15:00:00.000Z' }],
+                readings: [
+                    {
+                        pid: '0C',
+                        label: 'Engine RPM',
+                        value: 2500,
+                        unit: 'rpm',
+                        capturedAt: '2026-11-11T15:00:00.000Z',
+                    },
+                ],
             },
             mode06: [{ testId: '01', componentId: '01', value: 10, min: 0, max: 128, unit: 'count', passed: true }],
             readiness: {

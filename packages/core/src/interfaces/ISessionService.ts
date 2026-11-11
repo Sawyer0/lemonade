@@ -1,7 +1,8 @@
 import { DiagnosticSession } from '../entities/DiagnosticSession';
 import { Vehicle } from '../entities/Vehicle';
 import type { ParsedDtc } from '../dtc/types';
-import type { ObdLedgerEventInput, ObdScanResult } from '../types/case';
+import type { ObdScanResult } from '../obd/types';
+import type { ObdLedgerEventInput } from '../types/case';
 
 export interface ISessionService {
     startSession(vehicleId: string, userId: string, caseId?: string): Promise<string>;

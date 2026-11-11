@@ -61,7 +61,9 @@ describe('POST /api/session/[sessionId]/obd-scan', () => {
         container.unbind(TYPES.SessionService);
         container.bind(TYPES.SessionService).toConstantValue(mockSessionService);
         (adminAuth.verifyIdToken as Mock).mockResolvedValue({ uid: 'user-123' });
-        mockSessionService.recordObdScan.mockImplementation(async (_sessionId: string, _userId: string, scan: ObdScanResult) => scan);
+        mockSessionService.recordObdScan.mockImplementation(
+            async (_sessionId: string, _userId: string, scan: ObdScanResult) => scan,
+        );
     });
 
     afterEach(() => {

@@ -148,7 +148,10 @@ export class MobileObdCapture {
         return { result, rescan };
     }
 
-    private async postObdEvent(type: 'guided_test' | 'obd_fault_window' | 'verify_fix', payload: unknown): Promise<void> {
+    private async postObdEvent(
+        type: 'guided_test' | 'obd_fault_window' | 'verify_fix',
+        payload: unknown,
+    ): Promise<void> {
         const response = await this.post(`/api/session/${this.sessionId}/obd-event`, { type, payload });
         if (!response.ok) {
             throw new Error(`OBD ${type} event was not recorded (HTTP ${response.status})`);
