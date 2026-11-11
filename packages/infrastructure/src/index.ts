@@ -23,6 +23,7 @@ export * from './context/request-context';
 export * from './firebase/admin';
 export * from './repositories/FirestoreSessionRepository';
 export * from './repositories/PostgresCaseRepository';
+export * from './repositories/PostgresFixCountStore';
 export * from './crypto/NodeCryptoLedgerHasher';
 export * from './repositories/FirestoreUserRepository';
 export * from './repositories/FirestoreVehicleRepository';

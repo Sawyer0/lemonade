@@ -122,6 +122,13 @@ export const SHARED_CONFIG = {
         YAML_VERSION: 1,
     },
 
+    // Field-fix priors (LM-33): how often each cause was the confirmed fix
+    // for a vehicle and DTC set. SMOOTHING_ALPHA is the Lidstone alpha:
+    // 1 is Laplace smoothing, so an unseen hypothesis gets 1 / (N + K).
+    PRIORS: {
+        SMOOTHING_ALPHA: 1,
+    },
+
     THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
 
     // Google Cloud

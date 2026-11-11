@@ -62,6 +62,8 @@ export * from './types/models';
 export * from './types/case';
 export * from './goal/goalSchema';
 export * from './goal/evaluateGoal';
+export * from './diagnosis/priors/index';
+export * from './ports/IFixCountStore';
 export * from './case/CaseRunQueue';
 export * from './ports/ICaseRepository';
 export * from './ports/ISandbox'; // Per-case sandbox exec contract (LM-16)
