@@ -1,8 +1,8 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readdir } from 'node:fs/promises';
 import { z } from 'zod';
 import { truncateMiddle } from '@lemonade/core';
 import type { ISandbox, ToolRegistry } from '@lemonade/core';
+import { lstatContainedEntry, readContainedFile, resolveWorkdirRoot } from '../sandbox/workdirAccess';
 
 // Max chars of a workdir file returned to the model by diag.read_file.
 const READ_FILE_LIMIT = 2_000;
@@ -65,14 +65,22 @@ export function registerDiagTools(registry: ToolRegistry, deps: DiagToolDeps): v
         side: 'server',
         argsSchema: z.object({}),
         handler: async () => {
-            const names = await readdir(deps.workdir);
+            // Canonicalise the root per call and lstat each entry: a
+            // script-planted symlink must neither leak its target's size
+            // here nor be followed by diag.read_file (see workdirAccess.ts).
+            const workdirReal = await resolveWorkdirRoot(deps.workdir);
+            const names = await readdir(workdirReal);
             if (names.length === 0) {
                 return 'workdir is empty';
             }
             const lines: string[] = [];
             for (const name of names.sort()) {
-                const info = await stat(join(deps.workdir, name));
-                lines.push(`${name} (${info.size} bytes)`);
+                const info = await lstatContainedEntry(workdirReal, name);
+                if (info.isSymbolicLink()) {
+                    lines.push(`${name} (symlink)`);
+                } else {
+                    lines.push(`${name} (${info.size} bytes)`);
+                }
             }
             return lines.join('\n');
         },
@@ -88,7 +96,8 @@ export function registerDiagTools(registry: ToolRegistry, deps: DiagToolDeps): v
             if (name !== name.split('/').pop() || name.startsWith('.')) {
                 throw new Error(`refusing to read outside the workdir: ${name}`);
             }
-            const content = await readFile(join(deps.workdir, name), 'utf8');
+            const workdirReal = await resolveWorkdirRoot(deps.workdir);
+            const content = await readContainedFile(workdirReal, name);
             return truncateMiddle(content, READ_FILE_LIMIT);
         },
     });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ToolRegistry } from '@lemonade/core';
@@ -112,5 +112,44 @@ describe('registerDiagTools', () => {
             ok: false,
             error: 'refusing to read outside the workdir: .hidden',
         });
+    });
+
+    it('refuses to read through a script-planted symlink and never returns the victim', async () => {
+        // Finding 2 (review exploit): a script plants a symlink in /work
+        // pointing at a host file outside the workdir; diag.read_file must
+        // refuse it instead of returning the victim's contents to the model.
+        const outside = await mkdtemp(join(tmpdir(), 'lemonade-diag-tools-outside-'));
+        try {
+            const victim = join(outside, 'secret.txt');
+            await writeFile(victim, 'TOP-SECRET-DO-NOT-LEAK', 'utf8');
+            await symlink(victim, join(workdir, 'secret-link.txt'));
+            const registry = new ToolRegistry();
+            registerDiagTools(registry, { sandbox: stubSandbox(() => ''), workdir, caseId: 'case-1' });
+            expect(await registry.call('diag.read_file', { name: 'secret-link.txt' })).toEqual({
+                ok: false,
+                error: 'refusing to follow a symlink in the workdir: secret-link.txt',
+            });
+        } finally {
+            await rm(outside, { recursive: true, force: true });
+        }
+    });
+
+    it('lists a planted symlink without leaking its target size', async () => {
+        const outside = await mkdtemp(join(tmpdir(), 'lemonade-diag-tools-outside-'));
+        try {
+            const victim = join(outside, 'secret.txt');
+            await writeFile(victim, 'x'.repeat(6000), 'utf8');
+            await writeFile(join(workdir, 'pid-log.json'), '{"pid": 6}', 'utf8');
+            await symlink(victim, join(workdir, 'secret-link.txt'));
+            const registry = new ToolRegistry();
+            registerDiagTools(registry, { sandbox: stubSandbox(() => ''), workdir, caseId: 'case-1' });
+            const listed = await registry.call('diag.list_workdir', {});
+            expect(listed).toEqual({
+                ok: true,
+                output: 'pid-log.json (10 bytes)\nsecret-link.txt (symlink)',
+            });
+        } finally {
+            await rm(outside, { recursive: true, force: true });
+        }
     });
 });

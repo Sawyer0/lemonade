@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createLemonadeToolRegistry, runReasonerLoop } from '@lemonade/core';
@@ -11,6 +11,7 @@ import type {
     SandboxStagedFile,
 } from '@lemonade/core';
 import { registerDiagTools } from './diagTools';
+import { resolveWorkdirRoot, writeContainedFile } from '../sandbox/workdirAccess';
 
 // Max chars of loop citations kept in the ledger entry's notes.
 const LEDGER_NOTES_LIMIT = 2_000;
@@ -66,11 +67,15 @@ export class ReasonerRunner {
         try {
             // Stage the case files before the loop starts, so the first
             // script can already read the freeze frame and the PID log.
+            // The workdir is fresh here (no script has run yet), but the
+            // staging write still goes through the contained-write guard
+            // so every host-side workdir write shares the same check.
+            const workdirReal = await resolveWorkdirRoot(workdir);
             for (const file of input.caseFiles) {
                 if (file.name !== file.name.split('/').pop() || file.name.startsWith('.')) {
                     throw new Error(`case file name must be a plain filename, got: ${file.name}`);
                 }
-                await writeFile(join(workdir, file.name), file.content, 'utf8');
+                await writeContainedFile(workdirReal, file.name, file.content);
             }
             const registry = createLemonadeToolRegistry();
             registerDiagTools(registry, { sandbox: this.sandbox, workdir, caseId: input.caseId });

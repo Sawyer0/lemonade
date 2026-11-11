@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { SpawnOptions } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import {
@@ -13,6 +13,7 @@ import {
     truncateMiddle,
 } from '@lemonade/core';
 import type { ISandbox, SandboxRunInput, SandboxRunResult } from '@lemonade/core';
+import { resolveWorkdirRoot, writeContainedFile } from './workdirAccess';
 
 // Max file size a sandboxed script may write, in bytes (RLIMIT_FSIZE).
 const SANDBOX_MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -93,10 +94,12 @@ export class LocalSandbox implements ISandbox {
         if (!input.script.trim()) {
             throw new Error('script must not be empty');
         }
-        const workdirStat = await stat(input.workdir).catch(() => null);
-        if (!workdirStat?.isDirectory()) {
-            throw new Error(`workdir must be an existing directory, got: ${input.workdir}`);
-        }
+        // Canonicalise the workdir first: a symlinked workdir would make
+        // the bind mount — and every host-side write below — land outside
+        // the case dir. All writes go through writeContainedFile, which
+        // refuses a script-planted symlink at the target path instead of
+        // following it (see workdirAccess.ts).
+        const workdirReal = await resolveWorkdirRoot(input.workdir);
         const stagedFiles = input.files ?? [];
         for (const file of stagedFiles) {
             if (file.name !== basename(file.name) || file.name.startsWith('.')) {
@@ -108,18 +111,18 @@ export class LocalSandbox implements ISandbox {
         const stagingRoot = await mkdtemp(join(tmpdir(), 'lemonade-sandbox-root-'));
         try {
             await this.prepareStagingRoot(stagingRoot);
-            await writeFile(join(input.workdir, scriptName), input.script, 'utf8');
+            await writeContainedFile(workdirReal, scriptName, input.script);
             for (const file of stagedFiles) {
-                await writeFile(join(input.workdir, file.name), file.content, 'utf8');
+                await writeContainedFile(workdirReal, file.name, file.content);
             }
             const timeoutMs = input.timeoutMs ?? SANDBOX_DEFAULT_TIMEOUT_MS;
-            const captured = await this.spawnSandboxed(stagingRoot, input.workdir, scriptName, timeoutMs);
+            const captured = await this.spawnSandboxed(stagingRoot, workdirReal, scriptName, timeoutMs);
 
             let outputFile: string | undefined;
             const truncated = captured.stdout.length > SANDBOX_PREVIEW_CHARS;
             if (truncated) {
                 const outputName = `output-${scriptName.replace(/\.py$/, '')}.txt`;
-                await writeFile(join(input.workdir, outputName), captured.stdout, 'utf8');
+                await writeContainedFile(workdirReal, outputName, captured.stdout);
                 outputFile = outputName;
             }
             return {
