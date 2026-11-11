@@ -16,7 +16,9 @@ type JobRouteContext = {
 /**
  * POST /api/jobs/[jobId]/ack: the talker confirms it delivered every event
  * up to `seq`. A resume after a reconnect skips acked events, so a result
- * is delivered exactly once.
+ * that landed while away is still delivered. Delivery is at-least-once:
+ * the ack is best-effort, so a failed ack replays a result already spoken
+ * rather than losing it.
  */
 export const POST = withContext(async (req: NextRequest, context: unknown) => {
     const { params } = context as JobRouteContext;

@@ -11,8 +11,17 @@
  * talker/reasoner contract end to end:
  *   1. the talker keeps talking — the agent speaks before the reasoner finishes;
  *   2. a diagnostic job is filed for the case and runs to a terminal status;
- *   3. after a forced reconnect mid-job (same room, same case), the
- *      finding is still spoken at the next pause.
+ *   3. after a forced participant reconnect mid-job (same room, same case),
+ *      the finding itself is spoken — a distinctive word from the finding
+ *      event shows up in the transcript after the reconnect.
+ *
+ * Scope: this test disconnects and rejoins only the test participant. The
+ * agent worker, its Gemini session, and its SSE subscriptions never drop,
+ * so resumeForCase + acked-seq replay after a real agent reconnect is NOT
+ * exercised here — that path is covered by the ResultInjector unit tests
+ * (resume skips acked seqs and replays unacked results). Restarting the
+ * worker mid-job would need an explicit LiveKit agent dispatch into the
+ * existing room, which this harness does not drive.
  *
  * The full reasoner pipeline (manual, recalls, similar cases, verification)
  * is slow: the job poll allows up to 4 minutes.
@@ -123,6 +132,32 @@ async function listJobs(caseId: string): Promise<Array<{ id: string; status: Job
     return (await response.json()) as Array<{ id: string; status: JobStatus }>;
 }
 
+async function getJobEvents(jobId: string): Promise<Array<{ kind: string; text: string }>> {
+    const response = await fetch(`${JOBS_BASE_URL}/api/jobs/${encodeURIComponent(jobId)}`, {
+        headers: { 'x-api-key': process.env.MAIN_APP_API_KEY as string },
+        signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`job API returned ${response.status}`);
+    const body = (await response.json()) as { events: Array<{ kind: string; text: string }> };
+    return body.events;
+}
+
+/**
+ * Distinctive words from a finding's text. The agent paraphrases the
+ * finding when it speaks it, so the assertion needs any one of several
+ * content words, not the verbatim line.
+ */
+function findingKeywords(text: string): string[] {
+    return [
+        ...new Set(
+            text
+                .toLowerCase()
+                .split(/[^a-z0-9]+/)
+                .filter((word) => word.length >= 6),
+        ),
+    ].slice(0, 8);
+}
+
 const live = enabled && (await jobsServiceUp());
 if (enabled && !live) {
     console.warn(
@@ -163,9 +198,10 @@ describe.skipIf(!live)('live talker/reasoner split (LM-14)', () => {
     });
 
     it(
-        'keeps talking while the reasoner works, and speaks the finding after a reconnect',
+        'keeps talking while the reasoner works, and speaks the finding after a participant reconnect',
         async () => {
             let heardAgent = false;
+            let transcriptLengthAtReconnect = 0;
             const audioListener = async (track: RemoteTrack) => {
                 if (track.kind !== TrackKind.KIND_AUDIO) return;
                 for await (const frame of new AudioStream(track)) {
@@ -188,8 +224,9 @@ describe.skipIf(!live)('live talker/reasoner split (LM-14)', () => {
             await expect.poll(() => heardAgent, { timeout: FIRST_SPEECH_TIMEOUT_MS }).toBe(true);
 
             // 2. A job is filed for the case and runs to a terminal status.
-            // Reconnect mid-job: leave and rejoin the same room with the
-            // same case, so the new session must resume the case's jobs.
+            // Reconnect mid-job: the test participant leaves and rejoins
+            // the same room with the same case. The agent worker itself
+            // never restarts here (see the scope note at the top of file).
             let reconnected = false;
             const terminal = await expect
                 .poll(
@@ -204,6 +241,7 @@ describe.skipIf(!live)('live talker/reasoner split (LM-14)', () => {
                                 await joinToken(roomName, 'e2e-driver', caseId),
                                 { autoSubscribe: true, dynacast: false },
                             );
+                            transcriptLengthAtReconnect = transcripts.join(' ').length;
                         }
                         return job?.status;
                     },
@@ -212,11 +250,27 @@ describe.skipIf(!live)('live talker/reasoner split (LM-14)', () => {
                 .toMatch(/^(succeeded|failed)$/);
             expect(terminal).toBe('succeeded');
 
-            // 3. The finding is spoken at the next pause, after the reconnect.
-            const spokenBefore = transcripts.join(' ').length;
+            // 3. The finding itself is spoken after the reconnect — not
+            // just any speech: a distinctive word from the finding event
+            // must show up in the transcript after the reconnect.
+            const jobId = (await listJobs(caseId))[0]?.id;
+            expect(jobId).toBeDefined();
+            const finding = (await getJobEvents(jobId!)).find((event) => event.kind === 'finding');
+            expect(finding).toBeDefined();
+            const keywords = findingKeywords(finding!.text);
+            expect(keywords.length).toBeGreaterThan(0);
             await expect
-                .poll(() => transcripts.join(' ').length, { timeout: FINDING_TIMEOUT_MS })
-                .toBeGreaterThan(spokenBefore);
+                .poll(
+                    () => {
+                        const spokenAfterReconnect = transcripts
+                            .join(' ')
+                            .slice(transcriptLengthAtReconnect)
+                            .toLowerCase();
+                        return keywords.some((word) => spokenAfterReconnect.includes(word));
+                    },
+                    { timeout: FINDING_TIMEOUT_MS },
+                )
+                .toBe(true);
         },
         JOB_POLL_TIMEOUT_MS + FINDING_TIMEOUT_MS + 60_000,
     );

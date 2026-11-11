@@ -159,12 +159,82 @@ describe('JobClient', () => {
         expect(aborted).toBe(true);
     });
 
-    it('reports a stream failure once via onError', async () => {
+    it('reports stream failures via onError and resubscribes with backoff until unsubscribed', async () => {
         const fetchImpl = fakeFetch(() => Promise.reject(new Error('connection reset')));
         const client = new JobClient('https://jobs.test', 'key-1', fetchImpl as unknown as typeof fetch);
         const errors: Error[] = [];
-        client.subscribe(JOB_ID, { onEvent: () => undefined, onError: (error) => errors.push(error) });
-        await vi.waitFor(() => expect(errors).toHaveLength(1));
+        const unsubscribe = client.subscribe(JOB_ID, {
+            onEvent: () => undefined,
+            onError: (error) => errors.push(error),
+        });
+        await vi.waitFor(() => expect(fetchImpl.mock.calls.length).toBeGreaterThan(1));
+        expect(errors.length).toBeGreaterThanOrEqual(1);
         expect(errors[0].message).toBe('connection reset');
+        const callsAtUnsubscribe = fetchImpl.mock.calls.length;
+        unsubscribe();
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        expect(fetchImpl.mock.calls.length).toBe(callsAtUnsubscribe);
+    });
+
+    it('resubscribes after a transient failure and delivers the replayed events', async () => {
+        const encoder = new TextEncoder();
+        let attempts = 0;
+        const fetchImpl = fakeFetch(() => {
+            attempts += 1;
+            if (attempts === 1) return Promise.reject(new Error('connection reset'));
+            const stream = new ReadableStream<Uint8Array>({
+                start(controller) {
+                    controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify(eventJson(1, 'finding', 'Replace the sensor.'))}\n\n`),
+                    );
+                    controller.close();
+                },
+            });
+            return new Response(stream, { headers: { 'content-type': 'text/event-stream' } });
+        });
+        const client = new JobClient('https://jobs.test', 'key-1', fetchImpl as unknown as typeof fetch);
+        const received: Array<{ seq: number; text: string }> = [];
+        const errors: Error[] = [];
+        const unsubscribe = client.subscribe(JOB_ID, {
+            onEvent: (event) => received.push({ seq: event.seq, text: event.text }),
+            onError: (error) => errors.push(error),
+        });
+        await vi.waitFor(() => expect(received).toHaveLength(1));
+        expect(received[0]).toEqual({ seq: 1, text: 'Replace the sensor.' });
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toBe('connection reset');
+        unsubscribe();
+    });
+
+    it('resubscribes after the stream ends cleanly', async () => {
+        const encoder = new TextEncoder();
+        let attempts = 0;
+        const fetchImpl = fakeFetch(() => {
+            attempts += 1;
+            const attempt = attempts;
+            const stream = new ReadableStream<Uint8Array>({
+                start(controller) {
+                    if (attempt > 1) {
+                        controller.enqueue(
+                            encoder.encode(`data: ${JSON.stringify(eventJson(1, 'progress', 'Back.'))}\n\n`),
+                        );
+                    }
+                    controller.close();
+                },
+            });
+            return new Response(stream, { headers: { 'content-type': 'text/event-stream' } });
+        });
+        const client = new JobClient('https://jobs.test', 'key-1', fetchImpl as unknown as typeof fetch);
+        const received: Array<{ seq: number; text: string }> = [];
+        const errors: Error[] = [];
+        const unsubscribe = client.subscribe(JOB_ID, {
+            onEvent: (event) => received.push({ seq: event.seq, text: event.text }),
+            onError: (error) => errors.push(error),
+        });
+        await vi.waitFor(() => expect(received).toHaveLength(1));
+        expect(received[0]).toEqual({ seq: 1, text: 'Back.' });
+        expect(attempts).toBeGreaterThanOrEqual(2);
+        expect(errors).toEqual([]);
+        unsubscribe();
     });
 });

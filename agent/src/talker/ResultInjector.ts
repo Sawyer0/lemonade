@@ -12,6 +12,12 @@ export interface JobEventSource {
 /** Times a finding is re-spoken at the next idle gap after the user talks over it. */
 const MAX_FINDING_ATTEMPTS = 3;
 
+/** Delivery acks are retried this many times, then only logged. */
+const ACK_ATTEMPTS = 3;
+
+/** Base delay between ack retries; doubled per attempt. */
+const ACK_RETRY_DELAY_MS = 200;
+
 interface TrackedJob {
     unsubscribe: () => void;
     /** Serialises deliveries for one job, so events land in seq order. */
@@ -30,8 +36,11 @@ interface TrackedJob {
  * - failed / cancelled → silent context, so the talker stops waiting.
  *
  * Delivered events are acked to the job service. On resume (a reconnect),
- * events at or below the acked seq are skipped, so a result is delivered
- * exactly once even when the job finished while the talker was away.
+ * events at or below the acked seq are skipped, so a result that landed
+ * while the talker was away is still delivered — at least once, never lost.
+ * The ack is best-effort (retried a few times, then only logged), so a
+ * failed ack can replay a result that was already spoken: delivery is
+ * at-least-once, not exactly-once.
  */
 export class ResultInjector {
     private readonly tracked = new Map<string, TrackedJob>();
@@ -128,14 +137,33 @@ export class ResultInjector {
         return false;
     }
 
+    /**
+     * Confirms delivery of `seq`. Best-effort: retried a few times so a
+     * transient failure does not replay a finding that was already spoken,
+     * then only logged — a failed ack risks a duplicate on resume, never a
+     * lost result. Fire-and-forget: delivery never waits on the ack.
+     */
     private acknowledge(jobId: string, seq: number): void {
-        this.jobs.acknowledge(jobId, seq).catch((error: unknown) => {
-            this.logger.warn('Failed to acknowledge job event delivery', {
-                jobId,
-                seq,
-                error: error instanceof Error ? error.message : String(error),
-            });
-        });
+        void this.acknowledgeWithRetry(jobId, seq);
+    }
+
+    private async acknowledgeWithRetry(jobId: string, seq: number): Promise<void> {
+        for (let attempt = 1; attempt <= ACK_ATTEMPTS; attempt += 1) {
+            try {
+                await this.jobs.acknowledge(jobId, seq);
+                return;
+            } catch (error) {
+                if (attempt === ACK_ATTEMPTS) {
+                    this.logger.warn('Failed to acknowledge job event delivery', {
+                        jobId,
+                        seq,
+                        error: error instanceof Error ? error.message : String(error),
+                    });
+                    return;
+                }
+                await new Promise((resolve) => setTimeout(resolve, ACK_RETRY_DELAY_MS * attempt));
+            }
+        }
     }
 
     private untrack(jobId: string): void {

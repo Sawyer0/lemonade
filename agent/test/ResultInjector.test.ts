@@ -46,12 +46,14 @@ function fakeTalkerSession(outcomes: DeliveryOutcome[] = []) {
 }
 
 /** A job service fake: subscriptions deliver whatever the test emits. */
-function fakeJobSource(jobsForCase: DiagnosticJob[] = []) {
+function fakeJobSource(jobsForCase: DiagnosticJob[] = [], ackFailures = 0) {
     const subscribers = new Map<
         string,
         { onEvent: (event: DiagnosticJobEvent) => void; onError: (error: Error) => void }
     >();
     const acks: number[] = [];
+    const ackCalls: number[] = [];
+    let failuresLeft = ackFailures;
     const source: JobEventSource = {
         subscribe: vi.fn((jobId: string, handlers) => {
             subscribers.set(jobId, handlers);
@@ -59,12 +61,18 @@ function fakeJobSource(jobsForCase: DiagnosticJob[] = []) {
         }),
         listJobsForCase: vi.fn(async () => jobsForCase),
         acknowledge: vi.fn(async (_jobId: string, seq: number) => {
+            ackCalls.push(seq);
+            if (failuresLeft > 0) {
+                failuresLeft -= 1;
+                throw new Error('ack failed');
+            }
             acks.push(seq);
         }),
     };
     return {
         source,
         acks,
+        ackCalls,
         emit: (jobId: string, jobEvent: DiagnosticJobEvent) => subscribers.get(jobId)?.onEvent(jobEvent),
         fail: (jobId: string, error: Error) => subscribers.get(jobId)?.onError(error),
         subscribed: (jobId: string) => subscribers.has(jobId),
@@ -100,6 +108,18 @@ describe('ResultInjector', () => {
         jobs.emit(JOB_ID, event(1, 'finding', 'Replace the ABS sensor.'));
         await flush();
         expect(calls).toEqual([{ method: 'speakAtIdle', text: 'Replace the ABS sensor.' }]);
+        expect(jobs.acks).toEqual([1]);
+    });
+
+    it('retries a failed ack, so a transient failure does not replay a delivered finding', async () => {
+        const { session, calls } = fakeTalkerSession();
+        const jobs = fakeJobSource([], 2);
+        const injector = new ResultInjector(jobs.source, session, fakeLogger());
+        injector.track(JOB_ID);
+        jobs.emit(JOB_ID, event(1, 'finding', 'Replace the ABS sensor.'));
+        await flush();
+        expect(calls).toEqual([{ method: 'speakAtIdle', text: 'Replace the ABS sensor.' }]);
+        await vi.waitFor(() => expect(jobs.ackCalls).toEqual([1, 1, 1]), { timeout: 5_000 });
         expect(jobs.acks).toEqual([1]);
     });
 

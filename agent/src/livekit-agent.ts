@@ -53,8 +53,8 @@ function conversationFor(session: voice.AgentSession): Conversation {
  * Silent context goes in as a user turn the model is told not to answer
  * directly: the Gemini plugin forwards it with turnComplete false, so it
  * lands in context without generating speech. Findings wait for an idle
- * gap, then speak; a safety stop cuts current speech and speaks a reply
- * the user cannot talk over.
+ * gap, hold it while speaking, then speak; a safety stop cuts current
+ * speech and speaks a reply the user cannot talk over.
  */
 function talkerSessionFor(session: voice.AgentSession): TalkerSession {
     return {
@@ -67,10 +67,14 @@ function talkerSessionFor(session: voice.AgentSession): TalkerSession {
             await session.currentAgent.updateChatCtx(next);
         },
         speakAtIdle: async (text) => {
-            await session.waitForIdle();
-            const handle = session.generateReply({ instructions: text });
-            await handle.waitForPlayout();
-            return handle.interrupted ? 'interrupted' : 'delivered';
+            // Hold the idle gap while speaking: a second finding's
+            // waitForIdleAndHold waits for this hold to release, so two
+            // jobs' findings cannot race into generateReply concurrently.
+            return session.waitForIdleAndHold(async () => {
+                const handle = session.generateReply({ instructions: text });
+                await handle.waitForPlayout();
+                return handle.interrupted ? 'interrupted' : 'delivered';
+            });
         },
         interruptAndSpeak: async (text) => {
             await session.interrupt({ force: true });

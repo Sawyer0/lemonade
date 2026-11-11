@@ -16,6 +16,12 @@ import {
 /** Non-latency-critical job calls (status, cancel, list, ack) may take this long. */
 const JOB_REQUEST_TIMEOUT_MS = 10_000;
 
+/** First delay before resubscribing after a stream failure; doubled per attempt. */
+const SSE_RETRY_INITIAL_MS = 500;
+
+/** Longest delay between SSE resubscribes. */
+const SSE_RETRY_MAX_MS = 30_000;
+
 /** The job service answered, but not with a 2xx, or not in time, or not as expected. */
 export class JobServiceError extends Error {
     constructor(
@@ -107,9 +113,13 @@ export class JobClient {
     }
 
     /**
-     * Streams a job's events until the stream ends or the caller
-     * unsubscribes. Stored events replay first, then live ones. Any stream
-     * failure is reported once via `onError`; malformed lines are skipped.
+     * Streams a job's events until the caller unsubscribes. Stored events
+     * replay first, then live ones. A stream failure is reported via
+     * `onError` and the subscription resubscribes with backoff (500 ms,
+     * doubling to 30 s) until unsubscribed; a clean stream end resubscribes
+     * the same way, so a transient drop never silently ends delivery.
+     * Replays are safe: the injector skips events at or below the acked
+     * seq. Malformed lines are skipped.
      */
     subscribe(jobId: string, handlers: JobEventHandlers): () => void {
         const controller = new AbortController();
@@ -118,32 +128,58 @@ export class JobClient {
     }
 
     private async streamEvents(jobId: string, signal: AbortSignal, handlers: JobEventHandlers): Promise<void> {
-        try {
-            const response = await this.fetchImpl(`${this.baseUrl}/api/jobs/${encodeURIComponent(jobId)}/events`, {
-                method: 'GET',
-                headers: this.headers(),
-                signal,
-            });
-            if (!response.ok || !response.body) {
-                throw new JobServiceError(`Job service returned ${response.status} for job events`, response.status);
+        let delayMs = SSE_RETRY_INITIAL_MS;
+        for (;;) {
+            try {
+                await this.streamOnce(jobId, signal, handlers);
+            } catch (error) {
+                if (signal.aborted) return;
+                handlers.onError(error instanceof Error ? error : new JobServiceError('Job event stream failed'));
             }
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-            for (;;) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() ?? '';
-                for (const line of lines) this.handleEventLine(line, handlers.onEvent);
-            }
-            buffer += decoder.decode();
-            for (const line of buffer.split('\n')) this.handleEventLine(line, handlers.onEvent);
-        } catch (error) {
             if (signal.aborted) return;
-            handlers.onError(error instanceof Error ? error : new JobServiceError('Job event stream failed'));
+            if (!(await this.sleep(delayMs, signal))) return;
+            delayMs = Math.min(delayMs * 2, SSE_RETRY_MAX_MS);
         }
+    }
+
+    private async streamOnce(jobId: string, signal: AbortSignal, handlers: JobEventHandlers): Promise<void> {
+        const response = await this.fetchImpl(`${this.baseUrl}/api/jobs/${encodeURIComponent(jobId)}/events`, {
+            method: 'GET',
+            headers: this.headers(),
+            signal,
+        });
+        if (!response.ok || !response.body) {
+            throw new JobServiceError(`Job service returned ${response.status} for job events`, response.status);
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+            for (const line of lines) this.handleEventLine(line, handlers.onEvent);
+        }
+        buffer += decoder.decode();
+        for (const line of buffer.split('\n')) this.handleEventLine(line, handlers.onEvent);
+    }
+
+    /** Resolves true after `ms`, or false if `signal` aborts first. */
+    private sleep(ms: number, signal: AbortSignal): Promise<boolean> {
+        if (signal.aborted) return Promise.resolve(false);
+        return new Promise((resolve) => {
+            const onAbort = () => {
+                clearTimeout(timer);
+                resolve(false);
+            };
+            const timer = setTimeout(() => {
+                signal.removeEventListener('abort', onAbort);
+                resolve(true);
+            }, ms);
+            signal.addEventListener('abort', onAbort, { once: true });
+        });
     }
 
     private handleEventLine(line: string, onEvent: (event: DiagnosticJobEvent) => void): void {
