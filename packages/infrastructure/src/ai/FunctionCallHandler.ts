@@ -1,12 +1,7 @@
 import { ChatSession, GenerateContentResponse, Part } from '@google-cloud/vertexai';
 import { injectable, inject } from 'inversify';
 import type { ILogger, IGoogleSearchService, IMemoryService } from '@lemonade/core';
-import {
-    GoogleSearchArgsSchema,
-    VerifySafeSupportArgsSchema,
-    SaveToMemoryArgsSchema,
-    MemoryTags,
-} from '@lemonade/core';
+import { GoogleSearchArgsSchema, SaveToMemoryArgsSchema, MemoryTags, createLemonadeToolRegistry } from '@lemonade/core';
 import { TracingService } from '../observability/TracingService';
 import { TYPES } from '../di/types';
 
@@ -34,7 +29,10 @@ export class FunctionCallService {
         let loopCount = 0;
         const MAX_LOOPS = 3;
 
-        const SERVER_TOOLS = ['google_search', 'verify_safe_support', 'save_to_memory'];
+        // Which tools run here comes from the shared registry (LM-16), not a
+        // hardcoded list: a tool the registry marks client-side stops the
+        // loop so the call reaches the client that holds the camera/screen.
+        const toolRegistry = createLemonadeToolRegistry();
 
         while (loopCount < MAX_LOOPS) {
             const candidate = response.candidates?.[0];
@@ -47,7 +45,7 @@ export class FunctionCallService {
 
             // If any of the tools are client-side, we MUST stop and return the whole response
             // because we cannot partially respond to tool calls in a turn.
-            const hasClientTool = functionCalls.some((f) => f && !SERVER_TOOLS.includes(f.name));
+            const hasClientTool = functionCalls.some((f) => f && toolRegistry.sideOf(f.name) !== 'server');
             if (hasClientTool) {
                 this.logger.debug('Client-side tool detected, stopping server-side loop', {
                     tools: functionCalls.map((f) => f?.name),
@@ -64,38 +62,7 @@ export class FunctionCallService {
             for (const call of functionCalls) {
                 if (!call) continue;
 
-                if (call.name === 'verify_safe_support') {
-                    const args = call.args as Record<string, unknown>;
-                    this.logger.debug('Executing verify_safe_support', { args });
-
-                    try {
-                        VerifySafeSupportArgsSchema.parse(args);
-                        functionResponses.push({
-                            functionResponse: {
-                                name: 'verify_safe_support',
-                                response: {
-                                    name: 'verify_safe_support',
-                                    content: {
-                                        safe: false,
-                                        status: 'verification_required',
-                                        message: 'User must show jack stands via camera to proceed.',
-                                    },
-                                },
-                            },
-                        });
-                    } catch (error) {
-                        this.logger.error('Verify Safe Support Tool Validation Failed', error as Error);
-                        functionResponses.push({
-                            functionResponse: {
-                                name: 'verify_safe_support',
-                                response: {
-                                    name: 'verify_safe_support',
-                                    content: { error: error instanceof Error ? error.message : 'Validation failed' },
-                                },
-                            },
-                        });
-                    }
-                } else if (call.name === 'google_search') {
+                if (call.name === 'google_search') {
                     const args = call.args as Record<string, unknown>;
                     this.logger.debug('Executing google_search', { query: args['query'] });
 

@@ -34,6 +34,8 @@ export * from './ai/tools/googleSearch';
 export * from './services/ReactiveSafetyService';
 export * from './services/MechanicReasoningService';
 export * from './services/CaseRunCoordinator';
+export * from './sandbox/index'; // Local per-case sandbox (LM-16)
+export * from './reasoning/index'; // Reasoner loop tools, runner and Gemini model (LM-16)
 export * from './ai/EmbeddingService';
 export * from './ai/SafetyMonitor';
 export * from './repositories/VectorRepository';

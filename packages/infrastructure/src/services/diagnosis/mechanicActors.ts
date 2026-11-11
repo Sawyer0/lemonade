@@ -9,8 +9,13 @@ import type {
     IntuitionInput,
     MemoryInput,
     NhtsaInput,
+    ReasonerActorRunner,
+    ReasonerInput,
+    ReasonerRegionResult,
+    ReasonerScanData,
     ReasoningInput,
     SafetyRecall,
+    SandboxStagedFile,
     SearchInput,
     VectorInput,
     VerificationInput,
@@ -22,6 +27,10 @@ import type { EvidenceAnalyzer } from './EvidenceAnalyzer';
 
 const SIMILAR_CASE_LIMIT = 3;
 
+// What the reasoner loop is asked to establish from the recorded scan data.
+const REASONER_GOAL =
+    'Compute fuel trims from the recorded PID log with diaglib and say whether bank 1 is lean, using the freeze frame (DTC) for context.';
+
 export interface MechanicActorDeps {
     intuition: IntuitionGenerator;
     evidence: EvidenceAnalyzer;
@@ -29,6 +38,8 @@ export interface MechanicActorDeps {
     searchService: IGoogleSearchService;
     chatAI: IChatAssistantAI;
     logger: ILogger;
+    /** LM-16: when bound, the `investigating` reasoner region runs the loop through it. */
+    reasoner?: ReasonerActorRunner;
 }
 
 /** Runs one context source and degrades to an empty result if it fails; a missing source is routine, so it logs at debug. */
@@ -42,12 +53,27 @@ async function orEmpty<T>(logger: ILogger, source: string, run: () => Promise<T[
 }
 
 /**
+ * Stages the recorded scan data as case files for the reasoner: the freeze
+ * frame (with its DTC) and the PID log the fuel-trim computation reads.
+ */
+function caseFilesFromScanData(scanData: ReasonerScanData): SandboxStagedFile[] {
+    const files: SandboxStagedFile[] = [];
+    if (scanData.freezeFrame !== undefined) {
+        files.push({ name: 'freeze-frame.json', content: JSON.stringify(scanData.freezeFrame) });
+    }
+    if (scanData.pidLog !== undefined) {
+        files.push({ name: 'pid-log.json', content: JSON.stringify(scanData.pidLog) });
+    }
+    return files;
+}
+
+/**
  * The promise actors the mechanic state machine invokes, bound to the services
  * that implement each step. Context sources fail soft so one outage never
  * blocks a diagnosis.
  */
 export function createMechanicActors(deps: MechanicActorDeps) {
-    const { intuition, evidence, nhtsaService, searchService, chatAI, logger } = deps;
+    const { intuition, evidence, nhtsaService, searchService, chatAI, logger, reasoner } = deps;
 
     return {
         generateIntuition: fromPromise(async ({ input }: { input: IntuitionInput }) =>
@@ -60,6 +86,22 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                 input.queuedEvidence ?? [],
             ),
         ),
+
+        // LM-16: the bounded tool loop, run inside `investigating` when the
+        // case has recorded scan data. Without a bound runner the region
+        // reports `skipped` and the diagnosis runs as before.
+        runReasoner: fromPromise(async ({ input }: { input: ReasonerInput }): Promise<ReasonerRegionResult> => {
+            if (!reasoner || !input.scanData) {
+                return { endState: 'skipped', endReason: 'no reasoner runner bound', steps: [], citations: [] };
+            }
+            return reasoner.run({
+                caseId: input.caseId ?? '',
+                sessionId: input.sessionId,
+                userId: input.userId,
+                goal: REASONER_GOAL,
+                caseFiles: caseFilesFromScanData(input.scanData),
+            });
+        }),
 
         visionAnalysis: fromPromise(async ({ input }: { input: VisionInput }) => {
             const ctx = input.data;

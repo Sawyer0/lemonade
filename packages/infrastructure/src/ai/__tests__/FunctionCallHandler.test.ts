@@ -123,7 +123,10 @@ describe('FunctionCallService', () => {
         );
     });
 
-    it('should handle verify_safe_support tool call', async () => {
+    it('should pass verify_safe_support through to the client instead of answering it server-side', async () => {
+        // LM-16: verify_safe_support is a client tool — the mobile app opens
+        // the camera for it. The server used to intercept it with a canned
+        // failure, so the call never reached the camera.
         const initialResponse = {
             candidates: [
                 {
@@ -141,18 +144,12 @@ describe('FunctionCallService', () => {
             ],
         } as unknown as GenerateContentResponse;
 
-        const nextResponse = {
-            candidates: [
-                {
-                    content: { parts: [{ text: 'Safe check' }] },
-                },
-            ],
-        } as unknown as GenerateContentResponse;
+        const result = await service.handleFunctionCalls(initialResponse, mockChatSession, {
+            userId: 'u1',
+            sessionId: 's1',
+        });
 
-        (mockChatSession.sendMessage as jest.Mock).mockResolvedValue({ response: nextResponse });
-
-        await service.handleFunctionCalls(initialResponse, mockChatSession, { userId: 'u1', sessionId: 's1' });
-
-        expect(mockChatSession.sendMessage).toHaveBeenCalled();
+        expect(mockChatSession.sendMessage).not.toHaveBeenCalled();
+        expect(result).toBe(initialResponse);
     });
 });
