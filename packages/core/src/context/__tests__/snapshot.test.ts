@@ -120,6 +120,28 @@ describe('renderCaseSnapshot', () => {
         expect(snapshot).toContain('authority: code');
     });
 
+    it('renders an advisory entry with its kind, status, and unknown summary', () => {
+        const caseRecord = buildCase();
+        const entries: LedgerEntry[] = [];
+        const advisory = appendToChain(
+            entries,
+            'advisory',
+            {
+                kind: 'recall',
+                status: 'unknown',
+                summary: 'Recall status unknown: lookup failed',
+                items: [],
+                source: 'lookup failed',
+            },
+            { source: 'research', actor: { kind: 'agent', id: 'evidence-subagents' } },
+        );
+        entries.push(advisory);
+        const snapshot = renderCaseSnapshot({ ...caseRecord, id: advisory.caseId }, entries);
+        expect(snapshot).toContain('kind: recall');
+        expect(snapshot).toContain('status: unknown');
+        expect(snapshot).toContain('Recall status unknown: lookup failed');
+    });
+
     it('renders an empty ledger as a header with no entries', () => {
         const snapshot = renderCaseSnapshot(buildCase(), []);
         expect(snapshot).toContain('ledger entries: 0');

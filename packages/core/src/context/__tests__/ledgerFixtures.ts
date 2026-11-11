@@ -45,12 +45,16 @@ export function appendToChain(
     const caseId = previous.length === 0 ? uuidv4() : previous[0].caseId;
     const sequence = previous.length + 1;
     const previousHash = previous.length === 0 ? LEDGER_GENESIS_HASH : previous[previous.length - 1].entryHash;
+    // An override that changes a hashed field (source, actor) must change
+    // the hash too, or the entry fails chain verification.
+    const actor = overrides.actor ?? ({ kind: 'user', id: 'tech-123' } as const);
+    const source = overrides.source ?? 'tech';
     const entryHash = computeLedgerEntryHash(nodeHasher, {
         caseId,
         sequence,
         type,
-        actor: { kind: 'user', id: 'tech-123' },
-        source: 'tech',
+        actor,
+        source,
         occurredAt: OCCURRED_AT,
         payload,
         previousHash,
@@ -61,8 +65,8 @@ export function appendToChain(
         caseId,
         sequence,
         type,
-        actor: { kind: 'user', id: 'tech-123' },
-        source: 'tech',
+        actor,
+        source,
         occurredAt: OCCURRED_AT,
         payload,
         previousHash,
