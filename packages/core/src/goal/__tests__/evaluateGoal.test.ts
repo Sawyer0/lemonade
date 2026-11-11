@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { AppError } from '../../errors/AppError';
 import { ErrorCode } from '../../errors/codes';
+import { amendGoal, buildGoal, evaluateGoal, transitionGoalStatus, type CriterionEvaluation } from '../evaluateGoal';
 import {
-    amendGoal,
-    buildGoal,
-    evaluateGoal,
-    transitionGoalStatus,
-    type CriterionEvaluation,
-} from '../evaluateGoal';
-import { buildGoldenCase, buildGoldenGoal, appendGoldenLedgerEntry, GOLDEN_CASE_ID, GOLDEN_GOAL_ID } from './fixtures/goldenCase';
+    buildGoldenCase,
+    buildGoldenGoal,
+    appendGoldenLedgerEntry,
+    GOLDEN_CASE_ID,
+    GOLDEN_GOAL_ID,
+} from './fixtures/goldenCase';
 
 function verdictOf(evaluation: { criteria: CriterionEvaluation[] }, criterionId: string): string {
     const found = evaluation.criteria.find((criterion) => criterion.criterionId === criterionId);
@@ -195,7 +195,11 @@ describe('amendGoal', () => {
     const confirmation = { confirmedByTech: true, techId: 'tech-123' };
 
     it('bumps the version by one on a tech-confirmed amendment', () => {
-        const amended = amendGoal(buildGoldenGoal(), { outcome: 'Root cause confirmed, gasket replaced' }, confirmation);
+        const amended = amendGoal(
+            buildGoldenGoal(),
+            { outcome: 'Root cause confirmed, gasket replaced' },
+            confirmation,
+        );
         expect(amended.version).toBe(2);
         expect(amended.outcome).toBe('Root cause confirmed, gasket replaced');
         expect(amended.goalId).toBe(GOLDEN_GOAL_ID);

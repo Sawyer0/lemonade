@@ -224,9 +224,14 @@ export function buildGoldenCase(options: GoldenCaseOptions = {}): {
     }
     if (correctRetest && retestEntry !== undefined) {
         entries.push(
-            appendToChain(entries, 'correction', { text: 'Compression reading was from cylinder 2, not 1' }, {
-                correctsEntryId: retestEntry.id,
-            }),
+            appendToChain(
+                entries,
+                'correction',
+                { text: 'Compression reading was from cylinder 2, not 1' },
+                {
+                    correctsEntryId: retestEntry.id,
+                },
+            ),
         );
     }
     if (symptomAbsent) {

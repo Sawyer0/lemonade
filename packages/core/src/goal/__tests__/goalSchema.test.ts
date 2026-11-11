@@ -119,9 +119,9 @@ describe('CaseGoalSchema', () => {
     it('rejects an empty criteria list and empty symptoms', () => {
         const goal = buildGoldenGoal();
         expect(CaseGoalSchema.safeParse({ ...goal, criteria: [] }).success).toBe(false);
-        expect(
-            CaseGoalSchema.safeParse({ ...goal, complaint: { ...goal.complaint, symptoms: [] } }).success,
-        ).toBe(false);
+        expect(CaseGoalSchema.safeParse({ ...goal, complaint: { ...goal.complaint, symptoms: [] } }).success).toBe(
+            false,
+        );
     });
 
     it('rejects a version below 1', () => {
@@ -183,8 +183,8 @@ describe('goal ledger payloads', () => {
 
     it('rejects a goal_set payload whose goalId disagrees with the embedded goal', () => {
         const goal = buildGoldenGoal();
-        expect(
-            GoalSetPayloadSchema.safeParse({ goalId: '44444444-4444-4444-8444-444444444444', goal }).success,
-        ).toBe(false);
+        expect(GoalSetPayloadSchema.safeParse({ goalId: '44444444-4444-4444-8444-444444444444', goal }).success).toBe(
+            false,
+        );
     });
 });

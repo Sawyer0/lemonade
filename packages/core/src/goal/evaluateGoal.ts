@@ -98,9 +98,7 @@ function deepEquals(left: unknown, right: unknown): boolean {
         return true;
     }
     if (Array.isArray(left) && Array.isArray(right)) {
-        return (
-            left.length === right.length && left.every((item, index) => deepEquals(item, right[index] as unknown))
-        );
+        return left.length === right.length && left.every((item, index) => deepEquals(item, right[index] as unknown));
     }
     if (isPlainRecord(left) && isPlainRecord(right)) {
         const leftKeys = Object.keys(left);
@@ -144,22 +142,16 @@ interface EvaluationContext {
 
 /** An entry counts as proof only from an admissible, non-model source, uncorrected. */
 function isProofEntry(entry: LedgerEntry, admissible: ReadonlyArray<EvidenceSource>, ctx: EvaluationContext): boolean {
-    return (
-        entry.source !== 'model' &&
-        admissible.includes(entry.source) &&
-        !ctx.correctedEntryIds.has(entry.id)
-    );
+    return entry.source !== 'model' && admissible.includes(entry.source) && !ctx.correctedEntryIds.has(entry.id);
 }
 
-function evaluateLedgerHas(
-    criterion: Criterion,
-    check: LedgerHasCheck,
-    ctx: EvaluationContext,
-): CriterionEvaluation {
+function evaluateLedgerHas(criterion: Criterion, check: LedgerHasCheck, ctx: EvaluationContext): CriterionEvaluation {
     const where = check.where ?? {};
     const matching = ctx.ordered.filter(
         (entry) =>
-            entry.type === check.entryKind && isProofEntry(entry, check.admissible, ctx) && matchesWhere(entry.payload, where),
+            entry.type === check.entryKind &&
+            isProofEntry(entry, check.admissible, ctx) &&
+            matchesWhere(entry.payload, where),
     );
     if (matching.length > 0) {
         return {
@@ -181,20 +173,18 @@ function evaluateLedgerHas(
     };
 }
 
-function evaluatePosterior(
-    criterion: Criterion,
-    check: PosteriorCheck,
-    ctx: EvaluationContext,
-): CriterionEvaluation {
+function evaluatePosterior(criterion: Criterion, check: PosteriorCheck, ctx: EvaluationContext): CriterionEvaluation {
     // One hypothesis per distinct text; the confidence is the highest any
     // entry gave it. Corrected hypotheses are retracted and do not count.
     // The margin is over the runner-up; with a single distinct hypothesis
     // there is no runner-up, so the margin is the top confidence itself.
     const confidenceByHypothesis = new Map<string, number>();
+    const hypothesisEntries: LedgerEntry[] = [];
     for (const entry of ctx.ordered) {
         if (entry.type !== 'hypothesis' || ctx.correctedEntryIds.has(entry.id)) {
             continue;
         }
+        hypothesisEntries.push(entry);
         const previous = confidenceByHypothesis.get(entry.payload.text);
         if (previous === undefined || entry.payload.confidence > previous) {
             confidenceByHypothesis.set(entry.payload.text, entry.payload.confidence);
@@ -208,7 +198,8 @@ function evaluatePosterior(
         criterionId: criterion.id,
         phase: criterion.phase,
         blocking: criterion.blocking,
-        evidence: [] as LedgerReference[],
+        // The verdict cites the hypotheses it was read from.
+        evidence: hypothesisEntries.map(referenceOf),
     };
     if (ranked.length === 0) {
         return { ...base, verdict: 'unmet', reason: 'no hypothesis entries in the ledger' };
@@ -236,7 +227,7 @@ function evaluatePreRegisteredTest(
     // commit is not the pre-registered re-test. When the ledger carries no
     // goal_set entry for this goal, no ordering constraint applies.
     const runs = ctx.ordered.filter(
-        (entry) =>
+        (entry): entry is Extract<LedgerEntry, { type: 'test_result' }> =>
             entry.type === 'test_result' &&
             entry.payload.testName === check.testName &&
             isProofEntry(entry, check.admissible, ctx) &&
@@ -292,9 +283,7 @@ export function evaluateGoal(goal: CaseGoal, ledger: ReadonlyArray<LedgerEntry>)
             correctedEntryIds.add(entry.correctsEntryId);
         }
     }
-    const goalSetEntry = ordered.find(
-        (entry) => entry.type === 'goal_set' && entry.payload.goalId === goal.goalId,
-    );
+    const goalSetEntry = ordered.find((entry) => entry.type === 'goal_set' && entry.payload.goalId === goal.goalId);
     const ctx: EvaluationContext = {
         ordered,
         correctedEntryIds,
@@ -389,11 +378,7 @@ export interface AmendmentConfirmation {
  * tech confirm it first. The goal id and case id can never change, and a
  * terminal goal cannot be amended.
  */
-export function amendGoal(
-    current: CaseGoal,
-    changes: GoalAmendment,
-    confirmation: AmendmentConfirmation,
-): CaseGoal {
+export function amendGoal(current: CaseGoal, changes: GoalAmendment, confirmation: AmendmentConfirmation): CaseGoal {
     if (!confirmation.confirmedByTech) {
         throw new AppError(
             ErrorCode.INVALID_INPUT,
@@ -401,10 +386,7 @@ export function amendGoal(
         );
     }
     if (TERMINAL_GOAL_STATUSES.includes(current.status)) {
-        throw new AppError(
-            ErrorCode.INVALID_INPUT,
-            `A goal in terminal status ${current.status} cannot be amended`,
-        );
+        throw new AppError(ErrorCode.INVALID_INPUT, `A goal in terminal status ${current.status} cannot be amended`);
     }
     return CaseGoalSchema.parse({
         ...current,
@@ -441,10 +423,7 @@ export function transitionGoalStatus(goal: CaseGoal, next: GoalStatus, authority
         return goal;
     }
     if (TERMINAL_GOAL_STATUSES.includes(goal.status)) {
-        throw new AppError(
-            ErrorCode.INVALID_INPUT,
-            `A goal in terminal status ${goal.status} cannot move to ${next}`,
-        );
+        throw new AppError(ErrorCode.INVALID_INPUT, `A goal in terminal status ${goal.status} cannot move to ${next}`);
     }
     const codeOnly: ReadonlyArray<GoalStatus> = [
         'verified_fix',
@@ -460,10 +439,7 @@ export function transitionGoalStatus(goal: CaseGoal, next: GoalStatus, authority
         throw new AppError(ErrorCode.INVALID_INPUT, 'Only the system can mark a goal budget-limited');
     }
     if (codeOnly.includes(next) && authority !== 'code') {
-        throw new AppError(
-            ErrorCode.INVALID_INPUT,
-            `Only the evaluator or safety code can set a goal to ${next}`,
-        );
+        throw new AppError(ErrorCode.INVALID_INPUT, `Only the evaluator or safety code can set a goal to ${next}`);
     }
     return { ...goal, status: next, statusAuthority: authority };
 }

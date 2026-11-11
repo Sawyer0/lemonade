@@ -130,9 +130,7 @@ function renderPayloadLines(entry: LedgerEntry): string[] {
                 `goal: ${quoted(entry.payload.goalId)}`,
                 `status: ${entry.payload.from} -> ${entry.payload.to}`,
                 `authority: ${entry.payload.authority}`,
-                ...[optionalText('reason', entry.payload.reason)].filter(
-                    (line): line is string => line !== null,
-                ),
+                ...[optionalText('reason', entry.payload.reason)].filter((line): line is string => line !== null),
             ];
     }
 }
