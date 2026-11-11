@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LocalTriageResultSchema } from './localPerception';
 import type { NeurosymbolicState } from './neurosymbolic';
 import type { ReasoningInput } from './reasoning';
 
@@ -87,8 +88,12 @@ export const CreateDiagnosticJobRequestSchema = z.object({
             vin: z.string().optional(),
         })
         .default({}),
+    /** On-device triage from a visual burst, when the job came from one. */
+    localTriage: LocalTriageResultSchema.optional(),
 });
 export type CreateDiagnosticJobRequest = z.infer<typeof CreateDiagnosticJobRequestSchema>;
+/** What callers pass in: evidenceRefs, vehicle and localTriage are optional until defaults apply. */
+export type CreateDiagnosticJobInput = z.input<typeof CreateDiagnosticJobRequestSchema>;
 
 export const SubmitDiagnosticJobResponseSchema = z.object({
     jobId: z.string().uuid(),

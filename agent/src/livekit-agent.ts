@@ -1,13 +1,17 @@
 import { type JobContext, defineAgent, voice } from '@livekit/agents';
 import * as silero from '@livekit/agents-plugin-silero';
 import { RoomEvent, type RemoteParticipant } from '@livekit/rtc-node';
-import type { ICaseRepository, ILiveStreamAnalyzer, IMechanicReasoningService } from '@lemonade/core';
+import type { ICaseRepository, ILiveStreamAnalyzer } from '@lemonade/core';
 import { Logger, TYPES, createContainer } from '@lemonade/infrastructure';
 import { loadEnv } from './env';
 import { LiveChannelRouter, type Conversation } from './channel/LiveChannelRouter';
 import { RoomPublisher } from './channel/roomPublisher';
-import { BurstAnalyzer } from './diagnosis/BurstAnalyzer';
+import { BurstAnalyzer, type DiagnosticJobSubmission } from './diagnosis/BurstAnalyzer';
 import { describeVehicle, parseSessionContext } from './diagnosis/sessionContext';
+import { JobClient } from './jobs/JobClient';
+import { createDiagnosticJobTools } from './talker/DiagnosticJobTools';
+import { ResultInjector } from './talker/ResultInjector';
+import type { TalkerSession } from './talker/TalkerSession';
 import { masterTechInstructions } from './voice/instructions';
 import { createMasterTechTools } from './voice/tools';
 import { createVoiceProvider } from './voice/provider';
@@ -17,17 +21,16 @@ import { createTranscriptSink } from './voice/transcriptLedger';
 const env = loadEnv();
 const logger = new Logger();
 
-// Frame analysis needs the media model (Vertex by default), Firestore and NHTSA. Build that
-// graph on the first frame, so a voice-only call (and the live e2e test) needs only LiveKit and Gemini.
+// Frame analysis needs the media model (Vertex by default) and Firestore.
+// Build that graph on the first frame, so a voice-only call (and the live
+// e2e test) needs only LiveKit and Gemini. The analyzer files complex
+// systems as job tickets now (LM-14); the per-call job port comes from the
+// router, so this lazy object stays session-independent.
 let burstAnalyzer: BurstAnalyzer | undefined;
 const bursts: Pick<BurstAnalyzer, 'analyze'> = {
     analyze: (...args) => {
         if (!burstAnalyzer) {
-            const container = createContainer();
-            burstAnalyzer = new BurstAnalyzer(
-                container.get<IMechanicReasoningService>(TYPES.MechanicReasoningService),
-                container.get<ILiveStreamAnalyzer>(TYPES.LiveStreamAI),
-            );
+            burstAnalyzer = new BurstAnalyzer(createContainer().get<ILiveStreamAnalyzer>(TYPES.LiveStreamAI));
         }
         return burstAnalyzer.analyze(...args);
     },
@@ -42,6 +45,38 @@ function conversationFor(session: voice.AgentSession): Conversation {
         say: (text) => session.generateReply({ instructions: text }).waitForPlayout(),
         replyTo: (userInput) => void session.generateReply({ userInput }),
         inform: (instructions) => void session.generateReply({ instructions }),
+    };
+}
+
+/**
+ * Adapts the LiveKit AgentSession to the injector's TalkerSession port.
+ * Silent context goes in as a user turn the model is told not to answer
+ * directly: the Gemini plugin forwards it with turnComplete false, so it
+ * lands in context without generating speech. Findings wait for an idle
+ * gap, then speak; a safety stop cuts current speech and speaks a reply
+ * the user cannot talk over.
+ */
+function talkerSessionFor(session: voice.AgentSession): TalkerSession {
+    return {
+        addSilentContext: async (text) => {
+            const next = session.chatCtx;
+            next.addMessage({
+                role: 'user',
+                content: `[Diagnostic update. Context only, do not answer this directly.]\n${text}`,
+            });
+            await session.currentAgent.updateChatCtx(next);
+        },
+        speakAtIdle: async (text) => {
+            await session.waitForIdle();
+            const handle = session.generateReply({ instructions: text });
+            await handle.waitForPlayout();
+            return handle.interrupted ? 'interrupted' : 'delivered';
+        },
+        interruptAndSpeak: async (text) => {
+            await session.interrupt({ force: true });
+            const handle = session.generateReply({ instructions: text, allowInterruptions: false });
+            await handle.waitForPlayout();
+        },
     };
 }
 
@@ -104,6 +139,16 @@ export default defineAgent({
             }
         });
 
+        // Talker/reasoner split (LM-14): the talker files diagnostic jobs
+        // with the Lemonade job service and keeps talking; the injector
+        // delivers the reasoner's events back onto this session.
+        const jobClient = new JobClient(env.JOBS_BASE_URL, env.MAIN_APP_API_KEY);
+        const injector = new ResultInjector(jobClient, talkerSessionFor(session), logger);
+        const jobSubmission: DiagnosticJobSubmission = {
+            submitJob: (request) => jobClient.submitJob(request),
+            trackJob: (jobId) => injector.track(jobId),
+        };
+
         const router = new LiveChannelRouter(
             sessionContext,
             conversationFor(session),
@@ -113,6 +158,7 @@ export default defineAgent({
                 requestTool: (toolCall) => publisher.aiResponse({ type: 'tool_call', toolCall }),
             },
             logger,
+            jobSubmission,
         );
         ctx.room.on(
             RoomEvent.DataReceived,
@@ -124,10 +170,19 @@ export default defineAgent({
         await session.start({
             agent: new voice.Agent({
                 instructions: masterTechInstructions(describeVehicle(sessionContext.vehicle)),
-                tools: createMasterTechTools(publisher),
+                tools: {
+                    ...createMasterTechTools(publisher),
+                    ...createDiagnosticJobTools(jobClient, injector, sessionContext),
+                },
             }),
             room: ctx.room,
         });
         logger.info('Master Tech ready', { voice: provider.id });
+
+        // Jobs belong to the case, not this Gemini connection: after a
+        // reconnect the new session resumes the case's jobs, and any result
+        // that landed while away is delivered at the next idle gap.
+        if (sessionContext.caseId) void injector.resumeForCase(sessionContext.caseId);
+        ctx.room.on(RoomEvent.Disconnected, () => injector.stop());
     },
 });

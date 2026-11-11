@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { ILiveStreamAnalyzer, VisualBurstMessage } from '@lemonade/core';
-import { BurstAnalyzer } from '../src/diagnosis/BurstAnalyzer';
-import { detection, diagnosis, fakeResponder, session } from './fakes';
+import { BurstAnalyzer, type DiagnosticJobSubmission } from '../src/diagnosis/BurstAnalyzer';
+import { detection, fakeResponder, session } from './fakes';
 
 function burst(localDetections?: VisualBurstMessage['metadata']['localDetections']): VisualBurstMessage {
     return {
@@ -12,31 +12,55 @@ function burst(localDetections?: VisualBurstMessage['metadata']['localDetections
 }
 
 function setup(liveResult: Awaited<ReturnType<ILiveStreamAnalyzer['analyzeLiveImageFrame']>>) {
-    const reasoning = { diagnose: vi.fn().mockResolvedValue(diagnosis('Replace the ABS sensor.')) };
+    const jobs: DiagnosticJobSubmission = {
+        submitJob: vi.fn(async () => ({ jobId: 'job-1' })),
+        trackJob: vi.fn(),
+    };
     const live = {
         analyzeLiveImageFrame: vi.fn().mockResolvedValue(liveResult),
         analyzeLiveAudioChunk: vi.fn(),
     } as unknown as ILiveStreamAnalyzer;
-    return { analyzer: new BurstAnalyzer(reasoning, live), reasoning, live, respond: fakeResponder() };
+    return { analyzer: new BurstAnalyzer(live), jobs, live, respond: fakeResponder() };
 }
 
 describe('BurstAnalyzer', () => {
-    it('sends complex systems through full reasoning and speaks the result', async () => {
-        const { analyzer, reasoning, live, respond } = setup(null);
-        await analyzer.analyze(burst([detection('Wheel speed sensor', 'ABS')]), session, respond);
+    it('files complex systems as a job ticket and keeps talking, without waiting on the reasoner', async () => {
+        const { analyzer, jobs, live, respond } = setup(null);
+        await analyzer.analyze(burst([detection('Wheel speed sensor', 'ABS')]), session, respond, jobs);
 
-        expect(reasoning.diagnose).toHaveBeenCalledWith(
-            expect.objectContaining({ sessionId: 'session-1', userId: 'user-1', vehicleContext: session.vehicle }),
+        expect(jobs.submitJob).toHaveBeenCalledWith(
+            expect.objectContaining({
+                question: 'Analyze the brakes for issues.',
+                evidenceRefs: ['Wheel speed sensor (ABS)'],
+                sessionId: 'session-1',
+                userId: 'user-1',
+                vehicle: session.vehicle,
+                localTriage: expect.objectContaining({ timestamp: 7 }),
+            }),
         );
-        expect(respond.say).toHaveBeenLastCalledWith('Replace the ABS sensor.');
+        expect(jobs.trackJob).toHaveBeenCalledWith('job-1');
+        expect(respond.say).toHaveBeenCalledWith('Scanning the brakes system. One moment...');
         expect(live.analyzeLiveImageFrame).not.toHaveBeenCalled();
     });
 
-    it('speaks a live-frame diagnosis for ordinary parts', async () => {
-        const { analyzer, reasoning, live, respond } = setup({ diagnosis: 'Pads are worn.' } as never);
-        await analyzer.analyze(burst([detection('Brake pad', 'Braking')]), session, respond);
+    it('says the diagnostician is unreachable when the job cannot be filed', async () => {
+        const { analyzer, jobs, respond } = setup(null);
+        jobs.submitJob = vi.fn(async () => {
+            throw new Error('service down');
+        });
+        await analyzer.analyze(burst([detection('Wheel speed sensor', 'ABS')]), session, respond, jobs);
 
-        expect(reasoning.diagnose).not.toHaveBeenCalled();
+        expect(respond.say).toHaveBeenCalledWith(
+            expect.stringContaining("The diagnostician is unreachable right now, so I can't check the brakes system yet."),
+        );
+        expect(jobs.trackJob).not.toHaveBeenCalled();
+    });
+
+    it('speaks a live-frame diagnosis for ordinary parts', async () => {
+        const { analyzer, jobs, live, respond } = setup({ diagnosis: 'Pads are worn.' } as never);
+        await analyzer.analyze(burst([detection('Brake pad', 'Braking')]), session, respond, jobs);
+
+        expect(jobs.submitJob).not.toHaveBeenCalled();
         expect(live.analyzeLiveImageFrame).toHaveBeenCalledWith(
             'frame-b64',
             'image/jpeg',
@@ -51,11 +75,11 @@ describe('BurstAnalyzer', () => {
     });
 
     it('forwards tool calls from the live analyzer to the device', async () => {
-        const { analyzer, respond } = setup([
+        const { analyzer, jobs, respond } = setup([
             { type: 'text', text: 'hmm' },
             { type: 'tool-call', toolCallId: 't1', toolName: 'start_video_stream', args: { component: 'belt' } },
         ]);
-        await analyzer.analyze(burst(), session, respond);
+        await analyzer.analyze(burst(), session, respond, jobs);
 
         expect(respond.requestTool).toHaveBeenCalledWith({
             id: 't1',
@@ -66,8 +90,8 @@ describe('BurstAnalyzer', () => {
     });
 
     it('stays quiet when the analyzer has nothing to add', async () => {
-        const { analyzer, respond } = setup(null);
-        await analyzer.analyze(burst(), session, respond);
+        const { analyzer, jobs, respond } = setup(null);
+        await analyzer.analyze(burst(), session, respond, jobs);
         expect(respond.say).not.toHaveBeenCalled();
     });
 });

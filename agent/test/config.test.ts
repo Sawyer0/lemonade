@@ -13,6 +13,16 @@ describe('loadEnv', () => {
         });
     });
 
+    it('defaults the job service to the local app and the dev api key', () => {
+        expect(loadEnv({ GOOGLE_API_KEY: 'g' })).toMatchObject({
+            JOBS_BASE_URL: 'http://localhost:3000',
+            MAIN_APP_API_KEY: 'super-secret-master-app-key',
+        });
+        expect(
+            loadEnv({ GOOGLE_API_KEY: 'g', JOBS_BASE_URL: 'https://app.test', MAIN_APP_API_KEY: 'k' }),
+        ).toMatchObject({ JOBS_BASE_URL: 'https://app.test', MAIN_APP_API_KEY: 'k' });
+    });
+
     it('refuses to start in production without livekit credentials', () => {
         expect(() => loadEnv({ NODE_ENV: 'production', LIVEKIT_URL: 'wss://x' })).toThrow('LIVEKIT_API_KEY');
     });
