@@ -1,0 +1,59 @@
+# Catalyst efficiency family (P0420) tests (LM-34 seed).
+# Watch the oxygen sensors: a working catalyst steadies the downstream sensor.
+# All entries are LLM drafts and stay unverified until a human expert reviews them.
+version: 1
+tests:
+  - id: measure-oxygen-sensor-switching
+    title: Measure oxygen sensor switching
+    summary: Compare the upstream sensor switching against the downstream sensor holding steady to test the catalyst.
+    costTier: measure
+    safetyClass: caution
+    hazards: [HOT_SURFACES, EXHAUST_FUMES]
+    disassemblyState: none
+    targets:
+      - hypothesisId: catalyst-degraded
+        dtcCodes: [P0420]
+        hitRate: 0.85
+        falseAlarmRate: 0.15
+      - hypothesisId: oxygen-sensor-lazy
+        dtcCodes: [P0420]
+        hitRate: 0.8
+        falseAlarmRate: 0.2
+    cost:
+      laborMinutes: 20
+      tools: [scan tool]
+      parts: []
+    preconditions:
+      - id: ventilation
+        description: Work outdoors or with exhaust extraction; never run the engine in a closed garage.
+        safety: true
+      - id: hot-exhaust-clearance
+        description: Hands and tools clear of the exhaust and sensor body while hot.
+        safety: true
+      - id: engine-warm
+        description: Engine and catalyst at operating temperature so the sensors are active.
+        safety: false
+    steps:
+      - location: scan tool live data, upstream oxygen sensor
+        instruction: hold 2500 rpm steady and watch the upstream sensor voltage
+        connection: scan tool on the OBD port
+        conditions: engine and catalyst warm, steady 2500 rpm
+        expected:
+          kind: range
+          min: 0.1
+          max: 0.9
+          unit: volts
+        outcomeYes: the upstream sensor switches, so read the downstream sensor next
+        outcomeNo: the upstream sensor is flat, so the sensor itself is the suspect
+      - location: scan tool live data, downstream oxygen sensor
+        instruction: hold the same steady 2500 rpm and watch the downstream sensor voltage
+        connection: scan tool on the OBD port
+        conditions: engine and catalyst warm, steady 2500 rpm
+        expected:
+          kind: text
+          text: downstream voltage holds near steady instead of switching like the upstream sensor
+        outcomeYes: the catalyst is doing its job, so the code is a sensor or exhaust leak issue
+        outcomeNo: the downstream sensor mirrors the upstream switching, so the catalyst is degraded
+    verification:
+      status: unverified
+      source: llm-draft

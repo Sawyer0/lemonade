@@ -1,0 +1,92 @@
+# First-case workflow tests (LM-34 seed).
+# The cheapest tests run first: questions, then eyes, before any tool comes out.
+# All entries are LLM drafts and stay unverified until a human expert reviews them.
+version: 1
+tests:
+  - id: ask-misfire-conditions
+    title: Ask when the misfire happens
+    summary: Narrow the misfire to cold start, warm idle, load, or damp weather before touching the car.
+    costTier: ask
+    safetyClass: routine
+    hazards: []
+    disassemblyState: none
+    targets:
+      - hypothesisId: misfire-cylinder-3
+        dtcCodes: [P0300, P0301]
+        hitRate: 0.75
+        falseAlarmRate: 0.3
+      - hypothesisId: ignition-coil-failure
+        dtcCodes: [P0300, P0301]
+        hitRate: 0.7
+        falseAlarmRate: 0.35
+    cost:
+      laborMinutes: 5
+      tools: []
+      parts: []
+    preconditions: []
+    steps:
+      - location: driver seat, talking with the driver
+        instruction: ask whether the shake happens cold, warm, at idle, or only under load
+        expected:
+          kind: text
+          text: a clear pattern, such as only on cold starts or only under load
+        outcomeYes: the pattern points at one system, so the next test is chosen from it
+        outcomeNo: no pattern emerges, so move to the visual inspection
+      - location: driver seat, talking with the driver
+        instruction: ask what work was done recently, including plugs, coils, fuel, or timing work
+        expected:
+          kind: text
+          text: recent work named, or a clear statement that nothing was touched
+        outcomeYes: recent work lines up with the misfire, so inspect that work first
+        outcomeNo: no recent work, so move to the visual inspection
+    verification:
+      status: unverified
+      source: llm-draft
+
+  - id: look-plug-coil-condition
+    title: Look at the plugs and coils
+    summary: Eyes on the ignition parts for cracks, carbon tracks, oil, or a loose connector before measuring anything.
+    costTier: look
+    safetyClass: caution
+    hazards: [HOT_SURFACES]
+    disassemblyState: component-exposed
+    targets:
+      - hypothesisId: ignition-coil-failure
+        dtcCodes: [P0300, P0301]
+        hitRate: 0.7
+        falseAlarmRate: 0.2
+      - hypothesisId: spark-plug-fouled
+        dtcCodes: [P0300, P0301]
+        hitRate: 0.65
+        falseAlarmRate: 0.25
+    cost:
+      laborMinutes: 15
+      tools: [socket set, flashlight]
+      parts: []
+    preconditions:
+      - id: engine-off
+        description: Engine off and key out before any cover comes off.
+        safety: true
+      - id: engine-cool
+        description: Engine cool to the touch before reaching near the exhaust side.
+        safety: true
+    steps:
+      - location: engine cover
+        instruction: remove the engine cover and set the fasteners aside
+        conditions: engine off and cool
+        expected:
+          kind: text
+          text: cover off with no fastener dropped into the bay
+        outcomeYes: the coils are visible, so inspect them next
+        outcomeNo: a fastener is missing, so find it before moving on
+      - location: ignition coil for the misfiring cylinder
+        instruction: look for cracks in the coil body, white carbon tracks, oil in the plug well, or a loose connector
+        conditions: engine off and cool
+        expected:
+          kind: text
+          text: coil body intact, plug well dry, connector fully seated
+        outcomeYes: the ignition parts look sound, so measure spark next
+        outcomeNo: a cracked coil, oil, or a loose connector is found, so that part is the suspect
+    verification:
+      status: unverified
+      source: llm-draft

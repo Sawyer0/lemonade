@@ -108,6 +108,15 @@ export const SHARED_CONFIG = {
         ESTIMATED_CHARS_PER_TOKEN: 4, // Character-based token estimate (no tokenizer in core)
     },
 
+    // Test library (LM-34): typed diagnostic tests with costs and accuracies.
+    // Unverified (LLM-drafted) entries get their hit/false-alarm rates shrunk
+    // toward uninformative (0.5) until a human expert reviews them, so the
+    // planner never trusts a draft as much as a reviewed test.
+    TEST_LIBRARY: {
+        UNVERIFIED_SHRINK_FACTOR: 0.5,
+        YAML_VERSION: 1,
+    },
+
     THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
 
     // Google Cloud

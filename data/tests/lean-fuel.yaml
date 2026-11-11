@@ -1,0 +1,103 @@
+# Lean fuel-trim family (P0171, P0174) tests (LM-34 seed).
+# Fuel trim numbers first, then smoke to find where the extra air gets in.
+# All entries are LLM drafts and stay unverified until a human expert reviews them.
+version: 1
+tests:
+  - id: measure-fuel-trim
+    title: Measure fuel trim at idle and cruise
+    summary: Compare short-term fuel trim at idle against cruise to tell a vacuum leak from a fuel delivery fault.
+    costTier: measure
+    safetyClass: caution
+    hazards: [EXHAUST_FUMES, ROTATING_PARTS]
+    disassemblyState: none
+    targets:
+      - hypothesisId: vacuum-leak
+        dtcCodes: [P0171, P0174]
+        hitRate: 0.8
+        falseAlarmRate: 0.2
+      - hypothesisId: weak-fuel-pump
+        dtcCodes: [P0171, P0174]
+        hitRate: 0.75
+        falseAlarmRate: 0.25
+    cost:
+      laborMinutes: 15
+      tools: [scan tool]
+      parts: []
+    preconditions:
+      - id: ventilation
+        description: Work outdoors or with exhaust extraction; never run the engine in a closed garage.
+        safety: true
+      - id: engine-warm
+        description: Engine at operating temperature so fuel trim has settled.
+        safety: false
+    steps:
+      - location: scan tool live data, fuel trim
+        instruction: read short-term fuel trim at idle with the engine warm
+        connection: scan tool on the OBD port
+        conditions: engine warm, accessories off
+        expected:
+          kind: range
+          min: -10
+          max: 10
+          unit: percent
+        outcomeYes: trim is near zero at idle, so read it at cruise next
+        outcomeNo: trim is high positive at idle, so unmetered air is the suspect
+      - location: scan tool live data, fuel trim
+        instruction: hold 2500 rpm steady and read short-term fuel trim again
+        connection: scan tool on the OBD port
+        conditions: engine warm, steady 2500 rpm
+        expected:
+          kind: range
+          min: -10
+          max: 10
+          unit: percent
+        outcomeYes: trim drops back near zero at cruise, so the vacuum leak is confirmed
+        outcomeNo: trim stays high at cruise, so the fault is fuel delivery, not a vacuum leak
+    verification:
+      status: unverified
+      source: llm-draft
+
+  - id: smoke-test-intake
+    title: Smoke-test the intake for vacuum leaks
+    summary: Push smoke into the intake and watch where it escapes.
+    costTier: measure
+    safetyClass: caution
+    hazards: [HOT_SURFACES]
+    disassemblyState: panels-removed
+    targets:
+      - hypothesisId: vacuum-leak
+        dtcCodes: [P0171, P0174]
+        hitRate: 0.9
+        falseAlarmRate: 0.05
+    cost:
+      laborMinutes: 30
+      tools: [smoke machine]
+      parts: []
+    preconditions:
+      - id: engine-off
+        description: Engine off before the smoke machine connects.
+        safety: true
+      - id: engine-cool
+        description: Engine cool enough that smoke oil cannot flash on a hot surface.
+        safety: true
+    steps:
+      - location: intake boot after the air filter
+        instruction: seal the smoke machine into the intake and cap the openings
+        connection: smoke machine hose sealed into the intake boot
+        conditions: engine off and cool
+        expected:
+          kind: text
+          text: intake sealed with the machine holding pressure
+        outcomeYes: the intake holds smoke, so watch every joint and hose
+        outcomeNo: smoke pours out at the seal, so reseal and start again
+      - location: intake manifold, vacuum hoses, and throttle body
+        instruction: run the smoke machine and watch every joint, hose, and gasket for escaping smoke
+        conditions: engine off and cool, shop lighting good enough to see thin smoke
+        expected:
+          kind: text
+          text: no smoke escapes anywhere
+        outcomeYes: the intake is sealed, so the lean fault is fuel delivery
+        outcomeNo: smoke escapes at one joint or hose, so that is the leak
+    verification:
+      status: unverified
+      source: llm-draft

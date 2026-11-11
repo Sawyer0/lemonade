@@ -1,0 +1,183 @@
+# Misfire family (P0300, P0301) tests (LM-34 seed).
+# Swap first to see if the misfire follows the part, then measure spark and
+# compression, and only open the engine when the cheap tests point there.
+# All entries are LLM drafts and stay unverified until a human expert reviews them.
+version: 1
+tests:
+  - id: swap-coil-cylinder
+    title: Swap the coil to another cylinder
+    summary: Move the suspect coil to a known-good cylinder and see whether the misfire code follows it.
+    costTier: swap
+    safetyClass: caution
+    hazards: [HOT_SURFACES]
+    disassemblyState: component-exposed
+    targets:
+      - hypothesisId: ignition-coil-failure
+        dtcCodes: [P0300, P0301]
+        hitRate: 0.9
+        falseAlarmRate: 0.05
+    cost:
+      laborMinutes: 20
+      tools: [socket set, scan tool]
+      parts: []
+    preconditions:
+      - id: engine-off
+        description: Engine off and key out before touching any coil.
+        safety: true
+      - id: engine-cool
+        description: Engine cool to the touch before reaching near the exhaust side.
+        safety: true
+    steps:
+      - location: ignition coil on the misfiring cylinder
+        instruction: unplug the coil connector and remove the coil
+        conditions: engine off and cool
+        expected:
+          kind: text
+          text: coil out with the connector undamaged
+        outcomeYes: the coil is out, so move it to the next cylinder
+        outcomeNo: the connector is damaged, so repair the connector first
+      - location: ignition coil on a known-good cylinder
+        instruction: install the suspect coil there, install the good coil on the misfiring cylinder, clear the codes, and drive until the code returns
+        connection: scan tool on the OBD port to clear codes
+        conditions: codes cleared before the drive
+        expected:
+          kind: text
+          text: the misfire code follows the suspect coil to its new cylinder
+        outcomeYes: the coil is bad, so replace it
+        outcomeNo: the misfire stays on the original cylinder, so the coil is not the cause
+    verification:
+      status: unverified
+      source: llm-draft
+
+  - id: measure-spark-strength
+    title: Measure spark at the plug
+    summary: Check for a strong spark with a spark tester instead of guessing from the code alone.
+    costTier: measure
+    safetyClass: caution
+    hazards: [ELECTRICAL_SHORT]
+    disassemblyState: component-exposed
+    targets:
+      - hypothesisId: ignition-coil-failure
+        dtcCodes: [P0300, P0301]
+        hitRate: 0.85
+        falseAlarmRate: 0.1
+      - hypothesisId: spark-plug-fouled
+        dtcCodes: [P0300, P0301]
+        hitRate: 0.8
+        falseAlarmRate: 0.15
+    cost:
+      laborMinutes: 15
+      tools: [spark tester, socket set]
+      parts: []
+    preconditions:
+      - id: engine-off-cranks-only
+        description: Engine cranked only with the tester grounded, never with a plug wire held by hand.
+        safety: true
+    steps:
+      - location: spark plug for the misfiring cylinder
+        instruction: remove the plug, connect the spark tester between the coil and ground, and crank the engine
+        connection: spark tester grounded to the engine block
+        conditions: fuel and ignition live only while cranking
+        expected:
+          kind: text
+          text: a bright blue spark jumps the tester gap on every crank
+        outcomeYes: spark is strong, so the ignition side is sound and the fault is fuel or compression
+        outcomeNo: spark is weak, yellow, or absent, so the coil or plug is the suspect
+    verification:
+      status: unverified
+      source: llm-draft
+
+  - id: measure-compression
+    title: Measure cylinder compression
+    summary: Compare compression across cylinders to rule the mechanical side in or out.
+    costTier: measure
+    safetyClass: caution
+    hazards: [HOT_SURFACES, FIRE_RISK]
+    disassemblyState: component-removed
+    targets:
+      - hypothesisId: low-compression-cylinder
+        dtcCodes: [P0300, P0301]
+        hitRate: 0.9
+        falseAlarmRate: 0.05
+    cost:
+      laborMinutes: 45
+      tools: [compression tester, socket set]
+      parts: []
+    preconditions:
+      - id: fuel-ignition-disabled
+        description: Fuel and ignition disabled before cranking with plugs out.
+        safety: true
+      - id: engine-warm
+        description: Engine at operating temperature so the readings are comparable.
+        safety: false
+    steps:
+      - location: all spark plugs
+        instruction: remove every spark plug so the engine cranks evenly
+        conditions: fuel and ignition disabled, engine warm
+        expected:
+          kind: text
+          text: all plugs out with no debris falling into the cylinders
+        outcomeYes: the engine is ready to crank, so test each cylinder
+        outcomeNo: debris fell in, so stop and clear it before cranking
+      - location: spark plug hole for each cylinder
+        instruction: thread in the compression tester, hold the throttle open, and crank until the gauge stops rising, then record the reading
+        connection: compression tester threaded into the plug hole
+        conditions: throttle open, same number of cranks per cylinder
+        expected:
+          kind: text
+          text: every cylinder reads within 10 percent of the highest cylinder
+        outcomeYes: compression is even, so the mechanical side is sound
+        outcomeNo: one cylinder reads low, so the fault is mechanical and the valve train is next
+    verification:
+      status: unverified
+      source: llm-draft
+
+  - id: inspect-valve-train
+    title: Open the valve cover and inspect the valve train
+    summary: 'Last resort for a persistent misfire: eyes on the cam lobes and timing marks.'
+    costTier: tear-down
+    safetyClass: hazardous
+    hazards: [HOT_SURFACES]
+    disassemblyState: teardown
+    targets:
+      - hypothesisId: timing-jumped
+        dtcCodes: [P0300]
+        hitRate: 0.85
+        falseAlarmRate: 0.1
+      - hypothesisId: worn-cam-lobe
+        dtcCodes: [P0300]
+        hitRate: 0.8
+        falseAlarmRate: 0.1
+    cost:
+      laborMinutes: 120
+      tools: [socket set, torque wrench]
+      parts:
+        - name: valve cover gasket
+          estimatedCostUsd: 25
+    preconditions:
+      - id: engine-off
+        description: Engine off and key out before the cover comes off.
+        safety: true
+      - id: engine-cool
+        description: Engine fully cool so no hot oil spills when the cover lifts.
+        safety: true
+    steps:
+      - location: valve cover
+        instruction: remove the valve cover and keep the gasket surface clean
+        conditions: engine off and fully cool
+        expected:
+          kind: text
+          text: cover off with the gasket intact enough to read the sealing surface
+        outcomeYes: the valve train is visible, so inspect the lobes and marks
+        outcomeNo: the gasket tore and left pieces behind, so clean the surface before inspecting
+      - location: camshaft lobes and timing marks
+        instruction: turn the engine by hand and check each lobe for scoring and the timing marks for alignment
+        conditions: engine turned by hand only, never with the starter
+        expected:
+          kind: text
+          text: lobes smooth with no scoring and timing marks aligned
+        outcomeYes: the valve train looks sound, so the misfire is elsewhere
+        outcomeNo: a scored lobe or slipped timing mark is found, so that is the repair
+    verification:
+      status: unverified
+      source: llm-draft
