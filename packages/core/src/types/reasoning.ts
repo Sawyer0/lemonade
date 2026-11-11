@@ -1,4 +1,5 @@
 import { LocalTriageResult } from './localPerception';
+import type { ParsedDtc } from '../dtc/types';
 
 export interface ReasoningInput {
     userQuery: string;
@@ -16,4 +17,6 @@ export interface ReasoningInput {
     complaint?: string;
     videoDurationMinutes?: number; // From runVisionAnalysis
     localTriage?: LocalTriageResult;
+    /** Parsed DTCs for the session (LM-02), from the deterministic parser. */
+    dtcCodes?: ParsedDtc[];
 }

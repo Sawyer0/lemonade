@@ -1,7 +1,8 @@
 import { injectable, inject } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
 import type { ISessionRepository, IVehicleRepository, IMechanicReasoningService, ILogger } from '@lemonade/core';
-import { IVideoAnalysisService, AIAnalysis, AppError, ErrorCode } from '@lemonade/core';
+import { IVideoAnalysisService, AIAnalysis, AppError, ErrorCode, parseDtcBatch } from '@lemonade/core';
+import type { DiagnosticSession, ParsedDtc } from '@lemonade/core';
 
 @injectable()
 export class VideoAnalysisService implements IVideoAnalysisService {
@@ -63,6 +64,7 @@ export class VideoAnalysisService implements IVideoAnalysisService {
                 videoUrl: videoUri,
                 vehicleContext: vehicle.specs,
                 videoDurationMinutes: videoDurationMinutes,
+                dtcCodes: this.parseStoredDtcCodes(session),
             });
 
             const finalVerdict = reasoningState.finalDiagnosis;
@@ -114,6 +116,23 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
         }
     }
 
+    /**
+     * Parses the session's stored canonical codes back into structured DTCs
+     * for the diagnosis context. Stored codes were validated at write time,
+     * so a failure here means legacy data: it is logged and dropped, never
+     * allowed to break the diagnosis.
+     */
+    private parseStoredDtcCodes(session: DiagnosticSession): ParsedDtc[] {
+        const { parsed, failures } = parseDtcBatch(session.obdCodes ?? []);
+        if (failures.length > 0) {
+            this.logger.warn('[VideoAnalysisService] Stored DTC codes failed to parse and were dropped', {
+                sessionId: session.id,
+                failures: failures.map((failure) => failure.raw),
+            });
+        }
+        return parsed;
+    }
+
     async analyzeVideo(
         url: string,
         context: string,
@@ -141,6 +160,7 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
             userQuery: context || 'Analyze this video.',
             videoUrl: url,
             vehicleContext: vehicle.specs,
+            dtcCodes: this.parseStoredDtcCodes(session),
         });
 
         const finalVerdict = reasoningState.finalDiagnosis;

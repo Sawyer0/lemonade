@@ -170,6 +170,19 @@ export class FirestoreSessionRepository implements ISessionRepository {
         });
     }
 
+    async addObdCodes(sessionId: string, codes: string[]): Promise<void> {
+        if (codes.length === 0) {
+            throw new AppError(ErrorCode.INVALID_INPUT, 'At least one DTC code is required');
+        }
+        await adminDb
+            .collection('sessions')
+            .doc(sessionId)
+            .update({
+                obdCodes: FieldValue.arrayUnion(...codes),
+                updatedAt: new Date(),
+            });
+    }
+
     async updateCumulativeVideoDuration(sessionId: string, minutes: number): Promise<void> {
         const session = await this.findById(sessionId);
         if (!session) {

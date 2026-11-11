@@ -193,6 +193,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     sessionId: input.sessionId,
                     userId: input.userId,
                     localTriage: input.localTriage,
+                    dtcCodes: input.dtcCodes,
                     services: {
                         vision: this.videoAI,
                         chat: this.chatAI,
@@ -236,6 +237,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             sessionId: input.sessionId,
             userId: input.userId,
             localTriage: input.localTriage,
+            dtcCodes: input.dtcCodes,
         });
 
         const finalState = await waitFor(actor, (state) => state.matches('synthesizing'), {

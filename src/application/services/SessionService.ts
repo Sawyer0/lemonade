@@ -1,7 +1,8 @@
 import { injectable, inject, LazyServiceIdentifier } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
 import type { ISessionRepository, IVehicleRepository, ILogger, ICaseRepository } from '@lemonade/core';
-import { ISessionService, DiagnosticSession, Vehicle, AppError, ErrorCode } from '@lemonade/core';
+import { ISessionService, DiagnosticSession, Vehicle, AppError, ErrorCode, parseDtcBatch } from '@lemonade/core';
+import type { ParsedDtc } from '@lemonade/core';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
@@ -40,6 +41,19 @@ export class SessionService implements ISessionService {
             if (!existingCase) {
                 throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, `Case not found: ${caseId}`);
             }
+            // The case must belong to this user and this vehicle: attaching
+            // a session to someone else's case (or a case for another
+            // vehicle) would leak its ledger to the wrong session.
+            if (existingCase.userId !== userId || existingCase.vehicleId !== vehicleId) {
+                this.logger.warn(`[SessionService] Session start for a case owned by another user or vehicle`, {
+                    caseId,
+                    vehicleId,
+                    userId,
+                    caseOwnerId: existingCase.userId,
+                    caseVehicleId: existingCase.vehicleId,
+                });
+                throw new AppError(ErrorCode.FORBIDDEN, 'This case does not belong to you and this vehicle', 403);
+            }
         }
 
         const newSession: DiagnosticSession = {
@@ -70,6 +84,50 @@ export class SessionService implements ISessionService {
         }
 
         return newSession.id;
+    }
+
+    async addDtcCodes(sessionId: string, userId: string, rawCodes: string[]): Promise<ParsedDtc[]> {
+        const session = await this.sessionRepo.findById(sessionId);
+        if (!session) {
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Session not found');
+        }
+        if (session.userId !== userId) {
+            this.logger.warn('[SessionService] addDtcCodes forbidden', {
+                sessionId,
+                userId,
+                ownerId: session.userId,
+            });
+            throw new AppError(ErrorCode.FORBIDDEN, 'You do not own this session', 403);
+        }
+        if (rawCodes.length === 0) {
+            throw new AppError(ErrorCode.INVALID_INPUT, 'At least one DTC code is required');
+        }
+
+        // One invalid code rejects the whole batch: a partial write would
+        // leave the session and the ledger disagreeing about what was read.
+        const { parsed, failures } = parseDtcBatch(rawCodes);
+        if (failures.length > 0) {
+            const reasons = failures.map((failure) => `'${failure.raw}': ${failure.reason}`).join('; ');
+            throw new AppError(ErrorCode.INVALID_INPUT, `Invalid DTC code(s): ${reasons}`);
+        }
+
+        const codes = parsed.map((code) => code.code);
+
+        // The ledger is the source of truth for case evidence, so a failed
+        // ledger write must block the session write, not follow it.
+        if (session.caseId) {
+            await this.caseRepo.appendEntry(session.caseId, {
+                type: 'dtc_read',
+                actor: { kind: 'user', id: userId },
+                source: 'OBD',
+                occurredAt: new Date(),
+                payload: { codes },
+            });
+        }
+
+        await this.sessionRepo.addObdCodes(sessionId, codes);
+        this.logger.info('[SessionService] DTC codes recorded', { sessionId, codes });
+        return parsed;
     }
 
     async getSessionContext(sessionId: string): Promise<{ session: DiagnosticSession; vehicle: Vehicle }> {

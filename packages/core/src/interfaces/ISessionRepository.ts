@@ -13,6 +13,8 @@ export interface ISessionRepository {
     findByVehicleId(vehicleId: string): Promise<DiagnosticSession[]>;
     findByUserId(userId: string): Promise<DiagnosticSession[]>;
     updateComplaint(sessionId: string, complaint: string): Promise<void>;
+    /** Appends canonical DTC codes to the session's obdCodes (deduplicated). */
+    addObdCodes(sessionId: string, codes: string[]): Promise<void>;
     updateCumulativeVideoDuration(sessionId: string, minutes: number): Promise<void>;
     updateLastProcessedFrameTimestamp(sessionId: string, timestamp: number): Promise<void>;
     updateCumulativeAudioDuration(sessionId: string, minutes: number): Promise<void>;
