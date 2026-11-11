@@ -187,6 +187,21 @@ describe('ResultInjector', () => {
         expect(jobs.acks).toEqual([2]);
     });
 
+    it('untracks a finished job on resume when its terminal event was already acked', async () => {
+        const { session, calls } = fakeTalkerSession();
+        const jobs = fakeJobSource([job({ status: 'succeeded', ackedSeq: 2 })]);
+        const injector = new ResultInjector(jobs.source, session, fakeLogger());
+        await injector.resumeForCase(CASE_ID);
+        expect(jobs.subscribed(JOB_ID)).toBe(true);
+        // Replay of a job whose events were all delivered before the disconnect.
+        jobs.emit(JOB_ID, event(1, 'progress', 'Checking the manual.'));
+        jobs.emit(JOB_ID, event(2, 'finding', 'Replace the ABS sensor.'));
+        await flush();
+        expect(calls).toEqual([]); // nothing to say again
+        expect(jobs.acks).toEqual([]); // nothing new to acknowledge
+        expect(jobs.subscribed(JOB_ID)).toBe(false); // terminal event seen: no resubscribe loop
+    });
+
     it('serialises deliveries for one job in arrival order', async () => {
         const { session, calls } = fakeTalkerSession();
         const jobs = fakeJobSource();

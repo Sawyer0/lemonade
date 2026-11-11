@@ -92,7 +92,15 @@ export class ResultInjector {
     }
 
     private async deliver(jobId: string, event: DiagnosticJobEvent, state: TrackedJob): Promise<void> {
-        if (event.seq <= state.deliveredSeq) return;
+        if (event.seq <= state.deliveredSeq) {
+            // Already delivered, so nothing to say again — but a terminal
+            // event still ends the job. Without this, a resume replay of a
+            // finished job would leave the subscription open forever: the
+            // stream closes immediately (nothing more to emit), the client
+            // resubscribes, and the replay is skipped again, endlessly.
+            if (TERMINAL_JOB_EVENT_KINDS.has(event.kind)) this.untrack(jobId);
+            return;
+        }
         switch (event.kind) {
             case 'progress':
             case 'snapshot':

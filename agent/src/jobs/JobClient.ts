@@ -160,10 +160,10 @@ export class JobClient {
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
             buffer = lines.pop() ?? '';
-            for (const line of lines) this.handleEventLine(line, handlers.onEvent);
+            for (const line of lines) this.parseEventLine(line, handlers.onEvent);
         }
         buffer += decoder.decode();
-        for (const line of buffer.split('\n')) this.handleEventLine(line, handlers.onEvent);
+        for (const line of buffer.split('\n')) this.parseEventLine(line, handlers.onEvent);
     }
 
     /** Resolves true after `ms`, or false if `signal` aborts first. */
@@ -182,7 +182,7 @@ export class JobClient {
         });
     }
 
-    private handleEventLine(line: string, onEvent: (event: DiagnosticJobEvent) => void): void {
+    private parseEventLine(line: string, onEvent: (event: DiagnosticJobEvent) => void): void {
         const trimmed = line.trim();
         if (!trimmed.startsWith('data:')) return;
         try {
