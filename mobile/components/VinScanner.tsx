@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Dimensions, ActivityIndicator } from 'react-native';
 import { CameraView, BarcodeScanningResult } from 'expo-camera';
 import { X } from 'lucide-react-native';
-import { Theme } from '@mobile/constants/theme';
+import { useBrandColors } from '@mobile/hooks/useBrandColors';
+import type { ThemeColors } from '@mobile/constants/theme';
 import { GlassCard } from './ui/GlassCard';
 import { extractVin } from '../domain/vin';
 
@@ -16,6 +17,8 @@ interface VinScannerProps {
 }
 
 export function VinScanner({ onScan, onClose, loading = false, error = null }: VinScannerProps) {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const [scanned, setScanned] = useState(false);
 
     const handleBarCodeScanned = (result: BarcodeScanningResult) => {
@@ -65,51 +68,52 @@ export function VinScanner({ onScan, onClose, loading = false, error = null }: V
 const { width } = Dimensions.get('window');
 const viewportSize = width * 0.8;
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: 'black',
-    },
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'space-between',
-        padding: 20,
-        paddingTop: 60,
-        paddingBottom: 40,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    title: {
-        color: 'white',
-        fontSize: 24,
-        fontWeight: 'bold',
-    },
-    closeButton: {
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    viewportContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    viewport: {
-        width: viewportSize,
-        height: viewportSize * 0.6, // Rectangular for barcodes
-        borderWidth: 2,
-        borderColor: Theme.tint,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-    },
-    spinner: {
-        marginTop: 20,
-    },
-    hintText: {
-        color: 'rgba(255,255,255,0.8)',
-        marginTop: 20,
-        fontSize: 16,
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: 'black',
+        },
+        overlay: {
+            ...StyleSheet.absoluteFillObject,
+            justifyContent: 'space-between',
+            padding: 20,
+            paddingTop: 60,
+            paddingBottom: 40,
+        },
+        header: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+        },
+        title: {
+            color: 'white',
+            fontSize: 24,
+            fontWeight: 'bold',
+        },
+        closeButton: {
+            borderRadius: 20,
+            overflow: 'hidden',
+        },
+        viewportContainer: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        viewport: {
+            width: viewportSize,
+            height: viewportSize * 0.6, // Rectangular for barcodes
+            borderWidth: 2,
+            borderColor: theme.tint,
+            borderRadius: 16,
+            backgroundColor: 'rgba(255,255,255,0.1)',
+        },
+        spinner: {
+            marginTop: 20,
+        },
+        hintText: {
+            color: 'rgba(255,255,255,0.8)',
+            marginTop: 20,
+            fontSize: 16,
+        },
+    });

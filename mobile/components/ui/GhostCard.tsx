@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { GlassCard } from './GlassCard';
-import { Theme } from '../../constants/theme';
+import { useBrandColors } from '../../hooks/useBrandColors';
+import type { ThemeColors } from '../../constants/theme';
 import { usePulseOpacity } from '../../hooks/usePulseOpacity';
 
 interface GhostCardProps {
@@ -11,6 +12,8 @@ interface GhostCardProps {
 }
 
 export const GhostCard: React.FC<GhostCardProps> = ({ title, subtitle }) => {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const animatedStyle = usePulseOpacity();
 
     return (
@@ -32,42 +35,43 @@ export const GhostCard: React.FC<GhostCardProps> = ({ title, subtitle }) => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        width: '100%',
-        marginVertical: 8,
-    },
-    content: {
-        padding: 16,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    title: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Theme.text,
-    },
-    pulseDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: Theme.tint,
-    },
-    skeletonContainer: {
-        gap: 8,
-    },
-    skeletonLine: {
-        height: 12,
-        backgroundColor: Theme.surfaceRaised,
-        borderRadius: 6,
-    },
-    subtitle: {
-        fontSize: 12,
-        color: Theme.textSecondary,
-        marginTop: 4,
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            width: '100%',
+            marginVertical: 8,
+        },
+        content: {
+            padding: 16,
+        },
+        headerRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 12,
+        },
+        title: {
+            fontSize: 16,
+            fontWeight: '600',
+            color: theme.text,
+        },
+        pulseDot: {
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: theme.tint,
+        },
+        skeletonContainer: {
+            gap: 8,
+        },
+        skeletonLine: {
+            height: 12,
+            backgroundColor: theme.surfaceRaised,
+            borderRadius: 6,
+        },
+        subtitle: {
+            fontSize: 12,
+            color: theme.textSecondary,
+            marginTop: 4,
+        },
+    });

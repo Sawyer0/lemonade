@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { Theme } from '../../constants/theme';
+import { useBrandColors } from '../../hooks/useBrandColors';
+import type { ThemeColors } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useVehicle } from '../../hooks/useVehicle';
@@ -11,6 +12,8 @@ import { JETBRAINS_MONO_FAMILY } from '../../constants/brandFonts';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function VehicleDetailScreen() {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const { id } = useLocalSearchParams<{ id: string }>();
     const { vehicle } = useVehicle(id);
     const { sessions } = useGarage();
@@ -37,7 +40,7 @@ export default function VehicleDetailScreen() {
                 {vehicle && (
                     <View style={styles.header}>
                         <View style={styles.carIcon}>
-                            <Ionicons name="car-sport" size={40} color={Theme.tint} />
+                            <Ionicons name="car-sport" size={40} color={theme.tint} />
                         </View>
                         <ThemedText type="title">
                             {vehicle.specs.year} {vehicle.specs.make} {vehicle.specs.model}
@@ -86,68 +89,69 @@ export default function VehicleDetailScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        alignItems: 'center',
-        padding: 24,
-        backgroundColor: Theme.card,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.border,
-    },
-    carIcon: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: Theme.accentSoft,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    vin: {
-        fontFamily: JETBRAINS_MONO_FAMILY.regular,
-        color: Theme.textSecondary,
-        marginTop: 4,
-    },
-    statsRow: {
-        flexDirection: 'row',
-        marginTop: 24,
-        width: '100%',
-        justifyContent: 'center',
-        gap: 40,
-    },
-    stat: {
-        alignItems: 'center',
-    },
-    statLabel: {
-        fontSize: 12,
-        color: Theme.textSecondary,
-    },
-    divider: {
-        width: 1,
-        height: '100%',
-        backgroundColor: Theme.border,
-    },
-    section: {
-        padding: 24,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    actionText: {
-        color: Theme.tint,
-        fontWeight: 'bold',
-    },
-    emptySessions: {
-        padding: 40,
-        alignItems: 'center',
-    },
-    emptyText: {
-        color: Theme.textSecondary,
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+        },
+        header: {
+            alignItems: 'center',
+            padding: 24,
+            backgroundColor: theme.card,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.border,
+        },
+        carIcon: {
+            width: 80,
+            height: 80,
+            borderRadius: 40,
+            backgroundColor: theme.accentSoft,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 16,
+        },
+        vin: {
+            fontFamily: JETBRAINS_MONO_FAMILY.regular,
+            color: theme.textSecondary,
+            marginTop: 4,
+        },
+        statsRow: {
+            flexDirection: 'row',
+            marginTop: 24,
+            width: '100%',
+            justifyContent: 'center',
+            gap: 40,
+        },
+        stat: {
+            alignItems: 'center',
+        },
+        statLabel: {
+            fontSize: 12,
+            color: theme.textSecondary,
+        },
+        divider: {
+            width: 1,
+            height: '100%',
+            backgroundColor: theme.border,
+        },
+        section: {
+            padding: 24,
+        },
+        sectionHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 16,
+        },
+        actionText: {
+            color: theme.tint,
+            fontWeight: 'bold',
+        },
+        emptySessions: {
+            padding: 40,
+            alignItems: 'center',
+        },
+        emptyText: {
+            color: theme.textSecondary,
+        },
+    });

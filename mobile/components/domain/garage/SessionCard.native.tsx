@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { GlassCard } from '../../ui/GlassCard';
 import { DiagnosticSession } from '@lemonade/core';
-import { Theme } from '@mobile/constants/theme';
+import { useBrandColors } from '@mobile/hooks/useBrandColors';
+import type { ThemeColors } from '@mobile/constants/theme';
 import { Car, AlertTriangle } from 'lucide-react-native';
 
 interface SessionCardProps {
@@ -11,6 +12,8 @@ interface SessionCardProps {
 }
 
 export function SessionCard({ session, onPress }: SessionCardProps) {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const dateLabel = session.updatedAt ? new Date(session.updatedAt).toLocaleDateString() : 'Just now';
 
     return (
@@ -18,7 +21,7 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
             <GlassCard style={styles.container}>
                 <View style={styles.header}>
                     <View style={styles.idBadge}>
-                        <Car size={14} color={Theme.textSecondary} />
+                        <Car size={14} color={theme.textSecondary} />
                         <Text style={styles.idText}>VIN: {session.vehicleId.slice(0, 8)}...</Text>
                     </View>
                     <Text style={styles.date}>{dateLabel}</Text>
@@ -32,7 +35,7 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
                     <StatusBadge status={session.status} />
                     {(session.obdCodes?.length || 0) > 0 && (
                         <View style={styles.issueBadge}>
-                            <AlertTriangle size={12} color={Theme.warning} />
+                            <AlertTriangle size={12} color={theme.warning} />
                             <Text style={styles.issueText}>{session.obdCodes?.length || 0} Issues</Text>
                         </View>
                     )}
@@ -43,59 +46,29 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-    let color = Theme.textSecondary;
-    let bg = Theme.surfaceRaised;
+    const theme = useBrandColors();
+    let color = theme.textSecondary;
+    let bg = theme.surfaceRaised;
 
     if (status === 'active') {
-        color = Theme.success;
-        bg = Theme.goSoft;
+        color = theme.success;
+        bg = theme.goSoft;
     }
     if (status === 'analyzing') {
-        color = Theme.accentStrong;
-        bg = Theme.accentSoft;
+        color = theme.accentStrong;
+        bg = theme.accentSoft;
     }
 
     return (
-        <View style={[styles.statusBadge, { backgroundColor: bg }]}>
-            <View style={[styles.dot, { backgroundColor: color }]} />
-            <Text style={[styles.statusText, { color: color }]}>{status.toUpperCase()}</Text>
+        <View style={[statusStyles.statusBadge, { backgroundColor: bg }]}>
+            <View style={[statusStyles.dot, { backgroundColor: color }]} />
+            <Text style={[statusStyles.statusText, { color: color }]}>{status.toUpperCase()}</Text>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        marginBottom: 16,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    },
-    idBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    idText: {
-        color: Theme.textSecondary,
-        fontSize: 12,
-        // fontFamily: Theme.fonts.mono,
-    },
-    date: {
-        color: Theme.textSecondary,
-        fontSize: 12,
-    },
-    complaint: {
-        color: Theme.text,
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 12,
-    },
-    footer: {
-        flexDirection: 'row',
-        gap: 8,
-    },
+// Layout-only styles for the badge; its colors come from the theme inline.
+const statusStyles = StyleSheet.create({
     statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -113,15 +86,50 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: 'bold',
     },
-    issueBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-    },
-    issueText: {
-        color: Theme.warning,
-        fontSize: 12,
-    },
 });
+
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            marginBottom: 16,
+        },
+        header: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: 8,
+        },
+        idBadge: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+        },
+        idText: {
+            color: theme.textSecondary,
+            fontSize: 12,
+        },
+        date: {
+            color: theme.textSecondary,
+            fontSize: 12,
+        },
+        complaint: {
+            color: theme.text,
+            fontSize: 16,
+            fontWeight: 'bold',
+            marginBottom: 12,
+        },
+        footer: {
+            flexDirection: 'row',
+            gap: 8,
+        },
+        issueBadge: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+        },
+        issueText: {
+            color: theme.warning,
+            fontSize: 12,
+        },
+    });

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native';
-import { Theme } from '@mobile/constants/theme';
+import { useBrandColors } from '@mobile/hooks/useBrandColors';
+import type { ThemeColors } from '@mobile/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
 /**
@@ -15,6 +16,8 @@ interface FabProps {
 }
 
 export function Fab({ onPress, testID, accessibilityLabel, style }: FabProps) {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     return (
         <TouchableOpacity
             testID={testID}
@@ -22,26 +25,27 @@ export function Fab({ onPress, testID, accessibilityLabel, style }: FabProps) {
             style={[styles.fab, style]}
             onPress={onPress}
         >
-            <Ionicons name="add" size={30} color={Theme.onAccent} />
+            <Ionicons name="add" size={30} color={theme.onAccent} />
         </TouchableOpacity>
     );
 }
 
-const styles = StyleSheet.create({
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: Theme.tint,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        fab: {
+            position: 'absolute',
+            bottom: 24,
+            right: 24,
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: theme.tint,
+            justifyContent: 'center',
+            alignItems: 'center',
+            elevation: 4,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+        },
+    });
