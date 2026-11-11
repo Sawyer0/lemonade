@@ -1,0 +1,94 @@
+# EVAP leak family (P0442, P0455) tests (LM-34 seed).
+# Check the cap and hoses by eye, then smoke the system; fuel vapor makes
+# the smoke test the one hazardous entry in the seed set.
+# All entries are LLM drafts and stay unverified until a human expert reviews them.
+version: 1
+tests:
+  - id: look-gas-cap-and-hoses
+    title: Look at the gas cap and EVAP hoses
+    summary: Eyes on the cap seal and the rubber EVAP hoses for cracks before any smoke test.
+    costTier: look
+    safetyClass: routine
+    hazards: []
+    disassemblyState: none
+    targets:
+      - hypothesisId: gas-cap-seal-failed
+        dtcCodes: [P0442, P0455]
+        hitRate: 0.6
+        falseAlarmRate: 0.2
+      - hypothesisId: evap-hose-cracked
+        dtcCodes: [P0442, P0455]
+        hitRate: 0.65
+        falseAlarmRate: 0.2
+    cost:
+      laborMinutes: 10
+      tools: [flashlight]
+      parts: []
+    preconditions: []
+    steps:
+      - location: fuel filler cap
+        instruction: remove the cap and check the seal for cracks, flattening, or debris, then refit it until it clicks
+        expected:
+          kind: text
+          text: seal supple with no cracks and the cap clicks tight
+        outcomeYes: the cap seals, so check the hoses next
+        outcomeNo: the seal is cracked or the cap will not click, so replace the cap first
+      - location: EVAP hoses near the charcoal canister
+        instruction: look along each rubber hose for cracks, rubbing, or a hose pulled off its fitting
+        expected:
+          kind: text
+          text: hoses intact, supple, and fully seated on their fittings
+        outcomeYes: the hoses look sound, so smoke-test the system next
+        outcomeNo: a cracked or loose hose is found, so that is the leak
+    verification:
+      status: unverified
+      source: llm-draft
+
+  - id: smoke-test-evap
+    title: Smoke-test the EVAP system
+    summary: Push smoke into the sealed EVAP system and watch where it escapes.
+    costTier: measure
+    safetyClass: hazardous
+    hazards: [FIRE_RISK]
+    disassemblyState: component-exposed
+    targets:
+      - hypothesisId: evap-hose-cracked
+        dtcCodes: [P0442, P0455]
+        hitRate: 0.9
+        falseAlarmRate: 0.05
+      - hypothesisId: evap-purge-valve-stuck
+        dtcCodes: [P0442, P0455]
+        hitRate: 0.75
+        falseAlarmRate: 0.2
+    cost:
+      laborMinutes: 40
+      tools: [EVAP smoke machine, scan tool]
+      parts: []
+    preconditions:
+      - id: no-ignition-sources
+        description: No open flames, sparks, or smoking near the vehicle; fuel vapor is present.
+        safety: true
+      - id: engine-off
+        description: Engine off before the smoke machine connects.
+        safety: true
+    steps:
+      - location: EVAP service port
+        instruction: connect the smoke machine to the service port and seal the vent with the scan tool
+        connection: smoke machine hose on the EVAP service port, scan tool on the OBD port
+        conditions: engine off, no ignition sources nearby
+        expected:
+          kind: text
+          text: system sealed with the machine holding low pressure
+        outcomeYes: the system holds smoke, so watch every joint and hose
+        outcomeNo: pressure will not hold, so check the machine seal before blaming the car
+      - location: charcoal canister, purge valve, and fuel tank hoses
+        instruction: run the smoke machine and watch every joint, hose, and the canister for escaping smoke
+        conditions: engine off, no ignition sources nearby
+        expected:
+          kind: text
+          text: no smoke escapes anywhere
+        outcomeYes: the EVAP system is sealed, so the purge valve is the suspect
+        outcomeNo: smoke escapes at one joint or hose, so that is the leak
+    verification:
+      status: unverified
+      source: llm-draft

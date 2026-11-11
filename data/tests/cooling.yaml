@@ -1,0 +1,61 @@
+# Coolant temperature family (P0128) tests (LM-34 seed).
+# Compare what the sensor reports against what a thermometer reads at the housing.
+# All entries are LLM drafts and stay unverified until a human expert reviews them.
+version: 1
+tests:
+  - id: measure-coolant-temperature
+    title: Measure coolant temperature against the sensor
+    summary: Compare the scan tool coolant reading with an infrared reading at the thermostat housing to tell a stuck thermostat from a lying sensor.
+    costTier: measure
+    safetyClass: caution
+    hazards: [HOT_SURFACES, ROTATING_PARTS]
+    disassemblyState: none
+    targets:
+      - hypothesisId: thermostat-stuck-open
+        dtcCodes: [P0128]
+        hitRate: 0.8
+        falseAlarmRate: 0.15
+      - hypothesisId: coolant-sensor-drifting
+        dtcCodes: [P0128]
+        hitRate: 0.75
+        falseAlarmRate: 0.2
+    cost:
+      laborMinutes: 20
+      tools: [scan tool, infrared thermometer]
+      parts: []
+    preconditions:
+      - id: cooling-system-closed
+        description: Never open the cooling system while hot; pressure can spray boiling coolant.
+        safety: true
+      - id: fan-clearance
+        description: Hands and tools clear of the cooling fan, which can start on its own.
+        safety: true
+      - id: engine-warm
+        description: Engine fully warmed up after a normal drive so the thermostat should be open.
+        safety: false
+    steps:
+      - location: scan tool live data, coolant temperature
+        instruction: read the coolant temperature with the engine fully warm
+        connection: scan tool on the OBD port
+        conditions: engine fully warm after a normal drive
+        expected:
+          kind: range
+          min: 195
+          max: 220
+          unit: degrees Fahrenheit
+        outcomeYes: the sensor reports a normal warm temperature, so check the housing next
+        outcomeNo: the sensor reports cold on a warm engine, so the sensor or thermostat is the suspect
+      - location: thermostat housing
+        instruction: aim the infrared thermometer at the thermostat housing and read the surface temperature
+        connection: infrared thermometer aimed at the thermostat housing
+        conditions: engine fully warm, fan clearance kept
+        expected:
+          kind: range
+          min: 195
+          max: 220
+          unit: degrees Fahrenheit
+        outcomeYes: housing and sensor agree in range, so the thermostat is working and the code is intermittent
+        outcomeNo: the readings disagree or both read cold, so compare them, since a hot housing with a cold sensor means the sensor is lying and a cold housing means the thermostat is stuck open
+    verification:
+      status: unverified
+      source: llm-draft

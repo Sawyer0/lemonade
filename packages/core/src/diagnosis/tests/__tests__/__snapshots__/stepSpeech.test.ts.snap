@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderTestSpoken > pins the exact spoken words for a two-step test 1`] = `
+[
+  "Measure oxygen sensor switching: Compare the upstream sensor switching against the downstream sensor holding steady. 2 steps.",
+  "Step 1 of 2. At scan tool live data, upstream oxygen sensor, hold 2500 rpm steady and watch the upstream sensor voltage. Connect scan tool on the OBD port. Engine and catalyst warm, steady 2500 rpm. Expect between 0.1 and 0.9 volts. If yes, the upstream sensor switches, so read the downstream sensor next. If no, the upstream sensor is flat, so the sensor itself is the suspect.",
+  "Step 2 of 2. At scan tool live data, downstream oxygen sensor, hold the same steady 2500 rpm and watch the downstream sensor voltage. Connect scan tool on the OBD port. Engine and catalyst warm, steady 2500 rpm. Expect downstream voltage holds near steady instead of switching like the upstream sensor. If yes, the catalyst is doing its job. If no, the downstream sensor mirrors the upstream switching, so the catalyst is degraded.",
+]
+`;
