@@ -1,9 +1,10 @@
 import { Container } from 'inversify';
 import { Pool } from 'pg';
-import type { ICaseRepository, LedgerHasher } from '@lemonade/core';
+import type { ICaseRepository, IFixCountStore, LedgerHasher } from '@lemonade/core';
 import type { IConfigProvider } from '../interfaces/IConfigProvider';
 import { TYPES } from './types';
 import { PostgresCaseRepository } from '../repositories/PostgresCaseRepository';
+import { PostgresFixCountStore } from '../repositories/PostgresFixCountStore';
 import { NodeCryptoLedgerHasher } from '../crypto/NodeCryptoLedgerHasher';
 
 /**
@@ -30,4 +31,7 @@ export function bindCaseLedger(container: Container): void {
         .inSingletonScope();
     container.bind<LedgerHasher>(TYPES.LedgerHasher).to(NodeCryptoLedgerHasher).inSingletonScope();
     container.bind<ICaseRepository>(TYPES.CaseRepo).to(PostgresCaseRepository).inSingletonScope();
+    // Field-fix priors (LM-33) live in the same Postgres database as the
+    // ledger — LM-01 chose it partly for these counts.
+    container.bind<IFixCountStore>(TYPES.FixCountStore).to(PostgresFixCountStore).inSingletonScope();
 }

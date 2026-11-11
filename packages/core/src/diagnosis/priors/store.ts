@@ -42,11 +42,7 @@ export function fixCountMatches(count: FixCount, facts: CaseFacts): boolean {
 }
 
 /** Groups matching counts by hypothesis and smooths them into ranked priors. Pure: shared with the Postgres store. */
-export function priorFromCounts(
-    counts: ReadonlyArray<FixCount>,
-    facts: CaseFacts,
-    alpha: number,
-): PriorQueryResult {
+export function priorFromCounts(counts: ReadonlyArray<FixCount>, facts: CaseFacts, alpha: number): PriorQueryResult {
     const grouped = new Map<string, { observationCount: number; sourceCounts: Record<string, number> }>();
     let totalObservations = 0;
     for (const count of counts) {
@@ -125,9 +121,7 @@ export function renderPriorHypotheses(result: PriorQueryResult): string {
         return 'No field-fix priors recorded for this vehicle and codes.';
     }
     const lines = result.hypotheses.map((hypothesis: PriorHypothesis) => {
-        const provenance = hypothesis.sources
-            .map((source) => `${source.source} ${source.observationCount}`)
-            .join(', ');
+        const provenance = hypothesis.sources.map((source) => `${source.source} ${source.observationCount}`).join(', ');
         return `- ${hypothesis.hypothesis}: n=${hypothesis.n}, share=${hypothesis.q.toFixed(2)}, prior=${hypothesis.pi.toFixed(2)} [${provenance}]`;
     });
     return [`Field-fix priors (${result.totalObservations} observations):`, ...lines].join('\n');

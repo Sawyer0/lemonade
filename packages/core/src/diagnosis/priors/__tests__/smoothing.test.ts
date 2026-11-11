@@ -11,7 +11,7 @@ describe('computePriorHypotheses', () => {
             1,
         );
         expect(hypotheses).toHaveLength(2);
-        const [top, second] = hypotheses as [typeof hypotheses[0], typeof hypotheses[0]];
+        const [top, second] = hypotheses as [(typeof hypotheses)[0], (typeof hypotheses)[0]];
         expect(top?.hypothesis).toBe('catalytic converter');
         expect(top?.n).toBe(9);
         expect(top?.q).toBeCloseTo(9 / 13, 10);

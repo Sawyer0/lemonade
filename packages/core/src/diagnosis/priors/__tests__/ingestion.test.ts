@@ -79,7 +79,8 @@ describe('parseNhtsaRecall', () => {
         const result = parseNhtsaRecall({
             ReportReceivedDate: '06/03/2019',
             Component: 'AIR BAGS:FRONTAL:DRIVER SIDE:INFLATOR MODULE',
-            Summary: 'The affected vehicles received a replacement driver air bag inflator as part of a previous Takata recall.',
+            Summary:
+                'The affected vehicles received a replacement driver air bag inflator as part of a previous Takata recall.',
             Consequence: 'An inflator could rupture.',
             Remedy: 'Dealers will replace the inflator.',
             Notes: '',
@@ -181,7 +182,11 @@ describe('ledgerOutcomeToFixCount', () => {
 
     it('skips a non-outcome entry', () => {
         const entry = outcomeEntry(true);
-        const ingested = ledgerOutcomeToFixCount({ ...entry, type: 'observation' } as LedgerEntry, civicFacts, validation);
+        const ingested = ledgerOutcomeToFixCount(
+            { ...entry, type: 'observation' } as LedgerEntry,
+            civicFacts,
+            validation,
+        );
         expect(ingested.ok).toBe(false);
     });
 });

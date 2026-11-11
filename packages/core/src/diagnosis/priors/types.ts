@@ -32,13 +32,7 @@ export type PriorSource = z.infer<typeof PriorSourceSchema>;
 export const MileageBandSchema = z.enum(['0-30k', '30-60k', '60-100k', '100-150k', '150k+']);
 export type MileageBand = z.infer<typeof MileageBandSchema>;
 
-export const MILEAGE_BANDS: ReadonlyArray<MileageBand> = [
-    '0-30k',
-    '30-60k',
-    '60-100k',
-    '100-150k',
-    '150k+',
-];
+export const MILEAGE_BANDS: ReadonlyArray<MileageBand> = ['0-30k', '30-60k', '60-100k', '100-150k', '150k+'];
 
 /** Maps an odometer reading in miles to its band. Throws on a negative or non-finite reading. */
 export function mileageBandFor(miles: number): MileageBand {

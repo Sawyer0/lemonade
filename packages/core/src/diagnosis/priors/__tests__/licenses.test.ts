@@ -29,9 +29,7 @@ describe('source licenses', () => {
         expect(license.licenseStatus).toBe('research-use-only');
         expect(license.approvedForProduction).toBe(false);
         expect(license.license).toContain('No dataset license file');
-        expect(() => requireProductionLicense('autorepairbench')).toThrowError(
-            'not approved for production priors',
-        );
+        expect(() => requireProductionLicense('autorepairbench')).toThrowError('not approved for production priors');
     });
 
     it('approves shop-owned sources for production within the owning shop', () => {

@@ -3,12 +3,9 @@ import { causeForNhtsaComponent, nhtsaComponentsMatch, parseNhtsaComponent } fro
 
 describe('parseNhtsaComponent', () => {
     it('splits a component path into uppercased segments', () => {
-        expect(parseNhtsaComponent('ENGINE AND ENGINE COOLING:EXHAUST SYSTEM:EMISSION CONTROL:CATALYTIC CONVERTOR')).toEqual([
-            'ENGINE AND ENGINE COOLING',
-            'EXHAUST SYSTEM',
-            'EMISSION CONTROL',
-            'CATALYTIC CONVERTOR',
-        ]);
+        expect(
+            parseNhtsaComponent('ENGINE AND ENGINE COOLING:EXHAUST SYSTEM:EMISSION CONTROL:CATALYTIC CONVERTOR'),
+        ).toEqual(['ENGINE AND ENGINE COOLING', 'EXHAUST SYSTEM', 'EMISSION CONTROL', 'CATALYTIC CONVERTOR']);
     });
 
     it('throws on an empty component', () => {
@@ -64,9 +61,7 @@ describe('nhtsaComponentsMatch', () => {
 describe('causeForNhtsaComponent', () => {
     it('maps the catalytic-convertor leaf to the catalytic converter', () => {
         expect(
-            causeForNhtsaComponent(
-                'ENGINE AND ENGINE COOLING:EXHAUST SYSTEM:EMISSION CONTROL:CATALYTIC CONVERTOR',
-            ),
+            causeForNhtsaComponent('ENGINE AND ENGINE COOLING:EXHAUST SYSTEM:EMISSION CONTROL:CATALYTIC CONVERTOR'),
         ).toBe('catalytic converter');
     });
 

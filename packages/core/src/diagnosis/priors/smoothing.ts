@@ -24,10 +24,7 @@ export interface HypothesisCount {
  * Output is sorted by pi descending, then n descending, then hypothesis
  * ascending, so ties are deterministic.
  */
-export function computePriorHypotheses(
-    counts: ReadonlyArray<HypothesisCount>,
-    alpha: number,
-): PriorHypothesis[] {
+export function computePriorHypotheses(counts: ReadonlyArray<HypothesisCount>, alpha: number): PriorHypothesis[] {
     if (!Number.isFinite(alpha) || alpha <= 0) {
         throw new AppError(ErrorCode.VALIDATION_ERROR, 'Smoothing alpha must be a positive number');
     }

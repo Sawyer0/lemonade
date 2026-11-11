@@ -34,6 +34,7 @@ export const TYPES = {
     BillingRepository: Symbol.for('BillingRepository'),
     SessionRepository: Symbol.for('SessionRepo'), // Alias for consistency
     CaseRepo: Symbol.for('CaseRepo'),
+    FixCountStore: Symbol.for('FixCountStore'),
     PostgresPool: Symbol.for('PostgresPool'),
     LedgerHasher: Symbol.for('LedgerHasher'),
 };

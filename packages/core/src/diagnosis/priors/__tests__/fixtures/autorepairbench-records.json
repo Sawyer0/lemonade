@@ -1,1 +1,21 @@
-[{"input":"ECUID: 0087, ECU_Variant: lrr_60, DTC: 5D0C, Trigger: A fault in the control unit was detected., TimeCondition: 5 s","output":{"FaultDescription":"A fault in the control unit was detected.","RepairMeasures":"Replace the catalytic converter and clear the fault memory."}},{"input":"ECUID: 0123, ECU_Variant: dme_86, DTC: 2C9E, Trigger: Oxygen sensor signal implausible., TimeCondition: 10 s","output":{"FaultDescription":"Oxygen sensor signal implausible.","RepairMeasures":"Replace the O2 sensor."}},{"input":"ECUID: 0456, ECU_Variant: dme_86, Trigger: No DTC in this input.","output":{"FaultDescription":"No code present.","RepairMeasures":"Replace the catalytic converter."}},{"input":"ECUID: 0789, ECU_Variant: dme_86, DTC: 2FAB, Trigger: Unknown fault.","output":{"FaultDescription":"Unknown fault.","RepairMeasures":"Inspect the vehicle and advise the customer."}}]
+[
+  {
+    "input": "ECUID: 0087, ECU_Variant: lrr_60, DTC: 5D0C, Trigger: A fault in the control unit was detected., TimeCondition: 5 s",
+    "output": {
+      "FaultDescription": "A fault in the control unit was detected.",
+      "RepairMeasures": "Replace the catalytic converter and clear the fault memory."
+    }
+  },
+  {
+    "input": "ECUID: 0123, ECU_Variant: dme_86, DTC: 2C9E, Trigger: Oxygen sensor signal implausible., TimeCondition: 10 s",
+    "output": { "FaultDescription": "Oxygen sensor signal implausible.", "RepairMeasures": "Replace the O2 sensor." }
+  },
+  {
+    "input": "ECUID: 0456, ECU_Variant: dme_86, Trigger: No DTC in this input.",
+    "output": { "FaultDescription": "No code present.", "RepairMeasures": "Replace the catalytic converter." }
+  },
+  {
+    "input": "ECUID: 0789, ECU_Variant: dme_86, DTC: 2FAB, Trigger: Unknown fault.",
+    "output": { "FaultDescription": "Unknown fault.", "RepairMeasures": "Inspect the vehicle and advise the customer." }
+  }
+]
