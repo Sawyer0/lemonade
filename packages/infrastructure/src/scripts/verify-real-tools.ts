@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import path from 'path';
-import { GoogleSearchService } from '../external/GoogleSearchService';
+import { TavilySearchService } from '../external/TavilySearchService';
 import { NHTSAService } from '../external/NHTSAService';
 import { ILogger, IBillingService } from '@lemonade/core';
 import { EnvConfigProvider } from '../config/EnvConfigProvider';
@@ -32,14 +32,13 @@ async function main() {
     // 1. Config
     const config = new EnvConfigProvider();
     console.log('✅ Config Loaded');
-    console.log('   GOOGLE_SEARCH_CX:', config.get('GOOGLE_SEARCH_CX') ? 'FOUND' : 'MISSING');
-    console.log('   GOOGLE_SEARCH_API_KEY:', config.get('GOOGLE_SEARCH_API_KEY') ? '***FOUND***' : 'MISSING');
+    console.log('   TAVILY_API_KEY:', config.get('TAVILY_API_KEY') ? '***FOUND***' : 'MISSING');
 
-    // 2. Google Search
-    console.log('\n🔎 Testing Google Search Service...');
+    // 2. Tavily Search
+    console.log('\n🔎 Testing Tavily Search Service...');
     try {
-        const googleService = new GoogleSearchService(logger, mockBilling, config);
-        const searchResults = await googleService.search({
+        const tavilyService = new TavilySearchService(logger, mockBilling, config);
+        const searchResults = await tavilyService.search({
             query: '2020 Ford F-150 brake squeak TSB',
             limit: 3,
             userId: 'test-user',
@@ -50,9 +49,9 @@ async function main() {
         if (searchResults.results.length > 0) {
             console.log(`   Top Result: ${searchResults.results[0].title}`);
             console.log(`   Link: ${searchResults.results[0].link}`);
-            console.log('✅ Google Search Verification: PASSED');
+            console.log('✅ Tavily Search Verification: PASSED');
         } else {
-            console.error('❌ Google Search Verification: FAILED (No results)');
+            console.error('❌ Tavily Search Verification: FAILED (No results)');
         }
     } catch (e) {
         console.error('❌ Google Search Verification: ERROR', e);

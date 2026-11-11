@@ -39,7 +39,7 @@ import {
     GeminiCoreAdapter,
     Logger,
     BillingFirestoreRepository,
-    GoogleSearchService,
+    TavilySearchService,
     InMemoryResponseCache,
     BillingService,
     EnvConfigProvider,
@@ -114,7 +114,7 @@ container.bind<IBillingRepository>(TYPES.BillingRepository).to(BillingFirestoreR
 // Chat, System 1 safety and the media model use Vertex AI by default;
 // LLM_PROVIDER=groq switches them to Groq (GROQ_API_KEY required).
 bindAiProviders(container);
-container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(GoogleSearchService).inSingletonScope();
+container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(TavilySearchService).inSingletonScope();
 container.bind<IMemoryService>(TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
 container.bind<FunctionCallService>(TYPES.FunctionCallService).to(FunctionCallService).inSingletonScope();
 

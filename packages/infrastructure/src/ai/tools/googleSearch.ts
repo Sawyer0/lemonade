@@ -3,7 +3,7 @@ import { FunctionDeclaration, SchemaType } from '@google-cloud/vertexai';
 export const GOOGLE_SEARCH_TOOL: FunctionDeclaration = {
     name: 'google_search',
     description:
-        'Performs a Google Search to find real-world information, technical specs, or verify facts. Use this when you do not know the answer or need external confirmation.',
+        'Performs a web search to find real-world information, technical specs, or verify facts. Use this when you do not know the answer or need external confirmation.',
     parameters: {
         type: SchemaType.OBJECT,
         properties: {

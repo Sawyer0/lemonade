@@ -26,7 +26,7 @@ import {
     FirestoreVehicleRepository,
     FunctionCallService,
     GeminiCoreAdapter,
-    GoogleSearchService,
+    TavilySearchService,
     InMemoryResponseCache,
     Logger,
     NHTSAService,
@@ -52,7 +52,7 @@ export function createContainer(): Container {
     container.bind<ILogger>(TYPES.Logger).to(Logger).inSingletonScope();
     container.bind<GeminiCoreAdapter>(INFRA_TYPES.GeminiCoreAdapter).to(GeminiCoreAdapter).inSingletonScope();
     container.bind<FunctionCallService>(INFRA_TYPES.FunctionCallService).to(FunctionCallService).inSingletonScope();
-    container.bind<IGoogleSearchService>(INFRA_TYPES.GoogleSearchService).to(GoogleSearchService).inSingletonScope();
+    container.bind<IGoogleSearchService>(INFRA_TYPES.GoogleSearchService).to(TavilySearchService).inSingletonScope();
     container.bind<IMemoryService>(INFRA_TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
     container.bind<IResponseCache>(INFRA_TYPES.ResponseCache).toConstantValue(new InMemoryResponseCache());
 

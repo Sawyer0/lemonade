@@ -23,7 +23,7 @@ import { TYPES } from './types';
 // Implementations
 import { MechanicReasoningService } from '../services/MechanicReasoningService';
 import { FirestoreSessionRepository } from '../repositories/FirestoreSessionRepository';
-import { GoogleSearchService } from '../external/GoogleSearchService';
+import { TavilySearchService } from '../external/TavilySearchService';
 import { SupermemoryService } from '../external/SupermemoryService';
 import { ReactiveSafetyService } from '../services/ReactiveSafetyService';
 import { SafetyMonitor } from '../ai/SafetyMonitor';
@@ -73,7 +73,7 @@ export function createContainer(): Container {
     // Case ledger (Postgres). Shared bindings — see caseLedgerBindings.ts.
     bindCaseLedger(container);
     container.bind<IUserRepository>(TYPES.UserRepo).to(FirestoreUserRepository).inSingletonScope();
-    container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(GoogleSearchService).inSingletonScope();
+    container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(TavilySearchService).inSingletonScope();
     container.bind<IMemoryService>(TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
     container.bind<INHTSAService>(TYPES.NHTSAService).to(NHTSAService).inSingletonScope();
 

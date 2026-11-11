@@ -13,6 +13,10 @@ export const SearchResultItemSchema = z.object({
     snippet: z.string(),
     source: z.string().optional(),
     date: z.string().optional(),
+    // Extracted page content (e.g. the full text of a TSB or recall page),
+    // when the search provider returns it. Kept separate from `snippet` so
+    // the mechanic can read the page, not just its summary.
+    content: z.string().optional(),
 });
 
 export const SearchResponseSchema = z.object({
