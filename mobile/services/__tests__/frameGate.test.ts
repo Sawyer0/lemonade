@@ -1,4 +1,11 @@
-import { FrameGate, frameDifference, frameSharpness, toGrayscale, type FrameCandidate } from '../frameGate';
+import {
+    DEFAULT_FRAME_GATE_CONFIG,
+    FrameGate,
+    frameDifference,
+    frameSharpness,
+    toGrayscale,
+    type FrameCandidate,
+} from '../frameGate';
 
 /** An 8x8 flat gray frame: sharpness 0, identical to itself. */
 const FLAT = new Uint8Array(64).fill(128);
@@ -94,13 +101,20 @@ describe('FrameGate', () => {
         expect(gate.evaluate(candidate({ id: 'f4', capturedAt: 6000 }), 6000).send).toBe(true);
     });
 
-    it('lets an explicit reason jump the pacing, but never the 1 fps cap', () => {
+    it('lets a risky detection jump the pacing, but never the 1 fps cap', () => {
+        const gate = new FrameGate();
+        const risky = { detections: [detection(0.9, true)] };
+        expect(gate.evaluate(candidate({ capturedAt: 1000 }), 1000).send).toBe(true);
+        expect(gate.evaluate(candidate({ id: 'f2', capturedAt: 1500, ...risky }), 1500).reason).toBe('too soon');
+        expect(gate.evaluate(candidate({ id: 'f3', capturedAt: 3000, ...risky }), 3000).send).toBe(true);
+    });
+
+    it('does not let a routine reason jump the pacing', () => {
         const gate = new FrameGate();
         expect(gate.evaluate(candidate({ capturedAt: 1000 }), 1000).send).toBe(true);
-        expect(gate.evaluate(candidate({ id: 'f2', capturedAt: 1500, reason: 'Agent Request' }), 1500).reason).toBe(
-            'too soon',
+        expect(gate.evaluate(candidate({ id: 'f2', capturedAt: 3000, reason: 'Agent Request' }), 3000).reason).toBe(
+            'pacing',
         );
-        expect(gate.evaluate(candidate({ id: 'f3', capturedAt: 3000, reason: 'Agent Request' }), 3000).send).toBe(true);
     });
 
     it('enforces the 10-minute budget even when urgent frames bypass pacing', () => {
@@ -108,15 +122,25 @@ describe('FrameGate', () => {
         for (let index = 0; index < 3; index++) {
             expect(
                 gate.evaluate(
-                    candidate({ id: `f${index}`, capturedAt: 1000 + index * 1000, reason: 'urgent' }),
+                    candidate({
+                        id: `f${index}`,
+                        capturedAt: 1000 + index * 1000,
+                        detections: [detection(0.9, true)],
+                    }),
                     1000 + index * 1000,
                 ).send,
             ).toBe(true);
         }
-        expect(gate.evaluate(candidate({ id: 'f3', capturedAt: 4000, reason: 'urgent' }), 4000).reason).toBe('budget');
+        expect(
+            gate.evaluate(candidate({ id: 'f3', capturedAt: 4000, detections: [detection(0.9, true)] }), 4000).reason,
+        ).toBe('budget');
         expect(gate.framesSentInLast10Minutes(4000)).toBe(3);
         // The budget window slides: 10 minutes after the last send, none count.
         expect(gate.framesSentInLast10Minutes(3000 + 10 * 60 * 1000)).toBe(0);
+    });
+
+    it('caps the 10-minute budget below 150 frames', () => {
+        expect(DEFAULT_FRAME_GATE_CONFIG.maxTalkerFramesPer10Minutes).toBeLessThan(150);
     });
 
     it('sends fewer than 150 frames to the talker in a 10-minute glasses session', () => {

@@ -33,7 +33,8 @@ export interface FrameCandidate {
     /**
      * An explicit reason the frame is wanted (agent burst request, user
      * speaking, proactive escalation). Makes the frame relevant without a
-     * detection and lets it jump the 5 s pacing, never the 1 fps cap.
+     * detection. Pacing still applies: only a risky detection jumps the
+     * 5 s cadence, and nothing jumps the 1 fps cap.
      */
     reason?: string;
 }
@@ -52,7 +53,7 @@ export interface FrameGateConfig {
     minTalkerIntervalMs: number;
     /** Hard cap: the talker never gets more than one frame a second. */
     minFrameIntervalMs: number;
-    /** Done-when budget: fewer than this many talker frames per 10 minutes. */
+    /** Done-when budget: fewer than 150 talker frames per 10 minutes. */
     maxTalkerFramesPer10Minutes: number;
     /** Minimum Laplacian variance to count as sharp. */
     minSharpness: number;
@@ -67,7 +68,8 @@ export interface FrameGateConfig {
 export const DEFAULT_FRAME_GATE_CONFIG: FrameGateConfig = {
     minTalkerIntervalMs: 5000,
     minFrameIntervalMs: 1000,
-    maxTalkerFramesPer10Minutes: 150,
+    // 149, not 150: the budget is fewer than 150 frames per 10 minutes.
+    maxTalkerFramesPer10Minutes: 149,
     minSharpness: 100,
     maxMotion: 12,
     minChange: 8,
@@ -158,7 +160,9 @@ export class FrameGate {
             resolution: 'low',
             reason,
         });
-        const urgent = candidate.reason !== undefined || candidate.detections.some((detection) => detection.eval.risk);
+        // Only a risky detection jumps the pacing; a routine reason (user
+        // talking, agent burst request) is relevant, not urgent.
+        const urgent = candidate.detections.some((detection) => detection.eval.risk);
 
         if (this.framesSentInLast10Minutes(now) >= this.config.maxTalkerFramesPer10Minutes) {
             return held('budget');
