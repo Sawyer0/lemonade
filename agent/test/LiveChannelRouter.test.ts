@@ -9,8 +9,9 @@ function setup() {
     const bursts = { analyze: vi.fn().mockResolvedValue(undefined) } as unknown as BurstAnalyzer;
     const responder = fakeResponder();
     const logger = fakeLogger();
-    const router = new LiveChannelRouter(session, conversation, bursts, responder, logger);
-    return { router, conversation, bursts, responder, logger };
+    const jobs = { submitJob: vi.fn(), trackJob: vi.fn() };
+    const router = new LiveChannelRouter(session, conversation, bursts, responder, logger, jobs);
+    return { router, conversation, bursts, responder, logger, jobs };
 }
 
 describe('LiveChannelRouter', () => {
@@ -45,11 +46,11 @@ describe('LiveChannelRouter', () => {
         expect(conversation.say).toHaveBeenCalledWith(expect.stringContaining('Brake Rotor'));
     });
 
-    it('hands valid bursts to the analyzer with the session responder', async () => {
-        const { router, bursts, responder } = setup();
+    it('hands valid bursts to the analyzer with the session responder and job port', async () => {
+        const { router, bursts, responder, jobs } = setup();
         const burst = { frames: ['f'], metadata: { reason: 'r', sessionId: 's', timestamp: 1 } };
         await router.handle(encodeLiveMessage(burst), 'user-1', LiveChannelTopic.VisualBurstResponse);
-        expect(bursts.analyze).toHaveBeenCalledWith(burst, session, responder);
+        expect(bursts.analyze).toHaveBeenCalledWith(burst, session, responder, jobs);
     });
 
     it('tells the model about device tool results', async () => {

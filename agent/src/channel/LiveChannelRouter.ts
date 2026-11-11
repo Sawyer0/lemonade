@@ -7,7 +7,7 @@ import {
     decodeLiveMessage,
     type ILogger,
 } from '@lemonade/core';
-import type { BurstAnalyzer, BurstResponder } from '../diagnosis/BurstAnalyzer';
+import type { BurstAnalyzer, BurstResponder, DiagnosticJobSubmission } from '../diagnosis/BurstAnalyzer';
 import type { SessionContext } from '../diagnosis/sessionContext';
 
 /** The voice conversation, as the router needs it. Implemented over the LiveKit AgentSession. */
@@ -36,6 +36,7 @@ export class LiveChannelRouter {
         private readonly bursts: Pick<BurstAnalyzer, 'analyze'>,
         private readonly responder: BurstResponder,
         private readonly logger: ILogger,
+        private readonly jobs: DiagnosticJobSubmission,
     ) {}
 
     async handle(payload: Uint8Array, senderIdentity: string | undefined, topic: string | undefined): Promise<void> {
@@ -82,7 +83,7 @@ export class LiveChannelRouter {
         if (!burst) return this.drop(LiveChannelTopic.VisualBurstResponse);
 
         this.logger.info('Analyzing visual burst', { frames: burst.frames.length, reason: burst.metadata.reason });
-        await this.bursts.analyze(burst, this.session, this.responder);
+        await this.bursts.analyze(burst, this.session, this.responder, this.jobs);
     }
 
     private onToolResponse(payload: Uint8Array): void {

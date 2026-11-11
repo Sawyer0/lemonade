@@ -22,6 +22,14 @@ export interface AgentEnv {
     CARTESIA_API_KEY?: string;
     /** Cartesia voice id for the cascade provider. Defaults to the plugin's built-in voice. */
     CARTESIA_VOICE_ID?: string;
+    /** Base URL of the Lemonade app hosting the diagnostic job service (LM-14). Defaults to local dev. */
+    JOBS_BASE_URL: string;
+    /**
+     * API key the agent sends the job service (X-API-KEY). Defaults to the
+     * app's own dev default (see src/infrastructure/config.ts); set
+     * MAIN_APP_API_KEY on both sides in production.
+     */
+    MAIN_APP_API_KEY: string;
 }
 
 type Source = Record<string, string | undefined>;
@@ -49,6 +57,8 @@ export function loadEnv(source: Source = process.env): AgentEnv {
         DEEPGRAM_API_KEY: source.DEEPGRAM_API_KEY || undefined,
         CARTESIA_API_KEY: source.CARTESIA_API_KEY || undefined,
         CARTESIA_VOICE_ID: source.CARTESIA_VOICE_ID || undefined,
+        JOBS_BASE_URL: source.JOBS_BASE_URL || 'http://localhost:3000',
+        MAIN_APP_API_KEY: source.MAIN_APP_API_KEY || 'super-secret-master-app-key',
     };
 
     // The provider's keys are needed before any room job: sessionParts() is
