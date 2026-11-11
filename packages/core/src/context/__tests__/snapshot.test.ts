@@ -51,9 +51,14 @@ describe('renderCaseSnapshot', () => {
         const entries: LedgerEntry[] = [];
         const original = appendToChain(entries, 'observation', { text: 'rough idle at cold start' });
         entries.push(original);
-        const correction = appendToChain(entries, 'correction', { text: 'idle is smooth, the shake is a mount' }, {
-            correctsEntryId: original.id,
-        });
+        const correction = appendToChain(
+            entries,
+            'correction',
+            { text: 'idle is smooth, the shake is a mount' },
+            {
+                correctsEntryId: original.id,
+            },
+        );
         entries.push(correction);
         const snapshot = renderCaseSnapshot({ ...caseRecord, id: original.caseId }, entries);
         expect(snapshot).toContain('rough idle at cold start');

@@ -90,7 +90,9 @@ describe('procedure skills on disk', () => {
     }
 
     it('catalog matches the SKILL.md files one to one', () => {
-        const files = readdirSync(SKILLS_DIR).filter((file) => file.endsWith('.md')).sort();
+        const files = readdirSync(SKILLS_DIR)
+            .filter((file) => file.endsWith('.md'))
+            .sort();
         const catalogNames = PROCEDURE_SKILLS_CATALOG.map((entry) => entry.fileName).sort();
         expect(files).toEqual(catalogNames);
         for (const entry of PROCEDURE_SKILLS_CATALOG) {

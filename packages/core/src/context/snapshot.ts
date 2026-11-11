@@ -1,5 +1,7 @@
 import { canonicalJson, type Case, type LedgerEntry } from '../types/case';
 
+type CorrectionEntry = Extract<LedgerEntry, { type: 'correction' }>;
+
 /**
  * Case-facts snapshot (LM-21). Renders every ledger fact into one compact,
  * deterministic text block. The snapshot is lossless by construction: every
@@ -102,7 +104,7 @@ function renderPayloadLines(entry: LedgerEntry): string[] {
  */
 export function renderCaseSnapshot(caseRecord: Case, entries: ReadonlyArray<LedgerEntry>): string {
     const ordered = [...entries].sort((a, b) => a.sequence - b.sequence);
-    const correctionByEntryId = new Map<string, LedgerEntry>();
+    const correctionByEntryId = new Map<string, CorrectionEntry>();
     for (const entry of ordered) {
         if (entry.type === 'correction' && entry.correctsEntryId !== undefined) {
             correctionByEntryId.set(entry.correctsEntryId, entry);

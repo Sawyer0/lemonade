@@ -128,7 +128,9 @@ export function assembleModelCall(input: AssembleModelCallInput): AssembledModel
     const capped = capToolResults(input.toolResults, input.windowTokens);
     const turnLimit = SHARED_CONFIG.CONTEXT.RECENT_TURN_LIMIT;
     const turns =
-        input.recentTurns.length > turnLimit ? input.recentTurns.slice(input.recentTurns.length - turnLimit) : input.recentTurns;
+        input.recentTurns.length > turnLimit
+            ? input.recentTurns.slice(input.recentTurns.length - turnLimit)
+            : input.recentTurns;
     return {
         systemPrompt: buildFixedSystemPrompt(),
         snapshot,
@@ -148,7 +150,14 @@ export function assembleModelCall(input: AssembleModelCallInput): AssembledModel
  * verbatim, never reworded or compressed.
  */
 export function renderModelCallText(assembled: AssembledModelCall): string {
-    const sections: string[] = [assembled.systemPrompt, '', 'CASE FACTS (from the evidence ledger):', assembled.snapshot, '', assembled.skillsCatalog];
+    const sections: string[] = [
+        assembled.systemPrompt,
+        '',
+        'CASE FACTS (from the evidence ledger):',
+        assembled.snapshot,
+        '',
+        assembled.skillsCatalog,
+    ];
     if (assembled.loadedSkill !== null) {
         sections.push('', `LOADED PROCEDURE: ${assembled.loadedSkill.name}`, assembled.loadedSkill.body);
     }

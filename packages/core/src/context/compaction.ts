@@ -34,7 +34,8 @@ const QUOTED_TURN_MAX_CHARS = 500;
 const DROPPED_TOOL_EXCERPT_MAX_CHARS = 240;
 
 function quotedTurnExcerpt(turn: ContextTurn): string {
-    const text = turn.content.length > QUOTED_TURN_MAX_CHARS ? `${turn.content.slice(0, QUOTED_TURN_MAX_CHARS)}…` : turn.content;
+    const text =
+        turn.content.length > QUOTED_TURN_MAX_CHARS ? `${turn.content.slice(0, QUOTED_TURN_MAX_CHARS)}…` : turn.content;
     return `${turn.role}: "${text}"`;
 }
 

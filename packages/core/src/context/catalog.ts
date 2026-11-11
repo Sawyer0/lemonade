@@ -51,10 +51,7 @@ export function findProcedureSkill(testName: string): ProcedureSkillEntry | null
  */
 export function renderSkillsCatalog(catalog: ReadonlyArray<ProcedureSkillEntry>): string {
     const lines = catalog.map((entry) => `- ${entry.name}: ${entry.description}`);
-    return [
-        'PROCEDURE SKILLS (load the full procedure only when its test is chosen):',
-        ...lines,
-    ].join('\n');
+    return ['PROCEDURE SKILLS (load the full procedure only when its test is chosen):', ...lines].join('\n');
 }
 
 /**

@@ -16,11 +16,7 @@ describe('compactConversation', () => {
         expect(compacted.snapshot).toBe(snapshot);
         for (let index = 0; index < 200; index++) {
             const marker =
-                index % 9 === 2
-                    ? `observation-fact-${index}`
-                    : index % 9 === 7
-                      ? `outcome-fact-${index}`
-                      : null;
+                index % 9 === 2 ? `observation-fact-${index}` : index % 9 === 7 ? `outcome-fact-${index}` : null;
             if (marker !== null) {
                 expect(compacted.snapshot).toContain(marker);
             }
@@ -62,9 +58,7 @@ describe('compactConversation', () => {
 
 describe('buildHandoffSummary', () => {
     it('caps the summary at the configured length', () => {
-        const summary = buildHandoffSummary(buildTurns(50), [
-            { name: 'dump', output: 'x'.repeat(5000) },
-        ]);
+        const summary = buildHandoffSummary(buildTurns(50), [{ name: 'dump', output: 'x'.repeat(5000) }]);
         expect(summary.length).toBeLessThanOrEqual(SHARED_CONFIG.CONTEXT.HANDOFF_SUMMARY_MAX_CHARS + 1);
         expect(summary).toContain('50 earlier turns compacted');
     });

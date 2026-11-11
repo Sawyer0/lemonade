@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-    buildTalkerTurns,
-    isMilestoneEvent,
-    needsSnapshotReinjection,
-    snapshotTurn,
-} from '../reinjection';
+import { buildTalkerTurns, isMilestoneEvent, needsSnapshotReinjection, snapshotTurn } from '../reinjection';
 import { appendToChain, buildLedger } from './ledgerFixtures';
 import type { LedgerEntry } from '../../types/case';
 
