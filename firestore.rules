@@ -36,5 +36,95 @@ service cloud.firestore {
       // Allow read/update/delete if the existing document's userId matches the authenticated user
       allow read, update, delete: if isOwner(resource.data.userId);
     }
+
+    // Shops (LM-31): the shop holds the vehicle record. Membership lives in
+    // shops/{shopId}/members/{uid} with a `role` of 'owner' or 'tech'. A shop
+    // owner creates the shop document (ownerId must be their uid) and their
+    // own member document; only an owner may add other members.
+    function isShopMember(shopId) {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/shops/$(shopId)/members/$(request.auth.uid));
+    }
+
+    function isShopOwner(shopId) {
+      return isAuthenticated()
+        && get(/databases/$(database)/documents/shops/$(shopId)/members/$(request.auth.uid)).data.role == 'owner';
+    }
+
+    match /shops/{shopId} {
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow read: if isShopMember(shopId);
+      allow update: if isShopOwner(shopId);
+      // A shop document is never deleted; membership is removed instead.
+      allow delete: if false;
+
+      match /members/{memberId} {
+        allow read: if isShopMember(shopId);
+        // Bootstrap: the shop owner creates their own member document.
+        // After that, an owner may add any member; nobody else may.
+        allow create: if isAuthenticated()
+          && (
+            (request.auth.uid == memberId
+              && request.resource.data.role == 'owner'
+              && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid)
+            || isShopOwner(shopId)
+          );
+        // An owner may change another member's role, never their own:
+        // a sole owner demoting themself would lock the shop.
+        allow update: if isShopOwner(shopId) && memberId != request.auth.uid;
+        allow delete: if isShopOwner(shopId) && memberId != request.auth.uid;
+      }
+
+      // Vehicle records: one document per VIN, keyed by shop + VIN. The same
+      // VIN at another shop is a different document under another shop.
+      match /vehicleRecords/{vin} {
+        allow read: if isShopMember(shopId);
+        allow create, update: if isShopMember(shopId)
+          && request.resource.data.shopId == shopId
+          && request.resource.data.vin == vin;
+        // A vehicle record is never deleted; claims are superseded or retired instead.
+        allow delete: if false;
+      }
+
+      // Tech profiles: one document per tech, owned by the shop account.
+      // A tech writes only their own profile; the owner may write any of
+      // them (onboarding). The write policy itself (voice confirmations,
+      // case-close updates) lives in core and cannot be enforced here:
+      // the rules cannot read the ledger, so a member writing directly
+      // can still bypass it. The rules enforce shop scoping, not content.
+      match /techProfiles/{techId} {
+        allow read: if isShopMember(shopId);
+        allow create, update: if isShopMember(shopId)
+          && request.resource.data.shopId == shopId
+          && request.resource.data.techId == techId
+          && (request.auth.uid == techId || isShopOwner(shopId));
+        allow delete: if false;
+      }
+
+      // Shop settings: business settings set once by the owner on the web.
+      match /settings/{docId} {
+        allow read: if isShopMember(shopId);
+        allow create, update: if isShopOwner(shopId)
+          && request.resource.data.shopId == shopId;
+      }
+
+      // Playbook: entries are never deleted, only moved stale or archived.
+      match /playbook/{entryId} {
+        allow read: if isShopMember(shopId);
+        allow create, update: if isShopMember(shopId)
+          && request.resource.data.shopId == shopId
+          && request.resource.data.entryId == entryId;
+        allow delete: if false;
+      }
+
+      // Wiki: one page per vehicle family, built only from confirmed repairs.
+      match /wiki/{family} {
+        allow read: if isShopMember(shopId);
+        allow create, update: if isShopMember(shopId)
+          && request.resource.data.shopId == shopId
+          && request.resource.data.family == family;
+        allow delete: if false;
+      }
+    }
   }
 }

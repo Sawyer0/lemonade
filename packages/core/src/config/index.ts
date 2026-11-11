@@ -88,6 +88,16 @@ export const SHARED_CONFIG = {
         MAX_CHAT_HISTORY_TOKENS: 4000, // Roughly 10-15 messages depending on length
     },
 
+    // Memory scopes (LM-31): users configure nothing; memory fills itself from the work.
+    MEMORY: {
+        TECH_PROFILE_MAX_CHARS: 1500, // Tech profile injected at session start, frozen for the session
+        VEHICLE_SUMMARY_MAX_CHARS: 2000, // Vehicle record summary, always on; full ledger fetched on demand
+        PLAYBOOK_STALE_DAYS: 90, // Unused playbook entries go stale (not injected)
+        PLAYBOOK_ARCHIVE_DAYS: 180, // Stale entries are archived; never deleted, always recoverable
+        GLOBAL_PRIORS_ENABLED: false, // Global priors come later, behind this flag
+        REFLECTION_AUTHORITY: 'reflection_only', // Every nightly-review output is stamped with this
+    },
+
     THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
 
     // Google Cloud
