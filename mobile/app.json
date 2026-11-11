@@ -56,6 +56,9 @@
       [
         "expo-build-properties",
         {
+          "ios": {
+            "deploymentTarget": "15.1"
+          },
           "android": {
             "minSdkVersion": 29
           }
@@ -69,6 +72,7 @@
           "use_metal": true
         }
       ],
+      "./plugins/withIosModularHeaders",
       "./plugins/withMetaWearables"
     ],
     "metro": {
