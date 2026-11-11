@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { LedgerEntry } from '../../types/case';
 import { renderCaseSnapshot } from '../snapshot';
 import { appendToChain, buildCase, buildLedger } from './ledgerFixtures';
+import { appendGoldenLedgerEntry, buildGoldenCase } from '../../goal/__tests__/fixtures/goldenCase';
 
 describe('renderCaseSnapshot', () => {
     it('contains every ledger fact after 200 entries', () => {
@@ -79,6 +80,44 @@ describe('renderCaseSnapshot', () => {
         expect(snapshot).toContain('role: assistant');
         expect(snapshot).toContain('Check the brake pads first.');
         expect(snapshot).toContain('provider: "gemini"');
+    });
+
+    it('renders goal events with the outcome, version step, and status change', () => {
+        const { caseRecord, goal, entries } = buildGoldenCase();
+        const ledger = [...entries];
+        const amended = appendGoldenLedgerEntry(ledger, 'goal_amended', {
+            goalId: goal.goalId,
+            previousVersion: 1,
+            version: 2,
+            amendedByTechId: 'tech-123',
+            note: 'Symptom list corrected',
+        });
+        ledger.push(amended);
+        const retest = entries.find((entry) => entry.type === 'test_result');
+        if (retest === undefined) {
+            throw new Error('golden case has no re-test entry');
+        }
+        const met = appendGoldenLedgerEntry(ledger, 'criterion_met', {
+            goalId: goal.goalId,
+            criterionId: 'verify.retest',
+            entryId: retest.id,
+            entrySequence: retest.sequence,
+        });
+        ledger.push(met);
+        const changed = appendGoldenLedgerEntry(ledger, 'goal_status_changed', {
+            goalId: goal.goalId,
+            from: 'active',
+            to: 'verified_fix',
+            authority: 'code',
+            reason: 'all criteria met',
+        });
+        ledger.push(changed);
+        const snapshot = renderCaseSnapshot(caseRecord, ledger);
+        expect(snapshot).toContain('Root cause of misfire on cylinder 1 confirmed and repair verified');
+        expect(snapshot).toContain('verify.retest');
+        expect(snapshot).toContain('version: 1 -> 2');
+        expect(snapshot).toContain('status: active -> verified_fix');
+        expect(snapshot).toContain('authority: code');
     });
 
     it('renders an empty ledger as a header with no entries', () => {

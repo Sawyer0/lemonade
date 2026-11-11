@@ -105,6 +105,33 @@ function renderPayloadLines(entry: LedgerEntry): string[] {
                 `text: ${quoted(entry.payload.text)}`,
                 `provider: ${quoted(entry.payload.provider)}`,
             ];
+        case 'goal_set':
+            return [
+                `goal: ${quoted(entry.payload.goalId)}`,
+                `outcome: ${quoted(entry.payload.goal.outcome)}`,
+                `criteria: ${entry.payload.goal.criteria.map((criterion) => criterion.id).join(', ')}`,
+                `status: ${entry.payload.goal.status}`,
+            ];
+        case 'goal_amended':
+            return [
+                `goal: ${quoted(entry.payload.goalId)}`,
+                `version: ${entry.payload.previousVersion} -> ${entry.payload.version}`,
+                `amended by tech: ${quoted(entry.payload.amendedByTechId)}`,
+                `note: ${quoted(entry.payload.note)}`,
+            ];
+        case 'criterion_met':
+            return [
+                `goal: ${quoted(entry.payload.goalId)}`,
+                `criterion: ${quoted(entry.payload.criterionId)}`,
+                `satisfied by entry: ${quoted(entry.payload.entryId)} (#${entry.payload.entrySequence})`,
+            ];
+        case 'goal_status_changed':
+            return [
+                `goal: ${quoted(entry.payload.goalId)}`,
+                `status: ${entry.payload.from} -> ${entry.payload.to}`,
+                `authority: ${entry.payload.authority}`,
+                ...[optionalText('reason', entry.payload.reason)].filter((line): line is string => line !== null),
+            ];
     }
 }
 
