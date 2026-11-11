@@ -5,8 +5,8 @@ import type { ParseDtcResult } from '../../dtc/types';
 // --- DTC text (LM-38) ---
 // DTC descriptions come only from the generic-descriptions table already
 // in packages/core/src/dtc/descriptions.ts. The dtc-database SQLite
-// (Wal33D/dtc-database) is NOT vendored: its 28,220+ descriptions include
-// 9,415 generic SAE J2012 definitions, and J2012 text is copyrighted by
+// (Wal33D/dtc-database) is NOT vendored: its 18,805 description rows
+// (12,128 unique codes) include 9,415 generic SAE J2012 definitions, and J2012 text is copyrighted by
 // SAE, so an MIT license on the container does not license the text
 // inside it. A manufacturer-specific code, or a generic code with no
 // entry in the table, gets no description at all — never an invented one.
