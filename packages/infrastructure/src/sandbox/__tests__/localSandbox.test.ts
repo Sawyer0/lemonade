@@ -208,7 +208,6 @@ function sandboxDiaglibPath(): string {
 
 beforeAll(() => {
     if (!sandbox.available) {
-        // eslint-disable-next-line no-console
         console.log('[LocalSandbox] user namespaces unavailable here; sandbox tests skipped');
     }
 });

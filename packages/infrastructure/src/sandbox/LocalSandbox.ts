@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
+import type { SpawnOptions } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -28,6 +29,15 @@ export interface LocalSandboxOptions {
 /** Shell-quotes one argument: safe for paths the caller supplies. */
 function shellQuote(value: string): string {
     return `'${value.split("'").join(`'\\''`)}'`;
+}
+
+/** The host's NODE_ENV when it is a known value, else 'test'. */
+function nodeEnvForSandbox(): 'development' | 'production' | 'test' {
+    const nodeEnv = process.env.NODE_ENV;
+    if (nodeEnv === 'production' || nodeEnv === 'development' || nodeEnv === 'test') {
+        return nodeEnv;
+    }
+    return 'test';
 }
 
 /**
@@ -174,6 +184,26 @@ export class LocalSandbox implements ISandbox {
         timeoutMs: number,
     ): Promise<{ exitCode: number | null; stdout: string; stderr: string; timedOut: boolean }> {
         return new Promise((resolvePromise, rejectPromise) => {
+            // Typed as SpawnOptions so the spawn overload resolves to a plain
+            // ChildProcess instead of collapsing to never.
+            const options: SpawnOptions = {
+                detached: true,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                env: {
+                    PATH: '/usr/bin:/bin',
+                    PYTHONPATH: '/diaglib',
+                    PYTHONDONTWRITEBYTECODE: '1',
+                    PYTHONSAFEPATH: '1',
+                    PYTHONNOUSERSITE: '1',
+                    TMPDIR: '/work',
+                    HOME: '/work',
+                    LC_ALL: 'C.UTF-8',
+                    // Required by Next's ProcessEnv augmentation; the Python
+                    // child ignores it. The env stays minimal on purpose: no
+                    // host credentials leak into the sandbox.
+                    NODE_ENV: nodeEnvForSandbox(),
+                },
+            };
             const child = spawn(
                 this.unsharePath,
                 [
@@ -187,19 +217,7 @@ export class LocalSandbox implements ISandbox {
                     '-c',
                     this.setupScript(stagingRoot, workdir, scriptName),
                 ],
-                {
-                    detached: true,
-                    env: {
-                        PATH: '/usr/bin:/bin',
-                        PYTHONPATH: '/diaglib',
-                        PYTHONDONTWRITEBYTECODE: '1',
-                        PYTHONSAFEPATH: '1',
-                        PYTHONNOUSERSITE: '1',
-                        TMPDIR: '/work',
-                        HOME: '/work',
-                        LC_ALL: 'C.UTF-8',
-                    },
-                },
+                options,
             );
 
             let stdout = '';
