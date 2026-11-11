@@ -72,8 +72,8 @@ describe('FrameGate', () => {
 
     it('holds frames that did not change from the last sent frame', () => {
         const gate = new FrameGate();
-        expect(gate.evaluate(candidate({ capturedAt: 1000 })).send).toBe(true);
-        expect(gate.evaluate(candidate({ id: 'frame-2', capturedAt: 7000, changeFromLastSent: 0 })).reason).toBe(
+        expect(gate.evaluate(candidate({ capturedAt: 1000 }), 1000).send).toBe(true);
+        expect(gate.evaluate(candidate({ id: 'frame-2', capturedAt: 7000, changeFromLastSent: 0 }), 7000).reason).toBe(
             'unchanged',
         );
     });
@@ -88,31 +88,35 @@ describe('FrameGate', () => {
 
     it('paces talker frames to one every ~5 s, with a hard 1 fps cap', () => {
         const gate = new FrameGate();
-        expect(gate.evaluate(candidate({ capturedAt: 1000 })).send).toBe(true);
-        expect(gate.evaluate(candidate({ id: 'f2', capturedAt: 1500 })).reason).toBe('too soon');
-        expect(gate.evaluate(candidate({ id: 'f3', capturedAt: 3000 })).reason).toBe('pacing');
-        expect(gate.evaluate(candidate({ id: 'f4', capturedAt: 6000 })).send).toBe(true);
+        expect(gate.evaluate(candidate({ capturedAt: 1000 }), 1000).send).toBe(true);
+        expect(gate.evaluate(candidate({ id: 'f2', capturedAt: 1500 }), 1500).reason).toBe('too soon');
+        expect(gate.evaluate(candidate({ id: 'f3', capturedAt: 3000 }), 3000).reason).toBe('pacing');
+        expect(gate.evaluate(candidate({ id: 'f4', capturedAt: 6000 }), 6000).send).toBe(true);
     });
 
     it('lets an explicit reason jump the pacing, but never the 1 fps cap', () => {
         const gate = new FrameGate();
-        expect(gate.evaluate(candidate({ capturedAt: 1000 })).send).toBe(true);
-        expect(gate.evaluate(candidate({ id: 'f2', capturedAt: 1500, reason: 'Agent Request' })).reason).toBe(
+        expect(gate.evaluate(candidate({ capturedAt: 1000 }), 1000).send).toBe(true);
+        expect(gate.evaluate(candidate({ id: 'f2', capturedAt: 1500, reason: 'Agent Request' }), 1500).reason).toBe(
             'too soon',
         );
-        expect(gate.evaluate(candidate({ id: 'f3', capturedAt: 3000, reason: 'Agent Request' })).send).toBe(true);
+        expect(gate.evaluate(candidate({ id: 'f3', capturedAt: 3000, reason: 'Agent Request' }), 3000).send).toBe(true);
     });
 
     it('enforces the 10-minute budget even when urgent frames bypass pacing', () => {
         const gate = new FrameGate({ maxTalkerFramesPer10Minutes: 3 });
         for (let index = 0; index < 3; index++) {
-            expect(gate.evaluate(candidate({ id: `f${index}`, capturedAt: 1000 + index * 1000, reason: 'urgent' })).send)
-                .toBe(true);
+            expect(
+                gate.evaluate(
+                    candidate({ id: `f${index}`, capturedAt: 1000 + index * 1000, reason: 'urgent' }),
+                    1000 + index * 1000,
+                ).send,
+            ).toBe(true);
         }
-        expect(gate.evaluate(candidate({ id: 'f3', capturedAt: 4000, reason: 'urgent' })).reason).toBe('budget');
+        expect(gate.evaluate(candidate({ id: 'f3', capturedAt: 4000, reason: 'urgent' }), 4000).reason).toBe('budget');
         expect(gate.framesSentInLast10Minutes(4000)).toBe(3);
-        // The budget window slides: 10 minutes later the old sends no longer count.
-        expect(gate.framesSentInLast10Minutes(1000 + 10 * 60 * 1000)).toBe(0);
+        // The budget window slides: 10 minutes after the last send, none count.
+        expect(gate.framesSentInLast10Minutes(3000 + 10 * 60 * 1000)).toBe(0);
     });
 
     it('sends fewer than 150 frames to the talker in a 10-minute glasses session', () => {
@@ -122,7 +126,7 @@ describe('FrameGate', () => {
         // Glasses stream at ~7 fps for 10 minutes.
         for (let index = 0; index < 7 * 60 * 10; index++) {
             const now = Math.floor((index * 1000) / 7);
-            const decision = gate.evaluate(candidate({ id: `f${index}`, capturedAt: now }));
+            const decision = gate.evaluate(candidate({ id: `f${index}`, capturedAt: now }), now);
             if (decision.send) {
                 if (lastSentAt !== undefined) expect(now - lastSentAt).toBeGreaterThanOrEqual(1000);
                 lastSentAt = now;

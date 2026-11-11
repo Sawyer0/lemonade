@@ -74,7 +74,9 @@ describe('live channel protocol', () => {
             resolution: 'low' as const,
             still: 'false' as const,
             capturedAt: '1790000000000',
-            detections: JSON.stringify([{ id: { obj: 'Brake Rotor', cat: 'Braking' }, eval: { stat: 'NORMAL', risk: false, note: 'seen' } }]),
+            detections: JSON.stringify([
+                { id: { obj: 'Brake Rotor', cat: 'Braking' }, eval: { stat: 'NORMAL', risk: false, note: 'seen' } },
+            ]),
         };
         expect(decodeFrameStreamAttributes(encodeFrameStreamAttributes(attributes))).toEqual(attributes);
     });

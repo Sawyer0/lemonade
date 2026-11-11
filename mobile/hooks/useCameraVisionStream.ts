@@ -76,9 +76,7 @@ export function useCameraVisionStream({ sessionId }: UseCameraVisionStreamOption
                 const rgb = base64ToBytes(base64Data);
                 const grayscale = toGrayscale(rgb);
                 const sharpness = frameSharpness(grayscale, TRIAGE_FRAME_WIDTH, TRIAGE_FRAME_HEIGHT);
-                const motion = previousGrayscale.current
-                    ? frameDifference(grayscale, previousGrayscale.current)
-                    : 0;
+                const motion = previousGrayscale.current ? frameDifference(grayscale, previousGrayscale.current) : 0;
                 previousGrayscale.current = grayscale;
 
                 // Perform Local Inference

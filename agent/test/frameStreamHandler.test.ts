@@ -20,7 +20,13 @@ function attributes(overrides: Record<string, string> = {}) {
 
 function reader(chunks: Array<Uint8Array>, attrs: Record<string, string>, totalSize?: number): ByteStreamReader {
     return {
-        info: { topic: LiveChannelTopic.VisualFrameStream, mimeType: 'image/jpeg', timestamp: 1, totalSize, attributes: attrs },
+        info: {
+            topic: LiveChannelTopic.VisualFrameStream,
+            mimeType: 'image/jpeg',
+            timestamp: 1,
+            totalSize,
+            attributes: attrs,
+        },
         readAll: vi.fn(async () => chunks),
     };
 }
@@ -36,7 +42,8 @@ function setup(options: { caseId?: string } = {}) {
     const testSession = { ...session, caseId: options.caseId };
     const handler = new FrameStreamHandler(testSession, bursts, responder, jobs, { store, repository }, logger);
 
-    let registered: { topic: string; handler: (reader: ByteStreamReader, participant: { identity: string }) => void } | undefined;
+    let registered:
+        { topic: string; handler: (reader: ByteStreamReader, participant: { identity: string }) => void } | undefined;
     const room: ByteStreamRoom = {
         registerByteStreamHandler: (topic, streamHandler) => {
             registered = { topic, handler: streamHandler };
@@ -44,7 +51,17 @@ function setup(options: { caseId?: string } = {}) {
     };
     handler.register(room);
     if (!registered) throw new Error('handler did not register');
-    return { handler, bursts, responder, jobs, logger, store, appendEntry, deliver: registered.handler, topic: registered.topic };
+    return {
+        handler,
+        bursts,
+        responder,
+        jobs,
+        logger,
+        store,
+        appendEntry,
+        deliver: registered.handler,
+        topic: registered.topic,
+    };
 }
 
 describe('FrameStreamHandler', () => {
@@ -168,7 +185,9 @@ describe('FrameStreamHandler', () => {
 
     it('drops a still that is not full resolution, so the ledger never holds one', async () => {
         const { bursts, logger, deliver } = setup({ caseId: 'case-1' });
-        deliver(reader([new Uint8Array([1])], attributes({ resolution: 'low', still: 'true' })), { identity: 'user-1' });
+        deliver(reader([new Uint8Array([1])], attributes({ resolution: 'low', still: 'true' })), {
+            identity: 'user-1',
+        });
         await new Promise((resolve) => setTimeout(resolve, 10));
         expect(bursts.analyze).not.toHaveBeenCalled();
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('not full resolution'), expect.anything());

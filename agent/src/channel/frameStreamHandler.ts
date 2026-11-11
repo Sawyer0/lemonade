@@ -131,7 +131,12 @@ export class FrameStreamHandler {
 
         let stillUri: string | undefined;
         if (isStill) {
-            stillUri = await this.recordStill(attributes.frameId, attributes.source, bytes, Number(attributes.capturedAt));
+            stillUri = await this.recordStill(
+                attributes.frameId,
+                attributes.source,
+                bytes,
+                Number(attributes.capturedAt),
+            );
         }
 
         const burst: VisualBurstMessage = {

@@ -152,7 +152,12 @@ export class FrameGate {
     }
 
     evaluate(candidate: FrameCandidate, now: number = Date.now()): FrameGateDecision {
-        const held = (reason: string): FrameGateDecision => ({ send: false, destination: 'none', resolution: 'low', reason });
+        const held = (reason: string): FrameGateDecision => ({
+            send: false,
+            destination: 'none',
+            resolution: 'low',
+            reason,
+        });
         const urgent = candidate.reason !== undefined || candidate.detections.some((detection) => detection.eval.risk);
 
         if (this.framesSentInLast10Minutes(now) >= this.config.maxTalkerFramesPer10Minutes) {

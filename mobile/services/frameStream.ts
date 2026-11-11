@@ -69,7 +69,9 @@ export class FrameStreamSender {
         });
         try {
             for (let offset = 0; offset < bytes.byteLength; offset += FRAME_STREAM_CHUNK_BYTES) {
-                await writer.write(bytes.subarray(offset, Math.min(offset + FRAME_STREAM_CHUNK_BYTES, bytes.byteLength)));
+                await writer.write(
+                    bytes.subarray(offset, Math.min(offset + FRAME_STREAM_CHUNK_BYTES, bytes.byteLength)),
+                );
             }
             await writer.close();
         } catch (error) {
