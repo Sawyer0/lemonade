@@ -19,6 +19,7 @@ const errorCodeToStatusCode: Record<ErrorCode, number> = {
 
     [ErrorCode.RESOURCE_NOT_FOUND]: 404,
     [ErrorCode.RESOURCE_ALREADY_EXISTS]: 409,
+    [ErrorCode.VERSION_CONFLICT]: 409,
 
     [ErrorCode.PAYMENT_REQUIRED]: 402,
     [ErrorCode.SUBSCRIPTION_INACTIVE]: 402,

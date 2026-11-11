@@ -65,6 +65,9 @@ export class VideoAnalysisService implements IVideoAnalysisService {
                 vehicleContext: vehicle.specs,
                 videoDurationMinutes: videoDurationMinutes,
                 dtcCodes: this.parseStoredDtcCodes(session),
+                // LM-17: a session linked to a case runs as that case's
+                // single active run, with new evidence queued at checkpoints.
+                caseId: session.caseId,
             });
 
             const finalVerdict = reasoningState.finalDiagnosis;
@@ -161,6 +164,9 @@ ${finalVerdict.requiredActions.length > 0 ? '**Suggested Actions:**\n- ' + final
             videoUrl: url,
             vehicleContext: vehicle.specs,
             dtcCodes: this.parseStoredDtcCodes(session),
+            // LM-17: a session linked to a case runs as that case's single
+            // active run, with new evidence queued at checkpoints.
+            caseId: session.caseId,
         });
 
         const finalVerdict = reasoningState.finalDiagnosis;

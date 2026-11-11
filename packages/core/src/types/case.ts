@@ -14,6 +14,10 @@ export const CaseSchema = z.object({
     vehicleId: z.string().min(1),
     userId: z.string().min(1),
     status: CaseStatusSchema,
+    // Optimistic-concurrency counter (LM-17). Every ledger append and every
+    // committed run advances it by one; a run writes with the version it
+    // read, and a stale version refuses the write.
+    version: z.number().int().min(1),
     createdAt: z.date(),
     updatedAt: z.date(),
 });

@@ -1,4 +1,5 @@
 import type { AIAnalysis, ILogger, MemorySearchResult, ReasoningInput, SafetyRecall } from '@lemonade/core';
+import type { CaseEvidence } from '@lemonade/core';
 import { getModelForState } from '@lemonade/core';
 import type { GeminiCoreAdapter } from '../../ai/GeminiCoreAdapter';
 import { parseModelJson } from './modelJson';
@@ -10,6 +11,7 @@ function buildIntuitionPrompt(
     vehicleContext: ReasoningInput['vehicleContext'],
     recalls: SafetyRecall[],
     history: MemorySearchResult[],
+    queuedEvidence: CaseEvidence[] = [],
 ): string {
     const recallText =
         recalls.length > 0
@@ -18,6 +20,14 @@ function buildIntuitionPrompt(
 
     const historyText =
         history.length > 0 ? history.map((h) => `- ${h.content}`).join('\n') : 'No relevant vehicle history.';
+
+    // LM-17 checkpoint evidence: readings, frames, or the tech's answers
+    // that arrived after the run started. The run folds them into this
+    // model call instead of starting a competing run over them.
+    const evidenceText =
+        queuedEvidence.length > 0
+            ? queuedEvidence.map((item) => `- [${item.kind}] ${item.summary}`).join('\n')
+            : 'No new evidence since the run started.';
 
     return `
         You are an ASE Certified Master Technician with 20+ years of experience.
@@ -60,6 +70,8 @@ function buildIntuitionPrompt(
         ${recallText}
         Service History:
         ${historyText}
+        New evidence received during this run:
+        ${evidenceText}
         `;
 }
 
@@ -101,6 +113,7 @@ export class IntuitionGenerator {
         recalls: SafetyRecall[],
         history: MemorySearchResult[],
         sessionId: string,
+        queuedEvidence: CaseEvidence[] = [],
     ): Promise<AIAnalysis> {
         const selectedModel = getModelForState('intuition');
         this.logger.info('[MechanicReasoning] Generating Intuition (System 2)', {
@@ -109,7 +122,7 @@ export class IntuitionGenerator {
             modelReason: 'Deep diagnostic reasoning requires Pro model',
         });
 
-        const prompt = buildIntuitionPrompt(query, vehicleContext, recalls, history);
+        const prompt = buildIntuitionPrompt(query, vehicleContext, recalls, history, queuedEvidence);
 
         try {
             const model = this.coreAdapter.getGenerativeModel(

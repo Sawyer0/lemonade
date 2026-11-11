@@ -1,5 +1,6 @@
 import type {
     AIAnalysis,
+    CaseEvidence,
     IChatAssistantAI,
     ILogger,
     IMultimodalUploadAnalyzer,
@@ -57,12 +58,19 @@ export class EvidenceAnalyzer {
         private readonly logger: ILogger,
     ) {}
 
+    /**
+     * Grounds the hypothesis in evidence. `queuedEvidence` is evidence that
+     * arrived after the run started and reached the vision checkpoint: it is
+     * folded into the prompt so the vision or text model sees it, instead
+     * of the run finishing without ever reading it.
+     */
     async analyze(
         input: ReasoningInput,
         searchContext?: SearchResponse,
         verificationContext?: VerificationResponse,
         vehicleHistory?: MemorySearchResult[],
         recalls: SafetyRecall[] = [],
+        queuedEvidence: CaseEvidence[] = [],
     ): Promise<AIAnalysis> {
         if (input.localTriage && (input.localTriage.confidence || 0) > LOCAL_TRIAGE_TRUST_THRESHOLD) {
             return this.fromLocalTriage(input);
@@ -78,13 +86,24 @@ export class EvidenceAnalyzer {
 
         const enhancedContext = buildEnhancedContext(input.vehicleContext, vehicleHistory, recalls, searchContext);
 
+        // LM-17 checkpoint: evidence that arrived mid-run reaches this model
+        // call. Appended here so both the video and the text-only path read it.
+        const contextWithEvidence =
+            queuedEvidence.length > 0
+                ? `${enhancedContext}\n\nNEW EVIDENCE ARRIVED DURING THIS RUN:\n${queuedEvidence
+                      .map((item) => `- [${item.kind}] ${item.summary}`)
+                      .join(
+                          '\n',
+                      )}\n\nINSTRUCTION: Fold this new evidence into the diagnosis. If it contradicts the earlier hypothesis, say so and revise the diagnosis.`
+                : enhancedContext;
+
         if (!input.videoUrl) {
-            return this.analyzeText(input, enhancedContext, verificationContext);
+            return this.analyzeText(input, contextWithEvidence, verificationContext);
         }
 
         return this.videoAI.analyzeUploadedVideo(
             input.videoUrl,
-            enhancedContext,
+            contextWithEvidence,
             'video/mp4',
             input.userId,
             input.sessionId,

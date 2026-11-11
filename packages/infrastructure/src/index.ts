@@ -33,6 +33,7 @@ export * from './ai/tools/displayContent';
 export * from './ai/tools/googleSearch';
 export * from './services/ReactiveSafetyService';
 export * from './services/MechanicReasoningService';
+export * from './services/CaseRunCoordinator';
 export * from './ai/EmbeddingService';
 export * from './ai/SafetyMonitor';
 export * from './repositories/VectorRepository';

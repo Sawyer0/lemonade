@@ -57,6 +57,7 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                 input.nhtsaResults,
                 input.vehicleHistory,
                 input.sessionId,
+                input.queuedEvidence ?? [],
             ),
         ),
 
@@ -72,12 +73,16 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                 userQuery: ctx.userQuery,
                 localTriage: ctx.localTriage,
             };
+            // LM-17 checkpoint: evidence queued since the run started reaches
+            // the vision call — the last model call of the run — instead of
+            // arriving after it and being read by nothing.
             return evidence.analyze(
                 reasoningInput,
                 ctx.searchResults,
                 ctx.verificationResult,
                 ctx.vehicleHistory,
                 ctx.nhtsaResults as SafetyRecall[],
+                ctx.queuedEvidence ?? [],
             );
         }),
 

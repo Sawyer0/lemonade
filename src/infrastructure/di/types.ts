@@ -44,6 +44,7 @@ export const TYPES = {
     ReactiveSafetyService: Symbol.for('ReactiveSafetyService'),
     EmbeddingService: Symbol.for('EmbeddingService'),
     MechanicReasoningService: Symbol.for('MechanicReasoningService'),
+    CaseRunCoordinator: Symbol.for('CaseRunCoordinator'),
     ComplaintIdentificationService: Symbol.for('ComplaintIdentificationService'),
     GeminiCoreAdapter: Symbol.for('GeminiCoreAdapter'),
     ConfigProvider: Symbol.for('ConfigProvider'),

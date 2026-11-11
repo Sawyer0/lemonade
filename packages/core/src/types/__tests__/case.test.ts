@@ -67,10 +67,25 @@ describe('CaseSchema', () => {
             vehicleId: 'vehicle-1',
             userId: 'user-1',
             status: 'open',
+            version: 1,
             createdAt: new Date(),
             updatedAt: new Date(),
         });
         expect(result.success).toBe(true);
+    });
+
+    it('rejects a case without a version or with a version below 1', () => {
+        const base = {
+            id: uuidv4(),
+            vehicleId: 'vehicle-1',
+            userId: 'user-1',
+            status: 'open',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+        expect(CaseSchema.safeParse(base).success).toBe(false);
+        expect(CaseSchema.safeParse({ ...base, version: 0 }).success).toBe(false);
+        expect(CaseSchema.safeParse({ ...base, version: 2 }).success).toBe(true);
     });
 
     it('rejects an unknown status', () => {
@@ -79,6 +94,7 @@ describe('CaseSchema', () => {
             vehicleId: 'vehicle-1',
             userId: 'user-1',
             status: 'archived',
+            version: 1,
             createdAt: new Date(),
             updatedAt: new Date(),
         });

@@ -1,5 +1,6 @@
 import { setup, fromPromise, assign } from 'xstate';
 import { NeurosymbolicState } from '../types/neurosymbolic';
+import type { CaseEvidence } from '../case/CaseRunQueue';
 import type { IMultimodalUploadAnalyzer, IChatAssistantAI } from '../interfaces/IAIService';
 import type { INHTSAService } from '../interfaces/INHTSAService';
 import type { IVectorRepository } from '../interfaces/IVectorRepository';
@@ -61,6 +62,9 @@ export interface MechanicInput {
     // Parsed DTCs for this session (LM-02). The machine never invents a code
     // meaning: these come from the deterministic parser, via the session.
     dtcCodes?: ParsedDtc[];
+    // Evidence queued before the run started (LM-17): folded into the first
+    // model call. Evidence that arrives mid-run joins through APPEND_EVIDENCE.
+    queuedEvidence?: CaseEvidence[];
 }
 
 export interface MechanicContext extends MechanicInput {
@@ -74,7 +78,17 @@ export interface MechanicContext extends MechanicInput {
     error?: string;
     localTriage?: LocalTriageResult;
     dtcCodes: ParsedDtc[];
+    // Evidence that arrived after the run started, folded in at checkpoints
+    // (LM-17). The intuition model call reads this when its state is entered,
+    // so evidence queued during context gathering reaches the first model call.
+    queuedEvidence: CaseEvidence[];
+    // LM-17: the invoking state a RESUME round trip returns to. Set by the
+    // RESUME transition of that state, read by the transient `resuming` state.
+    resumeTarget?: ResumeTarget;
 }
+
+/** Invoking states a crash resume can re-enter (LM-17). */
+export type ResumeTarget = 'gathering_context' | 'intuition' | 'investigating' | 'vision_verifying';
 
 export interface MechanicServices {
     vision: IMultimodalUploadAnalyzer;
@@ -97,7 +111,21 @@ export type MechanicEvent =
           localTriage?: LocalTriageResult;
           dtcCodes?: ParsedDtc[];
       }
-    | { type: 'UPDATE_SERVICES'; services: MechanicServices };
+    | { type: 'UPDATE_SERVICES'; services: MechanicServices }
+    // LM-17 checkpoint steering: appends one piece of queued evidence to the
+    // run. Handled at the machine root so it lands in any state, including
+    // after a snapshot restore; it never interrupts a running tool call.
+    | { type: 'APPEND_EVIDENCE'; evidence: CaseEvidence }
+    // LM-17 crash resume: re-enters the state the run was restored in, so
+    // the invoked actor that died with the worker starts again. A restored
+    // promise actor never re-executes on its own, so without this the run
+    // would sit in its restored state forever. Each invoking state answers
+    // RESUME by exiting to the transient `resuming` state, which immediately
+    // re-enters the recorded state: a self-target transition is internal in
+    // XState v5 and would not restart the invocation, so the round trip
+    // through `resuming` is what forces the re-entry. Idle and synthesizing
+    // ignore it.
+    | { type: 'RESUME' };
 
 export interface IntuitionInput {
     userQuery: string;
@@ -107,6 +135,8 @@ export interface IntuitionInput {
     videoUrl?: string;
     userId: string;
     sessionId: string;
+    // Evidence queued before this model call (LM-17 checkpoint input).
+    queuedEvidence: CaseEvidence[];
 }
 
 export const mechanicMachine = setup({
@@ -171,10 +201,33 @@ export const mechanicMachine = setup({
         videoDuration: input.videoDuration,
         services: input.services,
         dtcCodes: input.dtcCodes ?? [],
+        queuedEvidence: input.queuedEvidence ?? [],
         nhtsaResults: [],
         embeddingInfo: [],
         vehicleHistory: [],
     }),
+    // Root-level events, handled in every state. UPDATE_SERVICES lives here
+    // (not only in idle) so a snapshot-restored actor can receive live
+    // services in whatever state it resumes in; APPEND_EVIDENCE is the
+    // checkpoint steering event (LM-17).
+    on: {
+        UPDATE_SERVICES: {
+            actions: assign(({ event }) => {
+                if ('services' in event) {
+                    return { services: event.services };
+                }
+                return {};
+            }),
+        },
+        APPEND_EVIDENCE: {
+            actions: assign(({ context, event }) => {
+                if (event.type === 'APPEND_EVIDENCE') {
+                    return { queuedEvidence: [...context.queuedEvidence, event.evidence] };
+                }
+                return {};
+            }),
+        },
+    },
     states: {
         idle: {
             on: {
@@ -196,19 +249,14 @@ export const mechanicMachine = setup({
                         return {};
                     }),
                 },
-                UPDATE_SERVICES: {
-                    actions: assign(({ event }) => {
-                        if ('services' in event) {
-                            return { services: event.services };
-                        }
-                        return {};
-                    }),
-                },
             },
         },
         gathering_context: {
             description:
                 'Step 1: Gather Facts (Recalls & History) BEFORE Intuition - Using Promise.all workaround for XState parallel bug',
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this state and restarts the invoked gather actor.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'gathering_context' as const }) } },
             invoke: {
                 src: 'gatherAllContext',
                 input: ({ context }: { context: MechanicContext }) => ({
@@ -235,6 +283,9 @@ export const mechanicMachine = setup({
         },
         intuition: {
             description: 'Step 2: Formulate Hypothesis (ASE Master Tech) using gathered context',
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this state and restarts the invoked model call.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'intuition' as const }) } },
             invoke: {
                 // This actor is defined in MechanicReasoningService.ts
                 src: 'generateIntuition',
@@ -246,6 +297,9 @@ export const mechanicMachine = setup({
                     videoUrl: context.videoUrl,
                     userId: context.userId,
                     sessionId: context.sessionId,
+                    // Checkpoint: evidence queued during gathering reaches the
+                    // model call because the input is built on state entry.
+                    queuedEvidence: context.queuedEvidence,
                 }),
                 onDone: {
                     target: 'investigating',
@@ -265,6 +319,9 @@ export const mechanicMachine = setup({
         investigating: {
             description: 'Step 3: Verify Hypothesis (Search & Web)',
             type: 'parallel',
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this parallel state and restarts both regions' invoked actors.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'investigating' as const }) } },
             states: {
                 search: {
                     initial: 'searching',
@@ -317,6 +374,12 @@ export const mechanicMachine = setup({
                                             vehicle: context.vehicleContext,
                                             recalls: context.nhtsaResults,
                                             history: context.vehicleHistory,
+                                            // LM-17 checkpoint: evidence that arrived after the
+                                            // intuition call reaches this model call instead of
+                                            // starting a competing run over it.
+                                            newEvidence: context.queuedEvidence.map(
+                                                (item) => `[${item.kind}] ${item.summary}`,
+                                            ),
                                         }),
                                         sessionId: context.sessionId,
                                     },
@@ -341,6 +404,9 @@ export const mechanicMachine = setup({
             description: 'Step 4: Vision Check (if applicable) to anchor Reality',
             entry: 'loadVisionModel', // Optimized Resource Management
             exit: 'unloadVisionModel', // Release memory immediately
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this state and restarts the invoked vision call.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'vision_verifying' as const }) } },
             invoke: {
                 src: 'visionAnalysis',
                 input: ({ context }: { context: MechanicContext }) => ({
@@ -371,6 +437,17 @@ export const mechanicMachine = setup({
         synthesizing: {
             description: 'Step 5: Final Synthesis (Reflexion)',
             type: 'final',
+        },
+        resuming: {
+            description:
+                'LM-17: transient re-entry after a snapshot restore. A RESUME exits the invoking state here with resumeTarget recorded; this state immediately re-enters that state, which restarts its invoked actor. The last, guardless transition is the fallback: a restore that lands here with no target restarts from context gathering, which only re-reads facts.',
+            always: [
+                { target: 'gathering_context', guard: ({ context }) => context.resumeTarget === 'gathering_context' },
+                { target: 'intuition', guard: ({ context }) => context.resumeTarget === 'intuition' },
+                { target: 'investigating', guard: ({ context }) => context.resumeTarget === 'investigating' },
+                { target: 'vision_verifying', guard: ({ context }) => context.resumeTarget === 'vision_verifying' },
+                { target: 'gathering_context' },
+            ],
         },
     },
 });

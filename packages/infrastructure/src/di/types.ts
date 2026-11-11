@@ -23,6 +23,7 @@ export const TYPES = {
     ReactiveSafetyService: Symbol.for('ReactiveSafetyService'),
     SafetyMonitor: Symbol.for('SafetyMonitor'),
     MechanicReasoningService: Symbol.for('MechanicReasoningService'),
+    CaseRunCoordinator: Symbol.for('CaseRunCoordinator'),
     EdgeSecurityService: Symbol.for('EdgeSecurityService'),
     RateLimiter: Symbol.for('RateLimiter'),
 
