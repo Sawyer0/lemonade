@@ -1,8 +1,17 @@
 import { injectable, inject, LazyServiceIdentifier } from 'inversify';
 import { TYPES } from '@/infrastructure/di/types';
 import type { ISessionRepository, IVehicleRepository, ILogger, ICaseRepository } from '@lemonade/core';
-import { ISessionService, DiagnosticSession, Vehicle, AppError, ErrorCode, parseDtcBatch } from '@lemonade/core';
-import type { ParsedDtc } from '@lemonade/core';
+import {
+    ISessionService,
+    DiagnosticSession,
+    Vehicle,
+    AppError,
+    ErrorCode,
+    parseDtcBatch,
+    ObdScanResultSchema,
+    AppendLedgerEntryInputSchema,
+} from '@lemonade/core';
+import type { ObdLedgerEventInput, ObdScanResult, ParsedDtc } from '@lemonade/core';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
@@ -128,6 +137,82 @@ export class SessionService implements ISessionService {
         await this.sessionRepo.addObdCodes(sessionId, codes);
         this.logger.info('[SessionService] DTC codes recorded', { sessionId, codes });
         return parsed;
+    }
+
+    async recordObdScan(sessionId: string, userId: string, scan: ObdScanResult): Promise<ObdScanResult> {
+        const parsed = ObdScanResultSchema.safeParse(scan);
+        if (!parsed.success) {
+            const reasons = parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+            throw new AppError(ErrorCode.INVALID_INPUT, `Invalid OBD scan: ${reasons}`);
+        }
+        const session = await this.sessionRepo.findById(sessionId);
+        if (!session) {
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Session not found');
+        }
+        if (session.userId !== userId) {
+            this.logger.warn('[SessionService] recordObdScan forbidden', {
+                sessionId,
+                userId,
+                ownerId: session.userId,
+            });
+            throw new AppError(ErrorCode.FORBIDDEN, 'You do not own this session', 403);
+        }
+
+        // The ledger is the source of truth for case evidence, so a failed
+        // ledger write must block the session write, not follow it.
+        if (session.caseId) {
+            await this.caseRepo.appendEntry(session.caseId, {
+                type: 'obd_scan',
+                actor: { kind: 'user', id: userId },
+                source: 'OBD',
+                occurredAt: new Date(parsed.data.capturedAt),
+                payload: parsed.data,
+            });
+        }
+
+        if (parsed.data.storedCodes.length > 0) {
+            await this.sessionRepo.addObdCodes(sessionId, parsed.data.storedCodes);
+        }
+        this.logger.info('[SessionService] OBD scan recorded', {
+            sessionId,
+            storedCodes: parsed.data.storedCodes,
+            pendingCodes: parsed.data.pendingCodes,
+            permanentCodes: parsed.data.permanentCodes,
+        });
+        return parsed.data;
+    }
+
+    async recordObdLedgerEvent(sessionId: string, userId: string, input: ObdLedgerEventInput): Promise<void> {
+        const session = await this.sessionRepo.findById(sessionId);
+        if (!session) {
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Session not found');
+        }
+        if (session.userId !== userId) {
+            this.logger.warn('[SessionService] recordObdLedgerEvent forbidden', {
+                sessionId,
+                userId,
+                ownerId: session.userId,
+            });
+            throw new AppError(ErrorCode.FORBIDDEN, 'You do not own this session', 403);
+        }
+        if (!session.caseId) {
+            throw new AppError(
+                ErrorCode.INVALID_INPUT,
+                'Session is not attached to a case: OBD evidence needs a case ledger',
+            );
+        }
+        const entry = AppendLedgerEntryInputSchema.safeParse({
+            ...input,
+            actor: { kind: 'user', id: userId },
+            source: 'OBD',
+            occurredAt: new Date(),
+        });
+        if (!entry.success) {
+            const reasons = entry.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+            throw new AppError(ErrorCode.INVALID_INPUT, `Invalid OBD ledger event: ${reasons}`);
+        }
+        await this.caseRepo.appendEntry(session.caseId, entry.data);
+        this.logger.info('[SessionService] OBD ledger event recorded', { sessionId, type: input.type });
     }
 
     async getSessionContext(sessionId: string): Promise<{ session: DiagnosticSession; vehicle: Vehicle }> {

@@ -7,7 +7,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testconta
 import { v4 as uuidv4 } from 'uuid';
 import { NodeCryptoLedgerHasher } from '../../crypto/NodeCryptoLedgerHasher';
 import { PostgresCaseRepository } from '../PostgresCaseRepository';
-import type { ILogger } from '@lemonade/core';
+import { buildGoal, type ILogger } from '@lemonade/core';
 
 // The ledger's Postgres behavior can only be proven against a real database:
 // the append-only trigger, the sequence serialization, and hash-chain
@@ -37,6 +37,7 @@ describe('PostgresCaseRepository', () => {
             '0002_ledger_transcript_type.sql',
             '0002_case_version.sql',
             '0003_ledger_goal_types.sql',
+            '0005_obd_ledger_types.sql',
         ]) {
             const sql = readFileSync(path.resolve(process.cwd(), `db/migrations/${migration}`), 'utf8');
             await pool.query(sql);
@@ -124,6 +125,77 @@ describe('PostgresCaseRepository', () => {
 
         const entries = await repository.listEntries(caseRecord.id);
         expect(entries.map((entry) => entry.sequence)).toEqual([1, 2]);
+        expect(await repository.verifyLedger(caseRecord.id)).toBe(true);
+    });
+
+    it('appends an obd_scan entry and the chain still verifies', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-2-obd', userId: 'user-1' });
+        const entry = await repository.appendEntry(caseRecord.id, {
+            type: 'obd_scan',
+            actor,
+            source: 'OBD',
+            occurredAt,
+            payload: {
+                adapter: { name: 'OBDLink CX', transport: 'ble', model: 'OBDLink CX' },
+                capturedAt: '2026-11-11T15:00:00.000Z',
+                storedCodes: ['P0300'],
+                pendingCodes: ['P0300'],
+                permanentCodes: [],
+                freezeFrame: null,
+                mode06: [],
+                readiness: { milOn: true, storedCodeCount: 1, monitors: [] },
+                vin: '1HGCM82633A004352',
+                calibrationIds: [],
+                calibrationVerificationNumbers: [],
+                liveReadings: [],
+            },
+        });
+        expect(entry.sequence).toBe(1);
+        expect(entry.type).toBe('obd_scan');
+        expect(await repository.verifyLedger(caseRecord.id)).toBe(true);
+    });
+
+    // LM-03 migration 0005 rewrites the ledger type CHECK: it must keep the
+    // LM-25 goal types alongside the new OBD types, or every goal insert
+    // fails at the database level even though the Zod schema allows it.
+    // This inserts a goal entry after all migrations have applied, so a
+    // future migration that drops a type fails here instead of in prod.
+    it('still appends a goal_set entry after the OBD migration', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-2-goal', userId: 'user-1' });
+        const goal = buildGoal({
+            goalId: '22222222-2222-4222-8222-222222222222',
+            caseId: caseRecord.id,
+            complaint: {
+                text: 'Misfire on cylinder 1 at idle',
+                symptoms: ['misfire at idle'],
+                confirmedByTech: true,
+            },
+            outcome: 'Root cause of misfire on cylinder 1 confirmed and repair verified',
+            constraints: [],
+            criteria: [
+                {
+                    id: 'verify.symptom_absent',
+                    phase: 'verify',
+                    description: 'No misfire at idle after the repair',
+                    check: {
+                        kind: 'ledger_has',
+                        entryKind: 'observation',
+                        where: { text: 'No misfire at idle after repair' },
+                        admissible: ['tech'],
+                    },
+                },
+            ],
+            budget: { maxTokens: 200000, maxWallMinutes: 60, maxTestCostMinutes: 30 },
+        });
+        const entry = await repository.appendEntry(caseRecord.id, {
+            type: 'goal_set',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: { goalId: goal.goalId, goal },
+        });
+        expect(entry.sequence).toBe(1);
+        expect(entry.type).toBe('goal_set');
         expect(await repository.verifyLedger(caseRecord.id)).toBe(true);
     });
 

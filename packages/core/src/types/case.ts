@@ -5,6 +5,12 @@ import {
     GoalSetPayloadSchema,
     GoalStatusChangedPayloadSchema,
 } from '../goal/goalSchema';
+import {
+    GuidedObdTestOutcomeSchema,
+    ObdFaultWindowSchema,
+    ObdScanResultSchema,
+    VerifyFixResultSchema,
+} from '../obd/types';
 
 // --- Case aggregate ---
 // A case is the long-lived record of one vehicle's problem. One case can span
@@ -59,6 +65,15 @@ export const LedgerEventTypeSchema = z.enum([
     'goal_amended',
     'criterion_met',
     'goal_status_changed',
+    // LM-03: typed OBD readings. `obd_scan` is the one-tap full scan
+    // (codes in every state, freeze frame, Mode 06, readiness, VIN);
+    // `obd_fault_window` is a saved 60 s-before / 15 s-after window;
+    // `guided_test` is a guided-test outcome against its expected range;
+    // `verify_fix` is the clear-codes / drive-cycle / rescan verdict.
+    'obd_scan',
+    'obd_fault_window',
+    'guided_test',
+    'verify_fix',
 ]);
 export type LedgerEventType = z.infer<typeof LedgerEventTypeSchema>;
 
@@ -172,6 +187,18 @@ export const TranscriptPayloadSchema = z.object({
 });
 export type TranscriptPayload = z.infer<typeof TranscriptPayloadSchema>;
 
+// LM-03: OBD payloads are the scan / window / guided-test / verify-fix
+// schemas from the OBD module, reused verbatim so the ledger and the
+// adapter can never disagree about the shape of a reading.
+export const ObdScanPayloadSchema = ObdScanResultSchema;
+export type ObdScanPayload = z.infer<typeof ObdScanPayloadSchema>;
+export const ObdFaultWindowPayloadSchema = ObdFaultWindowSchema;
+export type ObdFaultWindowPayload = z.infer<typeof ObdFaultWindowPayloadSchema>;
+export const GuidedTestPayloadSchema = GuidedObdTestOutcomeSchema;
+export type GuidedTestPayload = z.infer<typeof GuidedTestPayloadSchema>;
+export const VerifyFixPayloadSchema = VerifyFixResultSchema;
+export type VerifyFixPayload = z.infer<typeof VerifyFixPayloadSchema>;
+
 const LedgerEntryBaseSchema = z.object({
     id: z.string().uuid(),
     caseId: z.string().uuid(),
@@ -204,6 +231,10 @@ export const LedgerEntrySchema = z
             type: z.literal('goal_status_changed'),
             payload: GoalStatusChangedPayloadSchema,
         }),
+        LedgerEntryBaseSchema.extend({ type: z.literal('obd_scan'), payload: ObdScanPayloadSchema }),
+        LedgerEntryBaseSchema.extend({ type: z.literal('obd_fault_window'), payload: ObdFaultWindowPayloadSchema }),
+        LedgerEntryBaseSchema.extend({ type: z.literal('guided_test'), payload: GuidedTestPayloadSchema }),
+        LedgerEntryBaseSchema.extend({ type: z.literal('verify_fix'), payload: VerifyFixPayloadSchema }),
     ])
     .superRefine((entry, ctx) => {
         if (entry.type === 'correction' && !entry.correctsEntryId) {
@@ -254,8 +285,25 @@ export const AppendLedgerEntryInputSchema = z.discriminatedUnion('type', [
         type: z.literal('goal_status_changed'),
         payload: GoalStatusChangedPayloadSchema,
     }).strict(),
+    AppendEntryBaseSchema.extend({ type: z.literal('obd_scan'), payload: ObdScanPayloadSchema }).strict(),
+    AppendEntryBaseSchema.extend({
+        type: z.literal('obd_fault_window'),
+        payload: ObdFaultWindowPayloadSchema,
+    }).strict(),
+    AppendEntryBaseSchema.extend({ type: z.literal('guided_test'), payload: GuidedTestPayloadSchema }).strict(),
+    AppendEntryBaseSchema.extend({ type: z.literal('verify_fix'), payload: VerifyFixPayloadSchema }).strict(),
 ]);
 export type AppendLedgerEntryInput = z.infer<typeof AppendLedgerEntryInputSchema>;
+
+// LM-03: the OBD evidence a session can append after the scan itself:
+// a guided-test outcome, a saved fault window, or a verify-fix verdict.
+// The scan has its own method (recordObdScan) because it also writes the
+// session's obdCodes; these three only touch the ledger. The service adds
+// the actor, source and occurredAt when it builds the ledger entry.
+export type ObdLedgerEventInput =
+    | { type: 'guided_test'; payload: GuidedTestPayload }
+    | { type: 'obd_fault_window'; payload: ObdFaultWindowPayload }
+    | { type: 'verify_fix'; payload: VerifyFixPayload };
 
 // --- Hash chain ---
 // The chain is the audit spine: each entry's hash covers its content plus the

@@ -9,7 +9,15 @@ import type { ContextTurn } from './types';
  * or a safety stop.
  */
 
-export const MILESTONE_EVENT_TYPES: ReadonlyArray<LedgerEventType> = ['test_result', 'outcome', 'safety_stop'];
+export const MILESTONE_EVENT_TYPES: ReadonlyArray<LedgerEventType> = [
+    'test_result',
+    'outcome',
+    'safety_stop',
+    // LM-03: a guided-test outcome and a verify-fix verdict move the
+    // diagnosis forward, so they re-inject the snapshot like a test result.
+    'guided_test',
+    'verify_fix',
+];
 
 export function isMilestoneEvent(entry: LedgerEntry): boolean {
     return MILESTONE_EVENT_TYPES.includes(entry.type);

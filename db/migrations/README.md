@@ -9,6 +9,7 @@ psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0002_ledger_transcrip
 psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0002_case_version.sql
 psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0003_ledger_goal_types.sql
 psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0004_fix_counts.sql
+psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0005_obd_ledger_types.sql
 ```
 
 The repository test (`PostgresCaseRepository.test.ts`) applies the migrations

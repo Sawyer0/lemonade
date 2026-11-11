@@ -133,6 +133,36 @@ function renderPayloadLines(entry: LedgerEntry): string[] {
                 `authority: ${entry.payload.authority}`,
                 ...[optionalText('reason', entry.payload.reason)].filter((line): line is string => line !== null),
             ];
+        case 'obd_scan':
+            return [
+                `stored codes: ${entry.payload.storedCodes.map(quoted).join(', ') || '(none)'}`,
+                `pending codes: ${entry.payload.pendingCodes.map(quoted).join(', ') || '(none)'}`,
+                `permanent codes: ${entry.payload.permanentCodes.map(quoted).join(', ') || '(none)'}`,
+                `freeze frame DTC: ${entry.payload.freezeFrame?.dtc ?? '(none)'}`,
+                `readiness: MIL ${entry.payload.readiness.milOn ? 'on' : 'off'}, ${entry.payload.readiness.storedCodeCount} stored`,
+                ...(entry.payload.vin !== null ? [`vin: ${quoted(entry.payload.vin)}`] : []),
+            ];
+        case 'obd_fault_window':
+            return [
+                `trigger: ${entry.payload.trigger}${entry.payload.triggerDetail ? ` (${entry.payload.triggerDetail})` : ''}`,
+                `samples: ${entry.payload.samples.length}`,
+            ];
+        case 'guided_test':
+            return [
+                `test: ${quoted(entry.payload.definitionName)}`,
+                `result: ${entry.payload.result}`,
+                ...entry.payload.checks.map(
+                    (check) =>
+                        `${check.pid}: ${check.observedMin ?? '?'}..${check.observedMax ?? '?'} ${check.unit} (expected ${check.expectedMin}..${check.expectedMax}) ${check.passed ? 'pass' : 'fail'}`,
+                ),
+            ];
+        case 'verify_fix':
+            return [
+                `result: ${entry.payload.passed ? 'pass' : 'fail'}`,
+                `drive cycle: ${entry.payload.driveCycleCompleted ? 'completed' : 'not completed'}`,
+                `monitors ready: ${entry.payload.monitorsReady ? 'yes' : `no (${entry.payload.monitorsNotReady.join(', ')})`}`,
+                `returned codes: ${[...entry.payload.returnedStoredCodes, ...entry.payload.returnedPendingCodes, ...entry.payload.returnedPermanentCodes].join(', ') || '(none)'}`,
+            ];
     }
 }
 

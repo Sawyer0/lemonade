@@ -15,6 +15,11 @@ export const FACT_ELIGIBLE_EVENT_TYPES: ReadonlyArray<LedgerEventType> = [
     'test_result',
     'outcome',
     'correction',
+    // LM-03: OBD readings are vehicle facts from the car itself. A fault
+    // window is a raw sample dump, not a fact, so it stays out.
+    'obd_scan',
+    'guided_test',
+    'verify_fix',
 ];
 
 export function isModelSourced(event: LedgerEventReference): boolean {
