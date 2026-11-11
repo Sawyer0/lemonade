@@ -37,10 +37,11 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         license: 'MIT License',
         spdxId: 'MIT',
         status: 'separate-asset',
-        note: 'Verified MIT (Copyright (c) 2020, comma.ai, Inc.) via the GitHub license API. '
-            + 'DBC files are a separate data asset loaded at runtime; none are vendored here. '
-            + 'Only the DBC text parser in decoders/dbc.ts ships, and it reads any DBC text, '
-            + 'so a vehicle-specific DBC is fetched under its own terms when needed.',
+        note:
+            'Verified MIT (Copyright (c) 2020, comma.ai, Inc.) via the GitHub license API. ' +
+            'DBC files are a separate data asset loaded at runtime; none are vendored here. ' +
+            'Only the DBC text parser in decoders/dbc.ts ships, and it reads any DBC text, ' +
+            'so a vehicle-specific DBC is fetched under its own terms when needed.',
         verifiedAt: '2026-11-11',
     },
     {
@@ -50,11 +51,12 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         license: 'Creative Commons Attribution Share Alike 4.0 International',
         spdxId: 'CC-BY-SA-4.0',
         status: 'separate-asset',
-        note: 'Verified CC-BY-SA-4.0 via the GitHub license API. The OBDb signal sets are a '
-            + 'separate data asset, kept out of this repo: model-specific PIDs are loaded at '
-            + 'runtime from the OBDb repository for the vehicle in hand, with attribution and '
-            + 'share-alike preserved. Only the SAE J1979 standard Mode 01 formulas, which the '
-            + 'standard itself defines, are implemented in decoders/pid.ts.',
+        note:
+            'Verified CC-BY-SA-4.0 via the GitHub license API. The OBDb signal sets are a ' +
+            'separate data asset, kept out of this repo: model-specific PIDs are loaded at ' +
+            'runtime from the OBDb repository for the vehicle in hand, with attribution and ' +
+            'share-alike preserved. Only the SAE J1979 standard Mode 01 formulas, which the ' +
+            'standard itself defines, are implemented in decoders/pid.ts.',
         verifiedAt: '2026-11-11',
     },
     {
@@ -64,13 +66,14 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         license: 'MIT License (repository code only)',
         spdxId: 'MIT',
         status: 'not-vendored',
-        note: 'Provenance does NOT clear this data for use. The repository is MIT-licensed, '
-            + 'but its 28,220+ DTC descriptions include 9,415 generic SAE J2012 definitions, '
-            + 'and J2012 text is copyrighted by SAE: an MIT license on the container does not '
-            + 'license the SAE text inside it. The SQLite is therefore NOT vendored and no '
-            + 'description from it ships. DTC text comes only from the generic-descriptions '
-            + 'table already in packages/core/src/dtc/descriptions.ts, via decoders/dtcText.ts, '
-            + 'and manufacturer-specific codes get no invented description.',
+        note:
+            'Provenance does NOT clear this data for use. The repository is MIT-licensed, ' +
+            'but its 28,220+ DTC descriptions include 9,415 generic SAE J2012 definitions, ' +
+            'and J2012 text is copyrighted by SAE: an MIT license on the container does not ' +
+            'license the SAE text inside it. The SQLite is therefore NOT vendored and no ' +
+            'description from it ships. DTC text comes only from the generic-descriptions ' +
+            'table already in packages/core/src/dtc/descriptions.ts, via decoders/dtcText.ts, ' +
+            'and manufacturer-specific codes get no invented description.',
         verifiedAt: '2026-11-11',
     },
     {
@@ -80,9 +83,10 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         license: 'Proprietary (SAE International)',
         spdxId: 'LicenseRef-Proprietary-SAE-J2012',
         status: 'not-vendored',
-        note: 'J2012 text is copyrighted by SAE International. Only the code structure (system '
-            + 'letter, designator, subsystem digit) and the generic descriptions already carried '
-            + 'in packages/core/src/dtc/descriptions.ts are used; no J2012 text is copied in.',
+        note:
+            'J2012 text is copyrighted by SAE International. Only the code structure (system ' +
+            'letter, designator, subsystem digit) and the generic descriptions already carried ' +
+            'in packages/core/src/dtc/descriptions.ts are used; no J2012 text is copied in.',
         verifiedAt: '2026-11-11',
     },
     {
@@ -92,10 +96,11 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         license: 'Proprietary (SAE International, licensed)',
         spdxId: 'LicenseRef-Proprietary-SAE-J1939DA',
         status: 'not-vendored',
-        note: 'SPN names live in the licensed SAE J1939 Digital Annex (see pretty_j1939). '
-            + 'No SPN name table ships: decoders/dm1.ts returns the SPN number only, with '
-            + 'spnName null, until a licensed annex is acquired. The FMI 0-31 table in '
-            + 'decoders/dm1.ts is our own table of the failure-mode meanings from SAE J1939-73.',
+        note:
+            'SPN names live in the licensed SAE J1939 Digital Annex (see pretty_j1939). ' +
+            'No SPN name table ships: decoders/dm1.ts returns the SPN number only, with ' +
+            'spnName null, until a licensed annex is acquired. The FMI 0-31 table in ' +
+            'decoders/dm1.ts is our own table of the failure-mode meanings from SAE J1939-73.',
         verifiedAt: '2026-11-11',
     },
     {
@@ -105,9 +110,10 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         license: 'Proprietary (SAE International)',
         spdxId: 'LicenseRef-Proprietary-SAE-J1939-73',
         status: 'not-vendored',
-        note: 'The DM1 frame layout (PGN 65226) and the FMI 0-31 meanings are implemented from '
-            + 'the standard as published summaries describe them; no SAE text is copied in. '
-            + 'The standard itself is not vendored.',
+        note:
+            'The DM1 frame layout (PGN 65226) and the FMI 0-31 meanings are implemented from ' +
+            'the standard as published summaries describe them; no SAE text is copied in. ' +
+            'The standard itself is not vendored.',
         verifiedAt: '2026-11-11',
     },
     {
@@ -117,10 +123,11 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         license: 'GNU General Public License v3.0',
         spdxId: 'GPL-3.0',
         status: 'excluded',
-        note: 'GPL-3.0 code must not ship in this codebase. python-OBD is used only as a '
-            + 'reference for how OBD-II requests and responses are framed; no code from it is '
-            + 'copied, and the PID decoder in decoders/pid.ts is written from the SAE J1979 '
-            + 'formulas directly.',
+        note:
+            'GPL-3.0 code must not ship in this codebase. python-OBD is used only as a ' +
+            'reference for how OBD-II requests and responses are framed; no code from it is ' +
+            'copied, and the PID decoder in decoders/pid.ts is written from the SAE J1979 ' +
+            'formulas directly.',
         verifiedAt: '2026-11-11',
     },
     {
@@ -130,9 +137,10 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         license: 'Public data (U.S. Government)',
         spdxId: 'LicenseRef-Public-US-Government',
         status: 'separate-asset',
-        note: 'Recall records are U.S. Government public data, fetched at runtime through the '
-            + 'existing NHTSA service (INHTSAService). No recall data is vendored; the graph '
-            + 'seed only carries entries verified against the NHTSA record or marked llm-draft.',
+        note:
+            'Recall records are U.S. Government public data, fetched at runtime through the ' +
+            'existing NHTSA service (INHTSAService). No recall data is vendored; the graph ' +
+            'seed only carries entries verified against the NHTSA record or marked llm-draft.',
         verifiedAt: '2026-11-11',
     },
     {
@@ -142,9 +150,10 @@ export const SOURCE_LICENSES: readonly SourceLicense[] = [
         license: 'Apache-2.0',
         spdxId: 'Apache-2.0',
         status: 'vendored',
-        note: 'The first-case seed graph in data/knowledge-graph/first-case.yaml is written for '
-            + 'this repo under its Apache-2.0 license. Its entries are LLM drafts and stay '
-            + 'unverified until a human expert reviews them.',
+        note:
+            'The first-case seed graph in data/knowledge-graph/first-case.yaml is written for ' +
+            'this repo under its Apache-2.0 license. Its entries are LLM drafts and stay ' +
+            'unverified until a human expert reviews them.',
         verifiedAt: '2026-11-11',
     },
 ];

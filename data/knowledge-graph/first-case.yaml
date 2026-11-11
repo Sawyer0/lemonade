@@ -1,0 +1,370 @@
+# First-case vehicle knowledge graph (LM-38).
+# A generic gasoline OBD-II vehicle: the first-case workflow's misfire, lean,
+# catalyst, EVAP and cooling DTCs, with the components, connections, suspects,
+# failure modes and TSB/recall entries the planner reads. Every entry is an
+# LLM draft and stays unverified until a human expert reviews it. Source:
+# lemonade-seed (own work, Apache-2.0).
+version: 1
+vehicle:
+  label: First-case vehicle (gasoline, OBD-II)
+  fuel: gasoline
+  protocol: obd2
+  sourceId: lemonade-seed
+components:
+  - id: ecm
+    name: Engine control module
+    kind: control-module
+    system: powertrain
+    location: engine bay, passenger side firewall
+    description: Reads the sensors, drives the coil and injectors, and sets the DTCs.
+  - id: ignition-coil-cyl-3
+    name: Ignition coil, cylinder 3
+    kind: ignition
+    system: powertrain
+    location: on top of the cylinder 3 spark plug
+    description: Coil-on-plug unit that fires the cylinder 3 spark plug.
+  - id: spark-plug-cyl-3
+    name: Spark plug, cylinder 3
+    kind: ignition
+    system: powertrain
+    location: cylinder 3, under the coil
+    description: Fires the air-fuel charge in cylinder 3.
+  - id: fuel-injector-cyl-3
+    name: Fuel injector, cylinder 3
+    kind: fuel
+    system: powertrain
+    location: intake runner, cylinder 3
+    description: Sprays fuel into the cylinder 3 intake runner.
+  - id: fuel-pump
+    name: Fuel pump
+    kind: fuel
+    system: powertrain
+    location: inside the fuel tank
+    description: Supplies pressurised fuel to the rail.
+  - id: maf-sensor
+    name: Mass air flow sensor
+    kind: sensor
+    system: powertrain
+    location: intake tube, after the air filter
+    description: Measures the air entering the engine.
+  - id: oxygen-sensor-b1s1
+    name: Oxygen sensor, bank 1 sensor 1
+    kind: sensor
+    system: powertrain
+    location: exhaust manifold, bank 1, before the catalyst
+    description: Measures exhaust oxygen so the ECM can trim fuel.
+  - id: coolant-temp-sensor
+    name: Engine coolant temperature sensor
+    kind: sensor
+    system: powertrain
+    location: thermostat housing
+    description: Reports coolant temperature to the ECM.
+  - id: crankshaft-position-sensor
+    name: Crankshaft position sensor
+    kind: sensor
+    system: powertrain
+    location: crankshaft pulley, front of the engine
+    description: Tells the ECM where the crankshaft is so it can time spark and fuel.
+  - id: throttle-body
+    name: Throttle body
+    kind: air
+    system: powertrain
+    location: intake manifold inlet
+    description: Meters air into the intake manifold.
+  - id: vacuum-hose-intake
+    name: Intake vacuum hose
+    kind: air
+    system: powertrain
+    location: intake manifold to brake booster and EVAP lines
+    description: Carries manifold vacuum to the booster and EVAP system.
+  - id: thermostat
+    name: Thermostat
+    kind: cooling
+    system: powertrain
+    location: thermostat housing, front of the engine
+    description: Holds coolant in the engine until it reaches operating temperature.
+  - id: evap-purge-valve
+    name: EVAP purge valve
+    kind: exhaust
+    system: evaporative emissions
+    location: engine bay, on the intake manifold
+    description: Meters fuel vapour from the charcoal canister into the intake.
+  - id: evap-hose
+    name: EVAP vapour hose
+    kind: exhaust
+    system: evaporative emissions
+    location: charcoal canister to purge valve
+    description: Carries fuel vapour from the canister to the purge valve.
+  - id: gas-cap
+    name: Fuel filler cap
+    kind: fuel
+    system: evaporative emissions
+    location: fuel filler neck
+    description: Seals the fuel tank so vapour cannot escape.
+  - id: catalytic-converter-b1
+    name: Catalytic converter, bank 1
+    kind: exhaust
+    system: powertrain
+    location: exhaust, bank 1, after the manifold
+    description: Converts exhaust pollutants before they leave the tailpipe.
+connections:
+  - id: ecm-to-coil-cyl-3
+    fromComponentId: ecm
+    toComponentId: ignition-coil-cyl-3
+    kind: wiring
+    label: coil driver harness
+  - id: ecm-to-injector-cyl-3
+    fromComponentId: ecm
+    toComponentId: fuel-injector-cyl-3
+    kind: wiring
+    label: injector driver harness
+  - id: ecm-to-maf-sensor
+    fromComponentId: ecm
+    toComponentId: maf-sensor
+    kind: wiring
+    label: MAF sensor harness
+  - id: ecm-to-oxygen-sensor-b1s1
+    fromComponentId: ecm
+    toComponentId: oxygen-sensor-b1s1
+    kind: wiring
+    label: O2 sensor harness
+  - id: ecm-to-coolant-temp-sensor
+    fromComponentId: ecm
+    toComponentId: coolant-temp-sensor
+    kind: wiring
+    label: coolant temperature sensor harness
+  - id: ecm-to-throttle-body
+    fromComponentId: ecm
+    toComponentId: throttle-body
+    kind: wiring
+    label: throttle actuator harness
+  - id: ecm-to-crankshaft-position-sensor
+    fromComponentId: ecm
+    toComponentId: crankshaft-position-sensor
+    kind: wiring
+    label: crankshaft position sensor harness
+  - id: ecm-to-evap-purge-valve
+    fromComponentId: ecm
+    toComponentId: evap-purge-valve
+    kind: wiring
+    label: purge valve harness
+  - id: coil-cyl-3-to-plug-cyl-3
+    fromComponentId: ignition-coil-cyl-3
+    toComponentId: spark-plug-cyl-3
+    kind: wiring
+    label: coil-on-plug boot
+  - id: fuel-pump-to-injector-cyl-3
+    fromComponentId: fuel-pump
+    toComponentId: fuel-injector-cyl-3
+    kind: fluid
+    label: fuel rail
+  - id: vacuum-hose-to-throttle-body
+    fromComponentId: vacuum-hose-intake
+    toComponentId: throttle-body
+    kind: vacuum
+    label: intake vacuum hose
+  - id: evap-purge-valve-to-evap-hose
+    fromComponentId: evap-purge-valve
+    toComponentId: evap-hose
+    kind: fluid
+    label: EVAP vapour line
+  - id: gas-cap-to-evap-hose
+    fromComponentId: gas-cap
+    toComponentId: evap-hose
+    kind: mechanical
+    label: filler neck vapour path
+dtcSuspects:
+  - dtcCode: P0300
+    componentId: ignition-coil-cyl-3
+    rank: 1
+    basis: A weak coil drops spark on one cylinder and the ECM sees a random misfire.
+  - dtcCode: P0300
+    componentId: spark-plug-cyl-3
+    rank: 2
+    basis: A fouled plug misfires under load before any other cylinder shows it.
+  - dtcCode: P0300
+    componentId: fuel-injector-cyl-3
+    rank: 3
+    basis: A clogged injector starves one cylinder and the misfire follows it.
+  - dtcCode: P0301
+    componentId: ignition-coil-cyl-3
+    rank: 1
+    basis: The code names cylinder 3, and the coil is the cheapest part in that chain to check.
+  - dtcCode: P0301
+    componentId: spark-plug-cyl-3
+    rank: 2
+    basis: The plug is the next part in the cylinder 3 ignition chain after the coil.
+  - dtcCode: P0301
+    componentId: fuel-injector-cyl-3
+    rank: 3
+    basis: A clogged injector on cylinder 3 misfires that cylinder alone.
+  - dtcCode: P0171
+    componentId: vacuum-hose-intake
+    rank: 1
+    basis: Unmetered air through a cracked hose leans the mixture on bank 1.
+  - dtcCode: P0171
+    componentId: maf-sensor
+    rank: 2
+    basis: A dirty MAF under-reports air, so the ECM fuels lean.
+  - dtcCode: P0171
+    componentId: fuel-pump
+    rank: 3
+    basis: A weak pump cannot hold rail pressure and the mixture goes lean under load.
+  - dtcCode: P0171
+    componentId: oxygen-sensor-b1s1
+    rank: 4
+    basis: A lazy upstream O2 sensor trims fuel slowly and the lean code follows.
+  - dtcCode: P0420
+    componentId: catalytic-converter-b1
+    rank: 1
+    basis: The code is the catalyst efficiency check for bank 1.
+  - dtcCode: P0420
+    componentId: oxygen-sensor-b1s1
+    rank: 2
+    basis: A lazy upstream sensor makes a good catalyst look inefficient.
+  - dtcCode: P0442
+    componentId: gas-cap
+    rank: 1
+    basis: A worn cap seal is the commonest small EVAP leak.
+  - dtcCode: P0442
+    componentId: evap-purge-valve
+    rank: 2
+    basis: A purge valve stuck open leaks vapour past the seal check.
+  - dtcCode: P0442
+    componentId: evap-hose
+    rank: 3
+    basis: A cracked vapour hose leaks a small amount the monitor catches.
+  - dtcCode: P0128
+    componentId: thermostat
+    rank: 1
+    basis: A thermostat stuck open keeps coolant below regulating temperature.
+  - dtcCode: P0128
+    componentId: coolant-temp-sensor
+    rank: 2
+    basis: A drifting coolant sensor reports colder than the engine really is.
+failureModes:
+  - id: coil-open-circuit
+    componentId: ignition-coil-cyl-3
+    hypothesisId: ignition-coil-failure
+    mode: Coil winding open circuit
+    effect: Cylinder 3 misfires under load
+    cause: Heat cycling cracks the winding
+    severity: 7
+    occurrence: 5
+    detection: 4
+  - id: plug-carbon-fouled
+    componentId: spark-plug-cyl-3
+    hypothesisId: spark-plug-fouled
+    mode: Plug fouled with carbon
+    effect: Weak spark, cylinder 3 misfires at idle
+    cause: Rich running or oil past the rings
+    severity: 6
+    occurrence: 5
+    detection: 3
+  - id: injector-clogged
+    componentId: fuel-injector-cyl-3
+    hypothesisId: misfire-cylinder-3
+    mode: Injector nozzle clogged
+    effect: Cylinder 3 runs lean and misfires
+    cause: Deposits in the nozzle
+    severity: 6
+    occurrence: 4
+    detection: 5
+  - id: vacuum-hose-cracked
+    componentId: vacuum-hose-intake
+    hypothesisId: vacuum-leak
+    mode: Hose cracked at the manifold fitting
+    effect: Unmetered air leans the mixture
+    cause: Heat and age harden the rubber
+    severity: 5
+    occurrence: 6
+    detection: 4
+  - id: fuel-pump-weak
+    componentId: fuel-pump
+    hypothesisId: weak-fuel-pump
+    mode: Pump output pressure low
+    effect: Lean mixture under load, hesitation
+    cause: Worn pump motor brushes
+    severity: 7
+    occurrence: 4
+    detection: 5
+  - id: oxygen-sensor-slow
+    componentId: oxygen-sensor-b1s1
+    hypothesisId: oxygen-sensor-lazy
+    mode: Sensor response slow
+    effect: Fuel trim hunts, catalyst monitor fails
+    cause: Contamination of the sensing element
+    severity: 5
+    occurrence: 5
+    detection: 6
+  - id: catalyst-efficiency-loss
+    componentId: catalytic-converter-b1
+    hypothesisId: catalyst-degraded
+    mode: Catalyst washcoat degraded
+    effect: Exhaust pollutants pass through untreated
+    cause: Age and thermal damage
+    severity: 6
+    occurrence: 4
+    detection: 7
+  - id: purge-valve-stuck-open
+    componentId: evap-purge-valve
+    hypothesisId: evap-purge-valve-stuck
+    mode: Purge valve stuck open
+    effect: Fuel vapour floods the intake at idle, small EVAP leak flagged
+    cause: Debris holds the valve off its seat
+    severity: 4
+    occurrence: 4
+    detection: 5
+  - id: gas-cap-seal-worn
+    componentId: gas-cap
+    hypothesisId: gas-cap-seal-failed
+    mode: Cap seal worn
+    effect: Small EVAP leak, fuel smell near the filler
+    cause: Seal hardens with age
+    severity: 3
+    occurrence: 6
+    detection: 3
+  - id: evap-hose-cracked
+    componentId: evap-hose
+    hypothesisId: evap-hose-cracked
+    mode: Vapour hose cracked
+    effect: Small EVAP leak the monitor catches
+    cause: Heat and age harden the rubber
+    severity: 4
+    occurrence: 5
+    detection: 5
+  - id: thermostat-stuck-open
+    componentId: thermostat
+    hypothesisId: thermostat-stuck-open
+    mode: Thermostat stuck open
+    effect: Engine never reaches operating temperature
+    cause: Wax element fails open
+    severity: 4
+    occurrence: 5
+    detection: 4
+  - id: coolant-sensor-drift
+    componentId: coolant-temp-sensor
+    hypothesisId: coolant-sensor-drifting
+    mode: Sensor resistance drifted
+    effect: ECM reads colder than the engine really is
+    cause: Sensor element ages
+    severity: 4
+    occurrence: 3
+    detection: 6
+tsbRecalls:
+  - id: tsb-coil-cracking
+    kind: tsb
+    title: Ignition coil cracking on high-mileage engines
+    componentIds: [ignition-coil-cyl-3]
+    vinPattern: any
+    source: llm-draft
+    sourceNote: Drafted from a remembered pattern; verify against the manufacturer notice before use.
+    verified: false
+  - id: recall-evap-purge-valve
+    kind: recall
+    title: EVAP purge valve may stick open
+    componentIds: [evap-purge-valve]
+    vinPattern: any
+    source: llm-draft
+    sourceNote: Drafted from a remembered pattern; verify against the NHTSA record before use.
+    verified: false

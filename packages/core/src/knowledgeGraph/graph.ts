@@ -113,9 +113,7 @@ export class VehicleKnowledgeGraph {
     /** Suspects for one DTC, rank order (cheapest to check first). */
     suspectsForDtc(dtcCode: string): DtcSuspect[] {
         const code = dtcCode.toUpperCase();
-        return this.file.dtcSuspects
-            .filter((suspect) => suspect.dtcCode === code)
-            .sort((a, b) => a.rank - b.rank);
+        return this.file.dtcSuspects.filter((suspect) => suspect.dtcCode === code).sort((a, b) => a.rank - b.rank);
     }
 
     /** FMEA failure modes of one component, highest risk priority first. */

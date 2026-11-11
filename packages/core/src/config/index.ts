@@ -117,6 +117,11 @@ export const SHARED_CONFIG = {
         YAML_VERSION: 1,
     },
 
+    // Knowledge graph (LM-38): seed graphs live in data/knowledge-graph/*.yaml.
+    KNOWLEDGE_GRAPH: {
+        YAML_VERSION: 1,
+    },
+
     THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
 
     // Google Cloud
