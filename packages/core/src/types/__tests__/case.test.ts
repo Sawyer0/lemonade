@@ -13,6 +13,7 @@ import {
     type LedgerEntry,
     type LedgerHasher,
 } from '../case';
+import { buildGoldenGoal } from '../../goal/__tests__/fixtures/goldenCase';
 
 // Tests run under Node, so the test-local hasher can use node:crypto. The
 // production hasher lives in infrastructure; core itself stays free of
@@ -165,6 +166,7 @@ describe('OutcomePayloadSchema', () => {
 
 describe('LedgerEntrySchema', () => {
     it('parses each event type with its own payload', () => {
+        const goal = buildGoldenGoal();
         const payloads: Array<{ type: LedgerEntry['type']; payload: LedgerEntry['payload'] }> = [
             { type: 'vin_decoded', payload: { vin: '1HGCM82633A004352', year: 2003, make: 'Honda', model: 'Accord' } },
             { type: 'dtc_read', payload: { codes: ['P0300', 'P0171'] } },
@@ -191,6 +193,25 @@ describe('LedgerEntrySchema', () => {
                 },
             },
             { type: 'correction', payload: { text: 'Cylinder was 3, not 1' } },
+            { type: 'goal_set', payload: { goalId: goal.goalId, goal } },
+            {
+                type: 'goal_amended',
+                payload: {
+                    goalId: goal.goalId,
+                    previousVersion: 1,
+                    version: 2,
+                    amendedByTechId: 'tech-123',
+                    note: 'Symptom list corrected',
+                },
+            },
+            {
+                type: 'criterion_met',
+                payload: { goalId: goal.goalId, criterionId: 'verify.retest', entryId: uuidv4(), entrySequence: 8 },
+            },
+            {
+                type: 'goal_status_changed',
+                payload: { goalId: goal.goalId, from: 'active', to: 'verified_fix', authority: 'code' },
+            },
         ];
         for (const { type, payload } of payloads) {
             const entry = appendToChain([], type, payload, type === 'correction' ? { correctsEntryId: uuidv4() } : {});
@@ -267,6 +288,24 @@ describe('LedgerEntrySchema', () => {
         expect(result.success).toBe(false);
     });
 
+    it('rejects a goal_set entry whose goalId disagrees with the embedded goal', () => {
+        const goal = buildGoldenGoal();
+        const result = LedgerEntrySchema.safeParse({
+            id: uuidv4(),
+            caseId,
+            sequence: 1,
+            type: 'goal_set',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: { goalId: uuidv4(), goal },
+            previousHash: LEDGER_GENESIS_HASH,
+            entryHash: 'b'.repeat(64),
+            createdAt: new Date(),
+        });
+        expect(result.success).toBe(false);
+    });
+
     it('rejects a media reference with a malformed sha256', () => {
         const result = LedgerEntrySchema.safeParse({
             id: uuidv4(),
@@ -317,6 +356,46 @@ describe('AppendLedgerEntryInputSchema', () => {
             occurredAt,
             payload: { text: 'Cylinder was 3, not 1' },
             correctsEntryId: uuidv4(),
+        });
+        expect(result.success).toBe(true);
+    });
+
+    it('accepts the goal ledger kinds', () => {
+        const goal = buildGoldenGoal();
+        const inputs = [
+            { type: 'goal_set', payload: { goalId: goal.goalId, goal } },
+            {
+                type: 'goal_amended',
+                payload: {
+                    goalId: goal.goalId,
+                    previousVersion: 1,
+                    version: 2,
+                    amendedByTechId: 'tech-123',
+                    note: 'Symptom list corrected',
+                },
+            },
+            {
+                type: 'criterion_met',
+                payload: { goalId: goal.goalId, criterionId: 'verify.retest', entryId: uuidv4(), entrySequence: 8 },
+            },
+            {
+                type: 'goal_status_changed',
+                payload: { goalId: goal.goalId, from: 'active', to: 'verified_fix', authority: 'code' },
+            },
+        ];
+        for (const input of inputs) {
+            const result = AppendLedgerEntryInputSchema.safeParse({ ...input, actor, source: 'tech', occurredAt });
+            expect(result.success).toBe(true);
+        }
+    });
+
+    it('accepts a sandboxed test run as an evidence source', () => {
+        const result = AppendLedgerEntryInputSchema.safeParse({
+            type: 'test_result',
+            actor,
+            source: 'sandbox',
+            occurredAt,
+            payload: { testName: 'compression-cylinder-1', result: 'pass' },
         });
         expect(result.success).toBe(true);
     });

@@ -32,7 +32,12 @@ describe('PostgresCaseRepository', () => {
     beforeAll(async () => {
         container = await new PostgreSqlContainer('postgres:16-alpine').start();
         pool = new Pool({ connectionString: container.getConnectionUri() });
-        for (const migration of ['0001_case_ledger.sql', '0002_ledger_transcript_type.sql', '0002_case_version.sql']) {
+        for (const migration of [
+            '0001_case_ledger.sql',
+            '0002_ledger_transcript_type.sql',
+            '0002_case_version.sql',
+            '0003_ledger_goal_types.sql',
+        ]) {
             const sql = readFileSync(path.resolve(process.cwd(), `db/migrations/${migration}`), 'utf8');
             await pool.query(sql);
         }

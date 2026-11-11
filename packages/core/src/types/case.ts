@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import {
+    CriterionMetPayloadSchema,
+    GoalAmendedPayloadSchema,
+    GoalSetPayloadSchema,
+    GoalStatusChangedPayloadSchema,
+} from '../goal/goalSchema';
 
 // --- Case aggregate ---
 // A case is the long-lived record of one vehicle's problem. One case can span
@@ -45,6 +51,14 @@ export const LedgerEventTypeSchema = z.enum([
     'outcome',
     'correction',
     'transcript',
+    // LM-25 goal events: the goal is set, amended, or changes status, and
+    // each criterion met is recorded as its own entry. These are audit
+    // records; the evaluator proves a criterion from the underlying evidence,
+    // never from a criterion_met entry.
+    'goal_set',
+    'goal_amended',
+    'criterion_met',
+    'goal_status_changed',
 ]);
 export type LedgerEventType = z.infer<typeof LedgerEventTypeSchema>;
 
@@ -54,7 +68,10 @@ export const LedgerActorSchema = z.object({
 });
 export type LedgerActor = z.infer<typeof LedgerActorSchema>;
 
-export const LedgerSourceSchema = z.enum(['tech', 'glasses', 'OBD', 'model', 'NHTSA']);
+// 'sandbox' is a test run in the sandbox (LM-25): deterministic, model-free
+// evidence, admissible as proof. 'model' stays a source an entry can carry,
+// but it is never admissible as proof — see AdmissibleSourcesSchema.
+export const LedgerSourceSchema = z.enum(['tech', 'glasses', 'OBD', 'sandbox', 'model', 'NHTSA']);
 export type LedgerSource = z.infer<typeof LedgerSourceSchema>;
 
 export const MediaReferenceSchema = z.object({
@@ -175,6 +192,13 @@ export const LedgerEntrySchema = z
         LedgerEntryBaseSchema.extend({ type: z.literal('outcome'), payload: OutcomePayloadSchema }),
         LedgerEntryBaseSchema.extend({ type: z.literal('correction'), payload: CorrectionPayloadSchema }),
         LedgerEntryBaseSchema.extend({ type: z.literal('transcript'), payload: TranscriptPayloadSchema }),
+        LedgerEntryBaseSchema.extend({ type: z.literal('goal_set'), payload: GoalSetPayloadSchema }),
+        LedgerEntryBaseSchema.extend({ type: z.literal('goal_amended'), payload: GoalAmendedPayloadSchema }),
+        LedgerEntryBaseSchema.extend({ type: z.literal('criterion_met'), payload: CriterionMetPayloadSchema }),
+        LedgerEntryBaseSchema.extend({
+            type: z.literal('goal_status_changed'),
+            payload: GoalStatusChangedPayloadSchema,
+        }),
     ])
     .superRefine((entry, ctx) => {
         if (entry.type === 'correction' && !entry.correctsEntryId) {
@@ -218,6 +242,13 @@ export const AppendLedgerEntryInputSchema = z.discriminatedUnion('type', [
         correctsEntryId: z.string().uuid(),
     }).strict(),
     AppendEntryBaseSchema.extend({ type: z.literal('transcript'), payload: TranscriptPayloadSchema }).strict(),
+    AppendEntryBaseSchema.extend({ type: z.literal('goal_set'), payload: GoalSetPayloadSchema }).strict(),
+    AppendEntryBaseSchema.extend({ type: z.literal('goal_amended'), payload: GoalAmendedPayloadSchema }).strict(),
+    AppendEntryBaseSchema.extend({ type: z.literal('criterion_met'), payload: CriterionMetPayloadSchema }).strict(),
+    AppendEntryBaseSchema.extend({
+        type: z.literal('goal_status_changed'),
+        payload: GoalStatusChangedPayloadSchema,
+    }).strict(),
 ]);
 export type AppendLedgerEntryInput = z.infer<typeof AppendLedgerEntryInputSchema>;
 

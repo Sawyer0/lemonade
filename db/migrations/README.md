@@ -7,6 +7,7 @@ yet; apply them with `psql` against the case-ledger database:
 psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0001_case_ledger.sql
 psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0002_ledger_transcript_type.sql
 psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0002_case_version.sql
+psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0003_ledger_goal_types.sql
 ```
 
 The repository test (`PostgresCaseRepository.test.ts`) applies the migrations
