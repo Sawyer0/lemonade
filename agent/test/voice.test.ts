@@ -32,9 +32,7 @@ describe('voice port', () => {
         const voice = createVoice(loadEnv({ GOOGLE_API_KEY: 'g', RESEMBLE_API_KEY: 'r' }), providers);
 
         expect(voice).toEqual({ kind: 'gemini-native-audio', model });
-        expect(providers.realtimeModel).toHaveBeenCalledWith(
-            expect.objectContaining({ model: GEMINI_LIVE_MODEL }),
-        );
+        expect(providers.realtimeModel).toHaveBeenCalledWith(expect.objectContaining({ model: GEMINI_LIVE_MODEL }));
     });
 });
 

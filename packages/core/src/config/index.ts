@@ -1,9 +1,4 @@
-import {
-    GEMINI_EMBEDDING_MODEL,
-    GEMINI_FLASH_MODEL,
-    GEMINI_LIVE_VERTEX_MODEL,
-    GEMINI_PRO_MODEL,
-} from './models';
+import { GEMINI_EMBEDDING_MODEL, GEMINI_FLASH_MODEL, GEMINI_LIVE_VERTEX_MODEL, GEMINI_PRO_MODEL } from './models';
 
 export const SHARED_CONFIG = {
     // AI Models
