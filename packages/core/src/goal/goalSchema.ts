@@ -128,6 +128,11 @@ export const CaseGoalSchema = z.object({
     status: GoalStatusSchema,
     statusAuthority: StatusAuthoritySchema,
     sameBlockerCount: z.number().int().nonnegative().default(0),
+    // LM-28: the blocker key of the most recent blocked run (see
+    // goal/drift.ts). Together with sameBlockerCount it identifies a repeat:
+    // the same key three runs in a row hands the case to the tech. Absent
+    // when no run has blocked yet, or after a run made progress.
+    lastBlocker: z.string().min(1).optional(),
 });
 export type CaseGoal = z.infer<typeof CaseGoalSchema>;
 
