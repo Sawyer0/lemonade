@@ -6,7 +6,7 @@ import { issueRoomToken } from '../src/tokens';
 
 describe('loadEnv', () => {
     it('uses livekit dev defaults outside production', () => {
-        expect(loadEnv({})).toMatchObject({
+        expect(loadEnv({ GOOGLE_API_KEY: 'g' })).toMatchObject({
             LIVEKIT_URL: 'ws://localhost:7880',
             LIVEKIT_API_KEY: 'devkey',
             PORT: 3001,
@@ -22,9 +22,32 @@ describe('loadEnv', () => {
     });
 
     it('defaults VOICE_PROVIDER to gemini', () => {
-        expect(loadEnv({}).VOICE_PROVIDER).toBe('gemini');
-        expect(loadEnv({ VOICE_PROVIDER: 'grok' }).VOICE_PROVIDER).toBe('grok');
-        expect(loadEnv({ VOICE_PROVIDER: 'cascade' }).VOICE_PROVIDER).toBe('cascade');
+        expect(loadEnv({ GOOGLE_API_KEY: 'g' }).VOICE_PROVIDER).toBe('gemini');
+        expect(loadEnv({ VOICE_PROVIDER: 'grok', XAI_API_KEY: 'x' }).VOICE_PROVIDER).toBe('grok');
+        expect(
+            loadEnv({
+                VOICE_PROVIDER: 'cascade',
+                GOOGLE_API_KEY: 'g',
+                DEEPGRAM_API_KEY: 'd',
+                CARTESIA_API_KEY: 'c',
+            }).VOICE_PROVIDER,
+        ).toBe('cascade');
+    });
+
+    it('refuses to start without the selected provider keys', () => {
+        expect(() => loadEnv({})).toThrow('GOOGLE_API_KEY must be set for the selected voice provider');
+        expect(() => loadEnv({ VOICE_PROVIDER: 'grok' })).toThrow(
+            'XAI_API_KEY must be set for the selected voice provider',
+        );
+        expect(() => loadEnv({ VOICE_PROVIDER: 'cascade', GOOGLE_API_KEY: 'g', DEEPGRAM_API_KEY: 'd' })).toThrow(
+            'CARTESIA_API_KEY must be set for the selected voice provider',
+        );
+        expect(() => loadEnv({ VOICE_PROVIDER: 'cascade', GOOGLE_API_KEY: 'g', CARTESIA_API_KEY: 'c' })).toThrow(
+            'DEEPGRAM_API_KEY must be set for the selected voice provider',
+        );
+        expect(() => loadEnv({ VOICE_PROVIDER: 'cascade', DEEPGRAM_API_KEY: 'd', CARTESIA_API_KEY: 'c' })).toThrow(
+            'GOOGLE_API_KEY must be set for the selected voice provider',
+        );
     });
 
     it('rejects an unknown VOICE_PROVIDER at startup', () => {

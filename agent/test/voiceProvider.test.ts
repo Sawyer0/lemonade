@@ -71,7 +71,7 @@ describe('parseVoiceProviderId', () => {
     });
 
     it('defaults VOICE_PROVIDER to gemini in loadEnv', () => {
-        expect(loadEnv({}).VOICE_PROVIDER).toBe('gemini');
+        expect(loadEnv({ GOOGLE_API_KEY: 'g' }).VOICE_PROVIDER).toBe('gemini');
     });
 });
 
@@ -182,17 +182,28 @@ describe.each(CONTRACT)('voice provider contract: $id', ({ id, keys, videoInput 
 });
 
 describe('voice provider keys', () => {
+    /** Every key each provider needs, so loadEnv passes and the sessionParts check is the one under test. */
+    const ALL_KEYS: Record<VoiceProviderId, Record<string, string>> = {
+        gemini: { GOOGLE_API_KEY: 'g' },
+        grok: { XAI_API_KEY: 'x' },
+        cascade: { GOOGLE_API_KEY: 'g', DEEPGRAM_API_KEY: 'd', CARTESIA_API_KEY: 'c' },
+    };
+
     it.each([
-        ['gemini', {}, 'GOOGLE_API_KEY'],
-        ['grok', {}, 'XAI_API_KEY'],
-        ['cascade', { GOOGLE_API_KEY: 'g', DEEPGRAM_API_KEY: 'd' }, 'CARTESIA_API_KEY'],
-        ['cascade', { GOOGLE_API_KEY: 'g', CARTESIA_API_KEY: 'c' }, 'DEEPGRAM_API_KEY'],
-        ['cascade', { DEEPGRAM_API_KEY: 'd', CARTESIA_API_KEY: 'c' }, 'GOOGLE_API_KEY'],
-    ] as Array<[VoiceProviderId, Record<string, string>, string]>)(
-        'fails fast when %s is missing %s',
-        (id, keys, missing) => {
+        ['gemini', 'GOOGLE_API_KEY'],
+        ['grok', 'XAI_API_KEY'],
+        ['cascade', 'CARTESIA_API_KEY'],
+        ['cascade', 'DEEPGRAM_API_KEY'],
+        ['cascade', 'GOOGLE_API_KEY'],
+    ] as Array<[VoiceProviderId, 'GOOGLE_API_KEY' | 'XAI_API_KEY' | 'DEEPGRAM_API_KEY' | 'CARTESIA_API_KEY']>)(
+        'fails fast in sessionParts when %s is missing %s',
+        (id, missing) => {
             const { plugins } = fakePlugins();
-            const provider = createVoiceProvider(loadEnv({ VOICE_PROVIDER: id, ...keys }), plugins);
+            // loadEnv fails fast at startup too; blank the key after it
+            // passes so this still covers the sessionParts check itself.
+            const env = loadEnv({ VOICE_PROVIDER: id, ...ALL_KEYS[id] });
+            env[missing] = undefined;
+            const provider = createVoiceProvider(env, plugins);
             expect(() => provider.sessionParts()).toThrow(`${missing} must be set`);
         },
     );

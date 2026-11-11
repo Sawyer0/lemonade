@@ -21,6 +21,20 @@ export function parseVoiceProviderId(value: string | undefined): VoiceProviderId
     throw new Error(`Unknown VOICE_PROVIDER "${id}": expected one of ${VOICE_PROVIDER_IDS.join(', ')}`);
 }
 
+/** API keys one provider needs. */
+export type VoiceProviderKey = 'GOOGLE_API_KEY' | 'XAI_API_KEY' | 'DEEPGRAM_API_KEY' | 'CARTESIA_API_KEY';
+
+/**
+ * The keys each provider needs. loadEnv requires them at startup, so a
+ * worker deployed without its provider's keys fails fast instead of on the
+ * first room job; sessionParts requires them again as a second check.
+ */
+export const VOICE_PROVIDER_KEYS: Record<VoiceProviderId, VoiceProviderKey[]> = {
+    gemini: ['GOOGLE_API_KEY'],
+    grok: ['XAI_API_KEY'],
+    cascade: ['GOOGLE_API_KEY', 'DEEPGRAM_API_KEY', 'CARTESIA_API_KEY'],
+};
+
 /** How camera frames reach the provider's model. */
 export type VideoInput = 'native' | 'snapshot';
 
@@ -100,10 +114,7 @@ export interface VoicePlugins {
 }
 
 /** Requires a provider API key. Missing keys fail at startup, never mid-call. */
-export function requiredKey(
-    env: AgentEnv,
-    key: 'GOOGLE_API_KEY' | 'XAI_API_KEY' | 'DEEPGRAM_API_KEY' | 'CARTESIA_API_KEY',
-): string {
+export function requiredKey(env: AgentEnv, key: VoiceProviderKey): string {
     const value = env[key];
     if (!value) {
         throw new Error(`${key} must be set for the selected voice provider`);
