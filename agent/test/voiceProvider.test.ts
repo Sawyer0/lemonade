@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import type { llm, stt, tts } from '@livekit/agents';
 import { initializeLogger } from '@livekit/agents';
-import { Modality } from '@google/genai';
+import { Behavior, Modality } from '@google/genai';
 import {
     CARTESIA_TTS_MODEL,
     DEEPGRAM_STT_MODEL,
@@ -264,6 +264,8 @@ interface RealtimeModelInternals {
         vertexai: boolean;
         // The constructor stores the requested modalities as responseModalities.
         responseModalities: unknown[];
+        // LM-13: non-blocking tool calls are set explicitly, never left to the default.
+        toolBehavior?: Behavior;
         contextWindowCompression?: { triggerTokens?: string; slidingWindow?: { targetTokens?: string } };
     };
 }
@@ -287,6 +289,7 @@ describe('livekit plugins', () => {
         expect(built._options.model).toBe(GEMINI_LIVE_MODEL);
         expect(built._options.vertexai).toBe(false);
         expect(built._options.responseModalities).toEqual([Modality.AUDIO]);
+        expect(built._options.toolBehavior).toBe(Behavior.NON_BLOCKING);
         expect(built._options.contextWindowCompression).toEqual({
             triggerTokens: CONTEXT_COMPRESSION_TRIGGER_TOKENS,
             slidingWindow: { targetTokens: CONTEXT_COMPRESSION_TARGET_TOKENS },

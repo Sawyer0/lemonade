@@ -5,7 +5,7 @@
   "description": "LiveKit voice agent (the live Master Tech) and its room token server",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --root .. agent",
+    "test": "(cd .. && patch-package) && vitest run --root .. agent",
     "test:live": "RUN_LIVE_AGENT_TESTS=true vitest run --root .. agent/test/live",
     "dev": "tsx src/index.ts dev",
     "start": "tsx src/index.ts start",
@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.0.2",
+    "patch-package": "^8.0.1",
     "typescript": "^5.9.3"
   }
 }

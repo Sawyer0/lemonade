@@ -1,0 +1,478 @@
+diff --git a/node_modules/@livekit/agents-plugin-google/dist/realtime/realtime_api.cjs b/node_modules/@livekit/agents-plugin-google/dist/realtime/realtime_api.cjs
+index 5b6b181..e8ce19f 100644
+--- a/node_modules/@livekit/agents-plugin-google/dist/realtime/realtime_api.cjs
++++ b/node_modules/@livekit/agents-plugin-google/dist/realtime/realtime_api.cjs
+@@ -42,6 +42,7 @@ var import_mutex = require("@livekit/mutex");
+ var import_rtc_node = require("@livekit/rtc-node");
+ var import_tools = require("../tools.cjs");
+ var import_utils = require("../utils.cjs");
++var import_zlib = require("node:zlib");
+ const INPUT_AUDIO_SAMPLE_RATE = 16e3;
+ const INPUT_AUDIO_CHANNELS = 1;
+ const OUTPUT_AUDIO_SAMPLE_RATE = 24e3;
+@@ -118,6 +119,109 @@ const DEFAULT_IMAGE_ENCODE_OPTIONS = {
+     strategy: "scale_aspect_fit"
+   }
+ };
++// LM-13 local patch: 1.9.5 leaves pushVideo() empty and the send loop never
++// forwards video, so frames never reach Gemini from Node. These helpers
++// encode a frame as PNG (Gemini Live accepts JPEG or PNG images for
++// realtimeInput.video) using only Node built-ins, so the patch adds no
++// dependency. Drop this block when upstream ships video input.
++const VIDEO_FRAME_MIN_INTERVAL_MS = 1000;
++const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
++const PNG_CRC_TABLE = (() => {
++  const table = new Int32Array(256);
++  for (let n = 0; n < 256; n += 1) {
++    let c = n;
++    for (let k = 0; k < 8; k += 1) {
++      c = c & 1 ? 3988292384 ^ (c >>> 1) : c >>> 1;
++    }
++    table[n] = c;
++  }
++  return table;
++})();
++function pngCrc32(bytes) {
++  let crc = -1;
++  for (const byte of bytes) {
++    crc = PNG_CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8);
++  }
++  return (crc ^ -1) >>> 0;
++}
++function pngChunk(type, data) {
++  const length = Buffer.alloc(4);
++  length.writeUInt32BE(data.length, 0);
++  const typeBytes = Buffer.from(type, "ascii");
++  const crc = Buffer.alloc(4);
++  crc.writeUInt32BE(pngCrc32(Buffer.concat([typeBytes, data])), 0);
++  return Buffer.concat([length, typeBytes, data, crc]);
++}
++function resizeRgbaToFit(rgba, width, height, maxWidth, maxHeight) {
++  if (width <= maxWidth && height <= maxHeight) {
++    return { data: rgba, width, height };
++  }
++  const scale = Math.min(maxWidth / width, maxHeight / height);
++  const targetWidth = Math.max(1, Math.floor(width * scale));
++  const targetHeight = Math.max(1, Math.floor(height * scale));
++  const resized = new Uint8Array(targetWidth * targetHeight * 4);
++  for (let y = 0; y < targetHeight; y += 1) {
++    const sourceY = Math.min(height - 1, Math.floor(y / scale));
++    for (let x = 0; x < targetWidth; x += 1) {
++      const sourceX = Math.min(width - 1, Math.floor(x / scale));
++      const sourceOffset = (sourceY * width + sourceX) * 4;
++      const targetOffset = (y * targetWidth + x) * 4;
++      resized[targetOffset] = rgba[sourceOffset];
++      resized[targetOffset + 1] = rgba[sourceOffset + 1];
++      resized[targetOffset + 2] = rgba[sourceOffset + 2];
++      resized[targetOffset + 3] = rgba[sourceOffset + 3];
++    }
++  }
++  return { data: resized, width: targetWidth, height: targetHeight };
++}
++function encodeRgbaPng(width, height, rgba) {
++  const stride = width * 3;
++  const raw = Buffer.alloc(height * (stride + 1));
++  let previousRow;
++  for (let y = 0; y < height; y += 1) {
++    const row = Buffer.alloc(stride);
++    for (let x = 0; x < width; x += 1) {
++      const source = (y * width + x) * 4;
++      row[x * 3] = rgba[source];
++      row[x * 3 + 1] = rgba[source + 1];
++      row[x * 3 + 2] = rgba[source + 2];
++    }
++    let filter = 0;
++    let filtered = row;
++    if (previousRow) {
++      let noneScore = 0;
++      let upScore = 0;
++      const upFiltered = Buffer.alloc(stride);
++      for (let i = 0; i < stride; i += 1) {
++        const byte = row[i];
++        noneScore += byte < 128 ? byte : 256 - byte;
++        const diff = (byte - previousRow[i] + 256) % 256;
++        upFiltered[i] = diff;
++        upScore += diff < 128 ? diff : 256 - diff;
++      }
++      if (upScore < noneScore) {
++        filter = 2;
++        filtered = upFiltered;
++      }
++    }
++    const target = y * (stride + 1);
++    raw[target] = filter;
++    filtered.copy(raw, target + 1);
++    previousRow = row;
++  }
++  const compressed = (0, import_zlib.deflateSync)(raw);
++  const header = Buffer.alloc(13);
++  header.writeUInt32BE(width, 0);
++  header.writeUInt32BE(height, 4);
++  header[8] = 8;
++  header[9] = 2;
++  return Buffer.concat([
++    PNG_SIGNATURE,
++    pngChunk("IHDR", header),
++    pngChunk("IDAT", compressed),
++    pngChunk("IEND", Buffer.alloc(0))
++  ]);
++}
+ class RealtimeModel extends import_agents.llm.RealtimeModel {
+   #logger = (0, import_agents.log)();
+   /** @internal */
+@@ -250,6 +354,7 @@ class RealtimeSession extends import_agents.llm.RealtimeSession {
+   sessionLock = new import_mutex.Mutex();
+   numRetries = 0;
+   hasReceivedAudioInput = false;
++  lastVideoSentAt = 0;
+   pendingInterruptText = false;
+   earlyCompletionPending = false;
+   pendingToolCallIds = /* @__PURE__ */ new Set();
+@@ -322,6 +427,10 @@ class RealtimeSession extends import_agents.llm.RealtimeSession {
+   shouldBlockRealtimeInputForPendingTools() {
+     return this.pendingToolCallIds.size > 0 && !this.isNonBlockingToolBehavior();
+   }
++  // LM-13 local patch: livekit/agents-js PR #2594 (fixes #2593). Drop when upstream lands it.
++  hasPendingNonBlockingToolCall() {
++    return this.pendingToolCallIds.size > 0 && this.isNonBlockingToolBehavior();
++  }
+   getToolResultsForRealtime(ctx, vertexai) {
+     const toolResponses = [];
+     const supportsSilentScheduling = !vertexai && this.options.toolBehavior === types.Behavior.NON_BLOCKING;
+@@ -514,7 +623,41 @@ class RealtimeSession extends import_agents.llm.RealtimeSession {
+       }
+     }
+   }
+-  pushVideo(_) {
++  // LM-13 local patch: 1.9.5 leaves pushVideo() empty and the send loop never
++  // forwards video. Encode the frame as PNG and queue it as realtimeInput.video
++  // (Gemini Live takes JPEG or PNG images, at most one frame per second).
++  // Drop this when upstream ships video input.
++  pushVideo(frame) {
++    if (this.shouldBlockRealtimeInputForPendingTools()) {
++      return;
++    }
++    if (!frame || frame.width <= 0 || frame.height <= 0 || !frame.data) {
++      this.#logger.warn("Dropping video frame with no pixels.");
++      return;
++    }
++    if (Date.now() - this.lastVideoSentAt < VIDEO_FRAME_MIN_INTERVAL_MS) {
++      return;
++    }
++    try {
++      const rgba = frame.type === import_rtc_node.VideoBufferType.RGBA ? frame : frame.convert(import_rtc_node.VideoBufferType.RGBA);
++      const resize = this.options.imageEncodeOptions?.resizeOptions;
++      const fitted = resize
++        ? resizeRgbaToFit(rgba.data, rgba.width, rgba.height, resize.width, resize.height)
++        : { data: rgba.data, width: rgba.width, height: rgba.height };
++      const png = encodeRgbaPng(fitted.width, fitted.height, fitted.data);
++      this.sendClientEvent({
++        type: "realtime_input",
++        value: {
++          video: {
++            mimeType: "image/png",
++            data: png.toString("base64")
++          }
++        }
++      });
++      this.lastVideoSentAt = Date.now();
++    } catch (error) {
++      this.#logger.error(`Failed to encode video frame, dropping it: ${error}`);
++    }
+   }
+   sendClientEvent(event) {
+     this.messageChannel.put(event);
+@@ -798,7 +941,7 @@ class RealtimeSession extends import_agents.llm.RealtimeSession {
+             }
+             break;
+           case "realtime_input":
+-            const { mediaChunks, audio, activityStart, activityEnd, text } = msg.value;
++            const { mediaChunks, audio, video, activityStart, activityEnd, text } = msg.value;
+             if (this.shouldBlockRealtimeInputForPendingTools()) {
+               break;
+             }
+@@ -810,6 +953,9 @@ class RealtimeSession extends import_agents.llm.RealtimeSession {
+             if (audio) {
+               await session.sendRealtimeInput({ audio });
+             }
++            if (video) {
++              await session.sendRealtimeInput({ video });
++            }
+             if (text) {
+               await session.sendRealtimeInput({ text });
+             }
+@@ -885,7 +1031,7 @@ class RealtimeSession extends import_agents.llm.RealtimeSession {
+         }
+       }
+       if (this.isNewGeneration(response)) {
+-        this.startNewGeneration();
++        this.startNewGeneration(response);
+         if (LK_GOOGLE_DEBUG) {
+           this.#logger.debug(`new generation started: ${(_e = this.currentGeneration) == null ? void 0 : _e.responseId}`);
+         }
+@@ -1082,7 +1228,7 @@ class RealtimeSession extends import_agents.llm.RealtimeSession {
+     }
+     return config;
+   }
+-  startNewGeneration() {
++  startNewGeneration(response) {
+     const previousGen = this.currentGeneration;
+     const previousHadOpenFunctionChannel = previousGen && !previousGen.functionChannel.closed;
+     if (previousGen && previousHadOpenFunctionChannel) {
+@@ -1129,7 +1275,15 @@ class RealtimeSession extends import_agents.llm.RealtimeSession {
+       generationEvent.userInitiated = true;
+       this.pendingGenerationFut.resolve(generationEvent);
+       this.pendingGenerationFut = void 0;
+-    } else {
++    } else if (
++      !this.hasPendingNonBlockingToolCall() ||
++      response.serverContent?.inputTranscription?.text
++    ) {
++      // emit input_speech_started event before starting an agent initiated generation
++      // to interrupt the previous audio playout if any.
++      // While a NON_BLOCKING tool call is pending, the model keeps talking in generations of
++      // its own; only one that carries the user's speech is a user turn. Interrupting on the
++      // others would cancel the speech that owns the call, and its result would never be sent.
+       this.handleInputSpeechStarted();
+     }
+     this.emit("generation_created", generationEvent);
+diff --git a/node_modules/@livekit/agents-plugin-google/dist/realtime/realtime_api.js b/node_modules/@livekit/agents-plugin-google/dist/realtime/realtime_api.js
+index e04ff36..7c07278 100644
+--- a/node_modules/@livekit/agents-plugin-google/dist/realtime/realtime_api.js
++++ b/node_modules/@livekit/agents-plugin-google/dist/realtime/realtime_api.js
+@@ -22,7 +22,8 @@ import {
+   stream
+ } from "@livekit/agents";
+ import { Mutex } from "@livekit/mutex";
+-import { AudioFrame, AudioResampler } from "@livekit/rtc-node";
++import { AudioFrame, AudioResampler, VideoBufferType } from "@livekit/rtc-node";
++import { deflateSync } from "node:zlib";
+ import {} from "../tools.js";
+ import { toToolsConfig } from "../utils.js";
+ const INPUT_AUDIO_SAMPLE_RATE = 16e3;
+@@ -101,6 +102,109 @@ const DEFAULT_IMAGE_ENCODE_OPTIONS = {
+     strategy: "scale_aspect_fit"
+   }
+ };
++// LM-13 local patch: 1.9.5 leaves pushVideo() empty and the send loop never
++// forwards video, so frames never reach Gemini from Node. These helpers
++// encode a frame as PNG (Gemini Live accepts JPEG or PNG images for
++// realtimeInput.video) using only Node built-ins, so the patch adds no
++// dependency. Drop this block when upstream ships video input.
++const VIDEO_FRAME_MIN_INTERVAL_MS = 1000;
++const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
++const PNG_CRC_TABLE = (() => {
++  const table = new Int32Array(256);
++  for (let n = 0; n < 256; n += 1) {
++    let c = n;
++    for (let k = 0; k < 8; k += 1) {
++      c = c & 1 ? 3988292384 ^ (c >>> 1) : c >>> 1;
++    }
++    table[n] = c;
++  }
++  return table;
++})();
++function pngCrc32(bytes) {
++  let crc = -1;
++  for (const byte of bytes) {
++    crc = PNG_CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8);
++  }
++  return (crc ^ -1) >>> 0;
++}
++function pngChunk(type, data) {
++  const length = Buffer.alloc(4);
++  length.writeUInt32BE(data.length, 0);
++  const typeBytes = Buffer.from(type, "ascii");
++  const crc = Buffer.alloc(4);
++  crc.writeUInt32BE(pngCrc32(Buffer.concat([typeBytes, data])), 0);
++  return Buffer.concat([length, typeBytes, data, crc]);
++}
++function resizeRgbaToFit(rgba, width, height, maxWidth, maxHeight) {
++  if (width <= maxWidth && height <= maxHeight) {
++    return { data: rgba, width, height };
++  }
++  const scale = Math.min(maxWidth / width, maxHeight / height);
++  const targetWidth = Math.max(1, Math.floor(width * scale));
++  const targetHeight = Math.max(1, Math.floor(height * scale));
++  const resized = new Uint8Array(targetWidth * targetHeight * 4);
++  for (let y = 0; y < targetHeight; y += 1) {
++    const sourceY = Math.min(height - 1, Math.floor(y / scale));
++    for (let x = 0; x < targetWidth; x += 1) {
++      const sourceX = Math.min(width - 1, Math.floor(x / scale));
++      const sourceOffset = (sourceY * width + sourceX) * 4;
++      const targetOffset = (y * targetWidth + x) * 4;
++      resized[targetOffset] = rgba[sourceOffset];
++      resized[targetOffset + 1] = rgba[sourceOffset + 1];
++      resized[targetOffset + 2] = rgba[sourceOffset + 2];
++      resized[targetOffset + 3] = rgba[sourceOffset + 3];
++    }
++  }
++  return { data: resized, width: targetWidth, height: targetHeight };
++}
++function encodeRgbaPng(width, height, rgba) {
++  const stride = width * 3;
++  const raw = Buffer.alloc(height * (stride + 1));
++  let previousRow;
++  for (let y = 0; y < height; y += 1) {
++    const row = Buffer.alloc(stride);
++    for (let x = 0; x < width; x += 1) {
++      const source = (y * width + x) * 4;
++      row[x * 3] = rgba[source];
++      row[x * 3 + 1] = rgba[source + 1];
++      row[x * 3 + 2] = rgba[source + 2];
++    }
++    let filter = 0;
++    let filtered = row;
++    if (previousRow) {
++      let noneScore = 0;
++      let upScore = 0;
++      const upFiltered = Buffer.alloc(stride);
++      for (let i = 0; i < stride; i += 1) {
++        const byte = row[i];
++        noneScore += byte < 128 ? byte : 256 - byte;
++        const diff = (byte - previousRow[i] + 256) % 256;
++        upFiltered[i] = diff;
++        upScore += diff < 128 ? diff : 256 - diff;
++      }
++      if (upScore < noneScore) {
++        filter = 2;
++        filtered = upFiltered;
++      }
++    }
++    const target = y * (stride + 1);
++    raw[target] = filter;
++    filtered.copy(raw, target + 1);
++    previousRow = row;
++  }
++  const compressed = deflateSync(raw);
++  const header = Buffer.alloc(13);
++  header.writeUInt32BE(width, 0);
++  header.writeUInt32BE(height, 4);
++  header[8] = 8;
++  header[9] = 2;
++  return Buffer.concat([
++    PNG_SIGNATURE,
++    pngChunk("IHDR", header),
++    pngChunk("IDAT", compressed),
++    pngChunk("IEND", Buffer.alloc(0))
++  ]);
++}
+ class RealtimeModel extends llm.RealtimeModel {
+   #logger = log();
+   /** @internal */
+@@ -233,6 +337,7 @@ class RealtimeSession extends llm.RealtimeSession {
+   sessionLock = new Mutex();
+   numRetries = 0;
+   hasReceivedAudioInput = false;
++  lastVideoSentAt = 0;
+   pendingInterruptText = false;
+   earlyCompletionPending = false;
+   pendingToolCallIds = /* @__PURE__ */ new Set();
+@@ -305,6 +410,10 @@ class RealtimeSession extends llm.RealtimeSession {
+   shouldBlockRealtimeInputForPendingTools() {
+     return this.pendingToolCallIds.size > 0 && !this.isNonBlockingToolBehavior();
+   }
++  // LM-13 local patch: livekit/agents-js PR #2594 (fixes #2593). Drop when upstream lands it.
++  hasPendingNonBlockingToolCall() {
++    return this.pendingToolCallIds.size > 0 && this.isNonBlockingToolBehavior();
++  }
+   getToolResultsForRealtime(ctx, vertexai) {
+     const toolResponses = [];
+     const supportsSilentScheduling = !vertexai && this.options.toolBehavior === types.Behavior.NON_BLOCKING;
+@@ -497,7 +606,41 @@ class RealtimeSession extends llm.RealtimeSession {
+       }
+     }
+   }
+-  pushVideo(_) {
++  // LM-13 local patch: 1.9.5 leaves pushVideo() empty and the send loop never
++  // forwards video. Encode the frame as PNG and queue it as realtimeInput.video
++  // (Gemini Live takes JPEG or PNG images, at most one frame per second).
++  // Drop this when upstream ships video input.
++  pushVideo(frame) {
++    if (this.shouldBlockRealtimeInputForPendingTools()) {
++      return;
++    }
++    if (!frame || frame.width <= 0 || frame.height <= 0 || !frame.data) {
++      this.#logger.warn("Dropping video frame with no pixels.");
++      return;
++    }
++    if (Date.now() - this.lastVideoSentAt < VIDEO_FRAME_MIN_INTERVAL_MS) {
++      return;
++    }
++    try {
++      const rgba = frame.type === VideoBufferType.RGBA ? frame : frame.convert(VideoBufferType.RGBA);
++      const resize = this.options.imageEncodeOptions?.resizeOptions;
++      const fitted = resize
++        ? resizeRgbaToFit(rgba.data, rgba.width, rgba.height, resize.width, resize.height)
++        : { data: rgba.data, width: rgba.width, height: rgba.height };
++      const png = encodeRgbaPng(fitted.width, fitted.height, fitted.data);
++      this.sendClientEvent({
++        type: "realtime_input",
++        value: {
++          video: {
++            mimeType: "image/png",
++            data: png.toString("base64")
++          }
++        }
++      });
++      this.lastVideoSentAt = Date.now();
++    } catch (error) {
++      this.#logger.error(`Failed to encode video frame, dropping it: ${error}`);
++    }
+   }
+   sendClientEvent(event) {
+     this.messageChannel.put(event);
+@@ -781,7 +924,7 @@ class RealtimeSession extends llm.RealtimeSession {
+             }
+             break;
+           case "realtime_input":
+-            const { mediaChunks, audio, activityStart, activityEnd, text } = msg.value;
++            const { mediaChunks, audio, video, activityStart, activityEnd, text } = msg.value;
+             if (this.shouldBlockRealtimeInputForPendingTools()) {
+               break;
+             }
+@@ -793,6 +936,9 @@ class RealtimeSession extends llm.RealtimeSession {
+             if (audio) {
+               await session.sendRealtimeInput({ audio });
+             }
++            if (video) {
++              await session.sendRealtimeInput({ video });
++            }
+             if (text) {
+               await session.sendRealtimeInput({ text });
+             }
+@@ -868,7 +1014,7 @@ class RealtimeSession extends llm.RealtimeSession {
+         }
+       }
+       if (this.isNewGeneration(response)) {
+-        this.startNewGeneration();
++        this.startNewGeneration(response);
+         if (LK_GOOGLE_DEBUG) {
+           this.#logger.debug(`new generation started: ${(_e = this.currentGeneration) == null ? void 0 : _e.responseId}`);
+         }
+@@ -1065,7 +1211,7 @@ class RealtimeSession extends llm.RealtimeSession {
+     }
+     return config;
+   }
+-  startNewGeneration() {
++  startNewGeneration(response) {
+     const previousGen = this.currentGeneration;
+     const previousHadOpenFunctionChannel = previousGen && !previousGen.functionChannel.closed;
+     if (previousGen && previousHadOpenFunctionChannel) {
+@@ -1112,7 +1258,15 @@ class RealtimeSession extends llm.RealtimeSession {
+       generationEvent.userInitiated = true;
+       this.pendingGenerationFut.resolve(generationEvent);
+       this.pendingGenerationFut = void 0;
+-    } else {
++    } else if (
++      !this.hasPendingNonBlockingToolCall() ||
++      response.serverContent?.inputTranscription?.text
++    ) {
++      // emit input_speech_started event before starting an agent initiated generation
++      // to interrupt the previous audio playout if any.
++      // While a NON_BLOCKING tool call is pending, the model keeps talking in generations of
++      // its own; only one that carries the user's speech is a user turn. Interrupting on the
++      // others would cancel the speech that owns the call, and its result would never be sent.
+       this.handleInputSpeechStarted();
+     }
+     this.emit("generation_created", generationEvent);
