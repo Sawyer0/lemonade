@@ -13,7 +13,8 @@ import type { VerificationRequest, VerificationResponse, SearchRequest, SearchRe
 import type { LocalTriageResult } from '../types/localPerception';
 import type { TestDefinition } from '../diagnosis/tests/testSchema';
 import type { DiagnosticLoopInput, DiagnosticLoopState, TestResultInput } from '../diagnosis/loop/types';
-import { enterWorkup, applyWorkupResult, loopIsTerminal } from '../diagnosis/loop/loop';
+import { loopIsTerminal } from '../diagnosis/loop/loop';
+import { enterWorkup, applyWorkupResult } from '../diagnosis/loop/workup';
 
 export interface VisionInput {
     service: IMultimodalUploadAnalyzer;

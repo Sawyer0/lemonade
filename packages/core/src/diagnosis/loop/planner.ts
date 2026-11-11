@@ -13,7 +13,7 @@
 // leading hypothesis: a negative result on it has to hurt the leader.
 import { SHARED_CONFIG } from '../../config';
 import { COST_TIER_RANK, type TestLibrary, type TestLibraryState } from '../tests/testLibrary';
-import type { CostTier, DisassemblyState, SafetyClass, TestDefinition } from '../tests/testSchema';
+import type { CostTier, SafetyClass, TestDefinition } from '../tests/testSchema';
 import { renderTestSpoken } from '../tests/stepSpeech';
 import type { CostBreakdown, Differential, NextTest } from './types';
 import type { TestRates } from './update';
