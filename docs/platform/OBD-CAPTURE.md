@@ -77,7 +77,12 @@ scan never poses as a complete one.
   time) and `BleObdAdapter`.
 - `mobile/services/MobileObdCapture.ts` — the session screen's OBD
   client: scan, 1 Hz live sampling into the fault buffer, fault window,
-  guided test, verify-fix.
+  guided test, verify-fix. A fault window freezes the 60 s before the
+  trigger, waits the 15 s after it while sampling keeps running, and only
+  then saves, so the window holds samples on both sides. Sampling also
+  fires the automatic triggers: a stored code that was not there on the
+  last poll (code-set) or a live PID outside its plausibility range
+  (out-of-range), at most one automatic window a minute.
 - `mobile/components/domain/session/ObdScanPanel.tsx` — the panel in the
   session screen footer: find adapter, scan, save fault window, guided
   test, verify-fix.
@@ -96,8 +101,10 @@ run is manual. Do it once per adapter model:
    freeze frame, Mode 06 results, readiness and VIN appear, and the
    notice says the scan was recorded in the ledger.
 4. In the case ledger, confirm one `obd_scan` entry with source `OBD`.
-5. Tap **Save fault window**; confirm an `obd_fault_window` entry with
-   samples on both sides of now.
+5. Tap **Save fault window**; the panel collects 15 s after the tap, then
+   confirm an `obd_fault_window` entry with samples on both sides of the
+   tap. A code setting or a value going out of range while sampling runs
+   saves one the same way, without a tap.
 6. Tap **Run hold-2,500-RPM test**, hold 2,500 RPM for 30 s; confirm a
    `guided_test` entry with result pass or fail against its range.
 7. Tap **Verify fix** after clearing codes and a drive cycle; confirm a

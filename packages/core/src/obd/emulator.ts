@@ -47,7 +47,10 @@ export const FULL_SCAN_TRANSCRIPT: Readonly<Record<string, string>> = {
     '01 05 0C 0D 11 2F': '41 05 82 0C 27 10 0D 00 11 26 2F 80\r\r>',
     '01 0C': '41 0C 27 10\r\r>',
     // Guided hold-2,500-RPM test: RPM 2500, STFT 0%, LTFT 0%, O2 0.5 V, MAF 5 g/s.
-    '01 0C 06 07 14 10': '41 0C 27 10 06 80 07 80 14 64 10 01 F4\r\r>',
+    // PID 14 (O2) takes two bytes — voltage then STFT — so the reply carries
+    // both (`64 80`) before PID 10's marker, or the parser reads `10` as
+    // PID 14's second byte and MAF is never parsed.
+    '01 0C 06 07 14 10': '41 0C 27 10 06 80 07 80 14 64 80 10 01 F4\r\r>',
     '04': '44\r\r>',
 };
 

@@ -116,6 +116,20 @@ describe('parseLivePidResponse', () => {
     it('returns no readings for NO DATA', () => {
         expect(parseLivePidResponse('NO DATA\r\r>', '2026-11-11T15:00:00.000Z')).toEqual([]);
     });
+
+    it('parses MAF after the two-byte O2 sensor in the guided-test reply', () => {
+        // The guided-test reply ends `14 64 80 10 01 F4`: PID 14 takes two
+        // bytes (voltage `64`, STFT `80`), so PID 10's marker follows and
+        // MAF parses as 5 g/s. With only one byte after `14`, the parser
+        // reads `10` as PID 14's second byte and MAF is lost.
+        const readings = parseLivePidResponse(
+            '41 0C 27 10 06 80 07 80 14 64 80 10 01 F4\r\r>',
+            '2026-11-11T15:00:00.000Z',
+        );
+        expect(readings.map((reading) => reading.pid)).toEqual(['0C', '06', '07', '14', '10']);
+        expect(readings[3]?.value).toBe(0.5);
+        expect(readings[4]).toMatchObject({ pid: '10', label: 'Mass air flow', value: 5, unit: 'g/s' });
+    });
 });
 
 describe('parseReadinessResponse', () => {

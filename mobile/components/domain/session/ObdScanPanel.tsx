@@ -4,6 +4,7 @@ import { BleManager } from 'react-native-ble-plx';
 import {
     createEmulatorAdapter,
     type GuidedObdTestOutcome,
+    type ObdFaultWindow,
     type ObdScanResult,
     type VerifyFixResult,
 } from '@lemonade/core';
@@ -18,7 +19,7 @@ interface ObdScanPanelProps {
     sessionId: string;
 }
 
-type PanelStatus = 'idle' | 'finding' | 'connecting' | 'ready' | 'scanning' | 'testing' | 'verifying';
+type PanelStatus = 'idle' | 'finding' | 'connecting' | 'ready' | 'scanning' | 'capturing' | 'testing' | 'verifying';
 
 function codeList(label: string, codes: readonly string[]): string {
     return `${label} (${codes.length}): ${codes.length > 0 ? codes.join(', ') : 'none'}`;
@@ -55,9 +56,15 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
         status === 'finding' ||
         status === 'connecting' ||
         status === 'scanning' ||
+        status === 'capturing' ||
         status === 'testing' ||
         status === 'verifying';
-    const connected = status === 'ready' || status === 'scanning' || status === 'testing' || status === 'verifying';
+    const connected =
+        status === 'ready' ||
+        status === 'scanning' ||
+        status === 'capturing' ||
+        status === 'testing' ||
+        status === 'verifying';
 
     const findAdapters = useCallback(async () => {
         setError(null);
@@ -92,18 +99,33 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
         }
     }, []);
 
+    const handleAutoFaultWindow = useCallback((window: ObdFaultWindow) => {
+        setNotice(
+            `Fault window saved automatically (${window.trigger}): ${window.samples.length} samples, ` +
+                '60 s before to 15 s after the trigger.',
+        );
+    }, []);
+
     const connectAdapter = useCallback(
         async (device: ScannedObdAdapter) => {
-            await connectCapture(new MobileObdCapture(createBleObdAdapter(bleManager(), device), sessionId));
+            await connectCapture(
+                new MobileObdCapture(createBleObdAdapter(bleManager(), device), sessionId, undefined, {
+                    onAutoFaultWindow: handleAutoFaultWindow,
+                }),
+            );
         },
-        [bleManager, connectCapture, sessionId],
+        [bleManager, connectCapture, handleAutoFaultWindow, sessionId],
     );
 
     const connectEmulator = useCallback(async () => {
         const emulator = createEmulatorAdapter();
         await emulator.connect();
-        await connectCapture(new MobileObdCapture(emulator, sessionId));
-    }, [connectCapture, sessionId]);
+        await connectCapture(
+            new MobileObdCapture(emulator, sessionId, undefined, {
+                onAutoFaultWindow: handleAutoFaultWindow,
+            }),
+        );
+    }, [connectCapture, handleAutoFaultWindow, sessionId]);
 
     const disconnect = useCallback(async () => {
         const capture = captureRef.current;
@@ -136,11 +158,18 @@ export function ObdScanPanel({ sessionId }: ObdScanPanelProps) {
         const capture = captureRef.current;
         if (!capture) return;
         setError(null);
+        setStatus('capturing');
+        // The capture waits 15 s after the tap so the saved window holds
+        // samples on both sides of the trigger; the buttons stay disabled
+        // until it lands.
+        setNotice('Saving fault window — collecting 15 s after the trigger…');
         try {
             const window = await capture.captureFaultWindow('manual', 'tech said now');
-            setNotice(`Fault window saved: ${window.samples.length} samples, 60 s before to 15 s after now.`);
+            setNotice(`Fault window saved: ${window.samples.length} samples, 60 s before to 15 s after the trigger.`);
+            setStatus('ready');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Fault window was not saved.');
+            setStatus('ready');
         }
     }, []);
 

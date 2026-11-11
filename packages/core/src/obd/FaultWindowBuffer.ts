@@ -78,26 +78,48 @@ export class FaultWindowBuffer {
         triggerAtMs: number,
         triggerDetail?: string,
     ): ObdFaultWindow {
-        const windowSamples = this.samplesInRange(
-            triggerAtMs - FAULT_WINDOW_BEFORE_MS,
-            triggerAtMs + FAULT_WINDOW_AFTER_MS,
-        );
-        const startedAtMs =
-            windowSamples.length > 0
-                ? (windowSamples[0] as FaultWindowSample).capturedAtMs
-                : triggerAtMs - FAULT_WINDOW_BEFORE_MS;
-        const endedAtMs =
-            windowSamples.length > 0
-                ? (windowSamples[windowSamples.length - 1] as FaultWindowSample).capturedAtMs
-                : triggerAtMs + FAULT_WINDOW_AFTER_MS;
-        return {
+        return assembleFaultWindow(
             trigger,
-            ...(triggerDetail ? { triggerDetail } : {}),
-            startedAt: new Date(startedAtMs).toISOString(),
-            endedAt: new Date(endedAtMs).toISOString(),
-            samples: windowSamples.map(toReading),
-        };
+            triggerAtMs,
+            this.samplesInRange(triggerAtMs - FAULT_WINDOW_BEFORE_MS, triggerAtMs + FAULT_WINDOW_AFTER_MS),
+            triggerDetail,
+        );
     }
+}
+
+/**
+ * Builds a fault window from explicit samples: the 60 s before to 15 s
+ * after the trigger, from whatever the samples hold. `startedAt` is the
+ * oldest sample actually saved (or the ideal window start when there are
+ * no samples) and `endedAt` the newest (or the ideal window end), so a
+ * reader can tell when the start had already fallen off.
+ *
+ * Callers that must wait out the 15 s after the trigger freeze the
+ * before-trigger samples first and pass them in with the after-trigger
+ * ones: the rolling buffer's capacity is exactly 60 s + 15 s, so a
+ * snapshot taken 15 s late sits on the pruning edge and a sample pushed
+ * in between can drop the window's first sample before it is read.
+ */
+export function assembleFaultWindow(
+    trigger: ObdFaultWindow['trigger'],
+    triggerAtMs: number,
+    samples: readonly FaultWindowSample[],
+    triggerDetail?: string,
+): ObdFaultWindow {
+    const ordered = [...samples].sort((a, b) => a.capturedAtMs - b.capturedAtMs);
+    const startedAtMs =
+        ordered.length > 0 ? (ordered[0] as FaultWindowSample).capturedAtMs : triggerAtMs - FAULT_WINDOW_BEFORE_MS;
+    const endedAtMs =
+        ordered.length > 0
+            ? (ordered[ordered.length - 1] as FaultWindowSample).capturedAtMs
+            : triggerAtMs + FAULT_WINDOW_AFTER_MS;
+    return {
+        trigger,
+        ...(triggerDetail ? { triggerDetail } : {}),
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: new Date(endedAtMs).toISOString(),
+        samples: ordered.map(toReading),
+    };
 }
 
 /**

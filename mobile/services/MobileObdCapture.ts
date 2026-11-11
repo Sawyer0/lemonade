@@ -4,12 +4,24 @@
 // posts every result to the case ledger through the session API routes.
 // The adapter is injected, so the same client runs against a BLE OBDLink
 // on a real car and against the emulator in development and tests.
+//
+// Fault windows fire three ways: the tech taps "now" (manual), a stored
+// code appears that was not there on the last poll (code-set), or a live
+// PID leaves its plausibility range (out-of-range). Every trigger saves
+// the 60 s before to 15 s after it — the capture waits out the 15 s after
+// the trigger while sampling keeps running, so the saved window really
+// holds samples on both sides.
 import {
+    FAULT_WINDOW_AFTER_MS,
+    FAULT_WINDOW_BEFORE_MS,
     FaultWindowBuffer,
     LIVE_SCAN_PIDS,
     ObdCaptureService,
+    assembleFaultWindow,
+    findOutOfRange,
     runGuidedObdTest,
     runVerifyFix,
+    type FaultWindowSample,
     type FaultWindowTrigger,
     type GuidedObdTestDefinition,
     type GuidedObdTestOutcome,
@@ -38,20 +50,52 @@ export const HOLD_2500_RPM_TEST: GuidedObdTestDefinition = {
     ],
 };
 
+/**
+ * Plausibility bounds for the live-PID feed: a value outside them is a
+ * sensor or car fault, not a diagnosis. These are deliberately wide — a
+ * car at 7,000 RPM is at its redline, not past it — so the out-of-range
+ * trigger fires on impossible readings, never on hard driving.
+ */
+export const DEFAULT_LIVE_PID_RANGES: Readonly<Record<string, { min: number; max: number }>> = {
+    '05': { min: -40, max: 130 },
+    '0C': { min: 0, max: 7000 },
+    '0D': { min: 0, max: 250 },
+    '11': { min: 0, max: 100 },
+    '2F': { min: 0, max: 100 },
+};
+
+/** Minimum gap between two automatic fault-window captures. */
+const AUTO_TRIGGER_COOLDOWN_MS = FAULT_WINDOW_BEFORE_MS;
+
+export interface MobileObdCaptureOptions {
+    /** Called with every fault window an automatic trigger saves. */
+    onAutoFaultWindow?: (window: ObdFaultWindow) => void;
+    /** Expected ranges for the out-of-range trigger; defaults to DEFAULT_LIVE_PID_RANGES. */
+    livePidRanges?: Readonly<Record<string, { min: number; max: number }>>;
+}
+
 type PostJson = (path: string, body: unknown) => Promise<Response>;
 
 export class MobileObdCapture {
     private readonly capture: ObdCaptureService;
     private readonly faultBuffer = new FaultWindowBuffer();
+    private readonly livePidRanges: Readonly<Record<string, { min: number; max: number }>>;
+    private readonly onAutoFaultWindow?: (window: ObdFaultWindow) => void;
     private samplingTimer: ReturnType<typeof setInterval> | null = null;
     private samplingInFlight = false;
+    private knownCodes: ReadonlySet<string> | null = null;
+    private autoCaptureInFlight: Promise<ObdFaultWindow> | null = null;
+    private lastAutoTriggerAtMs = 0;
 
     constructor(
         private readonly adapter: IObdAdapter,
         private readonly sessionId: string,
         private readonly post: PostJson = postJson,
+        options: MobileObdCaptureOptions = {},
     ) {
         this.capture = new ObdCaptureService(adapter);
+        this.livePidRanges = options.livePidRanges ?? DEFAULT_LIVE_PID_RANGES;
+        this.onAutoFaultWindow = options.onAutoFaultWindow;
     }
 
     public get isConnected(): boolean {
@@ -66,6 +110,9 @@ export class MobileObdCapture {
     public async connectAndInitialize(): Promise<void> {
         await this.adapter.connect();
         await this.capture.initialize();
+        // A fresh baseline per connection: codes already set when the tech
+        // plugs in are the car's state, not a new fault.
+        this.knownCodes = null;
     }
 
     public async disconnect(): Promise<void> {
@@ -107,10 +154,25 @@ export class MobileObdCapture {
         this.samplingInFlight = true;
         try {
             const readings = await this.capture.readLivePids(LIVE_SCAN_PIDS);
+            const samples: FaultWindowSample[] = readings.map((reading) => ({
+                ...reading,
+                capturedAtMs: Date.parse(reading.capturedAt),
+            }));
+            for (const sample of samples) {
+                this.faultBuffer.push(sample);
+            }
             for (const reading of readings) {
-                this.faultBuffer.push({ ...reading, capturedAtMs: Date.parse(reading.capturedAt) });
                 onSample?.(reading);
             }
+            const outOfRange = findOutOfRange(samples, this.livePidRanges);
+            if (outOfRange) {
+                this.fireAutoTrigger(
+                    'out-of-range',
+                    `${outOfRange.label} ${outOfRange.value}${outOfRange.unit} outside ` +
+                        `${outOfRange.expectedMin}..${outOfRange.expectedMax}${outOfRange.unit}`,
+                );
+            }
+            await this.checkStoredCodes();
         } catch (error) {
             console.error('[MobileObdCapture] Live sample failed', error);
         } finally {
@@ -118,11 +180,87 @@ export class MobileObdCapture {
         }
     }
 
-    /** Saves the 60 s-before / 15 s-after window around a trigger to the ledger. */
+    /**
+     * Polls stored codes: a code that was not there on the last poll sets
+     * the code-set trigger. The first poll after connecting only sets the
+     * baseline — codes already stored are the car's state, not a new fault.
+     */
+    private async checkStoredCodes(): Promise<void> {
+        let codes: string[];
+        try {
+            codes = await this.capture.readStoredCodes();
+        } catch (error) {
+            // A poll that cannot reach the car is not a new code; leave the
+            // baseline alone so the next poll still compares against it.
+            console.error('[MobileObdCapture] Stored-code poll failed', error);
+            return;
+        }
+        const known = this.knownCodes;
+        if (!known) {
+            this.knownCodes = new Set(codes);
+            return;
+        }
+        const fresh = codes.filter((code) => !known.has(code));
+        if (fresh.length > 0) {
+            this.knownCodes = new Set(codes);
+            this.fireAutoTrigger('code-set', `New code set: ${fresh.join(', ')}`);
+        }
+    }
+
+    /**
+     * Fires an automatic trigger without blocking the sampler: the capture
+     * runs in the background and reports through onAutoFaultWindow. One
+     * automatic window at a time, and at most one a minute — a value that
+     * stays out of range must not save a window every second, and
+     * overlapping 60 s windows would mostly duplicate each other.
+     */
+    private fireAutoTrigger(trigger: FaultWindowTrigger, triggerDetail: string): void {
+        const nowMs = Date.now();
+        if (this.autoCaptureInFlight || nowMs - this.lastAutoTriggerAtMs < AUTO_TRIGGER_COOLDOWN_MS) return;
+        this.lastAutoTriggerAtMs = nowMs;
+        const pending = this.captureFaultWindow(trigger, triggerDetail);
+        this.autoCaptureInFlight = pending;
+        void pending
+            .then((window) => {
+                this.onAutoFaultWindow?.(window);
+            })
+            .catch((error) => {
+                console.error('[MobileObdCapture] Automatic fault window was not saved', error);
+            })
+            .finally(() => {
+                if (this.autoCaptureInFlight === pending) this.autoCaptureInFlight = null;
+            });
+    }
+
+    /**
+     * Saves the 60 s-before / 15 s-after window around a trigger to the
+     * ledger. The before-trigger samples are frozen at trigger time, then
+     * the capture waits the 15 s after the trigger while live sampling
+     * keeps running, and only then saves: snapshotting immediately would
+     * save 60 s before to ~0 s after, because the buffer cannot hold
+     * samples from the future yet. Freezing matters because the buffer's
+     * capacity is exactly 60 s + 15 s — a sample pushed after the wait
+     * could prune the window's first sample before a late snapshot read it.
+     */
     public async captureFaultWindow(trigger: FaultWindowTrigger, triggerDetail?: string): Promise<ObdFaultWindow> {
-        const window = this.faultBuffer.windowAround(trigger, Date.now(), triggerDetail);
+        const triggerAtMs = Date.now();
+        const beforeSamples = this.faultBuffer.samplesInRange(triggerAtMs - FAULT_WINDOW_BEFORE_MS, triggerAtMs);
+        await this.sleep(FAULT_WINDOW_AFTER_MS);
+        const afterSamples = this.faultBuffer.samplesInRange(triggerAtMs, triggerAtMs + FAULT_WINDOW_AFTER_MS);
+        const seen = new Set(beforeSamples.map((sample) => `${sample.pid}:${sample.capturedAtMs}`));
+        const samples = [
+            ...beforeSamples,
+            ...afterSamples.filter((sample) => !seen.has(`${sample.pid}:${sample.capturedAtMs}`)),
+        ];
+        const window = assembleFaultWindow(trigger, triggerAtMs, samples, triggerDetail);
         await this.postObdEvent('obd_fault_window', window);
         return window;
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => {
+            setTimeout(resolve, ms);
+        });
     }
 
     /** Runs a guided test live and records its pass/fail outcome in the ledger. */
