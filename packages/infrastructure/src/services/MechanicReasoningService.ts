@@ -150,9 +150,12 @@ export class MechanicReasoningService implements IMechanicReasoningService {
 
     private async readCaseVersion(caseId: string): Promise<number | null> {
         if (!this.caseRepo) {
-            this.logger.debug('[MechanicReasoning] No case repository bound; case runs commit without a version guard', {
-                caseId,
-            });
+            this.logger.debug(
+                '[MechanicReasoning] No case repository bound; case runs commit without a version guard',
+                {
+                    caseId,
+                },
+            );
             return null;
         }
         const caseRecord = await this.caseRepo.findCaseById(caseId);
@@ -177,10 +180,13 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             this.logger.info('[MechanicReasoning] Case run committed', { caseId, version: newVersion });
         } catch (error) {
             if (error instanceof AppError && error.code === ErrorCode.VERSION_CONFLICT) {
-                this.logger.warn('[MechanicReasoning] Stale case run commit refused; diagnosis kept, case not updated', {
-                    caseId,
-                    readVersion,
-                });
+                this.logger.warn(
+                    '[MechanicReasoning] Stale case run commit refused; diagnosis kept, case not updated',
+                    {
+                        caseId,
+                        readVersion,
+                    },
+                );
                 return;
             }
             throw error;

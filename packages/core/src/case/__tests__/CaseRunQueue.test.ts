@@ -51,7 +51,7 @@ describe('CaseRunQueue', () => {
 
     it('skips unstarted tool calls with the exact reason and never kills a running one', () => {
         const queue = new CaseRunQueue();
-        queue.enqueue(evidence('e1', "Tech: the noise stops when the belt is off", 'answer'));
+        queue.enqueue(evidence('e1', 'Tech: the noise stops when the belt is off', 'answer'));
         const calls: PlannedToolCall[] = [
             { id: 't1', name: 'search', status: 'pending' },
             { id: 't2', name: 'verify', status: 'running' },

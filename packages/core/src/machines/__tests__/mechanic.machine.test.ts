@@ -241,9 +241,7 @@ describe('mechanicMachine', () => {
                 },
             });
             const input = createDefaultInput({
-                queuedEvidence: [
-                    { id: 'e1', kind: 'reading', summary: 'OBD: P0300 misfire', receivedAt: new Date() },
-                ],
+                queuedEvidence: [{ id: 'e1', kind: 'reading', summary: 'OBD: P0300 misfire', receivedAt: new Date() }],
             });
             const actor = createActor(provided, { input });
             actor.start();

@@ -55,10 +55,7 @@ describe('IntuitionGenerator queued evidence (LM-17)', () => {
             [],
             [],
             'session-1',
-            [
-                evidence('e1', 'reading', 'OBD: P0300 misfire'),
-                evidence('e2', 'frame', 'Frame: smoke from cylinder 3'),
-            ],
+            [evidence('e1', 'reading', 'OBD: P0300 misfire'), evidence('e2', 'frame', 'Frame: smoke from cylinder 3')],
         );
 
         expect(result.diagnosis).toBe('Misfire on cylinder 3');

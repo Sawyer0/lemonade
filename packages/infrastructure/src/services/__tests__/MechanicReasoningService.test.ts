@@ -523,9 +523,7 @@ describe('MechanicReasoningService', () => {
                 }),
                 advanceCaseVersion: vi.fn().mockResolvedValue(4),
             } as unknown as ICaseRepository;
-            (mockSessionRepo as unknown as Record<string, unknown>).getXStateSnapshot = vi
-                .fn()
-                .mockResolvedValue(null);
+            (mockSessionRepo as unknown as Record<string, unknown>).getXStateSnapshot = vi.fn().mockResolvedValue(null);
             caseCoordinator = new CaseRunCoordinator();
         });
 
@@ -589,8 +587,8 @@ describe('MechanicReasoningService', () => {
             // The crash: the session repository holds the snapshot saved
             // while the gather call was still in flight. The worker dies
             // with the first run abandoned, its gather never released.
-            const savedCalls = (mockSessionRepo.saveXStateSnapshot as unknown as { mock: { calls: unknown[][] } })
-                .mock.calls;
+            const savedCalls = (mockSessionRepo.saveXStateSnapshot as unknown as { mock: { calls: unknown[][] } }).mock
+                .calls;
             expect(savedCalls.length).toBeGreaterThan(0);
             const storedSnapshot = JSON.parse(JSON.stringify(savedCalls[savedCalls.length - 1]?.[1]));
             expect(storedSnapshot.value).toBe('gathering_context');
@@ -601,9 +599,7 @@ describe('MechanicReasoningService', () => {
                 .fn()
                 .mockResolvedValue(storedSnapshot);
             const restartedService = caseService(new CaseRunCoordinator());
-            const result = await restartedService.diagnose(
-                caseInput({ sessionId: 'session-crash', caseId: CASE_ID }),
-            );
+            const result = await restartedService.diagnose(caseInput({ sessionId: 'session-crash', caseId: CASE_ID }));
             expect(result).toBeDefined();
 
             // Let the abandoned first run finish so its timers do not linger.

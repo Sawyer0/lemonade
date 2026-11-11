@@ -241,7 +241,10 @@ export class PostgresCaseRepository implements ICaseRepository {
     async advanceCaseVersion(caseId: string, expectedVersion: number): Promise<number> {
         this.validateCaseId(caseId);
         if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
-            throw new AppError(ErrorCode.INVALID_INPUT, `expectedVersion must be a positive integer: ${expectedVersion}`);
+            throw new AppError(
+                ErrorCode.INVALID_INPUT,
+                `expectedVersion must be a positive integer: ${expectedVersion}`,
+            );
         }
         // The version predicate is the guard: the UPDATE touches the row only
         // when the stored version still equals the version the run read, so
