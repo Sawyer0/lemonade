@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { AppError } from '../errors/AppError';
 import { ErrorCode } from '../errors/codes';
-import type { LedgerEntry } from '../types/case';
-import { retractedEntryIds } from '../types/case';
+import { retractedEntryIds, type LedgerEntry } from '../types/case';
 import {
     BudgetSchema,
     CaseGoalSchema,

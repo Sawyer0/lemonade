@@ -4,12 +4,10 @@ import { NON_PROOF_ENTRY_KINDS, TERMINAL_GOAL_STATUSES, evaluateGoal, transition
 import type { CaseGoal, EvidenceSource, GoalStatusChangedPayload } from './goalSchema';
 
 // --- No-progress detection and repeated-blocker handoff (LM-28) ---
-// A run is blocked when it drifts (see goal/drift.ts) or adds no admissible
-// ledger entry. The same blocker three runs in a row moves the goal to
-// `needs_tech` with one handoff naming the missing evidence. Pure and
-// deterministic: same goal + same ledger + same run outcome, same result.
-// The streak lives on the goal itself (`sameBlockerCount`, `lastBlocker`),
-// next to the count LM-25 already reserved for it.
+// A run is blocked when it drifts (see goal/drift.ts) or adds no admissible ledger entry. The same blocker
+// three runs in a row moves the goal to `needs_tech` with one handoff naming the missing evidence. Pure and
+// deterministic. The streak lives on the goal itself (`sameBlockerCount`,
+// `lastBlocker`), next to the count LM-25 already reserved for it.
 
 /** The same blocker this many runs in a row hands the case to the tech. */
 export const DRIFT_REPEAT_THRESHOLD = 3;
@@ -60,10 +58,10 @@ function admissibleSourcesFor(goal: CaseGoal): ReadonlySet<EvidenceSource> {
  * A run made progress when it added at least one admissible ledger entry:
  * a non-audit, non-correction entry, from a non-model source, uncorrected,
  * whose source some criterion of the goal admits as proof (the LM-25 proof
- * rule, without requiring the entry to single-handedly satisfy a criterion).
- * The runner's model-sourced citation is therefore not progress: model
- * output never proves anything, so a run that only cites its own computation
- * made no progress toward the goal.
+ * rule, without requiring the entry to satisfy a criterion on its own). The
+ * runner's model-sourced citation is therefore not progress: model output
+ * never proves anything, so a run that only cites its own computation made
+ * no progress toward the goal.
  */
 export function runMadeProgress(
     goal: CaseGoal,
@@ -119,9 +117,8 @@ export function blockerForRun(
             }
         }
         if (missingEvidence.length === 0) {
-            // Every blocking criterion is already met, so there is no single
-            // missing proof to name: what is missing is any admissible entry
-            // at all, a run that moves the case forward.
+            // Every blocking criterion is already met: what is missing is
+            // any admissible entry at all, a run that moves the case forward.
             missingEvidence.push('an admissible ledger entry toward the goal');
         }
     }
@@ -136,8 +133,7 @@ export function blockerForRun(
  * Records one blocked run against the goal. A different blocker, or a run
  * that made progress, restarts the streak; the same blocker three runs in a
  * row moves the goal to `needs_tech` (code authority) and returns the one
- * handoff. A goal already at `needs_tech` or terminal never hands off twice:
- * it is returned unchanged.
+ * handoff. A goal already at `needs_tech` or terminal never hands off twice.
  */
 export function recordBlockedRun(
     goal: CaseGoal,
@@ -179,10 +175,9 @@ export function recordBlockedRun(
 }
 
 /**
- * One replay step: detects drift, judges progress, and records the blocker
- * against the goal, threading the updated goal through. Replay a scripted
- * reasoner's runs through this in order; the third identical blocked run
- * returns the `needs_tech` handoff.
+ * One replay step: detects drift, judges progress, and records the blocker.
+ * Replay a scripted reasoner's runs through this in order; the third
+ * identical blocked run returns the `needs_tech` handoff.
  */
 export function assessReasonerRun(
     goal: CaseGoal,
