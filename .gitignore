@@ -34,6 +34,10 @@ agent/test/bakeoff/noise/*.wav
 agent/test/bakeoff/clips/*.mp4
 agent/test/bakeoff/clips/*.jpg
 
+# python (diaglib)
+__pycache__/
+*.py[cod]
+
 # testing
 /coverage
 
