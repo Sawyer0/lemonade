@@ -1,5 +1,4 @@
 import { SHARED_CONFIG } from '@lemonade/core';
-import { AUTO_CLICK_CONTINUE_SCRIPT, WEBVIEW_USER_AGENT, injectGoogleTokenScript } from './webBridgeScripts';
 
 // Mobile configuration
 // Adapted from src/infrastructure/config.ts but for React Native environment
@@ -11,11 +10,6 @@ export const CONFIG = {
         // Set EXPO_PUBLIC_API_URL to the web server reachable from the device;
         // 10.0.2.2 is the host machine from the Android emulator.
         BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000',
-        USER_AGENT: WEBVIEW_USER_AGENT,
-    },
-    SCRIPTS: {
-        AUTO_CLICK_CONTINUE: AUTO_CLICK_CONTINUE_SCRIPT,
-        INJECT_TOKEN: injectGoogleTokenScript,
     },
     LOCAL_INFERENCE: {
         GPU_LAYERS: 99,
