@@ -10,6 +10,9 @@ import nextTs from 'eslint-config-next/typescript';
  */
 const BANNED_MODEL_IDS = [
     'gemini-3.8-live',
+    'grok-voice-3.0',
+    'nova-3',
+    'sonic-3',
     'gemini-live-2.5-flash-native-audio',
     'gemini-2.5-flash',
     'gemini-2.5-pro',

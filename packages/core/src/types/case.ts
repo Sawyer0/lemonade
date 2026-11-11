@@ -40,6 +40,7 @@ export const LedgerEventTypeSchema = z.enum([
     'safety_stop',
     'outcome',
     'correction',
+    'transcript',
 ]);
 export type LedgerEventType = z.infer<typeof LedgerEventTypeSchema>;
 
@@ -118,6 +119,16 @@ export const CorrectionPayloadSchema = z.object({
 });
 export type CorrectionPayload = z.infer<typeof CorrectionPayloadSchema>;
 
+// One turn of a live voice session, as spoken or heard. `provider` is the
+// voice provider id (LM-39: gemini, grok, or cascade) so a transcript can be
+// traced back to the model that produced it; the audio itself is never stored.
+export const TranscriptPayloadSchema = z.object({
+    role: z.enum(['user', 'assistant']),
+    text: z.string().min(1),
+    provider: z.string().min(1),
+});
+export type TranscriptPayload = z.infer<typeof TranscriptPayloadSchema>;
+
 const LedgerEntryBaseSchema = z.object({
     id: z.string().uuid(),
     caseId: z.string().uuid(),
@@ -142,6 +153,7 @@ export const LedgerEntrySchema = z
         LedgerEntryBaseSchema.extend({ type: z.literal('safety_stop'), payload: SafetyStopPayloadSchema }),
         LedgerEntryBaseSchema.extend({ type: z.literal('outcome'), payload: OutcomePayloadSchema }),
         LedgerEntryBaseSchema.extend({ type: z.literal('correction'), payload: CorrectionPayloadSchema }),
+        LedgerEntryBaseSchema.extend({ type: z.literal('transcript'), payload: TranscriptPayloadSchema }),
     ])
     .superRefine((entry, ctx) => {
         if (entry.type === 'correction' && !entry.correctsEntryId) {
@@ -184,6 +196,7 @@ export const AppendLedgerEntryInputSchema = z.discriminatedUnion('type', [
         payload: CorrectionPayloadSchema,
         correctsEntryId: z.string().uuid(),
     }).strict(),
+    AppendEntryBaseSchema.extend({ type: z.literal('transcript'), payload: TranscriptPayloadSchema }).strict(),
 ]);
 export type AppendLedgerEntryInput = z.infer<typeof AppendLedgerEntryInputSchema>;
 
