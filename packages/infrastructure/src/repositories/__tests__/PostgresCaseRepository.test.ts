@@ -32,8 +32,9 @@ describe('PostgresCaseRepository', () => {
     beforeAll(async () => {
         container = await new PostgreSqlContainer('postgres:16-alpine').start();
         pool = new Pool({ connectionString: container.getConnectionUri() });
-        const migration = readFileSync(path.resolve(process.cwd(), 'db/migrations/0001_case_ledger.sql'), 'utf8');
-        await pool.query(migration);
+        for (const file of ['0001_case_ledger.sql', '0002_ledger_transcript_type.sql']) {
+            await pool.query(readFileSync(path.resolve(process.cwd(), `db/migrations/${file}`), 'utf8'));
+        }
         repository = new PostgresCaseRepository(pool, new NodeCryptoLedgerHasher(), silentLogger);
     }, 180000);
 
@@ -93,6 +94,28 @@ describe('PostgresCaseRepository', () => {
                 payload: { text: 'No case for this one' },
             }),
         ).rejects.toThrow('Case not found');
+    });
+
+    it('appends transcript entries with the voice provider recorded', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-5', userId: 'user-1' });
+        const entry = await repository.appendEntry(caseRecord.id, {
+            type: 'transcript',
+            actor: { kind: 'agent', id: 'master-tech' },
+            source: 'model',
+            occurredAt,
+            payload: { role: 'assistant', text: 'Check the brake pads first.', provider: 'grok' },
+        });
+        expect(entry.sequence).toBe(1);
+
+        const entries = await repository.listEntries(caseRecord.id);
+        expect(entries).toHaveLength(1);
+        expect(entries[0].type).toBe('transcript');
+        expect(entries[0].payload).toEqual({
+            role: 'assistant',
+            text: 'Check the brake pads first.',
+            provider: 'grok',
+        });
+        expect(await repository.verifyLedger(caseRecord.id)).toBe(true);
     });
 
     it('rejects a payload that does not match its event type', async () => {

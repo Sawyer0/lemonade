@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     GEMINI_LIVE_MODEL,
+    GROK_VOICE_MODEL,
+    CARTESIA_TTS_MODEL,
+    DEEPGRAM_STT_MODEL,
+    GEMINI_FLASH_MODEL,
     LiveChannelTopic,
     decodeLiveMessage,
     encodeLiveMessage,
@@ -12,6 +16,8 @@ import { detection } from './fakes';
 // vi.resetModules, which takes seconds on a cold cache: the default 5s test
 // timeout trips on it. Same 30s allowance as the integration tests.
 vi.setConfig({ testTimeout: 30_000 });
+
+const CASE_ID = '123e4567-e89b-12d3-a456-426614174000';
 
 /**
  * Starts the real worker entry (livekit-agent.ts) against a fake room and a
@@ -36,11 +42,18 @@ const fakes = vi.hoisted(() => {
         sessions: [] as FakeSession[],
         FakeSession,
         FakeAgent,
-        realtimeModel: vi.fn((options: unknown) => ({ fake: 'realtime-model', options })),
+        geminiRealtime: vi.fn((options: unknown) => ({ fake: 'gemini-realtime-model', options })),
+        grokRealtime: vi.fn((options: unknown) => ({ fake: 'grok-realtime-model', options })),
+        deepgramStt: vi.fn((options: unknown) => ({ fake: 'deepgram-stt', options })),
+        geminiChat: vi.fn((options: unknown) => ({ fake: 'gemini-chat-model', options })),
+        cartesiaTts: vi.fn((options: unknown) => ({ fake: 'cartesia-tts', options })),
         vadLoad: vi.fn(async () => ({ fake: 'vad' })),
+        appendEntry: vi.fn(async () => ({})),
+        repo: null as unknown as { appendEntry: (...args: unknown[]) => Promise<unknown> },
     };
 });
-const { sessions, realtimeModel, vadLoad } = fakes;
+const { sessions, geminiRealtime, grokRealtime, deepgramStt, geminiChat, cartesiaTts, vadLoad, appendEntry } = fakes;
+fakes.repo = { appendEntry: fakes.appendEntry };
 
 // Event names match @livekit/agents and @livekit/rtc-node; the real modules load native code.
 vi.mock('@livekit/agents', () => ({
@@ -48,14 +61,37 @@ vi.mock('@livekit/agents', () => ({
     voice: {
         AgentSession: fakes.FakeSession,
         Agent: fakes.FakeAgent,
-        AgentSessionEventTypes: { ConversationItemAdded: 'conversation_item_added' },
+        AgentSessionEventTypes: {
+            ConversationItemAdded: 'conversation_item_added',
+            UserInputTranscribed: 'user_input_transcribed',
+        },
     },
     llm: { tool: (definition: unknown) => definition },
 }));
 vi.mock('@livekit/rtc-node', () => ({ RoomEvent: { DataReceived: 'dataReceived' } }));
 vi.mock('@livekit/agents-plugin-silero', () => ({ VAD: { load: fakes.vadLoad } }));
-vi.mock('../src/voice/livekitVoiceProviders', () => ({
-    livekitVoiceProviders: { realtimeModel: fakes.realtimeModel },
+vi.mock('../src/voice/livekitPlugins', () => ({
+    livekitPlugins: {
+        geminiRealtime: fakes.geminiRealtime,
+        grokRealtime: fakes.grokRealtime,
+        deepgramStt: fakes.deepgramStt,
+        geminiChat: fakes.geminiChat,
+        cartesiaTts: fakes.cartesiaTts,
+    },
+}));
+vi.mock('@lemonade/infrastructure', () => ({
+    Logger: class {
+        info() {}
+        warn() {}
+        error() {}
+        debug() {}
+    },
+    TYPES: {
+        CaseRepo: Symbol.for('CaseRepo'),
+        MechanicReasoningService: Symbol.for('MechanicReasoningService'),
+        LiveStreamAI: Symbol.for('LiveStreamAI'),
+    },
+    createContainer: () => ({ get: () => fakes.repo }),
 }));
 
 function fakeRoom() {
@@ -76,7 +112,9 @@ function fakeRoom() {
     };
 }
 
-async function startWorker() {
+const DEFAULT_METADATA = JSON.stringify({ vehicleContext: { year: 2016, make: 'Toyota', model: 'Camry' } });
+
+async function startWorker(metadata: string = DEFAULT_METADATA) {
     const { default: agent } = (await import('../src/livekit-agent')) as unknown as {
         default: {
             prewarm: (proc: { userData: Record<string, unknown> }) => Promise<void>;
@@ -93,7 +131,7 @@ async function startWorker() {
         connect: vi.fn(async () => {}),
         waitForParticipant: vi.fn(async () => ({
             identity: 'user-7',
-            metadata: JSON.stringify({ vehicleContext: { year: 2016, make: 'Toyota', model: 'Camry' } }),
+            metadata,
         })),
     };
     await agent.entry(ctx);
@@ -103,28 +141,75 @@ async function startWorker() {
 describe('agent worker startup', () => {
     beforeEach(() => {
         sessions.length = 0;
+        appendEntry.mockClear();
+        geminiRealtime.mockClear();
+        grokRealtime.mockClear();
+        deepgramStt.mockClear();
+        geminiChat.mockClear();
+        cartesiaTts.mockClear();
         vi.resetModules();
+        vi.unstubAllEnvs();
         vi.stubEnv('NODE_ENV', 'test');
         vi.stubEnv('GOOGLE_API_KEY', 'fake-key');
     });
 
-    it('prewarms the VAD, joins the room and starts a Master Tech session', async () => {
-        const { ctx, proc, session } = await startWorker();
+    it.each([
+        {
+            id: 'gemini',
+            env: {},
+            llm: { fake: 'gemini-realtime-model' },
+            stt: undefined,
+            tts: undefined,
+            builder: geminiRealtime,
+            model: GEMINI_LIVE_MODEL,
+        },
+        {
+            id: 'grok',
+            env: { XAI_API_KEY: 'x-key' },
+            llm: { fake: 'grok-realtime-model' },
+            stt: undefined,
+            tts: undefined,
+            builder: grokRealtime,
+            model: GROK_VOICE_MODEL,
+        },
+        {
+            id: 'cascade',
+            env: { DEEPGRAM_API_KEY: 'd-key', CARTESIA_API_KEY: 'c-key' },
+            llm: { fake: 'gemini-chat-model' },
+            stt: { fake: 'deepgram-stt' },
+            tts: { fake: 'cartesia-tts' },
+            builder: geminiChat,
+            model: GEMINI_FLASH_MODEL,
+        },
+    ])(
+        'prewarms the VAD, joins the room and starts a $id Master Tech session',
+        async ({ id, env, llm, stt, tts, builder, model }) => {
+            if (id !== 'gemini') vi.stubEnv('VOICE_PROVIDER', id);
+            for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+            const { ctx, proc, session } = await startWorker();
 
-        expect(vadLoad).toHaveBeenCalled();
-        expect(proc.userData.vad).toEqual({ fake: 'vad' });
-        expect(ctx.connect).toHaveBeenCalled();
-        expect(session.options).toMatchObject({ vad: { fake: 'vad' }, llm: { fake: 'realtime-model' } });
-        expect(session.options.tts).toBeUndefined();
-        expect(realtimeModel).toHaveBeenCalledWith(
-            expect.objectContaining({ apiKey: 'fake-key', model: GEMINI_LIVE_MODEL }),
-        );
+            expect(vadLoad).toHaveBeenCalled();
+            expect(proc.userData.vad).toEqual({ fake: 'vad' });
+            expect(ctx.connect).toHaveBeenCalled();
+            expect(session.options).toMatchObject({ vad: { fake: 'vad' }, llm });
+            if (stt === undefined) {
+                expect(session.options.stt).toBeUndefined();
+                expect(session.options.tts).toBeUndefined();
+            } else {
+                expect(session.options).toMatchObject({ stt, tts });
+            }
+            expect(builder).toHaveBeenCalledWith(expect.objectContaining({ model }));
+            if (id === 'cascade') {
+                expect(deepgramStt).toHaveBeenCalledWith(expect.objectContaining({ model: DEEPGRAM_STT_MODEL }));
+                expect(cartesiaTts).toHaveBeenCalledWith(expect.objectContaining({ model: CARTESIA_TTS_MODEL }));
+            }
 
-        const { agent, room } = session.start.mock.calls[0][0];
-        expect(room).toBe(ctx.room);
-        expect(agent.options.instructions).toContain('2016 Toyota Camry');
-        expect(Object.keys(agent.options.tools).length).toBeGreaterThan(0);
-    });
+            const { agent, room } = session.start.mock.calls[0][0];
+            expect(room).toBe(ctx.room);
+            expect(agent.options.instructions).toContain('2016 Toyota Camry');
+            expect(Object.keys(agent.options.tools).length).toBeGreaterThan(0);
+        },
+    );
 
     it('routes typed messages from the session user to the model and ignores others', async () => {
         const { room, session } = await startWorker();
@@ -173,5 +258,50 @@ describe('agent worker startup', () => {
             type: 'chat',
             analysis: { diagnosis: 'Check the brake pads first.' },
         });
+    });
+
+    it('records user and assistant turns in the case ledger', async () => {
+        const metadata = JSON.stringify({
+            userId: 'user-7',
+            caseId: CASE_ID,
+            vehicleContext: JSON.stringify({ year: 2016, make: 'Toyota', model: 'Camry' }),
+        });
+        const { session } = await startWorker(metadata);
+        const transcribed = session.handlers.get('user_input_transcribed')!;
+        const added = session.handlers.get('conversation_item_added')!;
+
+        transcribed({ transcript: 'My brakes squeal', isFinal: false });
+        transcribed({ transcript: 'My brakes squeal when I stop', isFinal: true });
+        added({ item: { type: 'message', role: 'assistant', textContent: 'Check the brake pads first.' } });
+        await Promise.resolve();
+
+        expect(appendEntry).toHaveBeenCalledTimes(2);
+        expect(appendEntry).toHaveBeenNthCalledWith(
+            1,
+            CASE_ID,
+            expect.objectContaining({
+                type: 'transcript',
+                payload: { role: 'user', text: 'My brakes squeal when I stop', provider: 'gemini' },
+            }),
+        );
+        expect(appendEntry).toHaveBeenNthCalledWith(
+            2,
+            CASE_ID,
+            expect.objectContaining({
+                type: 'transcript',
+                payload: { role: 'assistant', text: 'Check the brake pads first.', provider: 'gemini' },
+            }),
+        );
+    });
+
+    it('does not touch the ledger without a case id', async () => {
+        const { session } = await startWorker();
+        session.handlers.get('user_input_transcribed')!({ transcript: 'My brakes squeal', isFinal: true });
+        session.handlers.get('conversation_item_added')!({
+            item: { type: 'message', role: 'assistant', textContent: 'Check the brake pads first.' },
+        });
+        await Promise.resolve();
+
+        expect(appendEntry).not.toHaveBeenCalled();
     });
 });

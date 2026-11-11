@@ -20,6 +20,16 @@ describe('loadEnv', () => {
     it('accepts GEMINI_API_KEY as the google key', () => {
         expect(loadEnv({ GEMINI_API_KEY: 'g' }).GOOGLE_API_KEY).toBe('g');
     });
+
+    it('defaults VOICE_PROVIDER to gemini', () => {
+        expect(loadEnv({}).VOICE_PROVIDER).toBe('gemini');
+        expect(loadEnv({ VOICE_PROVIDER: 'grok' }).VOICE_PROVIDER).toBe('grok');
+        expect(loadEnv({ VOICE_PROVIDER: 'cascade' }).VOICE_PROVIDER).toBe('cascade');
+    });
+
+    it('rejects an unknown VOICE_PROVIDER at startup', () => {
+        expect(() => loadEnv({ VOICE_PROVIDER: 'resemble' })).toThrow('Unknown VOICE_PROVIDER');
+    });
 });
 
 describe('parseSessionContext', () => {
@@ -37,6 +47,20 @@ describe('parseSessionContext', () => {
         const context = parseSessionContext('room-1', 'identity', 'not json');
         expect(context.userId).toBe('identity');
         expect(describeVehicle(context.vehicle)).toBe('unknown vehicle');
+    });
+
+    it('reads a case id from client metadata when it is a UUID', () => {
+        const metadata = JSON.stringify({
+            userId: 'uid-7',
+            caseId: '123e4567-e89b-12d3-a456-426614174000',
+            vehicleContext: JSON.stringify({ year: 2018, make: 'Ford' }),
+        });
+        expect(parseSessionContext('room-1', 'identity', metadata).caseId).toBe('123e4567-e89b-12d3-a456-426614174000');
+    });
+
+    it('drops a case id that is not a UUID', () => {
+        const metadata = JSON.stringify({ userId: 'uid-7', caseId: 'session-42' });
+        expect(parseSessionContext('room-1', 'identity', metadata).caseId).toBeUndefined();
     });
 });
 

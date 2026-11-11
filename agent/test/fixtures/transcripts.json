@@ -1,0 +1,12 @@
+[
+  { "role": "user", "text": "Hi, my brakes squeal every time I stop. What should I check first?" },
+  {
+    "role": "assistant",
+    "text": "Check the brake pads first. Look for glazing on the pad surface and measure the rotor for scoring."
+  },
+  { "role": "user", "text": "The pads look glazed. Is that enough to replace them?" },
+  {
+    "role": "assistant",
+    "text": "Glazing alone means the pads overheated. Replace the pads and check the rotor thickness before you decide on the rotor."
+  }
+]
