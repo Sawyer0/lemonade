@@ -6,6 +6,11 @@
  * It starts the agent worker, joins a fresh room as a test participant,
  * speaks a question (synthesised with Gemini TTS), and asserts the agent
  * answers with audio and a text transcript.
+ *
+ * One live smoke test per provider, on demand: run the same test with
+ * VOICE_PROVIDER=grok (plus XAI_API_KEY) or VOICE_PROVIDER=cascade (plus
+ * DEEPGRAM_API_KEY and CARTESIA_API_KEY) in the environment. The worker
+ * inherits process.env, so the provider switches with no other change.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

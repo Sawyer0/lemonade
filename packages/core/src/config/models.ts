@@ -10,6 +10,9 @@
 /** Realtime voice model for the LiveKit agent (Gemini Developer API). */
 export const GEMINI_LIVE_MODEL = 'gemini-3.8-live';
 
+/** Voice for the Gemini live model (prebuilt voice). */
+export const GEMINI_VOICE = 'Puck';
+
 /** Grok voice model for the LiveKit agent (xAI Voice Agent API, WebSocket). */
 export const GROK_VOICE_MODEL = 'grok-voice-3.0';
 

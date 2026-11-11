@@ -1,3 +1,5 @@
+import { parseVoiceProviderId, type VoiceProviderId } from './voice/provider';
+
 /**
  * Environment for the LiveKit agent worker and its token server.
  * LiveKit credentials fall back to the `livekit-server --dev` defaults only
@@ -9,7 +11,7 @@ export interface AgentEnv {
     LIVEKIT_API_SECRET: string;
     PORT: number;
     /** Voice provider for the live agent (LM-39): gemini, grok, or cascade. Defaults to gemini. */
-    VOICE_PROVIDER: string;
+    VOICE_PROVIDER: VoiceProviderId;
     /** Gemini API key used by the realtime voice model and the cascade LLM. */
     GOOGLE_API_KEY?: string;
     /** xAI API key used by the Grok voice provider. */
@@ -40,7 +42,7 @@ export function loadEnv(source: Source = process.env): AgentEnv {
         LIVEKIT_API_KEY: required('LIVEKIT_API_KEY'),
         LIVEKIT_API_SECRET: required('LIVEKIT_API_SECRET'),
         PORT: Number(source.PORT || 3001),
-        VOICE_PROVIDER: source.VOICE_PROVIDER || 'gemini',
+        VOICE_PROVIDER: parseVoiceProviderId(source.VOICE_PROVIDER),
         GOOGLE_API_KEY: source.GOOGLE_API_KEY || source.GEMINI_API_KEY || undefined,
         XAI_API_KEY: source.XAI_API_KEY || undefined,
         DEEPGRAM_API_KEY: source.DEEPGRAM_API_KEY || undefined,
