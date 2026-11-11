@@ -1,14 +1,41 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DiagnosticJob, DiagnosticJobEvent, DiagnosticJobEventKind } from '@lemonade/core';
+import type {
+    DiagnosticJob,
+    DiagnosticJobEvent,
+    DiagnosticJobEventKind,
+    JobStep,
+    PhysicalStep,
+    PreActionHook,
+    StepOrigin,
+} from '@lemonade/core';
+import { InMemoryConfirmationStore, authorizeStep, buildConfirmationPrompt } from '@lemonade/core';
 import { ResultInjector, type JobEventSource } from '../src/talker/ResultInjector';
 import type { DeliveryOutcome, TalkerSession } from '../src/talker/TalkerSession';
 import { fakeLogger } from './fakes';
 
 const JOB_ID = '00000000-0000-0000-0000-000000000001';
 const CASE_ID = '00000000-0000-0000-0000-000000000002';
+const VIN = '1HGCM82633A004352';
 
-function event(seq: number, kind: DiagnosticJobEventKind, text: string): DiagnosticJobEvent {
-    return { jobId: JOB_ID, seq, kind, text, createdAt: '2026-11-11T00:00:00.000Z' };
+const HV_STEP: JobStep = {
+    stepId: 'hv-isolation-test:step-2',
+    testId: 'hv-isolation-test',
+    instruction: 'disconnect the orange HV cables',
+    safetyClass: 'hazardous',
+    hazards: ['HIGH_VOLTAGE'],
+    vin: VIN,
+    origin: 'live-session',
+};
+
+function event(seq: number, kind: DiagnosticJobEventKind, text: string, step?: JobStep): DiagnosticJobEvent {
+    return { jobId: JOB_ID, seq, kind, text, ...(step ? { step } : {}), createdAt: '2026-11-11T00:00:00.000Z' };
+}
+
+/** The real pre-action policy, backed by a session confirmation store. */
+function hookWith(store: InMemoryConfirmationStore): PreActionHook {
+    return {
+        checkStep: (step: PhysicalStep, origin: StepOrigin) => authorizeStep(step, origin, store),
+    };
 }
 
 function job(overrides: Partial<DiagnosticJob> = {}): DiagnosticJob {
@@ -227,5 +254,137 @@ describe('ResultInjector', () => {
         expect(jobs.subscribed(JOB_ID)).toBe(false);
         injector.track(JOB_ID);
         expect(jobs.subscribed(JOB_ID)).toBe(false);
+    });
+
+    it('never speaks a scripted HV step without a logged confirmation: it asks instead', async () => {
+        const { session, calls } = fakeTalkerSession();
+        const jobs = fakeJobSource();
+        const store = new InMemoryConfirmationStore();
+        const injector = new ResultInjector(jobs.source, session, fakeLogger(), hookWith(store));
+        injector.track(JOB_ID);
+        jobs.emit(JOB_ID, event(1, 'measure', 'Step 2 of 3. Disconnect the orange HV cables.', HV_STEP));
+        await flush();
+        expect(calls).toHaveLength(2);
+        expect(calls[0]).toEqual({
+            method: 'speakAtIdle',
+            text: buildConfirmationPrompt(
+                {
+                    stepId: HV_STEP.stepId,
+                    testId: HV_STEP.testId,
+                    instruction: HV_STEP.instruction,
+                    safetyClass: HV_STEP.safetyClass,
+                    hazards: HV_STEP.hazards,
+                    vin: HV_STEP.vin,
+                },
+                { verdict: 'ask', riskLevel: 'high', reason: '', requiresConfirmation: true },
+            ),
+        });
+        expect(calls[1].method).toBe('addSilentContext');
+        expect(calls[1].text).toContain('hv-isolation-test:step-2');
+        expect(calls[1].text).toContain('must NOT be spoken yet');
+        expect(calls.map((call) => call.text)).not.toContain('Step 2 of 3. Disconnect the orange HV cables.');
+        expect(jobs.acks).toEqual([]); // held, not delivered: a resume replays it
+        expect(jobs.subscribed(JOB_ID)).toBe(true);
+        expect(injector.pendingStep('hv-isolation-test:step-2')?.step.stepId).toBe('hv-isolation-test:step-2');
+    });
+
+    it('speaks a held HV step after its confirmation is logged', async () => {
+        const { session, calls } = fakeTalkerSession();
+        const jobs = fakeJobSource();
+        const store = new InMemoryConfirmationStore();
+        const injector = new ResultInjector(jobs.source, session, fakeLogger(), hookWith(store));
+        injector.track(JOB_ID);
+        jobs.emit(JOB_ID, event(1, 'measure', 'Step 2 of 3. Disconnect the orange HV cables.', HV_STEP));
+        await flush();
+        expect(jobs.acks).toEqual([]);
+        await store.record({
+            stepId: 'hv-isolation-test:step-2',
+            vin: VIN,
+            riskLevel: 'high',
+            confirmedBy: 'voice',
+            confirmedAt: '2026-11-11T12:00:00.000Z',
+        });
+        expect(await injector.releasePendingStep('hv-isolation-test:step-2')).toBe(true);
+        await flush();
+        expect(calls.map((call) => call.text)).toContain('Step 2 of 3. Disconnect the orange HV cables.');
+        expect(jobs.acks).toEqual([1]);
+        expect(jobs.subscribed(JOB_ID)).toBe(false);
+        expect(injector.pendingStep('hv-isolation-test:step-2')).toBeUndefined();
+    });
+
+    it('never speaks a step from a background job, and acks it as blocked', async () => {
+        const { session, calls } = fakeTalkerSession();
+        const jobs = fakeJobSource();
+        const store = new InMemoryConfirmationStore();
+        const injector = new ResultInjector(jobs.source, session, fakeLogger(), hookWith(store));
+        injector.track(JOB_ID);
+        jobs.emit(
+            JOB_ID,
+            event(1, 'measure', 'Step 2 of 3. Disconnect the orange HV cables.', {
+                ...HV_STEP,
+                origin: 'background-job',
+            }),
+        );
+        await flush();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].method).toBe('addSilentContext');
+        expect(calls[0].text).toContain('blocked by the safety hook');
+        expect(calls.map((call) => call.method)).not.toContain('speakAtIdle');
+        expect(jobs.acks).toEqual([1]); // blocked, not lost: it must not replay
+        expect(jobs.subscribed(JOB_ID)).toBe(false);
+    });
+
+    it('speaks a routine scripted step at the next idle gap', async () => {
+        const { session, calls } = fakeTalkerSession();
+        const jobs = fakeJobSource();
+        const store = new InMemoryConfirmationStore();
+        const injector = new ResultInjector(jobs.source, session, fakeLogger(), hookWith(store));
+        injector.track(JOB_ID);
+        jobs.emit(
+            JOB_ID,
+            event(1, 'measure', 'Step 1 of 2. Measure the resistance across the coil terminals.', {
+                stepId: 'coil-test-p0300:step-1',
+                testId: 'coil-test-p0300',
+                instruction: 'measure the resistance across the coil terminals',
+                safetyClass: 'routine',
+                hazards: [],
+                vin: VIN,
+                origin: 'live-session',
+            }),
+        );
+        await flush();
+        expect(calls).toEqual([
+            { method: 'speakAtIdle', text: 'Step 1 of 2. Measure the resistance across the coil terminals.' },
+        ]);
+        expect(jobs.acks).toEqual([1]);
+    });
+
+    it('fails closed when the hook throws: the step is never spoken', async () => {
+        const { session, calls } = fakeTalkerSession();
+        const jobs = fakeJobSource();
+        const throwingHook: PreActionHook = {
+            checkStep: async () => {
+                throw new Error('hook down');
+            },
+        };
+        const injector = new ResultInjector(jobs.source, session, fakeLogger(), throwingHook);
+        injector.track(JOB_ID);
+        jobs.emit(JOB_ID, event(1, 'measure', 'Step 2 of 3. Disconnect the orange HV cables.', HV_STEP));
+        await flush();
+        expect(calls.map((call) => call.method)).not.toContain('speakAtIdle');
+        expect(jobs.acks).toEqual([1]);
+    });
+
+    it('re-queues a confirmation request talked over by the user', async () => {
+        const { session, calls } = fakeTalkerSession(['interrupted', 'delivered']);
+        const jobs = fakeJobSource();
+        const store = new InMemoryConfirmationStore();
+        const injector = new ResultInjector(jobs.source, session, fakeLogger(), hookWith(store));
+        injector.track(JOB_ID);
+        jobs.emit(JOB_ID, event(1, 'measure', 'Step 2 of 3. Disconnect the orange HV cables.', HV_STEP));
+        await flush();
+        expect(calls.filter((call) => call.method === 'speakAtIdle')).toHaveLength(2);
+        expect(calls[calls.length - 1].method).toBe('addSilentContext');
+        expect(jobs.acks).toEqual([]);
     });
 });

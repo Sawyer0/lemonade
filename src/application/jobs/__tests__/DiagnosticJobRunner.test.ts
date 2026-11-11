@@ -10,7 +10,10 @@ const silentLogger: ILogger = {
     debug: () => undefined,
 };
 
-function state(decision: NeurosymbolicState['finalDiagnosis']['decision']): NeurosymbolicState {
+function state(
+    decision: NeurosymbolicState['finalDiagnosis']['decision'],
+    overrides: Partial<NeurosymbolicState['finalDiagnosis']> = {},
+): NeurosymbolicState {
     return {
         finalDiagnosis: {
             decision,
@@ -18,6 +21,7 @@ function state(decision: NeurosymbolicState['finalDiagnosis']['decision']): Neur
             userOutput: 'Replace the ABS sensor.',
             requiredActions: [],
             metaConfidence: 0.9,
+            ...overrides,
         },
         authorityData: { vin: 'VIN', nhtsaRecalls: [], manualSpecs: null, safetyAlerts: [] },
     } as NeurosymbolicState;
@@ -63,6 +67,40 @@ describe('runDiagnosticJob', () => {
             vehicle: {},
         });
         expect(store.eventsFor(job.id).map((event) => event.kind)).toEqual(['progress', 'snapshot', 'safety_stop']);
+        expect(store.get(job.id)?.status).toBe('succeeded');
+    });
+
+    it('rejects a background job step: REQUEST_MORE_INFO becomes a finding, never a measure', async () => {
+        const { store, reasoner, job } = setup(async () =>
+            state('REQUEST_MORE_INFO', { userOutput: 'Need a reading.', requiredActions: ['Check fuel pressure'] }),
+        );
+        await runDiagnosticJob({ store, reasoner, logger: silentLogger }, job, {
+            question: job.question,
+            evidenceRefs: [],
+            sessionId: job.sessionId,
+            userId: job.userId,
+            vehicle: {},
+        });
+        const events = store.eventsFor(job.id);
+        expect(events.map((event) => event.kind)).toEqual(['progress', 'snapshot', 'finding']);
+        expect(events[2].text).toContain('a background job cannot issue a physical step');
+        expect(store.get(job.id)?.status).toBe('succeeded');
+    });
+
+    it('emits a measure step for a job filed from a live session', async () => {
+        const { store, reasoner, job } = setup(async () =>
+            state('REQUEST_MORE_INFO', { userOutput: 'Need a reading.', requiredActions: ['Check fuel pressure'] }),
+        );
+        await runDiagnosticJob({ store, reasoner, logger: silentLogger, origin: 'live-session' }, job, {
+            question: job.question,
+            evidenceRefs: [],
+            sessionId: job.sessionId,
+            userId: job.userId,
+            vehicle: {},
+        });
+        const events = store.eventsFor(job.id);
+        expect(events.map((event) => event.kind)).toEqual(['progress', 'snapshot', 'measure']);
+        expect(events[2].text).toBe('Need a reading.\nMeasure or check next: Check fuel pressure');
         expect(store.get(job.id)?.status).toBe('succeeded');
     });
 

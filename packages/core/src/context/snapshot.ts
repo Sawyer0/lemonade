@@ -163,6 +163,17 @@ function renderPayloadLines(entry: LedgerEntry): string[] {
                 `monitors ready: ${entry.payload.monitorsReady ? 'yes' : `no (${entry.payload.monitorsNotReady.join(', ')})`}`,
                 `returned codes: ${[...entry.payload.returnedStoredCodes, ...entry.payload.returnedPendingCodes, ...entry.payload.returnedPermanentCodes].join(', ') || '(none)'}`,
             ];
+        case 'step_confirmation':
+            return [
+                `step: ${quoted(entry.payload.stepId)}`,
+                ...(entry.payload.testId !== undefined ? [`test: ${quoted(entry.payload.testId)}`] : []),
+                `vin: ${quoted(entry.payload.vin)}`,
+                `instruction: ${quoted(entry.payload.instruction)}`,
+                `risk: ${entry.payload.riskLevel}`,
+                ...(entry.payload.confirmationText !== undefined
+                    ? [`confirmed: ${quoted(entry.payload.confirmationText)}`]
+                    : []),
+            ];
         case 'advisory':
             // LM-18: a background evidence child's summary. Rendered as a
             // fact like any other entry; the payload itself carries the
