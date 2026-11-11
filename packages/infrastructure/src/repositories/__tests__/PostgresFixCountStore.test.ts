@@ -95,9 +95,11 @@ describe('PostgresFixCountStore', () => {
 
     it('lists stored counts round-tripped through the table', async () => {
         const counts = await store.listCounts();
+        // listCounts returns normalized counts: make/model are uppercased
+        // by normalizeFixCount, so the filter uses the stored case.
         const seeded = counts.filter(
             (count) =>
-                count.vehicle.make === 'Honda' && count.vehicle.model === 'Civic' && count.vehicle.yearFrom === 2015,
+                count.vehicle.make === 'HONDA' && count.vehicle.model === 'CIVIC' && count.vehicle.yearFrom === 2015,
         );
         expect(seeded).toHaveLength(5);
         expect(seeded.find((count) => count.hypothesis === 'ignition coil')?.observationCount).toBe(7);
