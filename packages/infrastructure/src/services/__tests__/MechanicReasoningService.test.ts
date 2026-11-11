@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MechanicReasoningService } from '../MechanicReasoningService';
+import { CaseRunCoordinator } from '../CaseRunCoordinator';
+import { AppError, ErrorCode } from '@lemonade/core';
 import {
     ILogger,
     IMultimodalUploadAnalyzer,
@@ -13,8 +15,10 @@ import {
     ISessionRepository,
     ISafetyMonitor,
     ITracingService,
+    ICaseRepository,
     ReasoningInput,
 } from '@lemonade/core';
+import type { GeminiCoreAdapter } from '../../ai/GeminiCoreAdapter';
 
 describe('MechanicReasoningService', () => {
     let service: MechanicReasoningService;
@@ -457,6 +461,154 @@ describe('MechanicReasoningService', () => {
             const result = await service.diagnose(input);
 
             expect(result).toBeDefined();
+        });
+    });
+
+    describe('case runs (LM-17)', () => {
+        const CASE_ID = '11111111-1111-4111-8111-111111111111';
+        let mockCaseRepo: ICaseRepository;
+        let caseCoordinator: CaseRunCoordinator;
+
+        function caseInput(overrides: Partial<ReasoningInput> = {}): ReasoningInput {
+            return {
+                sessionId: 'session-case-1',
+                userId: 'user-1',
+                vehicleContext: { year: 2022, make: 'Ford', model: 'F-150', vin: 'VIN123' },
+                userQuery: 'brake squeak when cold',
+                complaint: 'Brakes squeaking',
+                ...overrides,
+            };
+        }
+
+        function caseService(coordinator: CaseRunCoordinator): MechanicReasoningService {
+            return new MechanicReasoningService(
+                mockVideoAI,
+                mockChatAI,
+                mockNHTSA,
+                mockEmbedding,
+                mockVector,
+                mockSearch,
+                mockMemory,
+                mockSessionRepo,
+                mockReactive,
+                mockSafetyMonitor,
+                mockTracing,
+                mockLogger,
+                undefined as unknown as GeminiCoreAdapter,
+                coordinator,
+                mockCaseRepo,
+            );
+        }
+
+        async function waitForMockCall(mockFn: { mock: { calls: unknown[][] } }): Promise<void> {
+            const deadline = Date.now() + 5000;
+            while (mockFn.mock.calls.length === 0) {
+                if (Date.now() > deadline) {
+                    throw new Error('timed out waiting for the mocked call');
+                }
+                await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+        }
+
+        beforeEach(() => {
+            mockCaseRepo = {
+                findCaseById: vi.fn().mockResolvedValue({
+                    id: CASE_ID,
+                    vehicleId: 'vehicle-1',
+                    userId: 'user-1',
+                    status: 'open',
+                    version: 3,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                }),
+                advanceCaseVersion: vi.fn().mockResolvedValue(4),
+            } as unknown as ICaseRepository;
+            (mockSessionRepo as unknown as Record<string, unknown>).getXStateSnapshot = vi
+                .fn()
+                .mockResolvedValue(null);
+            caseCoordinator = new CaseRunCoordinator();
+        });
+
+        it('commits a case run with the version it read', async () => {
+            const result = await caseService(caseCoordinator).diagnose(caseInput({ caseId: CASE_ID }));
+
+            expect(result).toBeDefined();
+            expect(mockCaseRepo.findCaseById).toHaveBeenCalledWith(CASE_ID);
+            expect(mockCaseRepo.advanceCaseVersion).toHaveBeenCalledTimes(1);
+            expect(mockCaseRepo.advanceCaseVersion).toHaveBeenCalledWith(CASE_ID, 3);
+        });
+
+        it('joins a second caller onto the active run instead of starting a competing one', async () => {
+            let releaseGather!: () => void;
+            const gatherGate = new Promise<[]>((resolve) => {
+                releaseGather = () => resolve([]);
+            });
+            mockMemory.search = vi.fn().mockImplementation(() => gatherGate);
+
+            const runningService = caseService(caseCoordinator);
+            const first = runningService.diagnose(caseInput({ caseId: CASE_ID }));
+            await waitForMockCall(mockMemory.search as unknown as { mock: { calls: unknown[][] } });
+
+            const second = runningService.diagnose(
+                caseInput({ sessionId: 'session-case-2', userQuery: 'and a grinding noise', caseId: CASE_ID }),
+            );
+            releaseGather();
+
+            const [firstResult, secondResult] = await Promise.all([first, second]);
+            expect(secondResult).toBe(firstResult);
+            expect(mockMemory.search).toHaveBeenCalledTimes(1);
+            expect(mockCaseRepo.advanceCaseVersion).toHaveBeenCalledTimes(1);
+            expect(mockCaseRepo.advanceCaseVersion).toHaveBeenCalledWith(CASE_ID, 3);
+        });
+
+        it('keeps the diagnosis when a stale run commit is refused', async () => {
+            mockCaseRepo.advanceCaseVersion = vi
+                .fn()
+                .mockRejectedValue(new AppError(ErrorCode.VERSION_CONFLICT, 'stale write'));
+
+            const result = await caseService(caseCoordinator).diagnose(caseInput({ caseId: CASE_ID }));
+
+            expect(result).toBeDefined();
+            expect(mockLogger.warn).toHaveBeenCalledWith(
+                expect.stringContaining('Stale case run commit refused'),
+                expect.objectContaining({ caseId: CASE_ID, readVersion: 3 }),
+            );
+        });
+
+        it('resumes from the stored snapshot after the worker is killed mid-case', async () => {
+            let releaseGather!: () => void;
+            const gatherGate = new Promise<[]>((resolve) => {
+                releaseGather = () => resolve([]);
+            });
+            mockMemory.search = vi.fn().mockImplementation(() => gatherGate);
+
+            const firstService = caseService(new CaseRunCoordinator());
+            const firstRun = firstService.diagnose(caseInput({ sessionId: 'session-crash', caseId: CASE_ID }));
+            await waitForMockCall(mockMemory.search as unknown as { mock: { calls: unknown[][] } });
+
+            // The crash: the session repository holds the snapshot saved
+            // while the gather call was still in flight. The worker dies
+            // with the first run abandoned, its gather never released.
+            const savedCalls = (mockSessionRepo.saveXStateSnapshot as unknown as { mock: { calls: unknown[][] } })
+                .mock.calls;
+            expect(savedCalls.length).toBeGreaterThan(0);
+            const storedSnapshot = JSON.parse(JSON.stringify(savedCalls[savedCalls.length - 1]?.[1]));
+            expect(storedSnapshot.value).toBe('gathering_context');
+
+            // A new worker starts: fresh coordinator, the stored snapshot.
+            mockMemory.search = vi.fn().mockResolvedValue([]);
+            (mockSessionRepo as unknown as Record<string, unknown>).getXStateSnapshot = vi
+                .fn()
+                .mockResolvedValue(storedSnapshot);
+            const restartedService = caseService(new CaseRunCoordinator());
+            const result = await restartedService.diagnose(
+                caseInput({ sessionId: 'session-crash', caseId: CASE_ID }),
+            );
+            expect(result).toBeDefined();
+
+            // Let the abandoned first run finish so its timers do not linger.
+            releaseGather();
+            await expect(firstRun).resolves.toBeDefined();
         });
     });
 });

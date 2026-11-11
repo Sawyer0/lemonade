@@ -6,6 +6,7 @@ yet; apply them with `psql` against the case-ledger database:
 ```sh
 psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0001_case_ledger.sql
 psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0002_ledger_transcript_type.sql
+psql "$LEMONADE_CASE_LEDGER_DATABASE_URL" -f db/migrations/0002_case_version.sql
 ```
 
 The repository test (`PostgresCaseRepository.test.ts`) applies the migrations
@@ -18,6 +19,7 @@ The application role must be able to read and append, nothing else:
 
 ```sql
 GRANT SELECT, INSERT ON cases, case_ledger_entries, case_sessions TO <app_role>;
+GRANT UPDATE (version, updated_at) ON cases TO <app_role>;
 ```
 
 Do not grant UPDATE or DELETE on `case_ledger_entries` to the app role. The

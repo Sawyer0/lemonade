@@ -27,8 +27,13 @@ interface CaseRow extends QueryResultRow {
     vehicle_id: string;
     user_id: string;
     status: string;
+    version: number;
     created_at: Date;
     updated_at: Date;
+}
+
+interface CaseVersionRow extends QueryResultRow {
+    version: number;
 }
 
 interface LedgerEntryRow extends QueryResultRow {
@@ -114,6 +119,10 @@ export class PostgresCaseRepository implements ICaseRepository {
             if (caseResult.rowCount === 0) {
                 throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, `Case not found: ${caseId}`);
             }
+            // LM-17: every ledger append advances the case version by one, so
+            // a run that started before this append finds its read version
+            // stale when it commits.
+            await client.query('UPDATE cases SET version = version + 1, updated_at = now() WHERE id = $1', [caseId]);
             if (parsed.type === 'correction') {
                 const original = await client.query<CaseIdRow>(
                     'SELECT id FROM case_ledger_entries WHERE id = $1 AND case_id = $2',
@@ -229,6 +238,32 @@ export class PostgresCaseRepository implements ICaseRepository {
         );
     }
 
+    async advanceCaseVersion(caseId: string, expectedVersion: number): Promise<number> {
+        this.validateCaseId(caseId);
+        if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+            throw new AppError(ErrorCode.INVALID_INPUT, `expectedVersion must be a positive integer: ${expectedVersion}`);
+        }
+        // The version predicate is the guard: the UPDATE touches the row only
+        // when the stored version still equals the version the run read, so
+        // two concurrent commits can never both succeed.
+        const updated = await this.pool.query<CaseVersionRow>(
+            'UPDATE cases SET version = version + 1, updated_at = now() WHERE id = $1 AND version = $2 RETURNING version',
+            [caseId, expectedVersion],
+        );
+        const row = updated.rows[0];
+        if (row) {
+            return row.version;
+        }
+        const existing = await this.findCaseById(caseId);
+        if (!existing) {
+            throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, `Case not found: ${caseId}`);
+        }
+        throw new AppError(
+            ErrorCode.VERSION_CONFLICT,
+            `Case ${caseId} changed since this run started (read version ${expectedVersion}, current version ${existing.version}); refusing the stale write`,
+        );
+    }
+
     async listSessions(caseId: string): Promise<string[]> {
         this.validateCaseId(caseId);
         const result = await this.pool.query<SessionLinkRow>(
@@ -266,6 +301,7 @@ export class PostgresCaseRepository implements ICaseRepository {
             vehicleId: row.vehicle_id,
             userId: row.user_id,
             status: row.status,
+            version: row.version,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         });

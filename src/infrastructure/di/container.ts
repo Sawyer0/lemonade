@@ -48,6 +48,7 @@ import {
     SupermemoryService,
     ReactiveSafetyService,
     MechanicReasoningService,
+    CaseRunCoordinator,
     FunctionCallService,
     EdgeSecurityService,
     UpstashRateLimiter,
@@ -162,6 +163,10 @@ container
     .bind<IMechanicReasoningService>(TYPES.MechanicReasoningService)
     .to(MechanicReasoningService)
     .inSingletonScope();
+
+// LM-17: one coordinator per process, so the single-active-run rule holds
+// across every caller that resolves the reasoning service.
+container.bind<CaseRunCoordinator>(TYPES.CaseRunCoordinator).to(CaseRunCoordinator).inSingletonScope();
 
 container.bind<IEdgeSecurityService>(TYPES.EdgeSecurityService).to(EdgeSecurityService).inSingletonScope();
 container.bind<IRateLimiter>(TYPES.RateLimiter).to(UpstashRateLimiter).inSingletonScope();

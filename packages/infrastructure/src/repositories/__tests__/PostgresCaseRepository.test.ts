@@ -32,8 +32,9 @@ describe('PostgresCaseRepository', () => {
     beforeAll(async () => {
         container = await new PostgreSqlContainer('postgres:16-alpine').start();
         pool = new Pool({ connectionString: container.getConnectionUri() });
-        for (const file of ['0001_case_ledger.sql', '0002_ledger_transcript_type.sql']) {
-            await pool.query(readFileSync(path.resolve(process.cwd(), `db/migrations/${file}`), 'utf8'));
+        for (const migration of ['0001_case_ledger.sql', '0002_ledger_transcript_type.sql', '0002_case_version.sql']) {
+            const sql = readFileSync(path.resolve(process.cwd(), `db/migrations/${migration}`), 'utf8');
+            await pool.query(sql);
         }
         repository = new PostgresCaseRepository(pool, new NodeCryptoLedgerHasher(), silentLogger);
     }, 180000);
@@ -49,14 +50,51 @@ describe('PostgresCaseRepository', () => {
         const created = await repository.createCase({ vehicleId: 'vehicle-1', userId: 'user-1' });
         expect(created.id).toBeTruthy();
         expect(created.status).toBe('open');
+        expect(created.version).toBe(1);
 
         const found = await repository.findCaseById(created.id);
         expect(found?.vehicleId).toBe('vehicle-1');
+        expect(found?.version).toBe(1);
 
         const byVehicle = await repository.findCasesByVehicleId('vehicle-1');
         expect(byVehicle.map((entry) => entry.id)).toContain(created.id);
 
         expect(await repository.findCaseById(uuidv4())).toBeNull();
+    });
+
+    it('advances the case version on every ledger append', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-10', userId: 'user-1' });
+        expect(caseRecord.version).toBe(1);
+        await repository.appendEntry(caseRecord.id, {
+            type: 'observation',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: { text: 'First reading' },
+        });
+        expect((await repository.findCaseById(caseRecord.id))?.version).toBe(2);
+        await repository.appendEntry(caseRecord.id, {
+            type: 'observation',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: { text: 'Second reading' },
+        });
+        expect((await repository.findCaseById(caseRecord.id))?.version).toBe(3);
+    });
+
+    it('advances the version only when the run read the current one', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-11', userId: 'user-1' });
+        expect(await repository.advanceCaseVersion(caseRecord.id, 1)).toBe(2);
+        expect((await repository.findCaseById(caseRecord.id))?.version).toBe(2);
+
+        await expect(repository.advanceCaseVersion(caseRecord.id, 1)).rejects.toThrow(
+            'read version 1, current version 2',
+        );
+        expect((await repository.findCaseById(caseRecord.id))?.version).toBe(2);
+
+        await expect(repository.advanceCaseVersion(uuidv4(), 1)).rejects.toThrow('Case not found');
+        await expect(repository.advanceCaseVersion(caseRecord.id, 0)).rejects.toThrow('positive integer');
     });
 
     it('appends entries with sequential numbers and a verifiable chain', async () => {

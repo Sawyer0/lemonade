@@ -22,6 +22,7 @@ import { TYPES } from './types';
 
 // Implementations
 import { MechanicReasoningService } from '../services/MechanicReasoningService';
+import { CaseRunCoordinator } from '../services/CaseRunCoordinator';
 import { FirestoreSessionRepository } from '../repositories/FirestoreSessionRepository';
 import { TavilySearchService } from '../external/TavilySearchService';
 import { SupermemoryService } from '../external/SupermemoryService';
@@ -90,6 +91,10 @@ export function createContainer(): Container {
         .bind<IMechanicReasoningService>(TYPES.MechanicReasoningService)
         .to(MechanicReasoningService)
         .inSingletonScope();
+
+    // LM-17: one coordinator per process, so the single-active-run rule
+    // holds across every caller that resolves the reasoning service.
+    container.bind<CaseRunCoordinator>(TYPES.CaseRunCoordinator).to(CaseRunCoordinator).inSingletonScope();
 
     return container;
 }

@@ -374,6 +374,12 @@ export const mechanicMachine = setup({
                                             vehicle: context.vehicleContext,
                                             recalls: context.nhtsaResults,
                                             history: context.vehicleHistory,
+                                            // LM-17 checkpoint: evidence that arrived after the
+                                            // intuition call reaches this model call instead of
+                                            // starting a competing run over it.
+                                            newEvidence: context.queuedEvidence.map(
+                                                (item) => `[${item.kind}] ${item.summary}`,
+                                            ),
                                         }),
                                         sessionId: context.sessionId,
                                     },
