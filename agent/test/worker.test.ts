@@ -97,12 +97,18 @@ vi.mock('@lemonade/infrastructure', () => ({
 function fakeRoom() {
     const listeners = new Map<string, (...args: unknown[]) => void>();
     const published: { data: Uint8Array; topic?: string }[] = [];
+    const streamHandlers = new Map<string, (reader: unknown, participant: { identity: string }) => void>();
     return {
         listeners,
         published,
+        streamHandlers,
         room: {
             name: 'session-42',
             on: (event: string, listener: (...args: unknown[]) => void) => listeners.set(event, listener),
+            registerByteStreamHandler: (
+                topic: string,
+                handler: (reader: unknown, participant: { identity: string }) => void,
+            ) => streamHandlers.set(topic, handler),
             localParticipant: {
                 publishData: vi.fn(async (data: Uint8Array, options: { topic?: string }) => {
                     published.push({ data, topic: options.topic });
@@ -210,6 +216,11 @@ describe('agent worker startup', () => {
             expect(Object.keys(agent.options.tools).length).toBeGreaterThan(0);
         },
     );
+
+    it('registers a byte-stream handler for frames from the session user', async () => {
+        const { room } = await startWorker();
+        expect(room.streamHandlers.has(LiveChannelTopic.VisualFrameStream)).toBe(true);
+    });
 
     it('routes typed messages from the session user to the model and ignores others', async () => {
         const { room, session } = await startWorker();
