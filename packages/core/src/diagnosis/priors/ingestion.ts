@@ -20,6 +20,7 @@ import { normalizeFixCount } from './types';
 import { causeForNhtsaComponent } from './component';
 import { clusterRepairTerms, extractRepairTerms, normalizeRepairTerm } from './termNormalizer';
 import type { LedgerEntry } from '../../types/case';
+import type { IFixCountStore } from '../../ports/IFixCountStore';
 
 export interface IngestedSkipped {
     reason: string;
@@ -193,4 +194,25 @@ export function ledgerOutcomeToFixCount(
             sourceCounts: { 'lemonade-ledger': 1 },
         }),
     };
+}
+
+/**
+ * The one-call path for the done-when "new expert-validated outcomes
+ * update counts": converts a ledger outcome with its expert validation
+ * and records it into the store. An unconfirmed, unvalidated, or
+ * non-outcome entry records nothing and returns the skip reason, so a
+ * caller never has to remember the convert-then-record two-step — or
+ * forget the record half of it.
+ */
+export async function recordValidatedLedgerOutcome(
+    store: IFixCountStore,
+    entry: LedgerEntry,
+    facts: CaseFacts,
+    validation: ExpertValidation | null,
+): Promise<LedgerOutcomeIngestion> {
+    const ingested = ledgerOutcomeToFixCount(entry, facts, validation);
+    if (ingested.ok) {
+        await store.recordFix(ingested.count);
+    }
+    return ingested;
 }

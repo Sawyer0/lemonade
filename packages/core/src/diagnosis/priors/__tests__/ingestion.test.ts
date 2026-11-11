@@ -7,7 +7,10 @@ import {
     parseNhtsaFlatFileRow,
     parseNhtsaRecall,
     parseRepairOrderText,
+    recordValidatedLedgerOutcome,
 } from '../ingestion';
+import { InMemoryFixCountStore } from '../store';
+import { seedFixCountStore } from '../seed';
 import type { CaseFacts, ExpertValidation } from '../types';
 import type { LedgerEntry } from '../../../types/case';
 
@@ -180,5 +183,35 @@ describe('ledgerOutcomeToFixCount', () => {
         const entry = outcomeEntry(true);
         const ingested = ledgerOutcomeToFixCount({ ...entry, type: 'observation' } as LedgerEntry, civicFacts, validation);
         expect(ingested.ok).toBe(false);
+    });
+});
+
+describe('recordValidatedLedgerOutcome', () => {
+    it('records a validated confirmed outcome into the store in one call', async () => {
+        const store = new InMemoryFixCountStore();
+        await seedFixCountStore(store);
+        const recorded = await recordValidatedLedgerOutcome(store, outcomeEntry(true), civicFacts, validation);
+        expect(recorded.ok).toBe(true);
+        const result = await store.prior(civicFacts);
+        expect(result.hypotheses[0]?.n).toBe(12);
+        expect(result.hypotheses[0]?.sources).toContainEqual({ source: 'lemonade-ledger', observationCount: 4 });
+    });
+
+    it('records nothing for an unvalidated outcome', async () => {
+        const store = new InMemoryFixCountStore();
+        await seedFixCountStore(store);
+        const recorded = await recordValidatedLedgerOutcome(store, outcomeEntry(true), civicFacts, null);
+        expect(recorded.ok).toBe(false);
+        const result = await store.prior(civicFacts);
+        expect(result.hypotheses[0]?.n).toBe(11);
+    });
+
+    it('records nothing for an unconfirmed outcome', async () => {
+        const store = new InMemoryFixCountStore();
+        await seedFixCountStore(store);
+        const recorded = await recordValidatedLedgerOutcome(store, outcomeEntry(false), civicFacts, validation);
+        expect(recorded.ok).toBe(false);
+        const result = await store.prior(civicFacts);
+        expect(result.hypotheses[0]?.n).toBe(11);
     });
 });
