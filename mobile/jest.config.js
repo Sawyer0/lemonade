@@ -9,7 +9,10 @@ module.exports = {
     ],
     testMatch: ['<rootDir>/**/__tests__/**/*.[jt]s?(x)', '<rootDir>/**/?(*.)+(spec|test).[jt]s?(x)'],
     transformIgnorePatterns: [
-        'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(modules-core)?|@expo(nent)?|.*react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|llama.rn|@lemonade/core|react-native-vision-camera|vision-camera-resize-plugin|react-native-reanimated|react-native-worklets-core|firebase|@firebase|react-native-paper|react-native-vector-icons)',
+        'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(modules-core)?|@expo(nent)?|.*react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|llama.rn|@lemonade/core|react-native-vision-camera|vision-camera-resize-plugin|react-native-reanimated|react-native-worklets-core|firebase|@firebase|react-native-paper|react-native-vector-icons|yaml)',
+        // yaml is ESM-only under its browser entry, so Jest must transform it:
+        // packages/core/src/diagnosis/tests/yamlLoader.ts imports it, and
+        // mobile tests load @lemonade/core through the moduleNameMapper above.
     ],
     moduleNameMapper: {
         '^@mobile/(.*)$': '<rootDir>/$1',
