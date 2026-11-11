@@ -43,6 +43,8 @@ import { BillingService } from '../services/BillingService';
 import { BillingFirestoreRepository } from '../repositories/BillingFirestoreRepository';
 import { InMemoryResponseCache } from '../cache/InMemoryResponseCache';
 
+import { bindCaseLedger } from './caseLedgerBindings';
+
 export function createContainer(): Container {
     const container = new Container();
 
@@ -68,6 +70,8 @@ export function createContainer(): Container {
 
     // 3. Services & Repositories
     container.bind<ISessionRepository>(TYPES.SessionRepository).to(FirestoreSessionRepository).inSingletonScope();
+    // Case ledger (Postgres). Shared bindings — see caseLedgerBindings.ts.
+    bindCaseLedger(container);
     container.bind<IUserRepository>(TYPES.UserRepo).to(FirestoreUserRepository).inSingletonScope();
     container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(GoogleSearchService).inSingletonScope();
     container.bind<IMemoryService>(TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();

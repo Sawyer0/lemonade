@@ -102,6 +102,8 @@ export const DiagnosticSessionSchema = z.object({
     id: z.string().uuid(),
     vehicleId: z.string(),
     userId: z.string(),
+    // The case this session belongs to (LM-01). A case spans sessions and days.
+    caseId: z.string().uuid().optional(),
     status: z.enum(['active', 'analyzing', 'waiting_user', 'completed']),
 
     // The "Medical Chart"

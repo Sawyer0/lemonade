@@ -55,6 +55,7 @@ import {
     NHTSAService,
     EmbeddingService,
     bindAiProviders,
+    bindCaseLedger,
 } from '@lemonade/infrastructure';
 
 // Implementations (Local / Web-specific)
@@ -95,6 +96,10 @@ container.bind<GeminiCoreAdapter>(TYPES.GeminiCoreAdapter).to(GeminiCoreAdapter)
 container.bind<IVehicleRepository>(TYPES.VehicleRepo).to(VehicleAdminRepository).inSingletonScope();
 
 container.bind<ISessionRepository>(TYPES.SessionRepo).to(SessionAdminRepository).inSingletonScope();
+
+// Case ledger (Postgres). Shared bindings — see caseLedgerBindings.ts in
+// @lemonade/infrastructure.
+bindCaseLedger(container);
 
 container.bind<IUserRepository>(TYPES.UserRepo).to(FirestoreUserRepository).inSingletonScope();
 

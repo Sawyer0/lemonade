@@ -11,6 +11,11 @@ export const TYPES = {
     BillingRepository: Symbol.for('BillingRepository'),
     VectorRepository: Symbol.for('VectorRepository'),
 
+    // Case ledger (Postgres)
+    CaseRepo: Symbol.for('CaseRepo'),
+    PostgresPool: Symbol.for('PostgresPool'),
+    LedgerHasher: Symbol.for('LedgerHasher'),
+
     // External Providers
     VehicleInfoProvider: Symbol.for('VehicleInfoProvider'),
 
