@@ -10,9 +10,7 @@ export const BakeoffTurnSchema = z.object({
     noiseBed: z.string().nullable(),
     expectedTargets: z.array(z.string()),
     expectedKeywords: z.array(z.string()),
-    expectedTool: z
-        .object({ name: z.string(), argsContain: z.record(z.string()) })
-        .nullable(),
+    expectedTool: z.object({ name: z.string(), argsContain: z.record(z.string()) }).nullable(),
     interrupt: z.object({ afterMs: z.number().int().positive(), phrase: z.string().min(1) }).nullable(),
     clip: z.object({ file: z.string(), still: z.string() }).nullable(),
     notes: z.string(),
@@ -117,7 +115,8 @@ export interface BakeoffUsage {
 export function estimateCostUsd(provider: VoiceProviderId, usage: BakeoffUsage, rates: CostRates): number {
     if (provider === 'gemini') {
         const tokensPerMinute = rates.rates.gemini.audioTokensPerSecond * 60;
-        const inputCost = (usage.inputAudioMinutes * tokensPerMinute * rates.rates.gemini.audioInPerMillionTokens) / 1e6;
+        const inputCost =
+            (usage.inputAudioMinutes * tokensPerMinute * rates.rates.gemini.audioInPerMillionTokens) / 1e6;
         const outputCost =
             (usage.outputAudioMinutes * tokensPerMinute * rates.rates.gemini.audioOutPerMillionTokens) / 1e6;
         return inputCost + outputCost;

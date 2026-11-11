@@ -3,7 +3,10 @@
  * CI: it speaks the 30 scripted turns to a real Master Tech worker over a
  * LiveKit room, one provider at a time, and writes one results table per run.
  *
- * Run it with one command (from the repo root):
+ * Run it with one command (from the repo root), after building the
+ * workspace packages once (npm --workspace @lemonade/core run build &&
+ * npm --workspace @lemonade/infrastructure run build — the runner fails
+ * fast naming the missing dist otherwise):
  *   npm --workspace agent run bakeoff -- --provider gemini
  *   npm --workspace agent run bakeoff -- --provider grok --turns T01,T09,T15
  *   npm --workspace agent run bakeoff -- --provider cascade --dry-run
@@ -35,16 +38,23 @@ import {
 } from '@livekit/rtc-node';
 import { GEMINI_TTS_MODEL, LiveChannelTopic, encodeLiveMessage } from '@lemonade/core';
 import { loadCostRates, loadNoiseBeds, loadTurns, type BakeoffTurn, type NoiseBed } from './fixtures';
-import {
-    parseVoiceProviderId,
-    VOICE_PROVIDER_KEYS,
-    type VoiceProviderId,
-} from '../../src/voice/provider';
+import { parseVoiceProviderId, VOICE_PROVIDER_KEYS, type VoiceProviderId } from '../../src/voice/provider';
 import { renderResultsTable, scoreRun, type BakeoffTurnObservation, type ObservedToolCall } from './scorer';
 import { AudioQualityTracker, mixNoise, readWavPcm, resampleLinear, type WavPcm } from './audioMix';
 
 const BAKEOFF_DIR = fileURLToPath(new URL('.', import.meta.url));
 const AGENT_DIR = fileURLToPath(new URL('../..', import.meta.url));
+/**
+ * tsx runs with this config, not agent/tsconfig.json: the agent paths map
+ * @lemonade/core and @lemonade/infrastructure at their TypeScript sources,
+ * and both packages compile to CommonJS, so a tsx file run cannot see their
+ * named exports (Node's CJS lexer cannot read esbuild's star re-exports).
+ * This config maps infrastructure at its built dist and leaves core to
+ * resolve to its built dist through node_modules. Both dists must be built
+ * first (see docs/voice-bakeoff.md); CI's agent typecheck still uses the
+ * source paths in agent/tsconfig.json and is unaffected.
+ */
+const BAKEOFF_TSCONFIG = join(BAKEOFF_DIR, 'tsconfig.json');
 const SAMPLE_RATE = 24_000;
 const FRAME_SAMPLES = SAMPLE_RATE / 100;
 const REPLY_TIMEOUT_MS = 60_000;
@@ -114,7 +124,9 @@ async function speak(source: AudioSource, pcm: Int16Array): Promise<void> {
 async function main(): Promise<void> {
     const argv = process.argv.slice(2);
     const provider: VoiceProviderId = parseVoiceProviderId(argValue(argv, '--provider'));
-    const onlyTurns = argValue(argv, '--turns')?.split(',').map((id) => id.trim());
+    const onlyTurns = argValue(argv, '--turns')
+        ?.split(',')
+        .map((id) => id.trim());
     const outDir = argValue(argv, '--out') ?? join(BAKEOFF_DIR, 'results');
     const dryRun = argv.includes('--dry-run');
 
@@ -123,14 +135,22 @@ async function main(): Promise<void> {
     const rates = loadCostRates(join(BAKEOFF_DIR, 'cost-rates.json'));
     const selected = onlyTurns ? turns.filter((turn) => onlyTurns.includes(turn.id)) : turns;
     if (onlyTurns && selected.length !== onlyTurns.length) {
-        throw new Error(`Unknown turn ids: ${onlyTurns.filter((id) => !turns.some((turn) => turn.id === id)).join(', ')}`);
+        throw new Error(
+            `Unknown turn ids: ${onlyTurns.filter((id) => !turns.some((turn) => turn.id === id)).join(', ')}`,
+        );
     }
 
     const missingEnv = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'GOOGLE_API_KEY']
         .concat(VOICE_PROVIDER_KEYS[provider])
         .filter((name) => !process.env[name]);
-    if (missingEnv.length > 0) {
-        throw new Error(`Missing environment for a ${provider} bake-off run: ${missingEnv.join(', ')}`);
+    const missingDist = [
+        join(AGENT_DIR, '..', 'packages', 'core', 'dist', 'index.js'),
+        join(AGENT_DIR, '..', 'packages', 'infrastructure', 'dist', 'index.js'),
+    ].filter((path) => !existsSync(path));
+    if (missingDist.length > 0) {
+        throw new Error(
+            `Workspace packages are not built (${missingDist.join(', ')}). Run first: npm --workspace @lemonade/core run build && npm --workspace @lemonade/infrastructure run build`,
+        );
     }
 
     // Resolve assets up front: a missing bed or clip skips its turns, and the
@@ -162,10 +182,17 @@ async function main(): Promise<void> {
     if (dryRun) {
         for (const turn of selected) {
             const missing = missingAsset(turn);
-            console.log(`${turn.id} ${turn.category}${turn.noiseBed ? ` + ${turn.noiseBed}` : ''}${missing ? ` — SKIP: ${missing}` : ''}`);
+            console.log(
+                `${turn.id} ${turn.category}${turn.noiseBed ? ` + ${turn.noiseBed}` : ''}${missing ? ` — SKIP: ${missing}` : ''}`,
+            );
         }
         console.log(`Dry run OK: ${selected.length} turns for provider ${provider}.`);
         return;
+    }
+
+    // A dry run needs no keys and no room; a live run needs both.
+    if (missingEnv.length > 0) {
+        throw new Error(`Missing environment for a ${provider} bake-off run: ${missingEnv.join(', ')}`);
     }
 
     const roomName = `lemonade-bakeoff-${provider}-${Date.now()}`;
@@ -180,14 +207,14 @@ async function main(): Promise<void> {
     let current: TurnAudioState | null = null;
 
     try {
-        worker = spawn('npx', ['tsx', join(AGENT_DIR, 'src/worker.ts'), 'dev'], {
+        worker = spawn('npx', ['tsx', '--tsconfig', BAKEOFF_TSCONFIG, join(AGENT_DIR, 'src/worker.ts'), 'dev'], {
             cwd: AGENT_DIR,
             env: { ...process.env, VOICE_PROVIDER: provider },
             stdio: 'inherit',
         });
         await sleep(8_000);
 
-        const token = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
+        const token = new AccessToken(process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!, {
             identity: 'bakeoff-driver',
             metadata: JSON.stringify({
                 userId: 'bakeoff-driver',
@@ -195,7 +222,7 @@ async function main(): Promise<void> {
             }),
         });
         token.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: true });
-        await room.connect(process.env.LIVEKIT_URL, await token.toJwt(), { autoSubscribe: true, dynacast: false });
+        await room.connect(process.env.LIVEKIT_URL!, await token.toJwt(), { autoSubscribe: true, dynacast: false });
 
         room.registerTextStreamHandler('lk.transcription', async (reader, participant) => {
             if (participant.identity === 'bakeoff-driver') return;
@@ -206,7 +233,10 @@ async function main(): Promise<void> {
             if (!current) return;
             if (topic === LiveChannelTopic.AiResponse) {
                 try {
-                    const message = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; analysis?: { diagnosis?: string } };
+                    const message = JSON.parse(new TextDecoder().decode(payload)) as {
+                        type?: string;
+                        analysis?: { diagnosis?: string };
+                    };
                     if (message.type === 'chat' && message.analysis?.diagnosis) {
                         current.aiResponseParts.push(message.analysis.diagnosis);
                     }
@@ -216,7 +246,10 @@ async function main(): Promise<void> {
             }
             if (topic === LiveChannelTopic.VisualBurstRequest) {
                 try {
-                    const message = JSON.parse(new TextDecoder().decode(payload)) as { component?: string; reason?: string };
+                    const message = JSON.parse(new TextDecoder().decode(payload)) as {
+                        component?: string;
+                        reason?: string;
+                    };
                     current.toolCalls.push({
                         name: 'start_video_stream',
                         args: { component: message.component ?? '', reason: message.reason ?? '' },
@@ -322,7 +355,11 @@ async function main(): Promise<void> {
                     // audible frame after the interrupt ended.
                     const stopDeadline = Date.now() + 10_000;
                     while (Date.now() < stopDeadline) {
-                        if (current.lastAudibleAtMs !== null && Date.now() - current.promptEndedAt - current.lastAudibleAtMs > 1_000) break;
+                        if (
+                            current.lastAudibleAtMs !== null &&
+                            Date.now() - current.promptEndedAt - current.lastAudibleAtMs > 1_000
+                        )
+                            break;
                         await sleep(100);
                     }
                     interruptStopMs =
@@ -332,15 +369,16 @@ async function main(): Promise<void> {
                 }
 
                 const transcript =
-                    current.transcriptParts.join(' ').trim() ||
-                    [...new Set(current.aiResponseParts)].join(' ').trim();
+                    current.transcriptParts.join(' ').trim() || [...new Set(current.aiResponseParts)].join(' ').trim();
                 const quality = current.quality.finish();
                 outputAudioMinutes += quality.audibleMs / 60_000;
                 outputChars += transcript.length;
                 const spokeWhileToolRan =
                     current.toolCalls.length === 0
                         ? null
-                        : current.toolCallAtMs.some((atMs) => current !== null && (current.lastAudibleAtMs ?? -1) > atMs);
+                        : current.toolCallAtMs.some(
+                              (atMs) => current !== null && (current.lastAudibleAtMs ?? -1) > atMs,
+                          );
                 observations.push({
                     turnId: turn.id,
                     transcript,

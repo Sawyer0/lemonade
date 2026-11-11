@@ -47,12 +47,22 @@ A turn whose bed or clip file is missing is skipped with status
 
 ## How to run (one command)
 
+Build the workspace packages once first — the runner and the worker it
+spawns run under tsx, which cannot see the named exports of the
+CommonJS workspace packages from their TypeScript sources, so both
+packages must be built to `dist` (their `dist/` is gitignored):
+
 ```sh
-# From the repo root. Needs LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
-# GOOGLE_API_KEY (to synthesise the prompts), plus the provider's keys:
-#   gemini:   GOOGLE_API_KEY
-#   grok:     XAI_API_KEY
-#   cascade:  GOOGLE_API_KEY, DEEPGRAM_API_KEY, CARTESIA_API_KEY
+npm --workspace @lemonade/core run build
+npm --workspace @lemonade/infrastructure run build
+```
+
+Then, from the repo root. Needs LIVEKIT_URL, LIVEKIT_API_KEY,
+LIVEKIT_API_SECRET, GOOGLE_API_KEY (to synthesise the prompts), plus the
+provider's keys: gemini needs GOOGLE_API_KEY, grok needs XAI_API_KEY,
+cascade needs GOOGLE_API_KEY, DEEPGRAM_API_KEY, and CARTESIA_API_KEY.
+
+```sh
 npm --workspace agent run bakeoff -- --provider gemini
 npm --workspace agent run bakeoff -- --provider grok --turns T01,T09,T15
 npm --workspace agent run bakeoff -- --provider cascade --dry-run

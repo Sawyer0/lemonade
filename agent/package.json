@@ -7,7 +7,7 @@
     "typecheck": "tsc --noEmit",
     "test": "(cd .. && patch-package) && vitest run --root .. agent",
     "test:live": "RUN_LIVE_AGENT_TESTS=true vitest run --root .. agent/test/live",
-    "bakeoff": "tsx test/bakeoff/runner.ts",
+    "bakeoff": "tsx --tsconfig test/bakeoff/tsconfig.json test/bakeoff/runner.ts",
     "dev": "tsx src/index.ts dev",
     "start": "tsx src/index.ts start",
     "worker": "tsx src/worker.ts dev"

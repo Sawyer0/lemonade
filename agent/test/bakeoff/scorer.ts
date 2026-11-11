@@ -113,7 +113,9 @@ export interface BakeoffTurnScore {
 /** Scores one turn's observation against the fixture's expectations. */
 export function scoreTurn(turn: BakeoffTurn, observation: BakeoffTurnObservation): BakeoffTurnScore {
     const targetsHeard = turn.expectedTargets.filter((target) => targetHeard(observation.transcript, target)).length;
-    const keywordsHeard = turn.expectedKeywords.filter((keyword) => targetHeard(observation.transcript, keyword)).length;
+    const keywordsHeard = turn.expectedKeywords.filter((keyword) =>
+        targetHeard(observation.transcript, keyword),
+    ).length;
     let toolCorrect: boolean | null = null;
     if (turn.expectedTool) {
         const call = observation.toolCalls.find((candidate) => candidate.name === turn.expectedTool?.name);
@@ -121,9 +123,7 @@ export function scoreTurn(turn: BakeoffTurn, observation: BakeoffTurnObservation
             call !== undefined &&
             Object.entries(turn.expectedTool.argsContain).every(([key, wanted]) => {
                 const actual = call.args[key];
-                return (
-                    typeof actual === 'string' && actual.toLowerCase().includes(String(wanted).toLowerCase())
-                );
+                return typeof actual === 'string' && actual.toLowerCase().includes(String(wanted).toLowerCase());
             });
     }
     return {
@@ -240,9 +240,7 @@ export function scoreRun(
             50,
         ),
         toolAccuracy:
-            toolScores.length === 0
-                ? null
-                : toolScores.filter((score) => score.toolCorrect).length / toolScores.length,
+            toolScores.length === 0 ? null : toolScores.filter((score) => score.toolCorrect).length / toolScores.length,
         toolTurnsSpokeWhileRunning: toolScores.filter((score) => score.spokeWhileToolRan === true).length,
         toolTurnsTotal: toolScores.length,
         crackles: scored.reduce((sum, score) => sum + score.crackles, 0),

@@ -50,9 +50,7 @@ describe('normalizeSpoken', () => {
     });
 
     it('collapses a spoken VIN digit by digit', () => {
-        expect(normalizeSpoken('one h g b h four one j x m n one zero nine one eight six')).toBe(
-            '1HGBH41JXMN109186',
-        );
+        expect(normalizeSpoken('one h g b h four one j x m n one zero nine one eight six')).toBe('1HGBH41JXMN109186');
     });
 
     it('collapses spoken decimals', () => {
@@ -75,10 +73,7 @@ describe('targetHeard', () => {
 
     it('hears a VIN spoken aloud', () => {
         expect(
-            targetHeard(
-                'The VIN is one h g b h four one j x m n one zero nine one eight six.',
-                '1HGBH41JXMN109186',
-            ),
+            targetHeard('The VIN is one h g b h four one j x m n one zero nine one eight six.', '1HGBH41JXMN109186'),
         ).toBe(true);
     });
 });
