@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useBrandColors } from '../hooks/useBrandColors';
+import type { ThemeColors } from '../constants/theme';
 import * as MetaWearables from '../modules/meta-wearables';
 import { MetaStreamView } from '../modules/meta-wearables';
 import { useLiveMechanicSession } from '../hooks/useLiveMechanicSession';
 import { useSessionVehicle } from '../hooks/useSessionVehicle';
 
 export default function ConnectGlassesScreen() {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     // Initialise the SDK once, before the first render reads its registration state.
     const [registrationState, setRegistrationState] = useState<string>(() => {
         try {
@@ -130,7 +134,7 @@ export default function ConnectGlassesScreen() {
                             disabled={aiLoading || !vehicle}
                         >
                             {aiLoading ? (
-                                <ActivityIndicator color="#fff" />
+                                <ActivityIndicator color={theme.onPrimary} />
                             ) : (
                                 <Text style={styles.buttonText}>
                                     {isLive ? 'Disconnect Master Tech' : 'Connect Master Tech'}
@@ -191,106 +195,107 @@ export default function ConnectGlassesScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
-    },
-    contentContainer: {
-        padding: 20,
-        paddingBottom: 40,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        marginTop: 10,
-        color: '#1a1a1a',
-    },
-    section: {
-        marginBottom: 20,
-        padding: 15,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 3,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        marginBottom: 12,
-        color: '#333',
-    },
-    label: {
-        fontSize: 14,
-        marginBottom: 10,
-        color: '#666',
-        fontWeight: '500',
-    },
-    button: {
-        backgroundColor: '#007AFF',
-        padding: 14,
-        borderRadius: 10,
-        alignItems: 'center',
-    },
-    buttonStop: {
-        backgroundColor: '#FF3B30',
-    },
-    buttonDisabled: {
-        backgroundColor: '#ccc',
-    },
-    buttonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 15,
-    },
-    divider: {
-        height: 10,
-    },
-    previewContainer: {
-        marginTop: 10,
-        height: 450,
-        borderRadius: 16,
-        overflow: 'hidden',
-        backgroundColor: '#000',
-        borderWidth: 2,
-        borderColor: '#007AFF',
-    },
-    preview: {
-        flex: 1,
-    },
-    captureButton: {
-        position: 'absolute',
-        bottom: 20,
-        left: 20,
-        right: 20,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        padding: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#fff',
-    },
-    responseContainer: {
-        marginTop: 20,
-        padding: 15,
-        backgroundColor: '#E3F2FD',
-        borderRadius: 12,
-        borderLeftWidth: 4,
-        borderLeftColor: '#007AFF',
-    },
-    responseItem: {
-        marginBottom: 10,
-        padding: 10,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-    },
-    responseText: {
-        fontSize: 15,
-        color: '#333',
-        lineHeight: 20,
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: theme.background,
+        },
+        contentContainer: {
+            padding: 20,
+            paddingBottom: 40,
+        },
+        title: {
+            fontSize: 24,
+            fontWeight: 'bold',
+            marginBottom: 20,
+            marginTop: 10,
+            color: theme.text,
+        },
+        section: {
+            marginBottom: 20,
+            padding: 15,
+            backgroundColor: theme.surface,
+            borderRadius: 12,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+            elevation: 3,
+        },
+        sectionTitle: {
+            fontSize: 18,
+            fontWeight: '700',
+            marginBottom: 12,
+            color: theme.text,
+        },
+        label: {
+            fontSize: 14,
+            marginBottom: 10,
+            color: theme.textSecondary,
+            fontWeight: '500',
+        },
+        button: {
+            backgroundColor: theme.primary,
+            padding: 14,
+            borderRadius: 10,
+            alignItems: 'center',
+        },
+        buttonStop: {
+            backgroundColor: theme.stop,
+        },
+        buttonDisabled: {
+            backgroundColor: theme.border,
+        },
+        buttonText: {
+            color: theme.onPrimary,
+            fontWeight: 'bold',
+            fontSize: 15,
+        },
+        divider: {
+            height: 10,
+        },
+        previewContainer: {
+            marginTop: 10,
+            height: 450,
+            borderRadius: 16,
+            overflow: 'hidden',
+            backgroundColor: '#000',
+            borderWidth: 2,
+            borderColor: theme.primary,
+        },
+        preview: {
+            flex: 1,
+        },
+        captureButton: {
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            right: 20,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            padding: 16,
+            borderRadius: 12,
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: '#fff',
+        },
+        responseContainer: {
+            marginTop: 20,
+            padding: 15,
+            backgroundColor: theme.primarySoft,
+            borderRadius: 12,
+            borderLeftWidth: 4,
+            borderLeftColor: theme.primary,
+        },
+        responseItem: {
+            marginBottom: 10,
+            padding: 10,
+            backgroundColor: theme.surface,
+            borderRadius: 8,
+        },
+        responseText: {
+            fontSize: 15,
+            color: theme.text,
+            lineHeight: 20,
+        },
+    });

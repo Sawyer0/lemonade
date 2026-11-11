@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import {
     View,
     StyleSheet,
@@ -9,7 +9,8 @@ import {
     TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { Theme } from '@mobile/constants/theme';
+import { useBrandColors } from '@mobile/hooks/useBrandColors';
+import type { ThemeColors } from '@mobile/constants/theme';
 import { ThemedText } from '@mobile/components/themed-text';
 import { ThemedView } from '@mobile/components/themed-view';
 import { useMobileChat } from '@mobile/hooks/useMobileChat';
@@ -22,6 +23,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ChatScreen() {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const { id } = useLocalSearchParams<{ id: string }>();
     const sessionId = id;
     const router = useRouter();
@@ -99,7 +102,7 @@ export default function ChatScreen() {
     if (!messages && !chatError) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Theme.tint} />
+                <ActivityIndicator size="large" color={theme.tint} />
             </View>
         );
     }
@@ -109,21 +112,21 @@ export default function ChatScreen() {
             <Stack.Screen
                 options={{
                     title: 'Diagnostic Session',
-                    headerStyle: { backgroundColor: Theme.background },
-                    headerTintColor: Theme.text,
+                    headerStyle: { backgroundColor: theme.background },
+                    headerTintColor: theme.text,
                     headerRight: () => (
                         <View style={styles.headerActions}>
                             <TouchableOpacity
                                 accessibilityLabel="Open live camera with the Master Tech"
                                 onPress={() => router.push(`/live-mechanic?sessionId=${sessionId}`)}
                             >
-                                <Ionicons name="videocam" size={24} color={Theme.tint} />
+                                <Ionicons name="videocam" size={24} color={theme.tint} />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 accessibilityLabel="Stream from Ray-Ban Meta glasses"
                                 onPress={() => router.push(`/connect-glasses?sessionId=${sessionId}`)}
                             >
-                                <Ionicons name="glasses-outline" size={24} color={Theme.tint} />
+                                <Ionicons name="glasses-outline" size={24} color={theme.tint} />
                             </TouchableOpacity>
                         </View>
                     ),
@@ -139,7 +142,7 @@ export default function ChatScreen() {
                                 Where we left off...
                             </ThemedText>
                             {loadingSummary ? (
-                                <ActivityIndicator color={Theme.tint} />
+                                <ActivityIndicator color={theme.tint} />
                             ) : (
                                 <ThemedText style={styles.summaryBody}>{summaryText}</ThemedText>
                             )}
@@ -186,53 +189,54 @@ export default function ChatScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.background,
-    },
-    loadingContainer: {
-        flex: 1,
-        backgroundColor: Theme.background,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    listContent: {
-        padding: 16,
-        paddingBottom: 20,
-    },
-    headerActions: {
-        flexDirection: 'row',
-        gap: 16,
-    },
-    summaryOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.8)',
-        zIndex: 20,
-        justifyContent: 'center',
-        padding: 24,
-    },
-    summaryCard: {
-        padding: 24,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: Theme.border,
-    },
-    summaryTitle: {
-        fontSize: 20,
-        color: Theme.tint,
-        marginBottom: 16,
-    },
-    summaryBody: {
-        color: Theme.text,
-        lineHeight: 22,
-        marginBottom: 24,
-    },
-    summaryActions: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    summaryButton: {
-        flex: 1,
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: theme.background,
+        },
+        loadingContainer: {
+            flex: 1,
+            backgroundColor: theme.background,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        listContent: {
+            padding: 16,
+            paddingBottom: 20,
+        },
+        headerActions: {
+            flexDirection: 'row',
+            gap: 16,
+        },
+        summaryOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            zIndex: 20,
+            justifyContent: 'center',
+            padding: 24,
+        },
+        summaryCard: {
+            padding: 24,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: theme.border,
+        },
+        summaryTitle: {
+            fontSize: 20,
+            color: theme.tint,
+            marginBottom: 16,
+        },
+        summaryBody: {
+            color: theme.text,
+            lineHeight: 22,
+            marginBottom: 24,
+        },
+        summaryActions: {
+            flexDirection: 'row',
+            gap: 12,
+        },
+        summaryButton: {
+            flex: 1,
+        },
+    });

@@ -1,17 +1,20 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useLocalPerception } from '../../context/LocalPerceptionContext';
-import { Theme } from '../../constants/theme';
+import { useBrandColors } from '../../hooks/useBrandColors';
+import type { ThemeColors } from '../../constants/theme';
 import { GradientButton } from '../ui/GradientButton';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function BlockingSetupScreen() {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const { isDownloading, downloadProgress, error, ensureModel } = useLocalPerception();
 
     return (
         <View style={styles.container}>
             <View style={styles.content}>
-                <LinearGradient colors={[Theme.gradientStart, Theme.gradientEnd]} style={styles.iconCircle}>
+                <LinearGradient colors={[theme.gradientStart, theme.gradientEnd]} style={styles.iconCircle}>
                     <Text style={styles.icon}>AI</Text>
                 </LinearGradient>
 
@@ -30,7 +33,7 @@ export default function BlockingSetupScreen() {
 
                 {isDownloading ? (
                     <View style={styles.progressContainer}>
-                        <ActivityIndicator size="large" color={Theme.tint} />
+                        <ActivityIndicator size="large" color={theme.tint} />
                         <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}% Synchronized</Text>
                         <View style={styles.progressBarBg}>
                             <View style={[styles.progressBarFill, { width: `${downloadProgress * 100}%` }]} />
@@ -47,89 +50,90 @@ export default function BlockingSetupScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.background,
-        justifyContent: 'center',
-        padding: 32,
-    },
-    content: {
-        alignItems: 'center',
-    },
-    iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 32,
-    },
-    icon: {
-        fontSize: 32,
-        fontWeight: '900',
-        color: Theme.onPrimary,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: Theme.text,
-        marginBottom: 16,
-        textAlign: 'center',
-    },
-    subtitle: {
-        fontSize: 16,
-        color: Theme.textSecondary,
-        textAlign: 'center',
-        marginBottom: 48,
-        lineHeight: 24,
-    },
-    button: {
-        width: '100%',
-        height: 56,
-    },
-    progressContainer: {
-        width: '100%',
-        alignItems: 'center',
-    },
-    progressText: {
-        color: Theme.text,
-        fontSize: 18,
-        marginTop: 20,
-        fontWeight: '600',
-    },
-    progressBarBg: {
-        width: '100%',
-        height: 6,
-        backgroundColor: Theme.surfaceRaised,
-        borderRadius: 3,
-        marginTop: 20,
-        overflow: 'hidden',
-    },
-    progressBarFill: {
-        height: '100%',
-        backgroundColor: Theme.tint,
-    },
-    errorContainer: {
-        backgroundColor: Theme.stopSoft,
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 24,
-        width: '100%',
-    },
-    errorTitle: {
-        color: Theme.error,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    errorText: {
-        color: Theme.error,
-        fontSize: 14,
-    },
-    eta: {
-        color: Theme.textSecondary,
-        fontSize: 12,
-        marginTop: 16,
-        textAlign: 'center',
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: theme.background,
+            justifyContent: 'center',
+            padding: 32,
+        },
+        content: {
+            alignItems: 'center',
+        },
+        iconCircle: {
+            width: 80,
+            height: 80,
+            borderRadius: 40,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 32,
+        },
+        icon: {
+            fontSize: 32,
+            fontWeight: '900',
+            color: theme.onPrimary,
+        },
+        title: {
+            fontSize: 28,
+            fontWeight: 'bold',
+            color: theme.text,
+            marginBottom: 16,
+            textAlign: 'center',
+        },
+        subtitle: {
+            fontSize: 16,
+            color: theme.textSecondary,
+            textAlign: 'center',
+            marginBottom: 48,
+            lineHeight: 24,
+        },
+        button: {
+            width: '100%',
+            height: 56,
+        },
+        progressContainer: {
+            width: '100%',
+            alignItems: 'center',
+        },
+        progressText: {
+            color: theme.text,
+            fontSize: 18,
+            marginTop: 20,
+            fontWeight: '600',
+        },
+        progressBarBg: {
+            width: '100%',
+            height: 6,
+            backgroundColor: theme.surfaceRaised,
+            borderRadius: 3,
+            marginTop: 20,
+            overflow: 'hidden',
+        },
+        progressBarFill: {
+            height: '100%',
+            backgroundColor: theme.tint,
+        },
+        errorContainer: {
+            backgroundColor: theme.stopSoft,
+            padding: 16,
+            borderRadius: 12,
+            marginBottom: 24,
+            width: '100%',
+        },
+        errorTitle: {
+            color: theme.error,
+            fontWeight: 'bold',
+            marginBottom: 4,
+        },
+        errorText: {
+            color: theme.error,
+            fontSize: 14,
+        },
+        eta: {
+            color: theme.textSecondary,
+            fontSize: 12,
+            marginTop: 16,
+            textAlign: 'center',
+        },
+    });

@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useBrandColors } from '@mobile/hooks/useBrandColors';
+import type { ThemeColors } from '@mobile/constants/theme';
 
 export default function MechanicScreen() {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     return (
         <View style={styles.container}>
             <Text style={styles.text}>Mechanic Screen (Web)</Text>
@@ -10,21 +14,22 @@ export default function MechanicScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#1a1a1a',
-    },
-    text: {
-        color: '#00EDA4',
-        fontSize: 24,
-        fontWeight: 'bold',
-    },
-    subtext: {
-        color: '#888',
-        fontSize: 16,
-        marginTop: 10,
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: theme.background,
+        },
+        text: {
+            color: theme.tint,
+            fontSize: 24,
+            fontWeight: 'bold',
+        },
+        subtext: {
+            color: theme.textSecondary,
+            fontSize: 16,
+            marginTop: 10,
+        },
+    });

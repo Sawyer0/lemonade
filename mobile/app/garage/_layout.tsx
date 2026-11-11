@@ -1,13 +1,14 @@
 import { Stack } from 'expo-router';
-import { Theme } from '../../constants/theme';
+import { useBrandColors } from '../../hooks/useBrandColors';
 
 export default function GarageLayout() {
+    const theme = useBrandColors();
     return (
         <Stack
             screenOptions={{
                 headerShown: true,
-                headerStyle: { backgroundColor: Theme.background },
-                headerTintColor: Theme.text,
+                headerStyle: { backgroundColor: theme.background },
+                headerTintColor: theme.text,
                 headerShadowVisible: false,
                 headerTitleStyle: {
                     fontWeight: 'bold',

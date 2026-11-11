@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import Animated, { interpolate, useAnimatedRef, useAnimatedStyle, useScrollOffset } from 'react-native-reanimated';
 
 import { ThemedView } from '@mobile/components/themed-view';
-import { useColorScheme } from '@mobile/hooks/use-color-scheme';
+import { useBrandColorScheme } from '@mobile/components/providers/brandColorScheme';
 import { useThemeColor } from '@mobile/hooks/use-theme-color';
 
 const HEADER_HEIGHT = 250;
@@ -15,7 +15,7 @@ type Props = PropsWithChildren<{
 
 export default function ParallaxScrollView({ children, headerImage, headerBackgroundColor }: Props) {
     const backgroundColor = useThemeColor({}, 'background');
-    const colorScheme = useColorScheme() ?? 'light';
+    const { scheme } = useBrandColorScheme();
     const scrollRef = useAnimatedRef<Animated.ScrollView>();
     const scrollOffset = useScrollOffset(scrollRef);
     const headerAnimatedStyle = useAnimatedStyle(() => {
@@ -38,7 +38,7 @@ export default function ParallaxScrollView({ children, headerImage, headerBackgr
     return (
         <Animated.ScrollView ref={scrollRef} style={{ backgroundColor, flex: 1 }} scrollEventThrottle={16}>
             <Animated.View
-                style={[styles.header, { backgroundColor: headerBackgroundColor[colorScheme] }, headerAnimatedStyle]}
+                style={[styles.header, { backgroundColor: headerBackgroundColor[scheme] }, headerAnimatedStyle]}
             >
                 {headerImage}
             </Animated.View>

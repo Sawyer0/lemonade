@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, TouchableOpacity, View, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter, Link } from 'expo-router';
-import { Theme } from '../../constants/theme';
+import { useBrandColors } from '../../hooks/useBrandColors';
+import type { ThemeColors } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { TextInput } from '../../components/ui/TextInput';
@@ -10,6 +11,8 @@ import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const { login, signInWithGoogle, loading, error } = useAuth();
@@ -39,7 +42,7 @@ export default function LoginScreen() {
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.header}>
-                        <Ionicons name="car-sport" size={60} color={Theme.tint} />
+                        <Ionicons name="car-sport" size={60} color={theme.tint} />
                         <ThemedText type="title" style={styles.title}>
                             Lemonade
                         </ThemedText>
@@ -87,7 +90,7 @@ export default function LoginScreen() {
                             testID="login-google-button"
                             title="Continue with Google"
                             variant="outline"
-                            icon={<Ionicons name="logo-google" size={20} color="white" />}
+                            icon={<Ionicons name="logo-google" size={20} color={theme.text} />}
                             onPress={handleGoogleLogin}
                             disabled={loading}
                             style={styles.buttonSpacing}
@@ -108,60 +111,61 @@ export default function LoginScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    scrollContent: {
-        flexGrow: 1,
-        padding: 24,
-        justifyContent: 'center',
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: 48,
-    },
-    title: {
-        marginTop: 16,
-        fontSize: 32,
-        fontWeight: 'bold',
-    },
-    subtitle: {
-        color: Theme.textSecondary,
-        marginTop: 8,
-    },
-    form: {
-        width: '100%',
-    },
-    buttonSpacing: {
-        marginTop: 8,
-    },
-    errorText: {
-        color: Theme.error,
-        marginBottom: 16,
-        textAlign: 'center',
-    },
-    divider: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 24,
-    },
-    line: {
-        flex: 1,
-        height: 1,
-        backgroundColor: Theme.border,
-    },
-    dividerText: {
-        marginHorizontal: 16,
-        color: Theme.textSecondary,
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 32,
-    },
-    linkText: {
-        color: Theme.tint,
-        fontWeight: 'bold',
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+        },
+        scrollContent: {
+            flexGrow: 1,
+            padding: 24,
+            justifyContent: 'center',
+        },
+        header: {
+            alignItems: 'center',
+            marginBottom: 48,
+        },
+        title: {
+            marginTop: 16,
+            fontSize: 32,
+            fontWeight: 'bold',
+        },
+        subtitle: {
+            color: theme.textSecondary,
+            marginTop: 8,
+        },
+        form: {
+            width: '100%',
+        },
+        buttonSpacing: {
+            marginTop: 8,
+        },
+        errorText: {
+            color: theme.error,
+            marginBottom: 16,
+            textAlign: 'center',
+        },
+        divider: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginVertical: 24,
+        },
+        line: {
+            flex: 1,
+            height: 1,
+            backgroundColor: theme.border,
+        },
+        dividerText: {
+            marginHorizontal: 16,
+            color: theme.textSecondary,
+        },
+        footer: {
+            flexDirection: 'row',
+            justifyContent: 'center',
+            marginTop: 32,
+        },
+        linkText: {
+            color: theme.tint,
+            fontWeight: 'bold',
+        },
+    });

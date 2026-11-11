@@ -49,12 +49,12 @@ describe('DetectionHUD', () => {
         expect(getByText('BRAKE ROTOR')).toBeTruthy();
     });
 
-    it('should render listening state (Purple) when agentState is listening', () => {
+    it('should render listening state (Blue) when agentState is listening', () => {
         const { getByText } = render(<DetectionHUD detections={mockResults} agentState="listening" />);
         expect(getByText('LISTENING...')).toBeTruthy();
     });
 
-    it('should render thinking state (Purple) when agentState is thinking', () => {
+    it('should render thinking state (Blue) when agentState is thinking', () => {
         const { getByText } = render(<DetectionHUD detections={mockResults} agentState="thinking" />);
         expect(getByText('THINKING...')).toBeTruthy();
     });

@@ -2,11 +2,12 @@ import { useEffect } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { auth } from '../../infrastructure/firebase/config';
-import { Theme } from '../../constants/theme';
+import { useBrandColors } from '../../hooks/useBrandColors';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 
 export default function NewSessionRoute() {
+    const theme = useBrandColors();
     const { vehicleId } = useLocalSearchParams<{ vehicleId: string }>();
     const router = useRouter();
 
@@ -42,7 +43,7 @@ export default function NewSessionRoute() {
 
     return (
         <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={Theme.tint} />
+            <ActivityIndicator size="large" color={theme.tint} />
             <ThemedText style={{ marginTop: 16 }}>Initializing Session...</ThemedText>
         </ThemedView>
     );

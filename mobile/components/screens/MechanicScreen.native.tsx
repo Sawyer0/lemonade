@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Theme } from '@mobile/constants/theme';
+import { useBrandColors } from '@mobile/hooks/useBrandColors';
+import type { ThemeColors } from '@mobile/constants/theme';
+import { BRAND_TOKENS } from '@lemonade/core';
 import { Ionicons } from '@expo/vector-icons';
 import { useLiveMechanicSession } from '@mobile/hooks/useLiveMechanicSession';
 import { useSessionVehicle } from '@mobile/hooks/useSessionVehicle';
@@ -12,11 +14,21 @@ import { useNativeAuth } from '@mobile/hooks/useNativeAuth';
 import { DetectionHUD } from '../camera/DetectionHUD';
 import { GhostCard } from '../ui/GhostCard';
 
+/**
+ * The camera view is dark in both app modes (the feed is a camera), so
+ * the overlay accents come from the dark token set, not the resolved
+ * scheme. The black/white overlay neutrals are the camera chrome, not
+ * brand surfaces.
+ */
+const cameraTokens = BRAND_TOKENS.dark;
+
 export default function MechanicScreenNative() {
     const router = useRouter();
     const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
     const { vehicle } = useSessionVehicle(sessionId);
     useNativeAuth();
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
 
     // Refs to hold mutable camera state/functions without triggering useCallback/useEffect dependencies
     const cameraActiveRef = useRef<boolean>(false);
@@ -159,11 +171,13 @@ export default function MechanicScreenNative() {
                 <View
                     style={[
                         styles.fullScreenVideo,
-                        { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' },
+                        { backgroundColor: cameraTokens.background, justifyContent: 'center', alignItems: 'center' },
                     ]}
                 >
-                    <Ionicons name="eye-off-outline" size={64} color="#333" />
-                    <Text style={{ color: '#666', marginTop: 10 }}>Waiting for AI to request vision...</Text>
+                    <Ionicons name="eye-off-outline" size={64} color={cameraTokens.textSecondary} />
+                    <Text style={{ color: cameraTokens.textSecondary, marginTop: 10 }}>
+                        Waiting for AI to request vision...
+                    </Text>
                 </View>
             )}
 
@@ -174,7 +188,12 @@ export default function MechanicScreenNative() {
                 {/* Top Status Bar */}
                 <View style={styles.topStatus}>
                     <View style={styles.statusBadge}>
-                        <View style={[styles.statusDot, { backgroundColor: isLive ? '#00EDA4' : '#666' }]} />
+                        <View
+                            style={[
+                                styles.statusDot,
+                                { backgroundColor: isLive ? cameraTokens.go : cameraTokens.textSecondary },
+                            ]}
+                        />
                         <Text style={styles.statusText}>
                             {loading
                                 ? 'CONNECTING...'
@@ -226,7 +245,7 @@ export default function MechanicScreenNative() {
                     <TextInput
                         style={styles.chatInput}
                         placeholder="Type a message..."
-                        placeholderTextColor="#999"
+                        placeholderTextColor={cameraTokens.textSecondary}
                         value={chatMessage}
                         onChangeText={setChatMessage}
                     />
@@ -243,7 +262,7 @@ export default function MechanicScreenNative() {
 
                     {/* Manual Override Button (Optional, but good for UX) */}
                     <TouchableOpacity
-                        style={[styles.buttonSnapshot, { borderColor: cameraActive ? '#00EDA4' : 'gray' }]}
+                        style={[styles.buttonSnapshot, { borderColor: cameraActive ? cameraTokens.go : 'gray' }]}
                         onPress={toggleCamera}
                     >
                         <Ionicons name={cameraActive ? 'videocam' : 'videocam-off'} size={32} color="white" />
@@ -254,205 +273,206 @@ export default function MechanicScreenNative() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: 'black',
-    },
-    fullScreenVideo: {
-        flex: 1,
-        width: '100%',
-        height: '100%',
-    },
-    loadingContainer: {
-        flex: 1,
-        backgroundColor: 'black',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    permissionContainer: {
-        flex: 1,
-        backgroundColor: 'black',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    permissionText: {
-        color: 'white',
-        textAlign: 'center',
-        marginBottom: 20,
-        fontSize: 16,
-    },
-    permissionButton: {
-        backgroundColor: Theme.tint,
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 8,
-        marginBottom: 20,
-    },
-    permissionButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    buttonEndHelper: {
-        padding: 10,
-    },
-    hudOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'space-between',
-    },
-    topStatus: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 20,
-    },
-    statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    statusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginRight: 8,
-    },
-    statusText: {
-        color: 'white',
-        fontWeight: '700',
-        fontSize: 12,
-        letterSpacing: 1,
-    },
-    aiResponsesContainer: {
-        flex: 1, // Take up available space
-        paddingHorizontal: 15,
-        paddingVertical: 10,
-    },
-    aiResponsesContentContainer: {
-        justifyContent: 'flex-end',
-    },
-    aiResponseMessage: {
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 10,
-        padding: 10,
-        marginBottom: 8,
-        maxWidth: '80%',
-        alignSelf: 'flex-start',
-    },
-    aiResponseMessageText: {
-        color: 'white',
-        fontSize: 14,
-    },
-    aiResponseTime: {
-        color: '#ccc',
-        fontSize: 10,
-        marginTop: 4,
-        alignSelf: 'flex-end',
-    },
-    reticleContainer: {
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        width: 250,
-        height: 150,
-        marginLeft: -125,
-        marginTop: -75,
-        justifyContent: 'space-between',
-    },
-    reticleCornerTopLeft: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: 20,
-        height: 20,
-        borderColor: 'rgba(255,255,255,0.5)',
-        borderTopWidth: 2,
-        borderLeftWidth: 2,
-    },
-    reticleCornerTopRight: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        width: 20,
-        height: 20,
-        borderColor: 'rgba(255,255,255,0.5)',
-        borderTopWidth: 2,
-        borderRightWidth: 2,
-    },
-    reticleCornerBottomLeft: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        width: 20,
-        height: 20,
-        borderColor: 'rgba(255,255,255,0.5)',
-        borderBottomWidth: 2,
-        borderLeftWidth: 2,
-    },
-    reticleCornerBottomRight: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 20,
-        height: 20,
-        borderColor: 'rgba(255,255,255,0.5)',
-        borderBottomWidth: 2,
-        borderRightWidth: 2,
-    },
-    chatInputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
-    },
-    chatInput: {
-        flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 20,
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        color: 'white',
-        marginRight: 10,
-    },
-    sendButton: {
-        backgroundColor: Theme.tint,
-        borderRadius: 20,
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    controls: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        paddingBottom: 40,
-        paddingHorizontal: 20,
-    },
-    buttonEnd: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: 'rgba(255, 68, 68, 0.8)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    buttonSnapshot: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)', // Glassmorphism style
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'white',
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: 'black',
+        },
+        fullScreenVideo: {
+            flex: 1,
+            width: '100%',
+            height: '100%',
+        },
+        loadingContainer: {
+            flex: 1,
+            backgroundColor: 'black',
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        permissionContainer: {
+            flex: 1,
+            backgroundColor: 'black',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+        },
+        permissionText: {
+            color: 'white',
+            textAlign: 'center',
+            marginBottom: 20,
+            fontSize: 16,
+        },
+        permissionButton: {
+            backgroundColor: theme.tint,
+            paddingVertical: 12,
+            paddingHorizontal: 24,
+            borderRadius: 8,
+            marginBottom: 20,
+        },
+        permissionButtonText: {
+            color: 'white',
+            fontWeight: 'bold',
+        },
+        buttonEndHelper: {
+            padding: 10,
+        },
+        hudOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            justifyContent: 'space-between',
+        },
+        topStatus: {
+            flexDirection: 'row',
+            justifyContent: 'center',
+            marginTop: 20,
+        },
+        statusBadge: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            paddingVertical: 6,
+            paddingHorizontal: 12,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+        },
+        statusDot: {
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            marginRight: 8,
+        },
+        statusText: {
+            color: 'white',
+            fontWeight: '700',
+            fontSize: 12,
+            letterSpacing: 1,
+        },
+        aiResponsesContainer: {
+            flex: 1, // Take up available space
+            paddingHorizontal: 15,
+            paddingVertical: 10,
+        },
+        aiResponsesContentContainer: {
+            justifyContent: 'flex-end',
+        },
+        aiResponseMessage: {
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            borderRadius: 10,
+            padding: 10,
+            marginBottom: 8,
+            maxWidth: '80%',
+            alignSelf: 'flex-start',
+        },
+        aiResponseMessageText: {
+            color: 'white',
+            fontSize: 14,
+        },
+        aiResponseTime: {
+            color: cameraTokens.textSecondary,
+            fontSize: 10,
+            marginTop: 4,
+            alignSelf: 'flex-end',
+        },
+        reticleContainer: {
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: 250,
+            height: 150,
+            marginLeft: -125,
+            marginTop: -75,
+            justifyContent: 'space-between',
+        },
+        reticleCornerTopLeft: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: 20,
+            height: 20,
+            borderColor: 'rgba(255,255,255,0.5)',
+            borderTopWidth: 2,
+            borderLeftWidth: 2,
+        },
+        reticleCornerTopRight: {
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: 20,
+            height: 20,
+            borderColor: 'rgba(255,255,255,0.5)',
+            borderTopWidth: 2,
+            borderRightWidth: 2,
+        },
+        reticleCornerBottomLeft: {
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            width: 20,
+            height: 20,
+            borderColor: 'rgba(255,255,255,0.5)',
+            borderBottomWidth: 2,
+            borderLeftWidth: 2,
+        },
+        reticleCornerBottomRight: {
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            width: 20,
+            height: 20,
+            borderColor: 'rgba(255,255,255,0.5)',
+            borderBottomWidth: 2,
+            borderRightWidth: 2,
+        },
+        chatInputContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(255,255,255,0.1)',
+        },
+        chatInput: {
+            flex: 1,
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            borderRadius: 20,
+            paddingHorizontal: 15,
+            paddingVertical: 8,
+            color: 'white',
+            marginRight: 10,
+        },
+        sendButton: {
+            backgroundColor: theme.tint,
+            borderRadius: 20,
+            width: 40,
+            height: 40,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        controls: {
+            flexDirection: 'row',
+            justifyContent: 'space-around',
+            alignItems: 'center',
+            paddingBottom: 40,
+            paddingHorizontal: 20,
+        },
+        buttonEnd: {
+            width: 50,
+            height: 50,
+            borderRadius: 25,
+            backgroundColor: cameraTokens.stop,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        buttonSnapshot: {
+            width: 80,
+            height: 80,
+            borderRadius: 40,
+            backgroundColor: 'rgba(255, 255, 255, 0.2)', // Glassmorphism style
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderWidth: 2,
+            borderColor: 'white',
+        },
+    });

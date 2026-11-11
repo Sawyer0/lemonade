@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Theme } from '@mobile/constants/theme';
+import { useBrandColors } from '@mobile/hooks/useBrandColors';
+import type { ThemeColors } from '@mobile/constants/theme';
 import { GlassCard } from '@mobile/components/ui/GlassCard';
 import { MessagePart } from '@lemonade/core';
 
@@ -13,6 +14,8 @@ interface ChatBubbleProps {
 }
 
 export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
+    const theme = useBrandColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const isUser = role === 'user';
 
     // Helper to render content
@@ -50,7 +53,7 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
                                             width: 32,
                                             height: 32,
                                             borderRadius: 16,
-                                            backgroundColor: Theme.tint,
+                                            backgroundColor: theme.tint,
                                             justifyContent: 'center',
                                             alignItems: 'center',
                                             marginRight: 12,
@@ -58,7 +61,7 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
                                     >
                                         <Text style={{ fontSize: 18 }}>📷</Text>
                                     </View>
-                                    <Text style={{ color: Theme.text, fontWeight: 'bold' }}>Tap to Open Camera</Text>
+                                    <Text style={{ color: theme.text, fontWeight: 'bold' }}>Tap to Open Camera</Text>
                                 </GlassCard>
                             </TouchableOpacity>
                         );
@@ -80,7 +83,7 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
         return (
             <View style={[styles.container, styles.userContainer]}>
                 <LinearGradient
-                    colors={[Theme.gradientStart, Theme.gradientEnd]}
+                    colors={[theme.gradientStart, theme.gradientEnd]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.bubble}
@@ -98,36 +101,37 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        marginVertical: 4,
-        width: '100%',
-    },
-    userContainer: {
-        alignItems: 'flex-end',
-    },
-    aiContainer: {
-        alignItems: 'flex-start',
-    },
-    bubble: {
-        padding: 12,
-        borderRadius: 16,
-        maxWidth: '85%',
-    },
-    aiBubble: {
-        backgroundColor: Theme.card,
-        borderWidth: 1,
-        borderColor: Theme.border,
-    },
-    text: {
-        fontSize: 16,
-        lineHeight: 24,
-    },
-    textDark: {
-        color: Theme.onPrimary,
-        fontWeight: '500',
-    },
-    textLight: {
-        color: Theme.text,
-    },
-});
+const createStyles = (theme: ThemeColors) =>
+    StyleSheet.create({
+        container: {
+            marginVertical: 4,
+            width: '100%',
+        },
+        userContainer: {
+            alignItems: 'flex-end',
+        },
+        aiContainer: {
+            alignItems: 'flex-start',
+        },
+        bubble: {
+            padding: 12,
+            borderRadius: 16,
+            maxWidth: '85%',
+        },
+        aiBubble: {
+            backgroundColor: theme.card,
+            borderWidth: 1,
+            borderColor: theme.border,
+        },
+        text: {
+            fontSize: 16,
+            lineHeight: 24,
+        },
+        textDark: {
+            color: theme.onPrimary,
+            fontWeight: '500',
+        },
+        textLight: {
+            color: theme.text,
+        },
+    });

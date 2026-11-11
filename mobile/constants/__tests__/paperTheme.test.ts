@@ -78,6 +78,19 @@ describe('paperTheme', () => {
         expect(paperThemeLight.fonts.labelSmall.fontFamily).toBe('Rubik_500Medium');
     });
 
+    it('uses the brand typefaces on every remaining font slot', () => {
+        for (const theme of [paperThemeLight, paperThemeDark]) {
+            expect(theme.fonts.displayMedium.fontFamily).toBe('Rubik_700Bold');
+            expect(theme.fonts.displaySmall.fontFamily).toBe('Rubik_700Bold');
+            expect(theme.fonts.headlineMedium.fontFamily).toBe('Rubik_600SemiBold');
+            expect(theme.fonts.headlineSmall.fontFamily).toBe('Rubik_600SemiBold');
+            expect(theme.fonts.titleMedium.fontFamily).toBe('Rubik_500Medium');
+            expect(theme.fonts.titleSmall.fontFamily).toBe('Rubik_500Medium');
+            expect(theme.fonts.bodyMedium.fontFamily).toBe('Rubik_500Medium');
+            expect(theme.fonts.labelMedium.fontFamily).toBe('Rubik_500Medium');
+        }
+    });
+
     it('covers the remaining roles in both schemes', () => {
         for (const [theme, tokens] of [
             [paperThemeLight, BRAND_TOKENS.light],

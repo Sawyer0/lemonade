@@ -8,12 +8,20 @@ import Animated, {
     withSequence,
     Easing,
 } from 'react-native-reanimated';
-import { SemanticTriageResult } from '@lemonade/core';
+import { BRAND_TOKENS, SemanticTriageResult } from '@lemonade/core';
 
 interface DetectionHUDProps {
     detections: SemanticTriageResult[];
     agentState: 'idle' | 'listening' | 'thinking';
 }
+
+/**
+ * The detection overlay sits on the camera feed, which is dark in both
+ * app modes, so its state colors come from the dark token set, not the
+ * resolved scheme: cloud activity is primary, searching is caution,
+ * locked/normal is go, critical is stop, uncertain is the secondary text.
+ */
+const detectionColors = BRAND_TOKENS.dark;
 
 export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentState }) => {
     // 1. Hooks - Always at the top
@@ -52,21 +60,21 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
     }, [isLocked, isCloudActive, borderOpacity]);
 
     const getStatusColor = () => {
-        if (isCloudActive) return '#8A2BE2'; // BlueViolet
-        if (!isLocked) return '#FFD700'; // Gold (Searching)
-        if (!bestDetection) return '#00EDA4';
+        if (isCloudActive) return detectionColors.primary;
+        if (!isLocked) return detectionColors.caution;
+        if (!bestDetection) return detectionColors.go;
 
         switch (bestDetection.eval.stat) {
             case 'CRITICAL':
-                return '#FF4444'; // Red
+                return detectionColors.stop;
             case 'CAUTION':
-                return '#FFA500'; // Orange
+                return detectionColors.caution;
             case 'UNCERTAIN':
-                return '#A9A9A9'; // Gray
+                return detectionColors.textSecondary;
             case 'NORMAL':
-                return '#00EDA4'; // Green
+                return detectionColors.go;
             default:
-                return '#00EDA4';
+                return detectionColors.go;
         }
     };
 
@@ -99,7 +107,9 @@ export const DetectionHUD: React.FC<DetectionHUDProps> = ({ detections, agentSta
         <View style={styles.container} pointerEvents="none">
             <View style={styles.centerReticleContainer}>
                 <Animated.View style={[styles.reticleBox, animatedStyle]}>
-                    <View style={[styles.labelContainer, isCloudActive && { backgroundColor: '#8A2BE2' }]}>
+                    <View
+                        style={[styles.labelContainer, isCloudActive && { backgroundColor: detectionColors.primary }]}
+                    >
                         <Text style={styles.labelText}>{id.obj.toUpperCase()}</Text>
                         <Text style={[styles.stateText, { color: isCloudActive ? 'white' : statusColor }]}>
                             {getStatusText()} {agentState === 'idle' && `(${Math.round(confValue * 100)}%)`}
