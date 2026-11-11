@@ -30,10 +30,11 @@ import {
 // - An entry retracted by a later `correction` is not evidence: the ledger's
 //   own rule is that a mistake is fixed by appending a correction, so the
 //   corrected entry no longer proves anything.
-// - `criterion_met` and `goal_status_changed` entries are audit records, not
-//   proof: a criterion is met only by the underlying evidence, never because
-//   an earlier evaluation said so. Otherwise an evaluation could certify
-//   itself.
+// - `goal_set`, `goal_amended`, `criterion_met`, and `goal_status_changed`
+//   entries are audit records, not proof, and neither is a `correction`: a
+//   criterion is met only by the underlying evidence, never because the
+//   goal was set, amended, or earlier said to be met. Otherwise an
+//   evaluation could certify itself.
 // - A `judge` check is never met by this evaluator: the rubric needs a
 //   semantic judge (LM-19), which the pure evaluator does not have. Goals
 //   with judge criteria therefore stay unmet until LM-19 lands; that is
@@ -145,11 +146,21 @@ function isProofEntry(entry: LedgerEntry, admissible: ReadonlyArray<EvidenceSour
     return entry.source !== 'model' && admissible.includes(entry.source) && !ctx.correctedEntryIds.has(entry.id);
 }
 
+/** Ledger kinds that are audit records, never proof: a `ledger_has` check must never match them. */
+const NON_PROOF_ENTRY_KINDS: ReadonlySet<string> = new Set([
+    'goal_set',
+    'goal_amended',
+    'criterion_met',
+    'goal_status_changed',
+    'correction',
+]);
+
 function evaluateLedgerHas(criterion: Criterion, check: LedgerHasCheck, ctx: EvaluationContext): CriterionEvaluation {
     const where = check.where ?? {};
     const matching = ctx.ordered.filter(
         (entry) =>
             entry.type === check.entryKind &&
+            !NON_PROOF_ENTRY_KINDS.has(entry.type) &&
             isProofEntry(entry, check.admissible, ctx) &&
             matchesWhere(entry.payload, where),
     );
@@ -225,19 +236,29 @@ function evaluatePreRegisteredTest(
 ): CriterionEvaluation {
     // The re-test must run after the goal was set: a pass recorded before
     // commit is not the pre-registered re-test. When the ledger carries no
-    // goal_set entry for this goal, no ordering constraint applies.
-    const runs = ctx.ordered.filter(
-        (entry): entry is Extract<LedgerEntry, { type: 'test_result' }> =>
-            entry.type === 'test_result' &&
-            entry.payload.testName === check.testName &&
-            isProofEntry(entry, check.admissible, ctx) &&
-            (ctx.goalSetSequence === undefined || entry.sequence > ctx.goalSetSequence),
-    );
+    // goal_set entry for this goal, the criterion is unmet: a goal that was
+    // never set cannot be satisfied by a stale pass (fail closed).
     const base = {
         criterionId: criterion.id,
         phase: criterion.phase,
         blocking: criterion.blocking,
     };
+    const goalSetSequence = ctx.goalSetSequence;
+    if (goalSetSequence === undefined) {
+        return {
+            ...base,
+            verdict: 'unmet',
+            evidence: [],
+            reason: 'no goal_set entry for this goal in the ledger',
+        };
+    }
+    const runs = ctx.ordered.filter(
+        (entry): entry is Extract<LedgerEntry, { type: 'test_result' }> =>
+            entry.type === 'test_result' &&
+            entry.payload.testName === check.testName &&
+            isProofEntry(entry, check.admissible, ctx) &&
+            entry.sequence > goalSetSequence,
+    );
     const passes = runs.filter((entry) => entry.payload.result === 'pass');
     if (passes.length > 0) {
         return {
@@ -330,6 +351,22 @@ export interface BuildGoalInput {
 }
 
 /**
+ * Parses a goal, surfacing schema failures as an INVALID_INPUT AppError
+ * rather than a raw ZodError, like every other rejection in the goal path.
+ */
+function parseGoal(candidate: unknown): CaseGoal {
+    try {
+        return CaseGoalSchema.parse(candidate);
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            const detail = error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+            throw new AppError(ErrorCode.INVALID_INPUT, `Invalid goal: ${detail}`);
+        }
+        throw error;
+    }
+}
+
+/**
  * Builds version 1 of a goal. The complaint must be tech-confirmed: a goal
  * built from an unconfirmed complaint is rejected, not built unconfirmed.
  */
@@ -340,7 +377,7 @@ export function buildGoal(input: BuildGoalInput): CaseGoal {
             'A case goal requires a tech-confirmed complaint; the model never sets a goal',
         );
     }
-    return CaseGoalSchema.parse({
+    return parseGoal({
         goalId: input.goalId,
         caseId: input.caseId,
         version: 1,
@@ -385,10 +422,28 @@ export function amendGoal(current: CaseGoal, changes: GoalAmendment, confirmatio
             'A goal amendment requires tech confirmation; an unconfirmed amendment is rejected',
         );
     }
+    if (confirmation.techId.trim().length === 0) {
+        throw new AppError(
+            ErrorCode.INVALID_INPUT,
+            'A goal amendment requires the confirming tech id; an empty tech id is rejected',
+        );
+    }
     if (TERMINAL_GOAL_STATUSES.includes(current.status)) {
         throw new AppError(ErrorCode.INVALID_INPUT, `A goal in terminal status ${current.status} cannot be amended`);
     }
-    return CaseGoalSchema.parse({
+    if (
+        changes.outcome === undefined &&
+        changes.constraints === undefined &&
+        changes.criteria === undefined &&
+        changes.budget === undefined &&
+        changes.complaint === undefined
+    ) {
+        throw new AppError(
+            ErrorCode.INVALID_INPUT,
+            'A goal amendment with no changes is rejected; an empty amendment must not consume a version',
+        );
+    }
+    return parseGoal({
         ...current,
         ...(changes.outcome !== undefined ? { outcome: changes.outcome } : {}),
         ...(changes.constraints !== undefined ? { constraints: changes.constraints } : {}),
@@ -414,17 +469,25 @@ export function amendGoal(current: CaseGoal, changes: GoalAmendment, confirmatio
  * - 'verified_fix', 'diagnosed_unverified', 'abstained', 'safety_stopped'
  *   and 'escalated' are code-only: only the evaluator or safety code may
  *   derive them, never a person or the model.
- * - 'active' and 'needs_tech' accept code or tech.
+ * - 'active' and 'needs_tech' accept any authority: code, tech, or system
+ *   (the harness may resume a goal, e.g. after a budget hold clears).
  * Terminal statuses never transition out. Moving to the current status is a
- * no-op and returns the goal unchanged.
+ * no-op and returns the goal unchanged, but the authority is still checked,
+ * so an unauthorized actor cannot restate a status either.
  */
 export function transitionGoalStatus(goal: CaseGoal, next: GoalStatus, authority: StatusAuthority): CaseGoal {
+    assertTransitionAuthority(next, authority);
     if (next === goal.status) {
         return goal;
     }
     if (TERMINAL_GOAL_STATUSES.includes(goal.status)) {
         throw new AppError(ErrorCode.INVALID_INPUT, `A goal in terminal status ${goal.status} cannot move to ${next}`);
     }
+    return { ...goal, status: next, statusAuthority: authority };
+}
+
+/** Throws unless `authority` may set a goal to `next`. */
+function assertTransitionAuthority(next: GoalStatus, authority: StatusAuthority): void {
     const codeOnly: ReadonlyArray<GoalStatus> = [
         'verified_fix',
         'diagnosed_unverified',
@@ -441,5 +504,4 @@ export function transitionGoalStatus(goal: CaseGoal, next: GoalStatus, authority
     if (codeOnly.includes(next) && authority !== 'code') {
         throw new AppError(ErrorCode.INVALID_INPUT, `Only the evaluator or safety code can set a goal to ${next}`);
     }
-    return { ...goal, status: next, statusAuthority: authority };
 }

@@ -54,7 +54,7 @@ export const LedgerEventTypeSchema = z.enum([
     // LM-25 goal events: the goal is set, amended, or changes status, and
     // each criterion met is recorded as its own entry. These are audit
     // records; the evaluator proves a criterion from the underlying evidence,
-    // never from a criterion_met entry.
+    // never from an audit entry (and never from a `correction`).
     'goal_set',
     'goal_amended',
     'criterion_met',

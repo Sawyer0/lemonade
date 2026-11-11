@@ -150,6 +150,28 @@ describe('goal ledger payloads', () => {
         expect(result.success).toBe(true);
     });
 
+    it('rejects a goal_amended payload whose version skips ahead', () => {
+        const result = GoalAmendedPayloadSchema.safeParse({
+            goalId: GOLDEN_GOAL_ID,
+            previousVersion: 1,
+            version: 3,
+            amendedByTechId: 'tech-123',
+            note: 'Symptom list corrected: rough idle, not stalling',
+        });
+        expect(result.success).toBe(false);
+    });
+
+    it('rejects a goal_amended payload whose version does not advance', () => {
+        const result = GoalAmendedPayloadSchema.safeParse({
+            goalId: GOLDEN_GOAL_ID,
+            previousVersion: 1,
+            version: 1,
+            amendedByTechId: 'tech-123',
+            note: 'Symptom list corrected: rough idle, not stalling',
+        });
+        expect(result.success).toBe(false);
+    });
+
     it('parses a criterion_met payload pointing at the satisfying entry', () => {
         const result = CriterionMetPayloadSchema.safeParse({
             goalId: GOLDEN_GOAL_ID,

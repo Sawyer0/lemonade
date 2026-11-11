@@ -153,13 +153,23 @@ export const GoalSetPayloadSchema = z
     });
 export type GoalSetPayload = z.infer<typeof GoalSetPayloadSchema>;
 
-export const GoalAmendedPayloadSchema = z.object({
-    goalId: z.string().uuid(),
-    previousVersion: z.number().int().positive(),
-    version: z.number().int().positive(),
-    amendedByTechId: z.string().min(1),
-    note: z.string().min(1),
-});
+export const GoalAmendedPayloadSchema = z
+    .object({
+        goalId: z.string().uuid(),
+        previousVersion: z.number().int().positive(),
+        version: z.number().int().positive(),
+        amendedByTechId: z.string().min(1),
+        note: z.string().min(1),
+    })
+    .superRefine((payload, ctx) => {
+        if (payload.version !== payload.previousVersion + 1) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'goal_amended version must be exactly previousVersion + 1',
+                path: ['version'],
+            });
+        }
+    });
 export type GoalAmendedPayload = z.infer<typeof GoalAmendedPayloadSchema>;
 
 export const CriterionMetPayloadSchema = z.object({

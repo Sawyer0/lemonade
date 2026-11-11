@@ -33,15 +33,19 @@ Proof rules:
   so a hand-built goal cannot be satisfied by model evidence either.
 - **Corrected evidence is retracted.** An entry a later `correction`
   references no longer counts as proof.
-- **`criterion_met` entries are audit, not proof.** A criterion is met only
-  by the underlying evidence, never because an earlier evaluation said so.
-  Otherwise an evaluation could certify itself.
+- **`goal_set`, `goal_amended`, `criterion_met`, and `goal_status_changed`
+  entries are audit, not proof, and neither is a `correction`.** A criterion
+  is met only by the underlying evidence, never because the goal was set or
+  amended, or because an earlier evaluation said so. Otherwise an
+  evaluation could certify itself.
 - **A re-test must run after the goal was set.** A
   `pre_registered_test_passed` criterion is satisfied only by a passing
   `test_result` with the pre-registered test name, from an admissible
   source, recorded after the goal's `goal_set` entry. A pass from before
   commit is not the pre-registered re-test. A `fail` for the same test
-  after the goal was set marks the criterion `contradicted`.
+  after the goal was set marks the criterion `contradicted`. With no
+  `goal_set` entry for the goal in the ledger, the criterion is `unmet`:
+  a goal that was never set cannot be satisfied by a stale pass.
 - **The posterior is the ledger's hypotheses.** A `posterior` check reads
   `hypothesis` entries as the belief distribution: each distinct hypothesis
   text is one hypothesis, its confidence the highest any entry gave it.
@@ -56,15 +60,20 @@ Proof rules:
 
 ## Amendments and status
 
-- `amendGoal` rejects any amendment without tech confirmation, bumps the
-  goal version by one, and never changes the goal or case id. A terminal
-  goal cannot be amended. Record the amendment as a `goal_amended` ledger
-  entry.
+- `amendGoal` rejects any amendment without tech confirmation, rejects an
+  amendment with no changes (an empty amendment must not consume a
+  version) and one confirmed with an empty tech id, bumps the goal version
+  by one, and never changes the goal or case id. A terminal goal cannot be
+  amended. Record the amendment as a `goal_amended` ledger entry, whose
+  payload enforces `version === previousVersion + 1` at the ledger layer.
 - `transitionGoalStatus` enforces authority: `paused` is tech-only,
   `budget_limited` is system-only, and `verified_fix`,
   `diagnosed_unverified`, `abstained`, `safety_stopped`, and `escalated`
   are code-only — only the evaluator or safety code may derive them.
-  Terminal statuses never transition out. Record the move as a
+  `active` and `needs_tech` accept any authority (code, tech, or system:
+  the harness may resume a goal). Terminal statuses never transition out.
+  Moving to the current status is a no-op returning the goal unchanged,
+  but the authority is still checked. Record the move as a
   `goal_status_changed` entry.
 - Status changes do not bump the goal version; only tech-confirmed
   amendments do.

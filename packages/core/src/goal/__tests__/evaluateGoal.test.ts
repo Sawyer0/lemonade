@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { AppError } from '../../errors/AppError';
 import { ErrorCode } from '../../errors/codes';
+import type { LedgerEntry } from '../../types/case';
 import { amendGoal, buildGoal, evaluateGoal, transitionGoalStatus, type CriterionEvaluation } from '../evaluateGoal';
+import type { CaseGoal } from '../goalSchema';
 import {
     buildGoldenCase,
     buildGoldenGoal,
@@ -16,6 +18,45 @@ function verdictOf(evaluation: { criteria: CriterionEvaluation[] }, criterionId:
         throw new Error(`criterion ${criterionId} missing from evaluation`);
     }
     return found.verdict;
+}
+
+/** Appends one audit entry of the given kind, with a payload that would match a bare `ledger_has` check. */
+function appendAuditEntry(entries: LedgerEntry[], kind: LedgerEntry['type'], goal: CaseGoal): LedgerEntry {
+    switch (kind) {
+        case 'goal_set':
+            return appendGoldenLedgerEntry(entries, 'goal_set', { goalId: GOLDEN_GOAL_ID, goal });
+        case 'goal_amended':
+            return appendGoldenLedgerEntry(entries, 'goal_amended', {
+                goalId: GOLDEN_GOAL_ID,
+                previousVersion: 1,
+                version: 2,
+                amendedByTechId: 'tech-123',
+                note: 'Symptom list corrected',
+            });
+        case 'criterion_met':
+            return appendGoldenLedgerEntry(entries, 'criterion_met', {
+                goalId: GOLDEN_GOAL_ID,
+                criterionId: 'verify.audit_not_proof',
+                entryId: '33333333-3333-4333-8333-333333333333',
+                entrySequence: 8,
+            });
+        case 'goal_status_changed':
+            return appendGoldenLedgerEntry(entries, 'goal_status_changed', {
+                goalId: GOLDEN_GOAL_ID,
+                from: 'active',
+                to: 'paused',
+                authority: 'tech',
+            });
+        case 'correction':
+            return appendGoldenLedgerEntry(
+                entries,
+                'correction',
+                { text: 'Earlier entry was a mistake' },
+                { correctsEntryId: entries[0].id },
+            );
+        default:
+            throw new Error(`not an audit kind: ${kind}`);
+    }
 }
 
 describe('evaluateGoal on the golden case', () => {
@@ -106,6 +147,42 @@ describe('evaluateGoal on the golden case', () => {
         expect(verdictOf(evaluation, 'verify.retest')).toBe('unmet');
     });
 
+    it('never lets an audit entry satisfy a ledger_has criterion', () => {
+        const auditKinds: LedgerEntry['type'][] = [
+            'goal_set',
+            'goal_amended',
+            'criterion_met',
+            'goal_status_changed',
+            'correction',
+        ];
+        for (const kind of auditKinds) {
+            const goal: CaseGoal = {
+                ...buildGoldenGoal(),
+                criteria: [
+                    {
+                        id: 'verify.audit_not_proof',
+                        phase: 'verify',
+                        description: 'An audit entry must never count as proof',
+                        blocking: true,
+                        check: { kind: 'ledger_has', entryKind: kind, admissible: ['tech'] },
+                    },
+                ],
+            };
+            const { entries } = buildGoldenCase({ retestResult: 'absent' });
+            const audit = appendAuditEntry(entries, kind, goal);
+            const evaluation = evaluateGoal(goal, [...entries, audit]);
+            expect(verdictOf(evaluation, 'verify.audit_not_proof')).toBe('unmet');
+        }
+    });
+
+    it('is unmet for the re-test when the ledger carries no goal_set entry', () => {
+        const { goal, entries } = buildGoldenCase();
+        const withoutGoalSet = entries.filter((entry) => entry.type !== 'goal_set');
+        const evaluation = evaluateGoal(goal, withoutGoalSet);
+        expect(evaluation.allMet).toBe(false);
+        expect(verdictOf(evaluation, 'verify.retest')).toBe('unmet');
+    });
+
     it('never marks a judge check met: semantic leftovers need LM-19', () => {
         const goal = buildGoldenGoal();
         const judged = {
@@ -189,6 +266,33 @@ describe('buildGoal', () => {
             expect((error as AppError).code).toBe(ErrorCode.INVALID_INPUT);
         }
     });
+
+    it('rejects a malformed goal id as INVALID_INPUT, not a raw ZodError', () => {
+        const input = {
+            goalId: 'not-a-uuid',
+            caseId: GOLDEN_CASE_ID,
+            complaint: { text: 'Misfire', symptoms: ['misfire'], confirmedByTech: true },
+            outcome: 'Fixed',
+            constraints: [],
+            criteria: [
+                {
+                    id: 'verify.retest',
+                    phase: 'verify' as const,
+                    description: 'Re-test passes',
+                    check: { kind: 'posterior' as const, minTop: 0.7, minMargin: 0.2 },
+                    blocking: true,
+                },
+            ],
+            budget: { maxTokens: 1000, maxWallMinutes: 10, maxTestCostMinutes: 5 },
+        };
+        try {
+            buildGoal(input);
+            expect.unreachable('buildGoal must reject a malformed goal id');
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError);
+            expect((error as AppError).code).toBe(ErrorCode.INVALID_INPUT);
+        }
+    });
 });
 
 describe('amendGoal', () => {
@@ -225,6 +329,37 @@ describe('amendGoal', () => {
         const terminal = { ...buildGoldenGoal(), status: 'verified_fix' as const, statusAuthority: 'code' as const };
         expect(() => amendGoal(terminal, { outcome: 'Too late' }, confirmation)).toThrowError(AppError);
     });
+
+    it('rejects an amendment with no changes', () => {
+        try {
+            amendGoal(buildGoldenGoal(), {}, confirmation);
+            expect.unreachable('amendGoal must reject an amendment with no changes');
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError);
+            expect((error as AppError).code).toBe(ErrorCode.INVALID_INPUT);
+        }
+    });
+
+    it('rejects an amendment confirmed by a tech with an empty tech id', () => {
+        try {
+            amendGoal(buildGoldenGoal(), { outcome: 'Changed' }, { confirmedByTech: true, techId: '' });
+            expect.unreachable('amendGoal must reject an empty confirming tech id');
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError);
+            expect((error as AppError).code).toBe(ErrorCode.INVALID_INPUT);
+        }
+    });
+
+    it('rejects malformed criteria as INVALID_INPUT, not a raw ZodError', () => {
+        const goal = buildGoldenGoal();
+        try {
+            amendGoal(goal, { criteria: [{ ...goal.criteria[0], description: 'x'.repeat(281) }] }, confirmation);
+            expect.unreachable('amendGoal must reject malformed criteria');
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError);
+            expect((error as AppError).code).toBe(ErrorCode.INVALID_INPUT);
+        }
+    });
 });
 
 describe('transitionGoalStatus', () => {
@@ -253,6 +388,19 @@ describe('transitionGoalStatus', () => {
     it('never lets a terminal goal move again', () => {
         const goal = transitionGoalStatus(buildGoldenGoal(), 'abstained', 'code');
         expect(() => transitionGoalStatus(goal, 'active', 'tech')).toThrowError(AppError);
+    });
+
+    it('lets the system move a goal to needs_tech', () => {
+        const goal = buildGoldenGoal();
+        const moved = transitionGoalStatus(goal, 'needs_tech', 'system');
+        expect(moved.status).toBe('needs_tech');
+        expect(moved.statusAuthority).toBe('system');
+    });
+
+    it('still checks authority on a no-op move', () => {
+        const paused = transitionGoalStatus(buildGoldenGoal(), 'paused', 'tech');
+        expect(() => transitionGoalStatus(paused, 'paused', 'system')).toThrowError(AppError);
+        expect(transitionGoalStatus(paused, 'paused', 'tech')).toBe(paused);
     });
 
     it('treats moving to the current status as a no-op', () => {
