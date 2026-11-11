@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider, ToastProvider } from '@/presentation/context';
 import { OfflineBanner } from '@/presentation/components/ui/OfflineBanner';
 import { KonstaProvider } from '@/presentation/providers/KonstaProvider';
+import { THEME_COLOR } from '@lemonade/core/config/brandTokens';
 
 const geistSans = Geist({
     variable: '--font-geist-sans',
@@ -21,7 +22,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-    themeColor: '#3B82F6',
+    // Browser chrome color comes from the brand tokens (issue #44):
+    // the light primary is the brand's public face.
+    themeColor: THEME_COLOR,
     width: 'device-width',
     initialScale: 1,
     maximumScale: 5,
