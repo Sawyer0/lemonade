@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import type { IConfigProvider } from '../interfaces/IConfigProvider';
-import { SHARED_CONFIG } from '@lemonade/core';
+import { GEMINI_PRO_MODEL, SHARED_CONFIG } from '@lemonade/core';
 import dotenv from 'dotenv';
 
 @injectable()
@@ -64,7 +64,7 @@ export class EnvConfigProvider implements IConfigProvider {
     }
 
     getGeminiModel(): string {
-        return 'gemini-2.5-pro'; // Default thinking model for backend
+        return GEMINI_PRO_MODEL; // Default thinking model for backend
     }
 
     getSupermemoryConfig() {

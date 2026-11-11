@@ -10,9 +10,6 @@ export interface AgentEnv {
     PORT: number;
     /** Gemini API key used by the realtime voice model. */
     GOOGLE_API_KEY?: string;
-    /** When set, Resemble speaks the agent's replies instead of Gemini's native voice. */
-    RESEMBLE_API_KEY?: string;
-    RESEMBLE_VOICE_UUID?: string;
 }
 
 type Source = Record<string, string | undefined>;
@@ -34,7 +31,5 @@ export function loadEnv(source: Source = process.env): AgentEnv {
         LIVEKIT_API_SECRET: required('LIVEKIT_API_SECRET'),
         PORT: Number(source.PORT || 3001),
         GOOGLE_API_KEY: source.GOOGLE_API_KEY || source.GEMINI_API_KEY || undefined,
-        RESEMBLE_API_KEY: source.RESEMBLE_API_KEY || undefined,
-        RESEMBLE_VOICE_UUID: source.RESEMBLE_VOICE_UUID || undefined,
     };
 }

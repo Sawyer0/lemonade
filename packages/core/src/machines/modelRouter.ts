@@ -36,7 +36,7 @@ export const MODEL_ROUTING: Record<MechanicState, ModelRoutingConfig> = {
         costMultiplier: 0,
     },
     gathering_context: {
-        model: 'gemini-2.5-flash',
+        model: FLASH_MODEL,
         reason: 'Simple data formatting and API parsing',
         costMultiplier: 1.0,
     },
@@ -46,7 +46,7 @@ export const MODEL_ROUTING: Record<MechanicState, ModelRoutingConfig> = {
         costMultiplier: 4.0,
     },
     investigating: {
-        model: 'gemini-2.5-flash',
+        model: FLASH_MODEL,
         reason: 'Search result parsing and verification',
         costMultiplier: 1.0,
     },
@@ -56,7 +56,7 @@ export const MODEL_ROUTING: Record<MechanicState, ModelRoutingConfig> = {
         costMultiplier: 0,
     },
     synthesizing: {
-        model: 'gemini-2.5-flash',
+        model: FLASH_MODEL,
         reason: 'JSON cleanup and final summary',
         costMultiplier: 1.0,
     },

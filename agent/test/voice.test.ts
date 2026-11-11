@@ -1,40 +1,77 @@
-import { describe, it, expect, vi } from 'vitest';
-import type { llm, tts } from '@livekit/agents';
-import { GEMINI_LIVE_MODEL, createVoice, selectVoiceKind } from '../src/voice/voice';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
+import type { llm } from '@livekit/agents';
+import { initializeLogger } from '@livekit/agents';
+import { Modality } from '@google/genai';
+import { GEMINI_LIVE_MODEL, LiveChannelTopic } from '@lemonade/core';
+import { GEMINI_VOICE, createVoice } from '../src/voice/voice';
+import { livekitVoiceProviders } from '../src/voice/livekitVoiceProviders';
 import { RoomPublisher } from '../src/channel/roomPublisher';
-import { LiveChannelTopic } from '@lemonade/core';
 import { loadEnv } from '../src/env';
 
 function fakeProviders() {
     const model = { fake: 'realtime-model' } as unknown as llm.RealtimeModel;
-    const speech = { fake: 'resemble' } as unknown as tts.TTS;
-    return { model, speech, providers: { realtimeModel: vi.fn(() => model), resembleTts: vi.fn(() => speech) } };
+    return { model, providers: { realtimeModel: vi.fn(() => model) } };
 }
 
 describe('voice port', () => {
-    it('defaults to gemini native audio with no separate tts', () => {
+    it('uses gemini native audio with no separate tts', () => {
         const { model, providers } = fakeProviders();
         const voice = createVoice(loadEnv({ GOOGLE_API_KEY: 'g-key' }), providers);
 
         expect(voice).toEqual({ kind: 'gemini-native-audio', model });
-        expect(providers.realtimeModel).toHaveBeenCalledWith(
-            expect.objectContaining({ apiKey: 'g-key', reply: 'audio', model: GEMINI_LIVE_MODEL }),
-        );
-        expect(providers.resembleTts).not.toHaveBeenCalled();
+        expect(providers.realtimeModel).toHaveBeenCalledWith({
+            apiKey: 'g-key',
+            model: GEMINI_LIVE_MODEL,
+            voice: GEMINI_VOICE,
+            temperature: 0.7,
+        });
     });
 
-    it('uses resemble to speak gemini text replies when a resemble key is set', () => {
-        const { speech, providers } = fakeProviders();
-        expect(selectVoiceKind({ RESEMBLE_API_KEY: 'r' })).toBe('resemble');
+    it('ignores a resemble key: there is no text-reply mode anymore', () => {
+        const { model, providers } = fakeProviders();
+        const voice = createVoice(loadEnv({ GOOGLE_API_KEY: 'g', RESEMBLE_API_KEY: 'r' }), providers);
 
-        const voice = createVoice(
-            loadEnv({ GOOGLE_API_KEY: 'g', RESEMBLE_API_KEY: 'r', RESEMBLE_VOICE_UUID: 'v' }),
-            providers,
+        expect(voice).toEqual({ kind: 'gemini-native-audio', model });
+        expect(providers.realtimeModel).toHaveBeenCalledWith(
+            expect.objectContaining({ model: GEMINI_LIVE_MODEL }),
         );
-        expect(voice.kind).toBe('resemble');
-        expect(voice.tts).toBe(speech);
-        expect(providers.realtimeModel).toHaveBeenCalledWith(expect.objectContaining({ reply: 'text' }));
-        expect(providers.resembleTts).toHaveBeenCalledWith({ apiKey: 'r', voiceUuid: 'v' });
+    });
+});
+
+/** The plugin's RealtimeModel keeps its resolved options on `_options`. */
+interface RealtimeModelInternals {
+    _options: {
+        model: string;
+        vertexai: boolean;
+        // The constructor stores the requested modalities as responseModalities.
+        responseModalities: unknown[];
+        contextWindowCompression?: { triggerTokens?: string; slidingWindow?: { targetTokens?: string } };
+    };
+}
+
+describe('livekit voice providers', () => {
+    // The real RealtimeModel logs at construction, and the LiveKit logger
+    // lives on global state: the worker CLI initialises it at startup, so a
+    // test that builds a real model has to do the same.
+    beforeAll(() => {
+        initializeLogger({ pretty: false, level: 'info' });
+    });
+
+    it('builds a 3.8 Live realtime model on the Developer API with compression', () => {
+        const built = livekitVoiceProviders.realtimeModel({
+            model: GEMINI_LIVE_MODEL,
+            apiKey: 'g-key',
+            voice: GEMINI_VOICE,
+            temperature: 0.7,
+        }) as unknown as RealtimeModelInternals;
+
+        expect(built._options.model).toBe(GEMINI_LIVE_MODEL);
+        expect(built._options.vertexai).toBe(false);
+        expect(built._options.responseModalities).toEqual([Modality.AUDIO]);
+        expect(built._options.contextWindowCompression).toEqual({
+            triggerTokens: '64000',
+            slidingWindow: { targetTokens: '32000' },
+        });
     });
 });
 

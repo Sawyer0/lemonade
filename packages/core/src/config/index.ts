@@ -1,13 +1,20 @@
+import {
+    GEMINI_EMBEDDING_MODEL,
+    GEMINI_FLASH_MODEL,
+    GEMINI_LIVE_VERTEX_MODEL,
+    GEMINI_PRO_MODEL,
+} from './models';
+
 export const SHARED_CONFIG = {
     // AI Models
     AI_MODELS: {
-        CHAT_MODEL: 'gemini-2.5-flash',
-        LIVE_MODEL: 'gemini-live-2.5-flash-native-audio',
-        EMBEDDING: 'text-embedding-004',
+        CHAT_MODEL: GEMINI_FLASH_MODEL,
+        LIVE_MODEL: GEMINI_LIVE_VERTEX_MODEL,
+        EMBEDDING: GEMINI_EMBEDDING_MODEL,
         // Agent models (Mechanic System 2 reasoning)
         AGENT: {
-            BRAIN: 'gemini-2.5-pro', // Deep diagnostic reasoning (intuition state)
-            WORKER: 'gemini-2.5-flash', // Simple tasks (gathering, investigating, synthesizing)
+            BRAIN: GEMINI_PRO_MODEL, // Deep diagnostic reasoning (intuition state)
+            WORKER: GEMINI_FLASH_MODEL, // Simple tasks (gathering, investigating, synthesizing)
         },
         // Start: Gemini 2.5 Flash Specs
         SPECS: {

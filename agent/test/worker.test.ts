@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { LiveChannelTopic, decodeLiveMessage, encodeLiveMessage, AiResponseMessageSchema } from '@lemonade/core';
+import {
+    GEMINI_LIVE_MODEL,
+    LiveChannelTopic,
+    decodeLiveMessage,
+    encodeLiveMessage,
+    AiResponseMessageSchema,
+} from '@lemonade/core';
+import { detection } from './fakes';
+
+// Starting the worker re-imports the agent and the native RTC bindings after
+// vi.resetModules, which takes seconds on a cold cache: the default 5s test
+// timeout trips on it. Same 30s allowance as the integration tests.
+vi.setConfig({ testTimeout: 30_000 });
 
 /**
  * Starts the real worker entry (livekit-agent.ts) against a fake room and a
@@ -9,8 +21,7 @@ const fakes = vi.hoisted(() => {
     class FakeSession {
         handlers = new Map<string, (event: unknown) => void>();
         start = vi.fn(async (_options: { agent: FakeAgent; room: unknown }) => {});
-        say = vi.fn(() => ({ waitForPlayout: async () => {} }));
-        generateReply = vi.fn();
+        generateReply = vi.fn(() => ({ waitForPlayout: async () => {} }));
         constructor(public options: Record<string, unknown>) {
             fakes.sessions.push(this);
         }
@@ -44,7 +55,7 @@ vi.mock('@livekit/agents', () => ({
 vi.mock('@livekit/rtc-node', () => ({ RoomEvent: { DataReceived: 'dataReceived' } }));
 vi.mock('@livekit/agents-plugin-silero', () => ({ VAD: { load: fakes.vadLoad } }));
 vi.mock('../src/voice/livekitVoiceProviders', () => ({
-    livekitVoiceProviders: { realtimeModel: fakes.realtimeModel, resembleTts: vi.fn() },
+    livekitVoiceProviders: { realtimeModel: fakes.realtimeModel },
 }));
 
 function fakeRoom() {
@@ -95,7 +106,6 @@ describe('agent worker startup', () => {
         vi.resetModules();
         vi.stubEnv('NODE_ENV', 'test');
         vi.stubEnv('GOOGLE_API_KEY', 'fake-key');
-        vi.stubEnv('RESEMBLE_API_KEY', '');
     });
 
     it('prewarms the VAD, joins the room and starts a Master Tech session', async () => {
@@ -106,7 +116,9 @@ describe('agent worker startup', () => {
         expect(ctx.connect).toHaveBeenCalled();
         expect(session.options).toMatchObject({ vad: { fake: 'vad' }, llm: { fake: 'realtime-model' } });
         expect(session.options.tts).toBeUndefined();
-        expect(realtimeModel).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'fake-key', reply: 'audio' }));
+        expect(realtimeModel).toHaveBeenCalledWith(
+            expect.objectContaining({ apiKey: 'fake-key', model: GEMINI_LIVE_MODEL }),
+        );
 
         const { agent, room } = session.start.mock.calls[0][0];
         expect(room).toBe(ctx.room);
@@ -127,12 +139,32 @@ describe('agent worker startup', () => {
         expect(session.generateReply).toHaveBeenCalledWith({ userInput: 'It squeals when I brake' });
     });
 
+    it('speaks a risky proactive ping through generateReply, not say', async () => {
+        const { room, session } = await startWorker();
+        const onData = room.listeners.get('dataReceived')!;
+        const ping = encodeLiveMessage({
+            type: 'PROACTIVE_PING',
+            detection: detection('Brake Rotor', 'Braking', true),
+            sessionId: 'session-42',
+            timestamp: 1,
+        });
+
+        onData(ping, { identity: 'user-7' }, undefined, LiveChannelTopic.ProactivePing);
+        await Promise.resolve();
+
+        expect(session.generateReply).toHaveBeenCalledWith({
+            instructions: expect.stringContaining('Brake Rotor'),
+        });
+    });
+
     it('mirrors what the agent says into the client transcript', async () => {
         const { room, session } = await startWorker();
         const added = session.handlers.get('conversation_item_added')!;
 
-        added({ item: { role: 'assistant', textContent: 'Check the brake pads first.' } });
-        added({ item: { role: 'user', textContent: 'ignored' } });
+        // Real chat items carry type 'message'; a handoff item must be ignored.
+        added({ item: { type: 'message', role: 'assistant', textContent: 'Check the brake pads first.' } });
+        added({ item: { type: 'message', role: 'user', textContent: 'ignored' } });
+        added({ item: { type: 'agent_handoff', oldAgentId: 'a', newAgentId: 'b' } });
         await Promise.resolve();
 
         expect(room.published).toHaveLength(1);

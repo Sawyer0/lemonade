@@ -9,7 +9,7 @@ import type {
     SearchResponse,
     VerificationResponse,
 } from '@lemonade/core';
-import { MechanicPrompts, getModelForState } from '@lemonade/core';
+import { GEMINI_FLASH_MODEL, MechanicPrompts, getModelForState } from '@lemonade/core';
 import { parseModelJson } from './modelJson';
 
 const LOCAL_TRIAGE_TRUST_THRESHOLD = 0.7;
@@ -70,7 +70,7 @@ export class EvidenceAnalyzer {
 
         this.logger.info('[MechanicReasoning] Local triage unavailable or low confidence, using Cloud Flash', {
             sessionId: input.sessionId,
-            model: 'gemini-2.5-flash',
+            model: GEMINI_FLASH_MODEL,
             modelReason: 'Fallback for vision analysis',
             localTriageAvailable: !!input.localTriage,
             localConfidence: input.localTriage?.confidence ?? 0,

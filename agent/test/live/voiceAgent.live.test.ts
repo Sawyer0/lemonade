@@ -24,7 +24,7 @@ import {
     TrackSource,
     type RemoteTrack,
 } from '@livekit/rtc-node';
-import { LiveChannelTopic } from '@lemonade/core';
+import { GEMINI_TTS_MODEL, LiveChannelTopic } from '@lemonade/core';
 
 const REQUIRED = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'GOOGLE_API_KEY'] as const;
 const enabled = process.env.RUN_LIVE_AGENT_TESTS === 'true' && REQUIRED.every((name) => process.env[name]);
@@ -37,7 +37,7 @@ const REPLY_TIMEOUT_MS = 60_000;
 async function synthesizeQuestion(): Promise<Int16Array> {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-tts',
+        model: GEMINI_TTS_MODEL,
         contents: [{ parts: [{ text: QUESTION }] }],
         config: {
             responseModalities: ['AUDIO'],
@@ -87,7 +87,7 @@ describe.skipIf(!enabled)('live voice agent (LiveKit + Gemini Live)', () => {
         const workerEntry = fileURLToPath(new URL('../../src/worker.ts', import.meta.url));
         worker = spawn('npx', ['tsx', workerEntry, 'dev'], {
             cwd: fileURLToPath(new URL('../..', import.meta.url)),
-            env: { ...process.env, RESEMBLE_API_KEY: '' }, // exercise the default Gemini native voice
+            env: { ...process.env },
             stdio: 'inherit',
         });
         await new Promise((resolve) => setTimeout(resolve, 8_000)); // let the worker register

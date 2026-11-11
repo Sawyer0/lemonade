@@ -68,6 +68,7 @@ export * from './types/verification';
 // Exports SearchRequest, SearchResponse, VerificationRequest, VerificationResponse
 export * from './types/video';
 export * from './config'; // Added export for centralized configuration
+export * from './config/models'; // Single home for every model ID in the repo
 export * from './firestore/timestamps';
 export * from './memory/memoryTags';
 export * from './types/deepPartial';

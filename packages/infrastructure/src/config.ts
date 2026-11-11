@@ -1,4 +1,4 @@
-import { SHARED_CONFIG } from '@lemonade/core';
+import { GEMINI_PRO_MODEL, SHARED_CONFIG } from '@lemonade/core';
 
 export const CONFIG = {
     ...SHARED_CONFIG,
@@ -24,5 +24,5 @@ export const CONFIG = {
     // Override GCLOUD with explicit env if needed, or rely on core's fallback
     GCLOUD_PROJECT: process.env.GCLOUD_PROJECT || SHARED_CONFIG.GCLOUD.PROJECT_ID,
     LOCATION: process.env.GCLOUD_LOCATION || 'us-central1',
-    GEMINI_THINKING_MODEL: 'gemini-2.5-pro',
+    GEMINI_THINKING_MODEL: GEMINI_PRO_MODEL,
 };

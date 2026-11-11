@@ -12,6 +12,7 @@ import { resolve } from 'path';
 config({ path: resolve(__dirname, '../../../.env.local') });
 
 import { GoogleGenerativeAI, type Schema, SchemaType } from '@google/generative-ai';
+import { GEMINI_FLASH_MODEL } from '@lemonade/core';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -141,7 +142,7 @@ async function generateSafetyRules() {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
+        model: GEMINI_FLASH_MODEL,
         generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: GENERATED_RULES_SCHEMA,
@@ -159,7 +160,7 @@ async function generateSafetyRules() {
         const output = {
             generatedAt: new Date().toISOString(),
             version: '1.0.0',
-            generator: 'gemini-2.5-flash',
+            generator: GEMINI_FLASH_MODEL,
             ...generatedRules,
         };
 

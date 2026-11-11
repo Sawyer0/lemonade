@@ -5,7 +5,7 @@ import { IEmbeddingService, AppError, ErrorCode, SHARED_CONFIG } from '@lemonade
 import type { IConfigProvider } from '../interfaces/IConfigProvider';
 import { TYPES } from '../di/types';
 
-/** Embedding dimension stored in Firestore vector indexes (text-embedding-004 default). */
+/** Embedding dimension stored in Firestore vector indexes (GEMINI_EMBEDDING_MODEL default). */
 export const EMBEDDING_DIMENSIONS = 768;
 
 /**
