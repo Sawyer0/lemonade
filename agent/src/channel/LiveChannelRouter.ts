@@ -12,7 +12,11 @@ import type { SessionContext } from '../diagnosis/sessionContext';
 
 /** The voice conversation, as the router needs it. Implemented over the LiveKit AgentSession. */
 export interface Conversation {
-    /** Speak a fixed line and mirror it to the client transcript. */
+    /**
+     * Speak a line to the user and mirror it to the client transcript. There
+     * is no TTS in a native-audio session, so the line is delivered as reply
+     * instructions and the model speaks a reply following it.
+     */
     say(text: string): Promise<void>;
     /** Treat text as something the user said and let the model answer. */
     replyTo(userInput: string): void;

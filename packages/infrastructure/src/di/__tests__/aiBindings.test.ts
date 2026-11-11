@@ -8,6 +8,7 @@ import type {
     IMultimodalUploadAnalyzer,
     ISafetyAI,
 } from '@lemonade/core';
+import { GEMINI_FLASH_MODEL } from '@lemonade/core';
 import { TYPES } from '../types';
 import { bindAiProviders } from '../aiBindings';
 import { CompletionChatAdapter } from '../../ai/llm/CompletionChatAdapter';
@@ -79,7 +80,7 @@ describe('bindAiProviders', () => {
         expect(container.get<IChatAssistantAI>(TYPES.ChatAI)).toBeInstanceOf(GeminiChatAdapter);
         const media = container.get<IMediaAnalysisModel>(TYPES.MediaAnalysisModel);
         expect(media).toBeInstanceOf(GeminiMediaModel);
-        expect(media.modelId).toBe('gemini-2.5-flash');
+        expect(media.modelId).toBe(GEMINI_FLASH_MODEL);
         expect(container.get<ILiveStreamAnalyzer>(TYPES.LiveStreamAI)).toBeInstanceOf(LiveStreamAnalyzer);
     });
 });

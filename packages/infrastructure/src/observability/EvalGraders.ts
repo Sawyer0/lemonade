@@ -1,4 +1,4 @@
-import { EvalScenario, NeurosymbolicState, EvalPrompts } from '@lemonade/core';
+import { EvalScenario, GEMINI_FLASH_MODEL, NeurosymbolicState, EvalPrompts } from '@lemonade/core';
 import { VertexAI, SchemaType } from '@google-cloud/vertexai';
 import type { IConfigProvider } from '../interfaces/IConfigProvider';
 
@@ -51,7 +51,7 @@ export class ReasoningEvaluator {
 
     async evaluate(scenario: EvalScenario, result: NeurosymbolicState): Promise<{ score: number; feedback: string }> {
         const model = this.vertex.getGenerativeModel({
-            model: 'gemini-2.5-flash',
+            model: GEMINI_FLASH_MODEL,
             generationConfig: {
                 responseMimeType: 'application/json',
                 responseSchema: {

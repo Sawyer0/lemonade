@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ChatSession, GenerativeModel } from '@google-cloud/vertexai';
-import type { ILogger } from '@lemonade/core';
+import { GEMINI_FLASH_MODEL, type ILogger } from '@lemonade/core';
 import type { GeminiCoreAdapter } from '../../GeminiCoreAdapter';
 import type { FunctionCallService } from '../../FunctionCallHandler';
 import { GeminiMediaModel } from '../GeminiMediaModel';
@@ -32,7 +32,7 @@ describe('GeminiMediaModel', () => {
             handleFunctionCalls: vi.fn().mockImplementation((response) => Promise.resolve(response)),
         } as unknown as FunctionCallService;
         logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as ILogger;
-        model = new GeminiMediaModel(core, 'gemini-2.5-flash', functionCalls, logger);
+        model = new GeminiMediaModel(core, GEMINI_FLASH_MODEL, functionCalls, logger);
     });
 
     it('reads every media kind', () => {
@@ -59,7 +59,7 @@ describe('GeminiMediaModel', () => {
             text: '{"diagnosis":"x"}',
             toolCalls: [],
             usage: { inputTokens: 7, outputTokens: 3 },
-            model: 'gemini-2.5-flash',
+            model: GEMINI_FLASH_MODEL,
         });
         expect(vertexModel.startChat).not.toHaveBeenCalled();
     });

@@ -21,7 +21,7 @@ describe('BillingService Integration', () => {
             sessionId: 'session-456',
             inputTokens: 100,
             outputTokens: 50,
-            model: 'gemini-pro',
+            model: 'gemini-test',
             timestamp: new Date(),
         };
 
@@ -39,7 +39,7 @@ describe('BillingService Integration', () => {
                 sessionId: 'session-456',
                 inputTokens: 100,
                 outputTokens: 50,
-                model: 'gemini-pro',
+                model: 'gemini-test',
                 timestamp: new Date(),
             };
 
@@ -54,7 +54,7 @@ describe('BillingService Integration', () => {
                 sessionId: 'session-456',
                 inputTokens: 100,
                 outputTokens: 50,
-                model: 'gemini-pro',
+                model: 'gemini-test',
                 timestamp: new Date(),
             };
 
@@ -69,7 +69,7 @@ describe('BillingService Integration', () => {
                 sessionId: 'session-456',
                 inputTokens: 0,
                 outputTokens: 0,
-                model: 'gemini-pro',
+                model: 'gemini-test',
                 timestamp: new Date(),
             };
 
@@ -84,7 +84,7 @@ describe('BillingService Integration', () => {
                 sessionId: 'session-456',
                 inputTokens: 1_000_000,
                 outputTokens: 500_000,
-                model: 'gemini-pro',
+                model: 'gemini-test',
                 timestamp: new Date(),
             };
 
@@ -99,7 +99,7 @@ describe('BillingService Integration', () => {
                 sessionId: 'session-456',
                 inputTokens: 100,
                 outputTokens: 50,
-                model: 'gemini-pro',
+                model: 'gemini-test',
                 timestamp: new Date(),
             };
 
@@ -114,7 +114,7 @@ describe('BillingService Integration', () => {
                 sessionId: '',
                 inputTokens: 100,
                 outputTokens: 50,
-                model: 'gemini-pro',
+                model: 'gemini-test',
                 timestamp: new Date(),
             };
 
@@ -130,7 +130,7 @@ describe('BillingService Integration', () => {
                 sessionId: `session-${i}`,
                 inputTokens: 100 * (i + 1),
                 outputTokens: 50 * (i + 1),
-                model: 'gemini-pro',
+                model: 'gemini-test',
                 timestamp: new Date(),
             }));
 
@@ -153,7 +153,7 @@ describe('BillingService Integration', () => {
                 sessionId: `session-${i}`,
                 inputTokens: 100,
                 outputTokens: 50,
-                model: 'gemini-pro',
+                model: 'gemini-test',
                 timestamp: new Date(),
             }));
 

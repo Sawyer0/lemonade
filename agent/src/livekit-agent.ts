@@ -35,7 +35,10 @@ const bursts: Pick<BurstAnalyzer, 'analyze'> = {
 /** Adapts the LiveKit AgentSession to the router's Conversation port. */
 function conversationFor(session: voice.AgentSession): Conversation {
     return {
-        say: (text) => session.say(text).waitForPlayout(),
+        // Native-audio sessions have no TTS, so session.say() cannot speak a
+        // fixed line. Ask the model to reply following the line instead: the
+        // reply is spoken, and the transcript mirror below still records it.
+        say: (text) => session.generateReply({ instructions: text }).waitForPlayout(),
         replyTo: (userInput) => void session.generateReply({ userInput }),
         inform: (instructions) => void session.generateReply({ instructions }),
     };
@@ -67,12 +70,15 @@ export default defineAgent({
         const session = new voice.AgentSession({
             vad: ctx.proc.userData.vad as silero.VAD,
             llm: voiceProfile.model,
-            tts: voiceProfile.tts,
         });
 
         // Mirror everything the agent says into the client's transcript.
+        // 1.9.5 also reports agent handoffs on this event; only chat
+        // messages carry a role and transcript text.
         session.on(voice.AgentSessionEventTypes.ConversationItemAdded, ({ item }) => {
-            if (item.role === 'assistant' && item.textContent) void publisher.transcript(item.textContent);
+            if (item.type === 'message' && item.role === 'assistant' && item.textContent) {
+                void publisher.transcript(item.textContent);
+            }
         });
 
         const router = new LiveChannelRouter(
@@ -80,7 +86,7 @@ export default defineAgent({
             conversationFor(session),
             bursts,
             {
-                say: (text) => session.say(text).waitForPlayout(),
+                say: (text) => session.generateReply({ instructions: text }).waitForPlayout(),
                 requestTool: (toolCall) => publisher.aiResponse({ type: 'tool_call', toolCall }),
             },
             logger,
