@@ -34,4 +34,26 @@ describe('updateShopSettings', () => {
         }
         expect.unreachable('Expected the call to throw an AppError.');
     });
+
+    it('refuses a negative labor rate', () => {
+        try {
+            updateShopSettings(settings(), { laborRateCents: -5 }, 'owner', 'owner-1', NOW);
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError);
+            expect((error as AppError).code).toBe(ErrorCode.VALIDATION_ERROR);
+            return;
+        }
+        expect.unreachable('Expected the call to throw an AppError.');
+    });
+
+    it('refuses a short currency code', () => {
+        try {
+            updateShopSettings(settings(), { currency: 'US' }, 'owner', 'owner-1', NOW);
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError);
+            expect((error as AppError).code).toBe(ErrorCode.VALIDATION_ERROR);
+            return;
+        }
+        expect.unreachable('Expected the call to throw an AppError.');
+    });
 });

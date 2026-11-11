@@ -49,6 +49,29 @@ describe('proposeVehicleClaim', () => {
         }
     });
 
+    it('gives two claims from the same record state different ids', () => {
+        const events = [
+            event('e-1', 'observation', 'tech', 'Left front pad 3mm.'),
+            event('e-2', 'observation', 'tech', 'Right front pad 4mm.'),
+        ];
+        const first = proposeVehicleClaim(
+            emptyRecord(),
+            { text: 'Left front pad 3mm.', sourceEventIds: ['e-1'] },
+            events,
+            NOW,
+        );
+        const second = proposeVehicleClaim(
+            emptyRecord(),
+            { text: 'Right front pad 4mm.', sourceEventIds: ['e-2'] },
+            events,
+            NOW,
+        );
+        expect(first.ok).toBe(true);
+        expect(second.ok).toBe(true);
+        if (!first.ok || !second.ok) return;
+        expect(first.claim.claimId).not.toBe(second.claim.claimId);
+    });
+
     it('rejects a claim whose only source is a model event', () => {
         const events = [event('e-1', 'hypothesis', 'model', 'Worn pads.')];
         const proposal = proposeVehicleClaim(

@@ -73,7 +73,8 @@ is the gate before anything is persisted from one.
   numbers or customer details as content. Capture trusts the caller's
   `confirmedByRepair` and `kind` labels: it cannot verify them against the
   ledger. Verification happens where candidates are accepted: the nightly
-  review gates candidates on a confirmed outcome event in the ledger.
+  review gates candidates on a confirmed outcome event in the ledger, and
+  the outcome must come from a case the candidate cites.
 - One rule per lesson with a one-clause why, attached to the diagnostic step
   it affects. The same lesson twice strengthens the entry in place, never
   appends it twice. Strengthening a stale entry returns it to active;

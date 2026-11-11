@@ -67,10 +67,10 @@ export class DiagnosisMemoryWriter {
             ? MemoryTags.forVehicleAtShop(scope.shopId, vin)
             : MemoryTags.forVehicle(userId, vin);
         // Ledger-grounded only when the caller cites ledger events. The
-        // writer cannot verify the ids (the ledger lands with LM-01), so an
-        // empty citation stays model-sourced, and the vector-store write
-        // below stays collective: shop scoping applies to the memory
-        // document tags, not to the embedding surface.
+        // writer cannot verify the ids (the LM-01 adapter has not landed
+        // yet), so an empty citation stays model-sourced, and the
+        // vector-store write below stays collective: shop scoping applies
+        // to the memory document tags, not to the embedding surface.
         const ledgerGrounded = (scope?.ledgerEventIds?.length ?? 0) > 0;
 
         try {

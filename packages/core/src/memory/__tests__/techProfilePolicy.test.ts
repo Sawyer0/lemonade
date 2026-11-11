@@ -100,6 +100,23 @@ describe('voice confirm and forget (replay fixture)', () => {
         ).toThrowError(AppError);
     });
 
+    it('throws when the forget reason is empty', () => {
+        const closed = applyCaseCloseUpdates(
+            emptyProfile(),
+            emptyRecord(),
+            [event('e-voice-1', 'observation', 'tech', `${VOICE_CONFIRMATION_PREFIX}has a smoke machine`)],
+            [],
+            NOW,
+        );
+        expect(() =>
+            forgetTechFact(closed.profile, closed.profile.facts[0].factId, {
+                action: 'forgotten',
+                reason: '   ',
+                at: NOW,
+            }),
+        ).toThrowError(AppError);
+    });
+
     it('applies a model-cited claim candidate as rejected at case close', () => {
         const events = [event('e-1', 'hypothesis', 'model', 'Worn pads.')];
         const closed = applyCaseCloseUpdates(

@@ -161,6 +161,9 @@ export function forgetTechFact(
     if (!fact) {
         throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, `Tech fact ${factId} does not exist.`);
     }
+    if (input.reason.trim().length === 0) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, 'Forgetting a fact needs a reason.');
+    }
     if (input.action === 'corrected' && (input.replacementText ?? '').trim().length === 0) {
         throw new AppError(ErrorCode.VALIDATION_ERROR, 'Correcting a fact needs replacement text.');
     }

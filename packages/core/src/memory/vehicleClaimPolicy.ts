@@ -44,9 +44,11 @@ function buildClaim(
 ): VehicleClaim {
     claimSequence += 1;
     return {
-        // Shop + VIN entropy: the same timestamp and record shape in another
-        // shop or for another vehicle must never produce the same id.
-        claimId: `claim-${record.shopId}-${record.vin}-${now}-${record.claims.length + 1}-${claimSequence}`,
+        // Shop + VIN entropy plus a random suffix: the same timestamp and
+        // record shape in another shop, for another vehicle, or in another
+        // process must never produce the same id. The sequence alone is
+        // process-wide and resets on restart.
+        claimId: `claim-${record.shopId}-${record.vin}-${now}-${record.claims.length + 1}-${claimSequence}-${Math.random().toString(36).slice(2, 10)}`,
         shopId: record.shopId,
         vin: record.vin,
         text: candidate.text.trim(),

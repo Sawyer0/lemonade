@@ -126,6 +126,36 @@ describe('runNightlyReview', () => {
         expect(result.acceptedCandidates).toHaveLength(0);
     });
 
+    it('rejects a candidate whose confirming outcome comes from an uncited case', () => {
+        const result = runNightlyReview({
+            date: DATE,
+            shopId: SHOP,
+            closedCases: [
+                { caseId: 'case-1', shopId: SHOP, vin: VIN },
+                { caseId: 'case-2', shopId: SHOP, vin: VIN },
+            ],
+            ledgerEvents: [
+                event('e-1', 'test_result', 'OBD', 'Pad sensor open.', 'case-1'),
+                event('e-2', 'outcome', 'tech', 'Pads replaced, noise gone on retest.', 'case-2'),
+            ],
+            record: null,
+            proposedCandidates: [
+                {
+                    rule: 'Trust the pad sensor.',
+                    why: 'It was right this time.',
+                    diagnosticStep: 'read-sensor',
+                    sourceCaseIds: ['case-1'],
+                    sourceEventIds: ['e-2'],
+                    confirmedByRepair: true,
+                },
+            ],
+            confirmedRepairs: [],
+            synthesis: 'Quiet night.',
+            now: NOW,
+        });
+        expect(result.acceptedCandidates).toHaveLength(0);
+    });
+
     it('still produces a synthesis when several corrections land in one case', () => {
         const events = [
             event('e-1', 'observation', 'tech', 'Left front pad 3mm.'),

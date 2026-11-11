@@ -119,7 +119,12 @@ export function runNightlyReview(input: NightlyReviewInput): NightlyReviewResult
         if (!candidate.sourceCaseIds.every((caseId) => closedCaseIds.has(caseId))) continue;
         const hasConfirmedOutcome = candidate.sourceEventIds.some((eventId) => {
             const event = input.ledgerEvents.find((entry) => entry.eventId === eventId);
-            return event !== undefined && isConfirmedOutcomeEvent(event);
+            // The confirming outcome must come from a case the candidate
+            // cites: an outcome from an unrelated case proves nothing
+            // about this lesson.
+            return (
+                event !== undefined && isConfirmedOutcomeEvent(event) && candidate.sourceCaseIds.includes(event.caseId)
+            );
         });
         if (!hasConfirmedOutcome) continue;
         acceptedCandidates.push(candidate);
