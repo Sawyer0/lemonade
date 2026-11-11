@@ -3,6 +3,7 @@ import { createActor, fromPromise, waitFor } from 'xstate';
 import { mechanicMachine } from '../mechanic.machine';
 import type { GatherAllContextOutput, MechanicInput, MechanicServices } from '../mechanic.machine';
 import type { AIAnalysis } from '../../types/models';
+import { misfireDefinitions, misfirePriors } from '../../diagnosis/loop/__tests__/fixtures';
 
 describe('mechanicMachine', () => {
     const createMockServices = (
@@ -282,6 +283,167 @@ describe('mechanicMachine', () => {
         it('skips the loop when no scan data is present', async () => {
             const { snapshot } = await driveToSynthesizing({});
             expect(snapshot.context.reasonerResult).toBeUndefined();
+        });
+    });
+
+    describe('workup diagnostic loop (LM-04)', () => {
+        const loopInput = (overrides: Record<string, unknown> = {}) => ({
+            priorHypotheses: misfirePriors(),
+            testDefinitions: misfireDefinitions(),
+            disassemblyState: 'component-exposed' as const,
+            satisfiedPreconditionIds: ['engine-off', 'engine-cool', 'engine-off-cranks-only'],
+            ...overrides,
+        });
+
+        const driveToSynthesizingWithLoop = async (diagnoseOverrides: Record<string, unknown> = {}) => {
+            const actor = createActor(
+                mechanicMachine.provide({
+                    actors: {
+                        generateIntuition: fromPromise(
+                            async () => ({ diagnosis: 'Misfire', confidence: 0.7 }) as unknown as AIAnalysis,
+                        ),
+                    },
+                }),
+                { input: createDefaultInput() },
+            );
+            actor.start();
+            actor.send({
+                type: 'DIAGNOSE',
+                userId: 'u1',
+                sessionId: 's1',
+                vehicleContext: {},
+                userQuery: 'q',
+                ...diagnoseOverrides,
+            });
+            await waitFor(actor, (s) => s.matches('synthesizing'), { timeout: 5000 });
+            const snapshot = actor.getSnapshot();
+            actor.stop();
+            return snapshot;
+        };
+
+        it('skips the workup when no loop input is prepared', async () => {
+            const snapshot = await driveToSynthesizingWithLoop();
+            expect(snapshot.context.diagnosticLoop).toBeNull();
+        });
+
+        it('runs the recorded results through the loop and exposes the re-ranked differential', async () => {
+            const snapshot = await driveToSynthesizingWithLoop({
+                diagnosticLoopInput: loopInput({
+                    recordedResults: [{ testId: 'ask-misfire-conditions', outcome: 'positive', source: 'tech' }],
+                }),
+            });
+            const loop = snapshot.context.diagnosticLoop;
+            expect(loop?.differential.round).toBe(1);
+            // The ask test targets coil and cylinder-3, not the plugs: the
+            // plugs take the lead on renormalisation alone.
+            expect(loop?.differential.hypotheses[0]?.id).toBe('spark-plug-fouled');
+            expect(loop?.completedTestIds).toEqual(['ask-misfire-conditions']);
+            expect(loop?.decision?.kind).toBe('next-test');
+            if (loop?.decision?.kind === 'next-test') {
+                expect(loop.decision.nextTest.testId).toBe('measure-spark-strength');
+                // No separate challenger: the only test that could disprove
+                // the new leader (the plugs) is the planned test itself.
+                expect(loop.decision.challenger).toBeNull();
+            }
+        });
+
+        it('escalates through the workup when the budget is already spent', async () => {
+            const snapshot = await driveToSynthesizingWithLoop({
+                diagnosticLoopInput: loopInput({ budgetUsd: 0 }),
+            });
+            expect(snapshot.context.diagnosticLoop?.decision).toMatchObject({
+                kind: 'escalate',
+                reason: 'budget-exhausted',
+            });
+        });
+
+        it('builds the loop from the prepare actor when no input is given', async () => {
+            const actor = createActor(
+                mechanicMachine.provide({
+                    actors: {
+                        generateIntuition: fromPromise(
+                            async () => ({ diagnosis: 'Misfire', confidence: 0.7 }) as unknown as AIAnalysis,
+                        ),
+                        prepareDiagnosticLoop: fromPromise(async () => loopInput()),
+                    },
+                }),
+                { input: createDefaultInput() },
+            );
+            actor.start();
+            actor.send({ type: 'DIAGNOSE', userId: 'u1', sessionId: 's1', vehicleContext: {}, userQuery: 'q' });
+            await waitFor(actor, (s) => s.matches('synthesizing'), { timeout: 5000 });
+            const loop = actor.getSnapshot().context.diagnosticLoop;
+            expect(loop?.differential.hypotheses[0]?.id).toBe('ignition-coil-failure');
+            expect(loop?.decision?.kind).toBe('next-test');
+            actor.stop();
+        });
+
+        it('waits for recorded results in interactive mode, re-ranks, and leaves on END_WORKUP', async () => {
+            const actor = createActor(
+                mechanicMachine.provide({
+                    actors: {
+                        generateIntuition: fromPromise(
+                            async () => ({ diagnosis: 'Misfire', confidence: 0.7 }) as unknown as AIAnalysis,
+                        ),
+                    },
+                }),
+                { input: createDefaultInput() },
+            );
+            actor.start();
+            actor.send({
+                type: 'DIAGNOSE',
+                userId: 'u1',
+                sessionId: 's1',
+                vehicleContext: {},
+                userQuery: 'q',
+                diagnosticLoopInput: loopInput({
+                    interactive: true,
+                    recordedResults: [{ testId: 'ask-misfire-conditions', outcome: 'positive', source: 'tech' }],
+                }),
+            });
+            await waitFor(actor, (s) => s.matches('workup'), { timeout: 5000 });
+            expect(actor.getSnapshot().context.diagnosticLoop?.differential.round).toBe(1);
+
+            actor.send({ type: 'RECORD_TEST_RESULT', testId: 'measure-spark-strength', outcome: 'positive', source: 'tech' });
+            await waitFor(actor, (s) => s.matches('workup') && s.context.diagnosticLoop?.differential.round === 2, {
+                timeout: 2000,
+            });
+            const loop = actor.getSnapshot().context.diagnosticLoop;
+            expect(loop?.differential.hypotheses[0]?.id).toBe('spark-plug-fouled');
+            expect(loop?.decision?.kind).toBe('next-test');
+
+            actor.send({ type: 'END_WORKUP' });
+            await waitFor(actor, (s) => s.matches('synthesizing'), { timeout: 5000 });
+            expect(actor.getSnapshot().matches('synthesizing')).toBe(true);
+            actor.stop();
+        });
+
+        it('records an unknown test result as an error and stays in the workup', async () => {
+            const actor = createActor(
+                mechanicMachine.provide({
+                    actors: {
+                        generateIntuition: fromPromise(
+                            async () => ({ diagnosis: 'Misfire', confidence: 0.7 }) as unknown as AIAnalysis,
+                        ),
+                    },
+                }),
+                { input: createDefaultInput() },
+            );
+            actor.start();
+            actor.send({
+                type: 'DIAGNOSE',
+                userId: 'u1',
+                sessionId: 's1',
+                vehicleContext: {},
+                userQuery: 'q',
+                diagnosticLoopInput: loopInput({ interactive: true }),
+            });
+            await waitFor(actor, (s) => s.matches('workup'), { timeout: 5000 });
+            actor.send({ type: 'RECORD_TEST_RESULT', testId: 'no-such-test', outcome: 'positive', source: 'tech' });
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            expect(actor.getSnapshot().matches('workup')).toBe(true);
+            expect(actor.getSnapshot().context.error).toContain('Unknown test in loop result');
+            actor.stop();
         });
     });
 
