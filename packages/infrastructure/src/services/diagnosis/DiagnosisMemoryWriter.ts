@@ -25,7 +25,18 @@ Meta Confidence: ${state.finalDiagnosis.metaConfidence}
  * Persists a confident diagnosis: an embedding in the collective vector store,
  * a diagnostic log in long-term memory scoped to the user and vehicle, and, for
  * verified cases, the session's video and images as observations.
+ *
+ * This writer persists diagnostic logs, never vehicle facts. A vehicle fact is
+ * created only by the core write policy (LM-31) from ledger events. When the
+ * caller passes a shop scope, the log is tagged to the shop that holds the
+ * vehicle record instead of the user, and the metadata records which ledger
+ * events the diagnosis is grounded in.
  */
+export interface DiagnosisMemoryScope {
+    shopId: string;
+    ledgerEventIds?: string[];
+}
+
 export class DiagnosisMemoryWriter {
     constructor(
         private readonly embeddingService: IEmbeddingService,
@@ -35,7 +46,13 @@ export class DiagnosisMemoryWriter {
         private readonly logger: ILogger,
     ) {}
 
-    async save(text: string, state: NeurosymbolicState, userId: string, sessionId: string): Promise<void> {
+    async save(
+        text: string,
+        state: NeurosymbolicState,
+        userId: string,
+        sessionId: string,
+        scope?: DiagnosisMemoryScope,
+    ): Promise<void> {
         const vector = await this.embeddingService.embed(text);
 
         await this.vectorRepo.addCase(text, vector, {
@@ -45,7 +62,16 @@ export class DiagnosisMemoryWriter {
             timestamp: new Date().toISOString(),
         });
 
-        const isolationTags = MemoryTags.forVehicle(userId, state.authorityData.vin || 'unknown');
+        const vin = state.authorityData.vin || 'unknown';
+        const isolationTags = scope
+            ? MemoryTags.forVehicleAtShop(scope.shopId, vin)
+            : MemoryTags.forVehicle(userId, vin);
+        // Ledger-grounded only when the caller cites ledger events. The
+        // writer cannot verify the ids (the LM-01 adapter has not landed
+        // yet), so an empty citation stays model-sourced, and the
+        // vector-store write below stays collective: shop scoping applies
+        // to the memory document tags, not to the embedding surface.
+        const ledgerGrounded = (scope?.ledgerEventIds?.length ?? 0) > 0;
 
         try {
             await this.memoryService.addDocument({
@@ -60,6 +86,8 @@ export class DiagnosisMemoryWriter {
                 metadata: {
                     sessionId,
                     isVerified: state.verification.isVerified,
+                    provenance: ledgerGrounded ? 'ledger-grounded' : 'model',
+                    ...(scope ? { shopId: scope.shopId, ledgerEventIds: scope.ledgerEventIds ?? [] } : {}),
                 },
             });
 

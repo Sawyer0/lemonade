@@ -73,6 +73,24 @@ export * from './config'; // Added export for centralized configuration
 export * from './config/brandTokens'; // Brand tokens: the single source of truth for colors and type
 export * from './config/models'; // Single home for every model ID in the repo
 export * from './firestore/timestamps';
+export * from './interfaces/IMemoryScopeStore';
+export * from './memory/customerExport';
+export * from './memory/globalPriors';
+export * from './memory/ledgerReference';
+export * from './memory/memoryStore';
 export * from './memory/memoryTags';
+export * from './memory/memoryVersions';
+export * from './memory/nightlyScheduler';
+export * from './memory/playbook';
+export * from './memory/reflection';
+export * from './memory/scopes';
+export * from './memory/sessionMemory';
+export * from './memory/shopSettingsPolicy';
+export * from './memory/techProfilePolicy';
+export * from './memory/vehicleClaimPolicy';
+export * from './memory/verifier';
+export * from './memory/wiki';
 export * from './types/deepPartial';
+export * from './types/learnedMemory';
+export * from './types/memory';
 export * from './machines/modelRouter';
