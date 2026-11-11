@@ -82,7 +82,13 @@ export interface MechanicContext extends MechanicInput {
     // (LM-17). The intuition model call reads this when its state is entered,
     // so evidence queued during context gathering reaches the first model call.
     queuedEvidence: CaseEvidence[];
+    // LM-17: the invoking state a RESUME round trip returns to. Set by the
+    // RESUME transition of that state, read by the transient `resuming` state.
+    resumeTarget?: ResumeTarget;
 }
+
+/** Invoking states a crash resume can re-enter (LM-17). */
+export type ResumeTarget = 'gathering_context' | 'intuition' | 'investigating' | 'vision_verifying';
 
 export interface MechanicServices {
     vision: IMultimodalUploadAnalyzer;
@@ -109,7 +115,17 @@ export type MechanicEvent =
     // LM-17 checkpoint steering: appends one piece of queued evidence to the
     // run. Handled at the machine root so it lands in any state, including
     // after a snapshot restore; it never interrupts a running tool call.
-    | { type: 'APPEND_EVIDENCE'; evidence: CaseEvidence };
+    | { type: 'APPEND_EVIDENCE'; evidence: CaseEvidence }
+    // LM-17 crash resume: re-enters the state the run was restored in, so
+    // the invoked actor that died with the worker starts again. A restored
+    // promise actor never re-executes on its own, so without this the run
+    // would sit in its restored state forever. Each invoking state answers
+    // RESUME by exiting to the transient `resuming` state, which immediately
+    // re-enters the recorded state: a self-target transition is internal in
+    // XState v5 and would not restart the invocation, so the round trip
+    // through `resuming` is what forces the re-entry. Idle and synthesizing
+    // ignore it.
+    | { type: 'RESUME' };
 
 export interface IntuitionInput {
     userQuery: string;
@@ -238,6 +254,9 @@ export const mechanicMachine = setup({
         gathering_context: {
             description:
                 'Step 1: Gather Facts (Recalls & History) BEFORE Intuition - Using Promise.all workaround for XState parallel bug',
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this state and restarts the invoked gather actor.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'gathering_context' as const }) } },
             invoke: {
                 src: 'gatherAllContext',
                 input: ({ context }: { context: MechanicContext }) => ({
@@ -264,6 +283,9 @@ export const mechanicMachine = setup({
         },
         intuition: {
             description: 'Step 2: Formulate Hypothesis (ASE Master Tech) using gathered context',
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this state and restarts the invoked model call.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'intuition' as const }) } },
             invoke: {
                 // This actor is defined in MechanicReasoningService.ts
                 src: 'generateIntuition',
@@ -297,6 +319,9 @@ export const mechanicMachine = setup({
         investigating: {
             description: 'Step 3: Verify Hypothesis (Search & Web)',
             type: 'parallel',
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this parallel state and restarts both regions' invoked actors.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'investigating' as const }) } },
             states: {
                 search: {
                     initial: 'searching',
@@ -373,6 +398,9 @@ export const mechanicMachine = setup({
             description: 'Step 4: Vision Check (if applicable) to anchor Reality',
             entry: 'loadVisionModel', // Optimized Resource Management
             exit: 'unloadVisionModel', // Release memory immediately
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this state and restarts the invoked vision call.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'vision_verifying' as const }) } },
             invoke: {
                 src: 'visionAnalysis',
                 input: ({ context }: { context: MechanicContext }) => ({
@@ -403,6 +431,17 @@ export const mechanicMachine = setup({
         synthesizing: {
             description: 'Step 5: Final Synthesis (Reflexion)',
             type: 'final',
+        },
+        resuming: {
+            description:
+                'LM-17: transient re-entry after a snapshot restore. A RESUME exits the invoking state here with resumeTarget recorded; this state immediately re-enters that state, which restarts its invoked actor. The last, guardless transition is the fallback: a restore that lands here with no target restarts from context gathering, which only re-reads facts.',
+            always: [
+                { target: 'gathering_context', guard: ({ context }) => context.resumeTarget === 'gathering_context' },
+                { target: 'intuition', guard: ({ context }) => context.resumeTarget === 'intuition' },
+                { target: 'investigating', guard: ({ context }) => context.resumeTarget === 'investigating' },
+                { target: 'vision_verifying', guard: ({ context }) => context.resumeTarget === 'vision_verifying' },
+                { target: 'gathering_context' },
+            ],
         },
     },
 });

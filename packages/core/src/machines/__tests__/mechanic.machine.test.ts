@@ -220,4 +220,105 @@ describe('mechanicMachine', () => {
             actor.stop();
         });
     });
+
+    describe('snapshot restore (LM-17)', () => {
+        it('resumes a crashed mid-run actor from its stored snapshot', async () => {
+            let releaseGather!: () => void;
+            const gatherGate = new Promise<void>((resolve) => {
+                releaseGather = resolve;
+            });
+            let gatherCalls = 0;
+            const provided = mechanicMachine.provide({
+                actors: {
+                    gatherAllContext: fromPromise(async () => {
+                        gatherCalls += 1;
+                        await gatherGate;
+                        return { recalls: [], history: [], vectors: [] };
+                    }),
+                    generateIntuition: fromPromise(
+                        async () => ({ diagnosis: 'Worn pads', confidence: 0.9 }) as unknown as AIAnalysis,
+                    ),
+                },
+            });
+            const input = createDefaultInput({
+                queuedEvidence: [
+                    { id: 'e1', kind: 'reading', summary: 'OBD: P0300 misfire', receivedAt: new Date() },
+                ],
+            });
+            const actor = createActor(provided, { input });
+            actor.start();
+            actor.send({
+                type: 'DIAGNOSE',
+                userId: 'user-1',
+                sessionId: 'session-1',
+                vehicleContext: { year: 2020, make: 'Toyota', model: 'Camry' },
+                userQuery: 'engine noise',
+            });
+            await waitFor(actor, (s) => s.matches('gathering_context'), { timeout: 2000 });
+
+            // The crash: the stored snapshot is the JSON round trip the
+            // session repository persists, taken while the gather call was
+            // still in flight. The worker dies without stopping the actor.
+            const storedSnapshot = JSON.parse(JSON.stringify(actor.getSnapshot()));
+
+            const restored = createActor(provided, { input, snapshot: storedSnapshot });
+            restored.start();
+            expect(restored.getSnapshot().matches('gathering_context')).toBe(true);
+            expect(restored.getSnapshot().context.queuedEvidence.map((item) => item.id)).toEqual(['e1']);
+
+            // Live services back in, then re-enter the restored state: a
+            // restored promise actor never re-executes on its own, so the
+            // RESUME round trip is what restarts the dead gather call.
+            restored.send({ type: 'UPDATE_SERVICES', services: createMockServices() });
+            restored.send({ type: 'RESUME' });
+            expect(gatherCalls).toBe(2);
+            releaseGather();
+            await waitFor(restored, (s) => s.matches('synthesizing'), { timeout: 5000 });
+            expect(restored.getSnapshot().matches('synthesizing')).toBe(true);
+
+            restored.stop();
+            actor.stop();
+        });
+
+        it('restarts the invoked actor when RESUME is sent mid-step', async () => {
+            let releaseGather!: () => void;
+            const gatherGate = new Promise<void>((resolve) => {
+                releaseGather = resolve;
+            });
+            let gatherCalls = 0;
+            const actor = createActor(
+                mechanicMachine.provide({
+                    actors: {
+                        gatherAllContext: fromPromise(async () => {
+                            gatherCalls += 1;
+                            await gatherGate;
+                            return { recalls: [], history: [], vectors: [] };
+                        }),
+                        generateIntuition: fromPromise(
+                            async () => ({ diagnosis: 'Worn pads', confidence: 0.9 }) as unknown as AIAnalysis,
+                        ),
+                    },
+                }),
+                { input: createDefaultInput() },
+            );
+            actor.start();
+            actor.send({
+                type: 'DIAGNOSE',
+                userId: 'user-1',
+                sessionId: 'session-1',
+                vehicleContext: { year: 2020, make: 'Toyota', model: 'Camry' },
+                userQuery: 'engine noise',
+            });
+            await waitFor(actor, (s) => s.matches('gathering_context'), { timeout: 2000 });
+            expect(gatherCalls).toBe(1);
+
+            actor.send({ type: 'RESUME' });
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            expect(gatherCalls).toBe(2);
+
+            releaseGather();
+            await waitFor(actor, (s) => s.matches('synthesizing'), { timeout: 5000 });
+            actor.stop();
+        });
+    });
 });
