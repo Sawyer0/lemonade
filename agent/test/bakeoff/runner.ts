@@ -59,6 +59,10 @@ const SAMPLE_RATE = 24_000;
 const FRAME_SAMPLES = SAMPLE_RATE / 100;
 const REPLY_TIMEOUT_MS = 60_000;
 const SILENCE_END_MS = 2_000;
+/** Grace for the worker process to start before the driver joins the room. */
+const WORKER_START_GRACE_MS = 8_000;
+/** How long to wait for the worker to join the room before restarting it once. */
+const WORKER_READY_TIMEOUT_MS = 60_000;
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -121,6 +125,16 @@ async function speak(source: AudioSource, pcm: Int16Array): Promise<void> {
     }
 }
 
+/** True once the Master Tech worker has joined the room. */
+async function waitForWorker(room: Room, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (room.remoteParticipants.size > 0) return true;
+        await sleep(500);
+    }
+    return room.remoteParticipants.size > 0;
+}
+
 async function main(): Promise<void> {
     const argv = process.argv.slice(2);
     const provider: VoiceProviderId = parseVoiceProviderId(argValue(argv, '--provider'));
@@ -134,10 +148,16 @@ async function main(): Promise<void> {
     const beds = new Map(loadNoiseBeds(join(BAKEOFF_DIR, 'noise-beds.json')).map((bed) => [bed.id, bed]));
     const rates = loadCostRates(join(BAKEOFF_DIR, 'cost-rates.json'));
     const selected = onlyTurns ? turns.filter((turn) => onlyTurns.includes(turn.id)) : turns;
-    if (onlyTurns && selected.length !== onlyTurns.length) {
-        throw new Error(
-            `Unknown turn ids: ${onlyTurns.filter((id) => !turns.some((turn) => turn.id === id)).join(', ')}`,
-        );
+    if (onlyTurns) {
+        const unknown = onlyTurns.filter((id) => !turns.some((turn) => turn.id === id));
+        const duplicates = [...new Set(onlyTurns.filter((id, index) => onlyTurns.indexOf(id) !== index))];
+        if (unknown.length > 0 || duplicates.length > 0) {
+            const problems = [
+                ...(duplicates.length > 0 ? [`Duplicate turn ids: ${duplicates.join(', ')}`] : []),
+                ...(unknown.length > 0 ? [`Unknown turn ids: ${unknown.join(', ')}`] : []),
+            ];
+            throw new Error(problems.join('; '));
+        }
     }
 
     const missingEnv = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'GOOGLE_API_KEY']
@@ -206,13 +226,16 @@ async function main(): Promise<void> {
     const startedAt = Date.now();
     let current: TurnAudioState | null = null;
 
-    try {
-        worker = spawn('npx', ['tsx', '--tsconfig', BAKEOFF_TSCONFIG, join(AGENT_DIR, 'src/worker.ts'), 'dev'], {
+    const spawnWorker = (): ChildProcess =>
+        spawn('npx', ['tsx', '--tsconfig', BAKEOFF_TSCONFIG, join(AGENT_DIR, 'src/worker.ts'), 'dev'], {
             cwd: AGENT_DIR,
             env: { ...process.env, VOICE_PROVIDER: provider },
             stdio: 'inherit',
         });
-        await sleep(8_000);
+
+    try {
+        worker = spawnWorker();
+        await sleep(WORKER_START_GRACE_MS);
 
         const token = new AccessToken(process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!, {
             identity: 'bakeoff-driver',
@@ -223,6 +246,22 @@ async function main(): Promise<void> {
         });
         token.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: true });
         await room.connect(process.env.LIVEKIT_URL!, await token.toJwt(), { autoSubscribe: true, dynacast: false });
+
+        // The worker joins the room when LiveKit dispatches it; a slow join
+        // used to surface as a run of no-reply turns, so gate on it here
+        // instead. One restart, then fail fast rather than speaking turns
+        // at nobody.
+        if (!(await waitForWorker(room, WORKER_READY_TIMEOUT_MS))) {
+            console.log('Worker did not join the room in time; restarting it once...');
+            worker?.kill('SIGTERM');
+            worker = spawnWorker();
+            await sleep(WORKER_START_GRACE_MS);
+            if (!(await waitForWorker(room, WORKER_READY_TIMEOUT_MS))) {
+                throw new Error(
+                    'Master Tech worker did not join the bake-off room after a restart; not starting turns (check the worker logs above).',
+                );
+            }
+        }
 
         room.registerTextStreamHandler('lk.transcription', async (reader, participant) => {
             if (participant.identity === 'bakeoff-driver') return;

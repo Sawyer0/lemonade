@@ -71,6 +71,9 @@ npm --workspace agent run bakeoff -- --provider cascade --dry-run
 `--dry-run` validates fixtures, environment, and assets without joining a
 room. A full run speaks all 30 turns in real time (roughly 15–30 minutes)
 and writes `agent/test/bakeoff/results/<provider>-<timestamp>.{json,md}`.
+The runner waits for the worker to join the room (up to 60 seconds, one
+restart) before starting turns, so a slow worker join fails fast instead
+of producing a run of no-reply turns.
 The bake-off is an on-demand live suite, not part of CI, and costs about
 $11 of API spend for all three providers (see `cost-rates.json` — verify
 the rates against the vendor pricing pages before a scored run; Gemini
@@ -87,14 +90,18 @@ transcripts (`scorer.test.ts`) and never needs a live room.
    matches `P0171` — but a shorter number inside a longer one does not
    ("45" is not a hearing of "0.45"). Reported overall, clean vs noisy,
    and per category. A misheard code poisons the ledger, so this is the
-   deciding metric.
+   deciding metric. Vision turns have no targets, so their keywords are
+   reported as keyword accuracy, overall and per category, and shown in
+   the results table — a vision turn that fails leaves a trace there.
 2. **Speed:** time to first audio (p50/p95) and how fast it stops after an
    interruption (p50). Interrupt stop is measured from the end of the
    interrupt phrase to the last audible agent audio; a fresh reply to the
    interrupt counts against it.
 3. **Tool calls:** correct name and arguments (observed on the room's
    `capture_visual_burst` data channel), and whether the agent kept
-   talking while the tool ran.
+   talking after a tool call started. The runner never observes tool
+   completion, so this means "spoke after the tool call started", not
+   "spoke while the tool was still running".
 4. **Audio quality:** crackles (clipped or spiking frames) and dropouts
    (silent gaps over 150 ms mid-utterance). Both are heuristics for a
    human to confirm from the recording, not a calibrated measurement.

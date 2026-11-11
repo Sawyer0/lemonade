@@ -57,6 +57,15 @@ describe('normalizeSpoken', () => {
         expect(normalizeSpoken('zero point four five volts')).toBe('045VOLTS');
         expect(normalizeSpoken('0.45 volts')).toBe('045VOLTS');
     });
+
+    it('expands compound number words', () => {
+        expect(normalizeSpoken('two thousand five hundred RPM')).toBe('2500RPM');
+        expect(normalizeSpoken('one hundred ninety-five')).toBe('195');
+        expect(normalizeSpoken('fifteen')).toBe('15');
+        expect(normalizeSpoken('thirty-five')).toBe('35');
+        expect(normalizeSpoken('twelve point six')).toBe('126');
+        expect(normalizeSpoken('seven hundred fifty')).toBe('750');
+    });
 });
 
 describe('targetHeard', () => {
@@ -75,6 +84,20 @@ describe('targetHeard', () => {
         expect(
             targetHeard('The VIN is one h g b h four one j x m n one zero nine one eight six.', '1HGBH41JXMN109186'),
         ).toBe(true);
+    });
+
+    it('hears word-form numbers in replies', () => {
+        expect(targetHeard('Engine speed is two thousand five hundred RPM.', '2500')).toBe(true);
+        expect(targetHeard('It reads one hundred ninety-five.', '195')).toBe(true);
+        expect(targetHeard('Fifteen foot pounds.', '15')).toBe(true);
+        expect(targetHeard('Thirty-five PSI.', '35')).toBe(true);
+        expect(targetHeard('Twelve point six volts.', '12.6')).toBe(true);
+        expect(targetHeard('Seven hundred fifty RPM.', '750')).toBe(true);
+    });
+
+    it('hears a code after ordinary lead-in words', () => {
+        expect(targetHeard('Oh, P0171 is a lean code.', 'P0171')).toBe(true);
+        expect(targetHeard('That one P0171 is a lean code.', 'P0171')).toBe(true);
     });
 });
 
@@ -189,6 +212,56 @@ describe('scoreRun', () => {
         );
         expect(run.turnsScored).toBe(1);
         expect(run.turnsSkipped).toBe(1);
+        expect(run.turnsFailed).toBe(0);
         expect(run.accuracy).toBe(1);
+    });
+
+    it('counts failed turns separately from skipped turns', () => {
+        const run = scoreRun(
+            'grok',
+            [
+                turn({ id: 'T01' }),
+                turn({ id: 'T02', noiseBed: 'impact-gun' }),
+                turn({ id: 'T03' }),
+                turn({ id: 'T04' }),
+            ],
+            [
+                observation({ turnId: 'T01', transcript: 'P0171' }),
+                observation({ turnId: 'T02', status: 'missing-asset', error: 'noise/impact-gun.wav not found' }),
+                observation({ turnId: 'T03', status: 'no-reply' }),
+                observation({ turnId: 'T04', status: 'error', error: 'room disconnected' }),
+            ],
+            { inputAudioMinutes: 1, outputAudioMinutes: 1, outputChars: 10, sessionMinutes: 1 },
+            loadCostRates(new URL('./cost-rates.json', import.meta.url).pathname),
+        );
+        expect(run.turnsScored).toBe(1);
+        expect(run.turnsSkipped).toBe(1);
+        expect(run.turnsFailed).toBe(2);
+        expect(renderResultsTable(run)).toContain('skipped 1, failed 2');
+    });
+
+    it('aggregates keyword outcomes so a failing vision turn is visible', () => {
+        const turns = [
+            turn({ id: 'T21', category: 'vision', expectedTargets: [], expectedKeywords: ['oil'] }),
+            turn({ id: 'T22', category: 'vision', expectedTargets: [], expectedKeywords: ['coolant'] }),
+        ];
+        const observations = [
+            observation({ turnId: 'T21', transcript: 'There is oil leaking here.' }),
+            observation({ turnId: 'T22', transcript: 'I cannot see anything wrong.' }),
+        ];
+        const run = scoreRun(
+            'gemini',
+            turns,
+            observations,
+            { inputAudioMinutes: 1, outputAudioMinutes: 1, outputChars: 10, sessionMinutes: 1 },
+            loadCostRates(new URL('./cost-rates.json', import.meta.url).pathname),
+        );
+        expect(run.perCategoryAccuracy['vision']).toBe(null);
+        expect(run.keywordAccuracy).toBe(0.5);
+        expect(run.perCategoryKeywordAccuracy['vision']).toBe(0.5);
+        const table = renderResultsTable(run);
+        expect(table).toContain('Keywords heard');
+        expect(table).toContain('| vision | n/a | 50.0% |');
+        expect(table).toContain('| T22 | vision | clean | 0/0 | 0/1 |');
     });
 });
