@@ -36,7 +36,12 @@ import {
     TrackSource,
     type RemoteTrack,
 } from '@livekit/rtc-node';
-import { GEMINI_TTS_MODEL, LiveChannelTopic, encodeLiveMessage } from '@lemonade/core';
+import {
+    FRAME_STREAM_CHUNK_BYTES,
+    GEMINI_TTS_MODEL,
+    LiveChannelTopic,
+    encodeFrameStreamAttributes,
+} from '@lemonade/core';
 import { loadCostRates, loadNoiseBeds, loadTurns, type BakeoffTurn, type NoiseBed } from './fixtures';
 import { parseVoiceProviderId, VOICE_PROVIDER_KEYS, type VoiceProviderId } from '../../src/voice/provider';
 import { renderResultsTable, scoreRun, type BakeoffTurnObservation, type ObservedToolCall } from './scorer';
@@ -122,6 +127,53 @@ async function speak(source: AudioSource, pcm: Int16Array): Promise<void> {
     for (let offset = 0; offset + FRAME_SAMPLES <= padded.length; offset += FRAME_SAMPLES) {
         const chunk = padded.slice(offset, offset + FRAME_SAMPLES);
         await source.captureFrame(new AudioFrame(chunk, SAMPLE_RATE, 1, FRAME_SAMPLES));
+    }
+}
+
+/**
+ * Streams a clip still to the agent as a byte stream on VisualFrameStream,
+ * chunked under the data-packet limit — the transport LM-15 built (mobile
+ * FrameStreamSender sends the same way; FrameStreamHandler reassembles it
+ * into a VisualBurstMessage). A still is high resolution, so the handler
+ * marks it still and BurstAnalyzer takes the reasoning branch, never the
+ * talker. The runner has no case id, so the still is analyzed but not
+ * recorded in the ledger, exactly as a case-less live session behaves.
+ */
+async function publishStill(
+    room: Room,
+    sessionId: string,
+    frameId: string,
+    reason: string,
+    still: Buffer,
+): Promise<void> {
+    const participant = room.localParticipant;
+    if (!participant) throw new Error('No local participant to stream the still from');
+    const writer = await participant.streamBytes({
+        topic: LiveChannelTopic.VisualFrameStream,
+        mimeType: 'image/jpeg',
+        totalSize: still.byteLength,
+        attributes: encodeFrameStreamAttributes({
+            sessionId,
+            frameId,
+            reason,
+            source: 'phone',
+            resolution: 'high',
+            still: 'true',
+            capturedAt: String(Date.now()),
+        }),
+    });
+    try {
+        for (let offset = 0; offset < still.byteLength; offset += FRAME_STREAM_CHUNK_BYTES) {
+            await writer.write(still.subarray(offset, Math.min(offset + FRAME_STREAM_CHUNK_BYTES, still.byteLength)));
+        }
+        await writer.close();
+    } catch (error) {
+        try {
+            await writer.close();
+        } catch {
+            // Already failing; the close error adds nothing.
+        }
+        throw error;
     }
 }
 
@@ -362,13 +414,7 @@ async function main(): Promise<void> {
 
                 if (turn.clip) {
                     const still = readFileSync(join(BAKEOFF_DIR, 'clips', turn.clip.still));
-                    await room.localParticipant?.publishData(
-                        encodeLiveMessage({
-                            frames: [still.toString('base64')],
-                            metadata: { reason: turn.prompt, sessionId, timestamp: Date.now() },
-                        }),
-                        { reliable: true, topic: LiveChannelTopic.VisualBurstResponse },
-                    );
+                    await publishStill(room, sessionId, `${turn.id}-still`, turn.prompt, still);
                 }
 
                 // Wait for the reply: first audio, then silence, or timeout.
