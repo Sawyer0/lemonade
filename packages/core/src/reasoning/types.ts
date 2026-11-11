@@ -1,4 +1,33 @@
 import type { ToolContext, ToolRegistry, ToolResult } from '../tools';
+import type { SandboxStagedFile } from '../ports/ISandbox';
+
+/** Recorded scan data the reasoner computes over: a freeze frame and a PID log. */
+export interface ReasonerScanData {
+    freezeFrame?: Record<string, unknown>;
+    pidLog?: Array<Record<string, unknown>>;
+}
+
+export interface ReasonerRunRequest {
+    caseId: string;
+    sessionId: string;
+    userId: string;
+    goal: string;
+    caseFiles: SandboxStagedFile[];
+}
+
+/**
+ * What a reasoner run stores for its caller: a loop result, or `skipped`
+ * when the run did not happen (no runner bound, no sandbox available). The
+ * loop itself only ever ends in its five named states; `skipped` is a
+ * caller-boundary state, not a loop outcome.
+ */
+export type ReasonerRegionResult =
+    ReasonerLoopResult | { endState: 'skipped'; endReason: string; steps: []; citations: [] };
+
+/** What the mechanic machine's `runReasoner` actor needs: one loop run for a case. */
+export interface ReasonerActorRunner {
+    run(request: ReasonerRunRequest): Promise<ReasonerRegionResult>;
+}
 
 /** The five named states a reasoner loop can end in (LM-16). */
 export const REASONER_END_STATES = ['finished', 'needs_tech', 'safety_stop', 'budget', 'max_steps'] as const;
@@ -29,10 +58,7 @@ export interface ReasonerSafetyStopAction {
 }
 
 export type ReasonerAction =
-    | ReasonerToolAction
-    | ReasonerFinishAction
-    | ReasonerNeedsTechAction
-    | ReasonerSafetyStopAction;
+    ReasonerToolAction | ReasonerFinishAction | ReasonerNeedsTechAction | ReasonerSafetyStopAction;
 
 /** One loop step, as the model sees it on the next turn. */
 export interface ReasonerStepRecord {

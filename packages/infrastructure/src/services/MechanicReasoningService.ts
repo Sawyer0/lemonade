@@ -23,11 +23,16 @@ import type {
     ICaseRepository,
 } from '@lemonade/core';
 import { AppError, ErrorCode, mechanicMachine } from '@lemonade/core';
+import { GEMINI_PRO_MODEL } from '@lemonade/core';
+import type { ReasonerActorRunner, ReasonerModel, ReasonerRegionResult, ReasonerRunRequest } from '@lemonade/core';
 import { createActor, waitFor } from 'xstate';
 import type { SnapshotFrom } from 'xstate';
 import { createBrowserInspector } from '@statelyai/inspect';
 import { TYPES } from '../di/types';
 import { GeminiCoreAdapter } from '../ai/GeminiCoreAdapter';
+import { LocalSandbox } from '../sandbox/LocalSandbox';
+import { ReasonerRunner } from '../reasoning/ReasonerRunner';
+import { GeminiReasonerModel, createVertexReasonerModel } from '../reasoning/GeminiReasonerModel';
 import { DiagnosisSafetyGate } from './diagnosis/DiagnosisSafetyGate';
 import { IntuitionGenerator } from './diagnosis/IntuitionGenerator';
 import { EvidenceAnalyzer } from './diagnosis/EvidenceAnalyzer';
@@ -73,6 +78,11 @@ export class MechanicReasoningService implements IMechanicReasoningService {
     private readonly safetyGate: DiagnosisSafetyGate;
     private readonly memoryWriter: DiagnosisMemoryWriter;
     private readonly actors: ReturnType<typeof createMechanicActors>;
+    // LM-16: lazily built on the first reasoner run, so diagnoses without
+    // scan data never pay the sandbox probe. null means the attempt already
+    // failed (no namespaces, no diaglib) and will not be retried.
+    private reasonerRunnerCache: ReasonerRunner | null | undefined;
+    private reasonerModelCache: ReasonerModel | undefined;
 
     constructor(
         @inject(TYPES.MultimodalUploadAI) private videoAI: IMultimodalUploadAnalyzer,
@@ -87,7 +97,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         @inject(TYPES.SafetyMonitor) safetyMonitor: ISafetyMonitor,
         @inject(TYPES.TracingService) private tracer: ITracingService,
         @inject(TYPES.Logger) private logger: ILogger,
-        @inject(TYPES.GeminiCoreAdapter) coreAdapter: GeminiCoreAdapter,
+        @inject(TYPES.GeminiCoreAdapter) private coreAdapter: GeminiCoreAdapter,
         // LM-17: optional so direct construction in tests keeps working.
         // The DI container binds both; a service built without them still
         // coordinates runs per case, it just cannot guard the version commit.
@@ -105,7 +115,65 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             searchService,
             chatAI,
             logger,
+            reasoner: this.reasonerActor(),
         });
+    }
+
+    /**
+     * LM-16: the `investigating` reasoner region's runner. Bound as an
+     * object so the machine actor never sees the lazy construction: when no
+     * sandbox is available the region reports `skipped` and the diagnosis
+     * runs as before.
+     */
+    private reasonerActor(): ReasonerActorRunner {
+        return {
+            run: async (request: ReasonerRunRequest): Promise<ReasonerRegionResult> => {
+                const runner = this.getReasonerRunner();
+                if (!runner) {
+                    return {
+                        endState: 'skipped',
+                        endReason: 'no reasoner sandbox available',
+                        steps: [],
+                        citations: [],
+                    };
+                }
+                return runner.run({ ...request, model: this.getReasonerModel() });
+            },
+        };
+    }
+
+    private getReasonerRunner(): ReasonerRunner | undefined {
+        if (this.reasonerRunnerCache === undefined) {
+            this.reasonerRunnerCache = this.buildReasonerRunner();
+        }
+        return this.reasonerRunnerCache ?? undefined;
+    }
+
+    private buildReasonerRunner(): ReasonerRunner | null {
+        try {
+            const sandbox = new LocalSandbox();
+            if (!sandbox.available) {
+                this.logger.info(
+                    '[MechanicReasoning] No reasoner sandbox available here; the reasoner region will skip',
+                );
+                return null;
+            }
+            return new ReasonerRunner({ sandbox, logger: this.logger, caseRepo: this.caseRepo });
+        } catch (error) {
+            this.logger.warn('[MechanicReasoning] Could not build the reasoner runner; the reasoner region will skip', {
+                error,
+            });
+            return null;
+        }
+    }
+
+    private getReasonerModel(): ReasonerModel {
+        if (!this.reasonerModelCache) {
+            this.reasonerModelCache = new GeminiReasonerModel((tools) =>
+                createVertexReasonerModel(this.coreAdapter.getGenerativeModel(GEMINI_PRO_MODEL, tools)),
+            );
+        }
+        return this.reasonerModelCache;
     }
 
     async diagnose(input: ReasoningInput): Promise<NeurosymbolicState> {
@@ -307,6 +375,8 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             dtcCodes: input.dtcCodes,
             services,
             queuedEvidence,
+            caseId: input.caseId,
+            scanData: input.scanData,
         };
         let actor = createActor(providedMachine, {
             input: actorInput,
@@ -423,6 +493,8 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     userId: input.userId,
                     localTriage: input.localTriage,
                     dtcCodes: input.dtcCodes,
+                    caseId: input.caseId,
+                    scanData: input.scanData,
                 });
             }
 

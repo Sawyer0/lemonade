@@ -1,6 +1,7 @@
 import { setup, fromPromise, assign } from 'xstate';
 import { NeurosymbolicState } from '../types/neurosymbolic';
 import type { CaseEvidence } from '../case/CaseRunQueue';
+import type { ReasonerRegionResult, ReasonerScanData } from '../reasoning/types';
 import type { IMultimodalUploadAnalyzer, IChatAssistantAI } from '../interfaces/IAIService';
 import type { INHTSAService } from '../interfaces/INHTSAService';
 import type { IVectorRepository } from '../interfaces/IVectorRepository';
@@ -65,6 +66,11 @@ export interface MechanicInput {
     // Evidence queued before the run started (LM-17): folded into the first
     // model call. Evidence that arrives mid-run joins through APPEND_EVIDENCE.
     queuedEvidence?: CaseEvidence[];
+    // Case this diagnosis belongs to (LM-17 run queue, LM-16 reasoner).
+    caseId?: string;
+    // Recorded scan data for the reasoner loop (LM-16). Without it the
+    // `investigating` state's reasoner region completes immediately.
+    scanData?: ReasonerScanData;
 }
 
 export interface MechanicContext extends MechanicInput {
@@ -85,6 +91,10 @@ export interface MechanicContext extends MechanicInput {
     // LM-17: the invoking state a RESUME round trip returns to. Set by the
     // RESUME transition of that state, read by the transient `resuming` state.
     resumeTarget?: ResumeTarget;
+    // LM-16: the reasoner loop's outcome, when the `investigating` state's
+    // reasoner region ran (scan data present and a runner bound). Absent
+    // when the region completed without running.
+    reasonerResult?: ReasonerRegionResult;
 }
 
 /** Invoking states a crash resume can re-enter (LM-17). */
@@ -110,6 +120,8 @@ export type MechanicEvent =
           videoDuration?: number;
           localTriage?: LocalTriageResult;
           dtcCodes?: ParsedDtc[];
+          caseId?: string;
+          scanData?: ReasonerScanData;
       }
     | { type: 'UPDATE_SERVICES'; services: MechanicServices }
     // LM-17 checkpoint steering: appends one piece of queued evidence to the
@@ -137,6 +149,14 @@ export interface IntuitionInput {
     sessionId: string;
     // Evidence queued before this model call (LM-17 checkpoint input).
     queuedEvidence: CaseEvidence[];
+}
+
+/** Input to the `runReasoner` actor (LM-16). */
+export interface ReasonerInput {
+    caseId?: string;
+    sessionId: string;
+    userId: string;
+    scanData: ReasonerScanData;
 }
 
 export const mechanicMachine = setup({
@@ -187,6 +207,16 @@ export const mechanicMachine = setup({
         gatherAllContext: fromPromise<GatherAllContextOutput, GatherAllContextInput>(async () => {
             throw new Error('gatherAllContext implementation missing'); // To be provided in service
         }),
+        // LM-16: the reasoner loop. The default resolves `skipped`: the loop
+        // is optional by design — without scan data or a bound runner the
+        // diagnosis runs as before, and the region completes immediately.
+        // The service provides the real actor via createMechanicActors.
+        runReasoner: fromPromise<ReasonerRegionResult, ReasonerInput>(async () => ({
+            endState: 'skipped',
+            endReason: 'runReasoner implementation missing',
+            steps: [],
+            citations: [],
+        })),
     },
 }).createMachine({
     id: 'mechanic',
@@ -202,6 +232,8 @@ export const mechanicMachine = setup({
         services: input.services,
         dtcCodes: input.dtcCodes ?? [],
         queuedEvidence: input.queuedEvidence ?? [],
+        caseId: input.caseId,
+        scanData: input.scanData,
         nhtsaResults: [],
         embeddingInfo: [],
         vehicleHistory: [],
@@ -244,6 +276,8 @@ export const mechanicMachine = setup({
                                 videoDuration: event.videoDuration,
                                 localTriage: event.localTriage,
                                 dtcCodes: event.dtcCodes ?? [],
+                                caseId: event.caseId,
+                                scanData: event.scanData,
                             };
                         }
                         return {};
@@ -320,7 +354,7 @@ export const mechanicMachine = setup({
             description: 'Step 3: Verify Hypothesis (Search & Web)',
             type: 'parallel',
             // LM-17: exit to the transient `resuming` state, which re-enters
-            // this parallel state and restarts both regions' invoked actors.
+            // this parallel state and restarts all regions' invoked actors.
             on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'investigating' as const }) } },
             states: {
                 search: {
@@ -387,6 +421,50 @@ export const mechanicMachine = setup({
                                 onDone: {
                                     target: 'completed',
                                     actions: assign({ verificationResult: ({ event }) => event.output }),
+                                },
+                                onError: {
+                                    target: 'completed',
+                                    actions: assign({ error: ({ event }) => String(event.error) }),
+                                },
+                            },
+                        },
+                        completed: { type: 'final' },
+                    },
+                },
+                // LM-16: the bounded tool loop. Runs only when recorded scan
+                // data is present; otherwise it completes immediately and the
+                // diagnosis runs as before. A loop failure never fails the
+                // diagnosis: search and verification already ran, and the
+                // error is recorded in context.
+                reasoner: {
+                    initial: 'checking',
+                    states: {
+                        checking: {
+                            always: [
+                                {
+                                    target: 'running',
+                                    guard: ({ context }) =>
+                                        Boolean(
+                                            context.scanData &&
+                                            (context.scanData.freezeFrame !== undefined ||
+                                                (context.scanData.pidLog?.length ?? 0) > 0),
+                                        ),
+                                },
+                                { target: 'completed' },
+                            ],
+                        },
+                        running: {
+                            invoke: {
+                                src: 'runReasoner',
+                                input: ({ context }: { context: MechanicContext }) => ({
+                                    caseId: context.caseId,
+                                    sessionId: context.sessionId,
+                                    userId: context.userId,
+                                    scanData: context.scanData as ReasonerScanData,
+                                }),
+                                onDone: {
+                                    target: 'completed',
+                                    actions: assign({ reasonerResult: ({ event }) => event.output }),
                                 },
                                 onError: {
                                     target: 'completed',
