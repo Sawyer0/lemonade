@@ -37,6 +37,7 @@ describe('PostgresCaseRepository', () => {
             '0002_ledger_transcript_type.sql',
             '0002_case_version.sql',
             '0003_ledger_goal_types.sql',
+            '0004_obd_ledger_types.sql',
         ]) {
             const sql = readFileSync(path.resolve(process.cwd(), `db/migrations/${migration}`), 'utf8');
             await pool.query(sql);
@@ -124,6 +125,33 @@ describe('PostgresCaseRepository', () => {
 
         const entries = await repository.listEntries(caseRecord.id);
         expect(entries.map((entry) => entry.sequence)).toEqual([1, 2]);
+        expect(await repository.verifyLedger(caseRecord.id)).toBe(true);
+    });
+
+    it('appends an obd_scan entry and the chain still verifies', async () => {
+        const caseRecord = await repository.createCase({ vehicleId: 'vehicle-2-obd', userId: 'user-1' });
+        const entry = await repository.appendEntry(caseRecord.id, {
+            type: 'obd_scan',
+            actor,
+            source: 'OBD',
+            occurredAt,
+            payload: {
+                adapter: { name: 'OBDLink CX', transport: 'ble', model: 'OBDLink CX' },
+                capturedAt: '2026-11-11T15:00:00.000Z',
+                storedCodes: ['P0300'],
+                pendingCodes: ['P0300'],
+                permanentCodes: [],
+                freezeFrame: null,
+                mode06: [],
+                readiness: { milOn: true, storedCodeCount: 1, monitors: [] },
+                vin: '1HGCM82633A004352',
+                calibrationIds: [],
+                calibrationVerificationNumbers: [],
+                liveReadings: [],
+            },
+        });
+        expect(entry.sequence).toBe(1);
+        expect(entry.type).toBe('obd_scan');
         expect(await repository.verifyLedger(caseRecord.id)).toBe(true);
     });
 

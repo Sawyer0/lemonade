@@ -3,6 +3,7 @@
 export * from './types';
 export * from './elm327';
 export * from './adapter';
+export * from './emulator';
 export * from './ObdCaptureService';
 export * from './FaultWindowBuffer';
 export * from './GuidedTestRunner';
