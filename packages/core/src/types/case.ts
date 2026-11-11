@@ -103,6 +103,11 @@ export type ObservationPayload = z.infer<typeof ObservationPayloadSchema>;
 
 export const FrameCapturedPayloadSchema = z.object({
     media: MediaReferenceSchema,
+    /**
+     * A still in the ledger is always full resolution: the talker's low-res
+     * frames are never evidence, so the schema only accepts 'high'.
+     */
+    resolution: z.literal('high'),
     capturedAt: z.string().min(1).optional(),
 });
 export type FrameCapturedPayload = z.infer<typeof FrameCapturedPayloadSchema>;

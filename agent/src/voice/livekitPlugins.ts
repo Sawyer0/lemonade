@@ -2,7 +2,7 @@ import * as cartesia from '@livekit/agents-plugin-cartesia';
 import * as deepgram from '@livekit/agents-plugin-deepgram';
 import * as google from '@livekit/agents-plugin-google';
 import * as xai from '@livekit/agents-plugin-xai';
-import { Behavior, Modality } from '@google/genai';
+import { Behavior, MediaResolution, Modality } from '@google/genai';
 import type { VoicePlugins } from './provider';
 
 /**
@@ -39,6 +39,10 @@ export const livekitPlugins: VoicePlugins = {
             // GOOGLE_GENAI_USE_VERTEXAI environment default.
             vertexai: false,
             modalities: [Modality.AUDIO],
+            // LM-15: the talker sees frames at low resolution (64 tokens);
+            // full-resolution stills go to the reasoner through the frame
+            // stream path, never the live session.
+            mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
             contextWindowCompression: {
                 triggerTokens: CONTEXT_COMPRESSION_TRIGGER_TOKENS,
                 slidingWindow: { targetTokens: CONTEXT_COMPRESSION_TARGET_TOKENS },

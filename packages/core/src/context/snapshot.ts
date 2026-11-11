@@ -57,6 +57,7 @@ function renderPayloadLines(entry: LedgerEntry): string[] {
         case 'frame_captured':
             return [
                 `media: ${quoted(entry.payload.media.storageUri)} sha256:${entry.payload.media.sha256}`,
+                `resolution: ${entry.payload.resolution}`,
                 ...[optionalText('capturedAt', entry.payload.capturedAt)].filter(
                     (line): line is string => line !== null,
                 ),

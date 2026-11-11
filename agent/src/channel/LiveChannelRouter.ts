@@ -3,11 +3,9 @@ import {
     ProactivePingMessageSchema,
     ToolResponseMessageSchema,
     UserMessageSchema,
-    VisualBurstMessageSchema,
     decodeLiveMessage,
     type ILogger,
 } from '@lemonade/core';
-import type { BurstAnalyzer, BurstResponder, DiagnosticJobSubmission } from '../diagnosis/BurstAnalyzer';
 import type { SessionContext } from '../diagnosis/sessionContext';
 
 /** The voice conversation, as the router needs it. Implemented over the LiveKit AgentSession. */
@@ -26,17 +24,15 @@ export interface Conversation {
 
 /**
  * Handles packets the mobile client publishes on the data channel (see
- * LiveChannelTopic). Packets from anyone but the session's user, and packets
- * that fail schema validation, are dropped.
+ * LiveChannelTopic). Frames travel as byte streams, not packets, and are
+ * handled by FrameStreamHandler. Packets from anyone but the session's user,
+ * and packets that fail schema validation, are dropped.
  */
 export class LiveChannelRouter {
     constructor(
         private readonly session: SessionContext,
         private readonly conversation: Conversation,
-        private readonly bursts: Pick<BurstAnalyzer, 'analyze'>,
-        private readonly responder: BurstResponder,
         private readonly logger: ILogger,
-        private readonly jobs: DiagnosticJobSubmission,
     ) {}
 
     async handle(payload: Uint8Array, senderIdentity: string | undefined, topic: string | undefined): Promise<void> {
@@ -48,8 +44,6 @@ export class LiveChannelRouter {
                     return this.onUserMessage(payload);
                 case LiveChannelTopic.ProactivePing:
                     return await this.onProactivePing(payload);
-                case LiveChannelTopic.VisualBurstResponse:
-                    return await this.onVisualBurst(payload);
                 case LiveChannelTopic.ToolResponse:
                     return this.onToolResponse(payload);
                 default:
@@ -76,14 +70,6 @@ export class LiveChannelRouter {
                 `I'm seeing something concerning with the ${ping.detection.id.obj}. Analyzing now...`,
             );
         }
-    }
-
-    private async onVisualBurst(payload: Uint8Array): Promise<void> {
-        const burst = decodeLiveMessage(VisualBurstMessageSchema, payload);
-        if (!burst) return this.drop(LiveChannelTopic.VisualBurstResponse);
-
-        this.logger.info('Analyzing visual burst', { frames: burst.frames.length, reason: burst.metadata.reason });
-        await this.bursts.analyze(burst, this.session, this.responder, this.jobs);
     }
 
     private onToolResponse(payload: Uint8Array): void {

@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { ILogger, SemanticTriageResult } from '@lemonade/core';
+import type { ILogger, NeurosymbolicState, SemanticTriageResult } from '@lemonade/core';
 import type { SessionContext } from '../src/diagnosis/sessionContext';
 
 export const session: SessionContext = {
@@ -15,6 +15,10 @@ export function fakeLogger(): ILogger {
 
 export function detection(obj: string, cat: string, risk = false): SemanticTriageResult {
     return { id: { obj, cat }, eval: { stat: risk ? 'CRITICAL' : 'NORMAL', risk, note: 'seen' } };
+}
+
+export function diagnosis(userOutput: string): NeurosymbolicState {
+    return { finalDiagnosis: { userOutput } } as unknown as NeurosymbolicState;
 }
 
 export function fakeResponder() {

@@ -8,14 +8,17 @@ import {
     LiveChannelTopic,
     AiResponseMessage,
     AiResponseMessageSchema,
+    MAX_DATA_PACKET_BYTES,
     ProactivePingMessage,
     UserMessage,
-    VisualBurstMessage,
     decodeLiveMessage,
     encodeLiveMessage,
+    type FrameStreamAttributes,
 } from '@lemonade/core';
 import { db, auth } from '@mobile/infrastructure/firebase/config';
 import { MobileLogger } from '../services/MobileLogger';
+import { FrameGate, frameDifference, toGrayscale } from '../services/frameGate';
+import { FrameStreamSender, base64ToBytes } from '../services/frameStream';
 import { triggerGhostFeedback } from '../services/FeedbackService';
 import { useCameraVisionStream } from './useCameraVisionStream';
 
@@ -59,17 +62,62 @@ export function useLiveMechanicSession(sessionId: string, vehicle: Vehicle | nul
     const escalatedIds = useRef<Set<string>>(new Set());
     const pendingToolResponses = useRef<{ toolCallId: string; response: unknown }[]>([]);
     const roomRef = useRef<Room | null>(null);
+    // The frame gate paces talker frames (usually one every ~5 s) and the
+    // last sent frame's grayscale, for the gate's changed check.
+    const frameGateRef = useRef(new FrameGate());
+    const lastSentGrayscaleRef = useRef<Uint8Array | null>(null);
 
     const vision = useCameraVisionStream({ sessionId });
     const { cameraPermissionGranted, requestCameraPermission, getSemanticPeak, currentDetections } = vision;
 
     /** Publishes on a topic when connected. Returns false when there is no live room. */
-    const publish = useCallback(async (topic: LiveChannelTopic, message: unknown): Promise<boolean> => {
-        const current = roomRef.current;
-        if (!current || current.state !== ConnectionState.Connected) return false;
-        await current.localParticipant.publishData(encodeLiveMessage(message), { reliable: true, topic });
-        return true;
-    }, []);
+    const publish = useCallback(
+        async (topic: LiveChannelTopic, message: unknown): Promise<boolean> => {
+            const current = roomRef.current;
+            if (!current || current.state !== ConnectionState.Connected) return false;
+            const payload = encodeLiveMessage(message);
+            // Frames travel as byte streams, never here: a packet over the
+            // 15 KiB limit is refused instead of silently dropped by LiveKit.
+            if (payload.byteLength > MAX_DATA_PACKET_BYTES) {
+                logger.error('Data packet exceeds the 15 KiB limit; not sending', undefined, {
+                    topic,
+                    bytes: payload.byteLength,
+                });
+                return false;
+            }
+            await current.localParticipant.publishData(payload, { reliable: true, topic });
+            return true;
+        },
+        [logger],
+    );
+
+    /**
+     * Streams one frame to the agent as a LiveKit byte stream. Returns false
+     * when there is no live room, or the stream fails.
+     */
+    const streamFrame = useCallback(
+        async (
+            bytes: Uint8Array,
+            attributes: Omit<FrameStreamAttributes, 'sessionId' | 'frameId' | 'capturedAt'>,
+        ): Promise<boolean> => {
+            const current = roomRef.current;
+            if (!current || current.state !== ConnectionState.Connected) return false;
+            try {
+                const sender = new FrameStreamSender(() => current.localParticipant);
+                await sender.sendFrame(bytes, {
+                    ...attributes,
+                    sessionId,
+                    frameId: `${sessionId}-${Date.now()}`,
+                    capturedAt: String(Date.now()),
+                });
+                return true;
+            } catch (e) {
+                logger.error('Failed to stream frame', e as Error);
+                return false;
+            }
+        },
+        [sessionId, logger],
+    );
 
     const appendToTranscript = useCallback(
         (role: 'user' | 'assistant', content: string) =>
@@ -112,34 +160,46 @@ export function useLiveMechanicSession(sessionId: string, vehicle: Vehicle | nul
         [onToolCall, sendToolResponse, appendToTranscript],
     );
 
-    const sendFrames = useCallback(
-        async (frames: string[], metadata: Omit<VisualBurstMessage['metadata'], 'sessionId' | 'timestamp'>) => {
-            const burst: VisualBurstMessage = {
-                frames,
-                metadata: { ...metadata, sessionId, timestamp: Date.now() },
-            };
-            return publish(LiveChannelTopic.VisualBurstResponse, burst);
-        },
-        [publish, sessionId],
-    );
-
-    /** Hands the sharpest recent on-device frame to the cloud agent. */
+    /** Hands the sharpest recent on-device frame to the cloud agent, when the frame gate lets it through. */
     const handoffToCloud = useCallback(
         async (reason: string) => {
             const peak = await getSemanticPeak();
             if (!peak) return;
             try {
-                const frame = await FileSystem.readAsStringAsync(peak.path, {
-                    encoding: FileSystem.EncodingType.Base64,
+                const grayscale = toGrayscale(peak.rgb);
+                const lastSent = lastSentGrayscaleRef.current;
+                const decision = frameGateRef.current.evaluate({
+                    id: `${sessionId}-${Date.now()}`,
+                    source: 'phone',
+                    capturedAt: Date.now(),
+                    byteLength: peak.rgb.byteLength,
+                    sharpness: peak.sharpness,
+                    motion: peak.motion,
+                    changeFromLastSent: lastSent ? frameDifference(grayscale, lastSent) : 255,
+                    detections: peak.detections,
+                    reason,
                 });
-                if (await sendFrames([frame], { reason, localDetections: peak.detections })) {
-                    logger.info('Handoff packet synchronized.', { reason });
+                if (!decision.send) {
+                    logger.debug('Frame gate held the frame', { reason: decision.reason });
+                    return;
+                }
+                if (
+                    await streamFrame(peak.rgb, {
+                        reason,
+                        source: 'phone',
+                        resolution: 'low',
+                        still: 'false',
+                        detections: peak.detections.length > 0 ? JSON.stringify(peak.detections) : undefined,
+                    })
+                ) {
+                    lastSentGrayscaleRef.current = grayscale;
+                    logger.info('Frame streamed to agent.', { reason });
                 }
             } catch (e) {
                 logger.error('Handoff failed', e as Error);
             }
         },
-        [getSemanticPeak, sendFrames, logger],
+        [getSemanticPeak, streamFrame, logger, sessionId],
     );
 
     const sendVisualBurst = useCallback(async () => {
@@ -184,13 +244,23 @@ export function useLiveMechanicSession(sessionId: string, vehicle: Vehicle | nul
         sendProactivePing(best);
     }, [currentDetections, isLive, sendProactivePing]);
 
-    /** Sends a photo taken elsewhere (e.g. Meta glasses) to the agent for analysis. */
+    /** Sends a photo taken elsewhere (e.g. Meta glasses) to the agent as a full-resolution still for the reasoner and the ledger. */
     const sendExternalImage = useCallback(
         async (uri: string) => {
             setAgentState('thinking');
             try {
-                const frame = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-                if (!(await sendFrames([frame], { reason: 'Meta Glasses Capture' }))) {
+                const base64 = await FileSystem.readAsStringAsync(uri, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+                const bytes = base64ToBytes(base64);
+                if (
+                    !(await streamFrame(bytes, {
+                        reason: 'Meta Glasses Capture',
+                        source: 'glasses',
+                        resolution: 'high',
+                        still: 'true',
+                    }))
+                ) {
                     logger.warn('Cannot send external image: not connected.');
                     setAgentState('idle');
                 }
@@ -199,7 +269,7 @@ export function useLiveMechanicSession(sessionId: string, vehicle: Vehicle | nul
                 setAgentState('idle');
             }
         },
-        [sendFrames, logger],
+        [streamFrame, logger],
     );
 
     /** Sends a typed message to the agent and records it in the session transcript. */

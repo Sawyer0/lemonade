@@ -1,11 +1,13 @@
 import { type JobContext, defineAgent, voice } from '@livekit/agents';
 import * as silero from '@livekit/agents-plugin-silero';
 import { RoomEvent, type RemoteParticipant } from '@livekit/rtc-node';
-import type { ICaseRepository, ILiveStreamAnalyzer } from '@lemonade/core';
+import type { ICaseRepository, ILiveStreamAnalyzer, IMechanicReasoningService } from '@lemonade/core';
 import { Logger, TYPES, createContainer } from '@lemonade/infrastructure';
 import { loadEnv } from './env';
 import { LiveChannelRouter, type Conversation } from './channel/LiveChannelRouter';
+import { FrameStreamHandler } from './channel/frameStreamHandler';
 import { RoomPublisher } from './channel/roomPublisher';
+import { createAdminStillStore } from './channel/stillStore';
 import { BurstAnalyzer, type DiagnosticJobSubmission } from './diagnosis/BurstAnalyzer';
 import { describeVehicle, parseSessionContext } from './diagnosis/sessionContext';
 import { JobClient } from './jobs/JobClient';
@@ -21,16 +23,19 @@ import { createTranscriptSink } from './voice/transcriptLedger';
 const env = loadEnv();
 const logger = new Logger();
 
-// Frame analysis needs the media model (Vertex by default) and Firestore.
-// Build that graph on the first frame, so a voice-only call (and the live
-// e2e test) needs only LiveKit and Gemini. The analyzer files complex
-// systems as job tickets now (LM-14); the per-call job port comes from the
-// router, so this lazy object stays session-independent.
+// Frame analysis needs the media model (Vertex by default), Firestore and NHTSA. Build that
+// graph on the first frame, so a voice-only call (and the live e2e test) needs only LiveKit and Gemini.
+// The analyzer files complex systems as job tickets (LM-14); the per-call job port comes from the
+// frame handler, so this lazy object stays session-independent.
 let burstAnalyzer: BurstAnalyzer | undefined;
 const bursts: Pick<BurstAnalyzer, 'analyze'> = {
     analyze: (...args) => {
         if (!burstAnalyzer) {
-            burstAnalyzer = new BurstAnalyzer(createContainer().get<ILiveStreamAnalyzer>(TYPES.LiveStreamAI));
+            const container = createContainer();
+            burstAnalyzer = new BurstAnalyzer(
+                container.get<IMechanicReasoningService>(TYPES.MechanicReasoningService),
+                container.get<ILiveStreamAnalyzer>(TYPES.LiveStreamAI),
+            );
         }
         return burstAnalyzer.analyze(...args);
     },
@@ -89,8 +94,9 @@ function talkerSessionFor(session: voice.AgentSession): TalkerSession {
  * and out runs through the voice provider named by VOICE_PROVIDER (gemini,
  * grok, or cascade); the AgentSession owns start/stop, audio, tools,
  * interrupt and transcripts for every provider, so switching providers is a
- * config change. Frames and typed messages arrive on the data channel and
- * are routed by LiveChannelRouter.
+ * config change. Typed messages arrive on the data channel and are routed by
+ * LiveChannelRouter; frames arrive as byte streams and are handled by
+ * FrameStreamHandler.
  */
 export default defineAgent({
     prewarm: async (proc) => {
@@ -153,17 +159,25 @@ export default defineAgent({
             trackJob: (jobId) => injector.track(jobId),
         };
 
-        const router = new LiveChannelRouter(
+        const router = new LiveChannelRouter(sessionContext, conversationFor(session), logger);
+        const responder = {
+            say: (text: string) => session.generateReply({ instructions: text }).waitForPlayout(),
+            requestTool: (toolCall: { id: string; name: string; args: Record<string, unknown> }) =>
+                publisher.aiResponse({ type: 'tool_call', toolCall }),
+        };
+        // Frames arrive as byte streams, not data packets: the phone gates
+        // them and the agent reassembles them here.
+        new FrameStreamHandler(
             sessionContext,
-            conversationFor(session),
             bursts,
+            responder,
+            jobSubmission,
             {
-                say: (text) => session.generateReply({ instructions: text }).waitForPlayout(),
-                requestTool: (toolCall) => publisher.aiResponse({ type: 'tool_call', toolCall }),
+                store: createAdminStillStore(),
+                repository: () => createContainer().get<ICaseRepository>(TYPES.CaseRepo),
             },
             logger,
-            jobSubmission,
-        );
+        ).register(ctx.room);
         ctx.room.on(
             RoomEvent.DataReceived,
             (payload: Uint8Array, sender?: RemoteParticipant, _kind?, topic?: string) => {

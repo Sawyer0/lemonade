@@ -173,7 +173,10 @@ describe('LedgerEntrySchema', () => {
             { type: 'observation', payload: { text: 'Coolant pooling under the radiator' } },
             {
                 type: 'frame_captured',
-                payload: { media: { storageUri: 'gs://bucket/frame.jpg', sha256: 'a'.repeat(64) } },
+                payload: {
+                    media: { storageUri: 'gs://bucket/frame.jpg', sha256: 'a'.repeat(64) },
+                    resolution: 'high',
+                },
             },
             {
                 type: 'test_result',
@@ -306,6 +309,26 @@ describe('LedgerEntrySchema', () => {
         expect(result.success).toBe(false);
     });
 
+    it('rejects a frame_captured still that is not full resolution', () => {
+        const result = LedgerEntrySchema.safeParse({
+            id: uuidv4(),
+            caseId,
+            sequence: 1,
+            type: 'frame_captured',
+            actor,
+            source: 'glasses',
+            occurredAt,
+            payload: {
+                media: { storageUri: 'gs://bucket/frame.jpg', sha256: 'a'.repeat(64) },
+                resolution: 'low',
+            },
+            previousHash: LEDGER_GENESIS_HASH,
+            entryHash: 'b'.repeat(64),
+            createdAt: new Date(),
+        });
+        expect(result.success).toBe(false);
+    });
+
     it('rejects a media reference with a malformed sha256', () => {
         const result = LedgerEntrySchema.safeParse({
             id: uuidv4(),
@@ -315,7 +338,10 @@ describe('LedgerEntrySchema', () => {
             actor,
             source: 'glasses',
             occurredAt,
-            payload: { media: { storageUri: 'gs://bucket/frame.jpg', sha256: 'not-a-hash' } },
+            payload: {
+                media: { storageUri: 'gs://bucket/frame.jpg', sha256: 'not-a-hash' },
+                resolution: 'high',
+            },
             previousHash: LEDGER_GENESIS_HASH,
             entryHash: 'b'.repeat(64),
             createdAt: new Date(),

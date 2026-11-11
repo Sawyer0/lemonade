@@ -1,6 +1,7 @@
 import type {
     CreateDiagnosticJobInput,
     ILiveStreamAnalyzer,
+    IMechanicReasoningService,
     LocalTriageResult,
     MessagePart,
     AIAnalysis,
@@ -37,15 +38,19 @@ function isAnalysis(result: AIAnalysis | MessagePart[]): result is AIAnalysis {
 }
 
 /**
- * Routes frames from the device. Complex systems go to the diagnostic
- * backend as a non-blocking job ticket (LM-14): the job id comes back fast,
- * the talker keeps the tech working, and the ResultInjector speaks the
- * finding at the next idle gap. Everything else gets a fast live-frame
- * analysis whose text is spoken back or whose tool calls are forwarded to
- * the device.
+ * Routes frames from the device. A full-resolution still goes to the
+ * reasoner (LM-15), never the fast live-frame path the talker uses. Complex
+ * systems go to the diagnostic backend as a non-blocking job ticket (LM-14):
+ * the job id comes back fast, the talker keeps the tech working, and the
+ * ResultInjector speaks the finding at the next idle gap. Everything else
+ * gets a fast live-frame analysis whose text is spoken back or whose tool
+ * calls are forwarded to the device.
  */
 export class BurstAnalyzer {
-    constructor(private readonly liveFrames: ILiveStreamAnalyzer) {}
+    constructor(
+        private readonly reasoning: IMechanicReasoningService,
+        private readonly liveFrames: ILiveStreamAnalyzer,
+    ) {}
 
     async analyze(
         burst: VisualBurstMessage,
@@ -58,6 +63,25 @@ export class BurstAnalyzer {
         const triage: LocalTriageResult | undefined = detections?.length
             ? { detections, timestamp: burst.metadata.timestamp }
             : undefined;
+
+        // A full-resolution still goes only to the reasoner, never the fast
+        // live-frame path the talker uses. The still itself is in the case
+        // ledger (see FrameStreamHandler); the reasoner gets its reference.
+        if (burst.metadata.still) {
+            await respond.say(`Scanning the ${component} system. One moment...`);
+            const stillNote = burst.metadata.stillUri
+                ? ` A full-resolution still is in the case ledger: ${burst.metadata.stillUri}.`
+                : '';
+            const state = await this.reasoning.diagnose({
+                userQuery: `Analyze the ${component} for issues.${stillNote}`,
+                vehicleContext: session.vehicle,
+                sessionId: session.sessionId,
+                userId: session.userId,
+                localTriage: triage,
+            });
+            await respond.say(state.finalDiagnosis.userOutput);
+            return;
+        }
 
         if (isComplex(triage)) {
             try {
