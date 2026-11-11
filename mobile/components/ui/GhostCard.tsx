@@ -1,14 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withRepeat,
-    withTiming,
-    withSequence,
-    Easing,
-} from 'react-native-reanimated';
-import { GlassCard } from './GlassCard.native';
+import Animated from 'react-native-reanimated';
+import { GlassCard } from './GlassCard';
+import { Theme } from '../../constants/theme';
+import { usePulseOpacity } from '../../hooks/usePulseOpacity';
 
 interface GhostCardProps {
     title: string;
@@ -16,22 +11,7 @@ interface GhostCardProps {
 }
 
 export const GhostCard: React.FC<GhostCardProps> = ({ title, subtitle }) => {
-    const opacity = useSharedValue(0.3);
-
-    useEffect(() => {
-        opacity.value = withRepeat(
-            withSequence(
-                withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-                withTiming(0.3, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-            ),
-            -1,
-            true,
-        );
-    }, [opacity]);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        opacity: opacity.value,
-    }));
+    const animatedStyle = usePulseOpacity();
 
     return (
         <GlassCard style={styles.container} variant="thin">
@@ -69,25 +49,25 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: '600',
-        color: 'white',
+        color: Theme.text,
     },
     pulseDot: {
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: '#FFD700', // Gold pulse
+        backgroundColor: Theme.tint,
     },
     skeletonContainer: {
         gap: 8,
     },
     skeletonLine: {
         height: 12,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: Theme.surfaceRaised,
         borderRadius: 6,
     },
     subtitle: {
         fontSize: 12,
-        color: 'rgba(255,255,255,0.6)',
+        color: Theme.textSecondary,
         marginTop: 4,
     },
 });

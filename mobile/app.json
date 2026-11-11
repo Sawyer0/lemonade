@@ -23,9 +23,10 @@
       }
     },
     "android": {
+      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#FAF7F0"
       },
       "package": "com.dawan.lemonademvp",
       "permissions": ["android.permission.CAMERA", "android.permission.RECORD_AUDIO"]

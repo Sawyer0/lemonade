@@ -7,7 +7,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useNativeAuth } from '../hooks/useNativeAuth';
 import { useWebViewBridge } from '../hooks/useWebViewBridge';
 import { CONFIG } from '@mobile/constants/config';
-import { GlassCard } from './ui/GlassCard.native';
+import { GlassCard } from './ui/GlassCard';
 import { useRouter } from 'expo-router';
 import { LucideGlasses } from 'lucide-react-native';
 

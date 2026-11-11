@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useLocalPerception } from '../../context/LocalPerceptionContext';
 import { Theme } from '../../constants/theme';
+import { GradientButton } from '../ui/GradientButton';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function BlockingSetupScreen() {
@@ -39,16 +40,7 @@ export default function BlockingSetupScreen() {
                         </Text>
                     </View>
                 ) : (
-                    <TouchableOpacity style={styles.button} onPress={ensureModel} activeOpacity={0.8}>
-                        <LinearGradient
-                            colors={[Theme.gradientStart, Theme.gradientEnd]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.gradientButton}
-                        >
-                            <Text style={styles.buttonText}>Download Model</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
+                    <GradientButton title="Download Model" onPress={ensureModel} style={styles.button} />
                 )}
             </View>
         </View>
@@ -76,7 +68,7 @@ const styles = StyleSheet.create({
     icon: {
         fontSize: 32,
         fontWeight: '900',
-        color: '#000',
+        color: Theme.onPrimary,
     },
     title: {
         fontSize: 28,
@@ -95,18 +87,6 @@ const styles = StyleSheet.create({
     button: {
         width: '100%',
         height: 56,
-        borderRadius: 16,
-        overflow: 'hidden',
-    },
-    gradientButton: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: '#000',
-        fontSize: 18,
-        fontWeight: 'bold',
     },
     progressContainer: {
         width: '100%',
@@ -121,7 +101,7 @@ const styles = StyleSheet.create({
     progressBarBg: {
         width: '100%',
         height: 6,
-        backgroundColor: '#1C1C1E',
+        backgroundColor: Theme.surfaceRaised,
         borderRadius: 3,
         marginTop: 20,
         overflow: 'hidden',
@@ -131,13 +111,11 @@ const styles = StyleSheet.create({
         backgroundColor: Theme.tint,
     },
     errorContainer: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        backgroundColor: Theme.stopSoft,
         padding: 16,
         borderRadius: 12,
         marginBottom: 24,
         width: '100%',
-        borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.2)',
     },
     errorTitle: {
         color: Theme.error,

@@ -1,9 +1,11 @@
 import React from 'react';
-import { StyleSheet, FlatList, TouchableOpacity, View, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, FlatList, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Theme } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
+import { VehicleCard } from '../../components/domain/garage/VehicleCard';
+import { Fab } from '../../components/ui/Fab';
 import { useGarage } from '../../hooks/useGarage';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,22 +17,11 @@ export default function GarageScreen() {
     const router = useRouter();
 
     const renderVehicle = ({ item }: { item: Vehicle }) => (
-        <TouchableOpacity
+        <VehicleCard
+            vehicle={item}
             testID={`vehicle-card-${item.id}`}
-            style={styles.card}
             onPress={() => router.push(`/garage/${item.id}`)}
-        >
-            <View style={styles.cardHeader}>
-                <Ionicons name="car" size={24} color={Theme.tint} />
-                <View style={styles.badge}>
-                    <ThemedText style={styles.badgeText}>{item.activeIssuesCount} Issues</ThemedText>
-                </View>
-            </View>
-            <ThemedText type="defaultSemiBold" style={styles.vehicleTitle}>
-                {item.specs.year} {item.specs.make} {item.specs.model}
-            </ThemedText>
-            <ThemedText style={styles.vinText}>{item.vin}</ThemedText>
-        </TouchableOpacity>
+        />
     );
 
     if (loading) {
@@ -81,9 +72,7 @@ export default function GarageScreen() {
                 contentContainerStyle={styles.list}
             />
 
-            <TouchableOpacity testID="add-vehicle-fab" style={styles.fab} onPress={() => router.push('/garage/add')}>
-                <Ionicons name="add" size={30} color="black" />
-            </TouchableOpacity>
+            <Fab testID="add-vehicle-fab" onPress={() => router.push('/garage/add')} />
         </ThemedView>
     );
 }
@@ -110,56 +99,6 @@ const styles = StyleSheet.create({
         color: Theme.textSecondary,
         marginTop: 4,
     },
-    card: {
-        backgroundColor: Theme.card,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: Theme.border,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    vehicleTitle: {
-        fontSize: 18,
-        color: Theme.text,
-    },
-    vinText: {
-        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-        color: Theme.textSecondary,
-        fontSize: 12,
-        marginTop: 4,
-    },
-    badge: {
-        backgroundColor: Theme.border,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-    },
-    badgeText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: Theme.tint,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-    },
     emptyState: {
         alignItems: 'center',
         marginTop: 100,
@@ -170,7 +109,7 @@ const styles = StyleSheet.create({
     },
     errorContainer: {
         padding: 16,
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        backgroundColor: Theme.stopSoft,
         margin: 16,
         borderRadius: 8,
     },

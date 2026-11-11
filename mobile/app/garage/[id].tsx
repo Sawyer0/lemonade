@@ -1,11 +1,13 @@
 import React from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Theme } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useVehicle } from '../../hooks/useVehicle';
 import { useGarage } from '../../hooks/useGarage';
+import { SessionRow } from '../../components/domain/garage/SessionRow';
+import { JETBRAINS_MONO_FAMILY } from '../../constants/brandFonts';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function VehicleDetailScreen() {
@@ -66,21 +68,12 @@ export default function VehicleDetailScreen() {
 
                     {vehicleSessions.length > 0 ? (
                         vehicleSessions.map((session) => (
-                            <TouchableOpacity
+                            <SessionRow
                                 key={session.id}
-                                style={styles.sessionItem}
+                                title={session.complaint || 'General Checkup'}
+                                date={session.updatedAt.toLocaleDateString()}
                                 onPress={() => router.push(`/session/${session.id}`)}
-                            >
-                                <View style={styles.sessionInfo}>
-                                    <ThemedText type="defaultSemiBold">
-                                        {session.complaint || 'General Checkup'}
-                                    </ThemedText>
-                                    <ThemedText style={styles.dateText}>
-                                        {session.updatedAt.toLocaleDateString()}
-                                    </ThemedText>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color={Theme.textSecondary} />
-                            </TouchableOpacity>
+                            />
                         ))
                     ) : (
                         <View style={styles.emptySessions}>
@@ -108,13 +101,13 @@ const styles = StyleSheet.create({
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: 'rgba(250, 204, 21, 0.1)',
+        backgroundColor: Theme.accentSoft,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 16,
     },
     vin: {
-        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+        fontFamily: JETBRAINS_MONO_FAMILY.regular,
         color: Theme.textSecondary,
         marginTop: 4,
     },
@@ -149,24 +142,6 @@ const styles = StyleSheet.create({
     actionText: {
         color: Theme.tint,
         fontWeight: 'bold',
-    },
-    sessionItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        backgroundColor: Theme.card,
-        borderRadius: 12,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: Theme.border,
-    },
-    sessionInfo: {
-        flex: 1,
-    },
-    dateText: {
-        fontSize: 12,
-        color: Theme.textSecondary,
-        marginTop: 2,
     },
     emptySessions: {
         padding: 40,

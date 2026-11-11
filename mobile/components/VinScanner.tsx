@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Text, Dimensions, ActivityIndicator
 import { CameraView, BarcodeScanningResult } from 'expo-camera';
 import { X } from 'lucide-react-native';
 import { Theme } from '@mobile/constants/theme';
-import { GlassCard } from './ui/GlassCard.native';
+import { GlassCard } from './ui/GlassCard';
 import { extractVin } from '../domain/vin';
 
 interface VinScannerProps {

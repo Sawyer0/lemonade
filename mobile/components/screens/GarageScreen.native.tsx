@@ -3,9 +3,9 @@ import { View, StyleSheet, FlatList, Text, ActivityIndicator } from 'react-nativ
 import { useRouter } from 'expo-router';
 import { Theme } from '@mobile/constants/theme';
 import { useGarage } from '@mobile/hooks/useGarage';
-import { SessionCard } from '../domain/garage/SessionCard.native';
+import { SessionCard } from '../domain/garage/SessionCard';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GradientButton } from '../ui/GradientButton.native';
+import { GradientButton } from '../ui/GradientButton';
 
 export default function GarageScreen() {
     const { sessions, loading, error } = useGarage();
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     },
     errorBox: {
         padding: 16,
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        backgroundColor: Theme.stopSoft,
         margin: 16,
         borderRadius: 8,
     },

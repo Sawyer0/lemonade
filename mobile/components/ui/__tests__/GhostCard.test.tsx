@@ -20,7 +20,7 @@ jest.mock('react-native-reanimated', () => {
 });
 
 // Mock GlassCard
-jest.mock('../GlassCard.native', () => ({
+jest.mock('../GlassCard', () => ({
     GlassCard: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 

@@ -6,7 +6,7 @@ export default function GarageLayout() {
         <Stack
             screenOptions={{
                 headerShown: true,
-                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerStyle: { backgroundColor: Theme.background },
                 headerTintColor: Theme.text,
                 headerShadowVisible: false,
                 headerTitleStyle: {

@@ -1,18 +1,11 @@
 import React, { useState } from 'react';
-import {
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    ActivityIndicator,
-    View,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-} from 'react-native';
+import { StyleSheet, TouchableOpacity, View, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { Theme } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
+import { TextInput } from '../../components/ui/TextInput';
+import { GradientButton } from '../../components/ui/GradientButton';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -54,18 +47,16 @@ export default function SignupScreen() {
 
                         <TextInput
                             testID="signup-username-input"
-                            style={styles.input}
+                            label="Username"
                             placeholder="Username"
-                            placeholderTextColor={Theme.textSecondary}
                             value={username}
                             onChangeText={setUsername}
                         />
 
                         <TextInput
                             testID="signup-email-input"
-                            style={styles.input}
+                            label="Email"
                             placeholder="Email"
-                            placeholderTextColor={Theme.textSecondary}
                             value={email}
                             onChangeText={setEmail}
                             autoCapitalize="none"
@@ -74,26 +65,21 @@ export default function SignupScreen() {
 
                         <TextInput
                             testID="signup-password-input"
-                            style={styles.input}
+                            label="Password"
                             placeholder="Password"
-                            placeholderTextColor={Theme.textSecondary}
                             value={password}
                             onChangeText={setPassword}
                             secureTextEntry
                         />
 
-                        <TouchableOpacity
+                        <GradientButton
                             testID="signup-submit-button"
-                            style={[styles.button, styles.signupButton]}
+                            title="Sign Up"
                             onPress={handleSignup}
                             disabled={loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color="black" />
-                            ) : (
-                                <ThemedText style={styles.buttonText}>Sign Up</ThemedText>
-                            )}
-                        </TouchableOpacity>
+                            loading={loading}
+                            style={styles.buttonSpacing}
+                        />
 
                         <View style={styles.divider}>
                             <View style={styles.line} />
@@ -101,16 +87,14 @@ export default function SignupScreen() {
                             <View style={styles.line} />
                         </View>
 
-                        <TouchableOpacity
-                            style={[styles.button, styles.googleButton]}
+                        <GradientButton
+                            title="Continue with Google"
+                            variant="outline"
+                            icon={<Ionicons name="logo-google" size={20} color="white" />}
                             onPress={handleGoogleLogin}
                             disabled={loading}
-                        >
-                            <Ionicons name="logo-google" size={20} color="white" style={{ marginRight: 10 }} />
-                            <ThemedText style={[styles.buttonText, { color: 'white' }]}>
-                                Continue with Google
-                            </ThemedText>
-                        </TouchableOpacity>
+                            style={styles.buttonSpacing}
+                        />
 
                         <View style={styles.footer}>
                             <ThemedText>Already have an account? </ThemedText>
@@ -147,34 +131,8 @@ const styles = StyleSheet.create({
     form: {
         width: '100%',
     },
-    input: {
-        backgroundColor: Theme.card,
-        color: Theme.text,
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: Theme.border,
-        fontSize: 16,
-    },
-    button: {
-        borderRadius: 12,
-        padding: 16,
-        alignItems: 'center',
-        flexDirection: 'row',
-        justifyContent: 'center',
+    buttonSpacing: {
         marginTop: 8,
-    },
-    signupButton: {
-        backgroundColor: Theme.tint,
-    },
-    googleButton: {
-        backgroundColor: '#4285F4',
-    },
-    buttonText: {
-        fontWeight: 'bold',
-        fontSize: 16,
-        color: 'black',
     },
     errorText: {
         color: Theme.error,
