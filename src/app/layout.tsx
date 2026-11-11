@@ -39,7 +39,8 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
+        // Konsta only applies its dark palette under a .dark ancestor; the app is dark-only.
+        <html lang="en" className="dark">
             <body
                 className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white pt-safe pb-safe`}
             >

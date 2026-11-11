@@ -1,5 +1,6 @@
 @import 'tailwindcss';
-@import 'konsta/theme.css';
+/* The react entry adds @source for Konsta's components, so Tailwind generates their classes. */
+@import 'konsta/react/theme.css';
 
 @layer utilities {
     .mask-image-gradient {

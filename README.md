@@ -197,6 +197,19 @@ npx firebase-tools@14 emulators:exec --only auth,firestore --project demo-lemona
 
 The emulators need Java 21.
 
+### Browser e2e against the emulators
+
+Building with `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` points the web Firebase SDK (Auth, Firestore, Storage) at the
+local emulators on `127.0.0.1` (override the host with `NEXT_PUBLIC_FIREBASE_EMULATOR_HOST`). Never set it for a
+deployed build. `playwright.emulators.config.ts` then signs in through the real login form and walks the garage,
+service history and diagnosis screens with seeded fake data:
+
+```bash
+NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-lemonade npm run build
+npx firebase-tools@14 emulators:exec --only auth,firestore --project demo-lemonade \
+  "npx playwright test -c playwright.emulators.config.ts"
+```
+
 ### Live voice agent test
 
 `agent/test/live/voiceAgent.live.test.ts` starts the agent worker, joins a fresh LiveKit room as a test participant,
