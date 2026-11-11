@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Theme } from '@mobile/constants/theme';
-import { GlassCard } from '@mobile/components/ui/GlassCard.native';
+import { GlassCard } from '@mobile/components/ui/GlassCard';
 import { MessagePart } from '@lemonade/core';
 
 interface ChatBubbleProps {
@@ -58,7 +58,7 @@ export function ChatBubble({ role, content, sessionId }: ChatBubbleProps) {
                                     >
                                         <Text style={{ fontSize: 18 }}>📷</Text>
                                     </View>
-                                    <Text style={{ color: 'white', fontWeight: 'bold' }}>Tap to Open Camera</Text>
+                                    <Text style={{ color: Theme.text, fontWeight: 'bold' }}>Tap to Open Camera</Text>
                                 </GlassCard>
                             </TouchableOpacity>
                         );
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
     textDark: {
-        color: 'black',
+        color: Theme.onPrimary,
         fontWeight: '500',
     },
     textLight: {

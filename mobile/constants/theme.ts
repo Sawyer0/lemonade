@@ -1,48 +1,52 @@
 /**
- * Lemonade Brand Theme
- * Matches the Web App's aesthetic:
- * - Background: Deep Black
- * - Accents: Yellow-400 to Orange-500 Gradient
- * - Cards: Zinc-900
+ * Lemonade Brand Theme — derived from the brand tokens, the single source
+ * of truth for brand colors (packages/core/src/config/brandTokens.ts).
+ * No brand color may be hardcoded here.
+ *
+ * Both schemes map to the dark token set for now: the app is dark-only
+ * until #46 wires the light scheme and the mode toggle.
+ *
+ * Legacy key mapping (kept so existing consumers work unchanged):
+ * tint is the action accent, card is the surface, gradientStart/gradientEnd
+ * are the primary-to-accent gradient, success/error/warning are the go/stop/
+ * caution states, and the *Soft tints are the washed backgrounds for badges
+ * and error boxes.
  */
+import { BRAND_TOKENS, type ColorScheme } from '@lemonade/core';
 
-const tintColorLight = '#FACC15'; // Yellow-400
-const tintColorDark = '#FACC15';
+function toLegacyColors(scheme: ColorScheme) {
+    return {
+        text: scheme.text,
+        textSecondary: scheme.textSecondary,
+        background: scheme.background,
+        tint: scheme.accent,
+        icon: scheme.text,
+        tabIconDefault: scheme.textSecondary,
+        tabIconSelected: scheme.accent,
+        card: scheme.surface,
+        surfaceRaised: scheme.surfaceRaised,
+        border: scheme.border,
+        gradientStart: scheme.primary,
+        gradientEnd: scheme.accent,
+        primarySoft: scheme.primarySoft,
+        accentSoft: scheme.accentSoft,
+        stopSoft: scheme.stopSoft,
+        goSoft: scheme.goSoft,
+        cautionSoft: scheme.cautionSoft,
+        primaryStrong: scheme.primaryStrong,
+        accentStrong: scheme.accentStrong,
+        onPrimary: scheme.onPrimary,
+        onAccent: scheme.onAccent,
+        success: scheme.go,
+        error: scheme.stop,
+        warning: scheme.caution,
+    };
+}
 
 export const Colors = {
-    light: {
-        text: '#FAFAFA', // Zinc-50
-        textSecondary: '#A1A1AA', // Zinc-400
-        background: '#000000', // Black
-        tint: tintColorLight,
-        icon: '#FAFAFA',
-        tabIconDefault: '#A1A1AA',
-        tabIconSelected: tintColorLight,
-        card: '#18181B', // Zinc-900
-        border: '#27272A', // Zinc-800
-        gradientStart: '#FACC15', // Yellow-400
-        gradientEnd: '#F97316', // Orange-500
-        success: '#22C55E', // Green-500
-        error: '#EF4444', // Red-500
-        warning: '#F59E0B', // Amber-500
-    },
-    dark: {
-        text: '#FAFAFA',
-        textSecondary: '#A1A1AA',
-        background: '#000000',
-        tint: tintColorDark,
-        icon: '#FAFAFA',
-        tabIconDefault: '#A1A1AA',
-        tabIconSelected: tintColorDark,
-        card: '#18181B',
-        border: '#27272A',
-        gradientStart: '#FACC15',
-        gradientEnd: '#F97316',
-        success: '#22C55E',
-        error: '#EF4444',
-        warning: '#F59E0B',
-    },
+    light: toLegacyColors(BRAND_TOKENS.dark),
+    dark: toLegacyColors(BRAND_TOKENS.dark),
 };
 
-// We force dark mode for the brand aesthetic, but keep structure for potential future use
+// The app is dark-only until #46 adds the mode toggle.
 export const Theme = Colors.dark;

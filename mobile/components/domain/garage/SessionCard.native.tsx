@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { GlassCard } from '../../ui/GlassCard.native';
+import { GlassCard } from '../../ui/GlassCard';
 import { DiagnosticSession } from '@lemonade/core';
 import { Theme } from '@mobile/constants/theme';
 import { Car, AlertTriangle } from 'lucide-react-native';
@@ -44,15 +44,15 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
 
 function StatusBadge({ status }: { status: string }) {
     let color = Theme.textSecondary;
-    let bg = 'rgba(255,255,255,0.1)';
+    let bg = Theme.surfaceRaised;
 
     if (status === 'active') {
         color = Theme.success;
-        bg = 'rgba(34, 197, 94, 0.1)';
+        bg = Theme.goSoft;
     }
     if (status === 'analyzing') {
-        color = Theme.tint;
-        bg = 'rgba(250, 204, 21, 0.1)';
+        color = Theme.accentStrong;
+        bg = Theme.accentSoft;
     }
 
     return (

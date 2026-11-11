@@ -8,7 +8,8 @@ import Animated, {
     withSequence,
     Easing,
 } from 'react-native-reanimated';
-import { GlassCard } from './GlassCard.native';
+import { GlassCard } from './GlassCard';
+import { Theme } from '../../constants/theme';
 
 interface GhostCardProps {
     title: string;
@@ -69,25 +70,25 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: '600',
-        color: 'white',
+        color: Theme.text,
     },
     pulseDot: {
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: '#FFD700', // Gold pulse
+        backgroundColor: Theme.tint,
     },
     skeletonContainer: {
         gap: 8,
     },
     skeletonLine: {
         height: 12,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: Theme.surfaceRaised,
         borderRadius: 6,
     },
     subtitle: {
         fontSize: 12,
-        color: 'rgba(255,255,255,0.6)',
+        color: Theme.textSecondary,
         marginTop: 4,
     },
 });

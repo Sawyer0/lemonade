@@ -28,7 +28,11 @@
  * against WCAG AA (4.5:1 for normal text). Worst passing pair is the light
  * accent on the raised surface at 4.52:1. The soft tints are fills, not text
  * surfaces: pair `accentSoft` with `accentStrong` and `primarySoft` with
- * `primaryStrong`.
+ * `primaryStrong`. `stopSoft` is the error container tint: pair it with
+ * `stop` (5.66:1 light, 5.45:1 dark). `goSoft` and `cautionSoft` are the
+ * success and warning container tints, paired with `go` and `caution`
+ * the same way (light go 6.35:1, caution 6.41:1; dark go 8.27:1,
+ * caution 8.75:1).
  * The `onPrimary`, `onAccent`, and `onStop` tokens are the only text colors
  * that may sit on a filled primary, accent, or stop surface.
  *
@@ -53,8 +57,11 @@ export interface ColorScheme {
     accentStrong: HexColor;
     accentSoft: HexColor;
     stop: HexColor;
+    stopSoft: HexColor;
     caution: HexColor;
+    cautionSoft: HexColor;
     go: HexColor;
+    goSoft: HexColor;
     info: HexColor;
     onPrimary: HexColor;
     onAccent: HexColor;
@@ -92,8 +99,11 @@ export const BRAND_TOKENS: BrandTokens = {
         accentStrong: '#9A3412',
         accentSoft: '#FDEBD9',
         stop: '#B91C1C',
+        stopSoft: '#FDECEC',
         caution: '#92400E',
+        cautionSoft: '#FDF3D7',
         go: '#166534',
+        goSoft: '#E8F5EC',
         info: '#1D4E89',
         onPrimary: '#FFFFFF',
         onAccent: '#FFFFFF',
@@ -114,8 +124,11 @@ export const BRAND_TOKENS: BrandTokens = {
         accentStrong: '#FFB37A',
         accentSoft: '#3D2410',
         stop: '#F87171',
+        stopSoft: '#3D1D1D',
         caution: '#FBBF24',
+        cautionSoft: '#33270F',
         go: '#4ADE80',
+        goSoft: '#1A2E22',
         info: '#7FB3E8',
         onPrimary: '#0D1826',
         onAccent: '#0D1826',

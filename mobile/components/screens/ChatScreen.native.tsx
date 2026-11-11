@@ -15,8 +15,9 @@ import { ThemedView } from '@mobile/components/themed-view';
 import { useMobileChat } from '@mobile/hooks/useMobileChat';
 import { useChatUploads } from '@mobile/hooks/useChatUploads';
 import { useSessionVehicle } from '@mobile/hooks/useSessionVehicle';
-import { ChatBubble } from '../domain/chat/ChatBubble.native';
-import { InputBar } from '../domain/chat/InputBar.native';
+import { ChatBubble } from '../domain/chat/ChatBubble';
+import { InputBar } from '../domain/chat/InputBar';
+import { GradientButton } from '../ui/GradientButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -143,12 +144,13 @@ export default function ChatScreen() {
                                 <ThemedText style={styles.summaryBody}>{summaryText}</ThemedText>
                             )}
                             <View style={styles.summaryActions}>
-                                <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-                                    <ThemedText style={styles.buttonText}>Continue</ThemedText>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.freshButton} onPress={handleFreshStart}>
-                                    <ThemedText style={styles.freshButtonText}>Fresh Start</ThemedText>
-                                </TouchableOpacity>
+                                <GradientButton title="Continue" onPress={handleContinue} style={styles.summaryButton} />
+                                <GradientButton
+                                    title="Fresh Start"
+                                    variant="outline"
+                                    onPress={handleFreshStart}
+                                    style={styles.summaryButton}
+                                />
                             </View>
                         </ThemedView>
                     </View>
@@ -226,28 +228,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 12,
     },
-    continueButton: {
+    summaryButton: {
         flex: 1,
-        backgroundColor: Theme.tint,
-        padding: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    freshButton: {
-        flex: 1,
-        backgroundColor: Theme.card,
-        borderWidth: 1,
-        borderColor: Theme.border,
-        padding: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: 'black',
-        fontWeight: 'bold',
-    },
-    freshButtonText: {
-        color: Theme.textSecondary,
-        fontWeight: 'bold',
     },
 });
