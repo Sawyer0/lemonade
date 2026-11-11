@@ -14,6 +14,13 @@ jest.mock('expo-glass-effect', () => {
     };
 });
 
+// GlassCard resolves its scheme from the OS preference when no provider
+// wraps it; pin that preference to dark so the tint assertions exercise
+// the dark scheme.
+jest.mock('@mobile/hooks/use-color-scheme', () => ({
+    useColorScheme: () => 'dark',
+}));
+
 const glassEffect = require('expo-glass-effect') as {
     isLiquidGlassAvailable: jest.Mock;
     isGlassEffectAPIAvailable: jest.Mock;
