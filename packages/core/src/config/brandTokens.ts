@@ -23,11 +23,18 @@
  *   torque values stay readable at small sizes. Space Mono has only two
  *   weights and its typewriter quirk hurts small-size code legibility.
  *
- * Contrast: every text color on every surface in both modes, plus the
- * on-fill text colors, was checked against WCAG AA (4.5:1 for normal text).
- * Worst passing pair is the light accent on the raised surface at 4.52:1.
+ * Contrast: every text color on every surface role (`background`, `surface`,
+ * `surfaceRaised`) in both modes, plus the on-fill text colors, was checked
+ * against WCAG AA (4.5:1 for normal text). Worst passing pair is the light
+ * accent on the raised surface at 4.52:1. The soft tints are fills, not text
+ * surfaces: pair `accentSoft` with `accentStrong` and `primarySoft` with
+ * `primaryStrong`.
  * The `onPrimary`, `onAccent`, and `onStop` tokens are the only text colors
  * that may sit on a filled primary, accent, or stop surface.
+ *
+ * `info` deliberately aliases `primary` and `focusRing` deliberately aliases
+ * `accent` in each mode: the info state and the focus ring are the brand
+ * colors, not separate hues.
  */
 
 export type HexColor = `#${string}`;
@@ -131,8 +138,9 @@ export type ColorSchemeKey = keyof ColorScheme;
 export const THEME_COLOR: HexColor = BRAND_TOKENS.light.primary;
 
 /**
- * CSS custom property name for a color token, so web and mobile derive the
- * same names from the same source instead of spelling them twice.
+ * CSS custom property name for a color token, so web derives the names from
+ * the same source instead of spelling them twice. Mobile reads the token
+ * values directly from this module and does not use CSS custom properties.
  * `surfaceRaised` becomes `--lemonade-color-surface-raised`.
  */
 export function colorTokenCssVariable(token: ColorSchemeKey): string {
