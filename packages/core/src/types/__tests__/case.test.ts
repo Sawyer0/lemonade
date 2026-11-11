@@ -5,6 +5,7 @@ import {
     AppendLedgerEntryInputSchema,
     CaseSchema,
     LedgerEntrySchema,
+    OutcomePayloadSchema,
     canonicalJson,
     computeLedgerEntryHash,
     verifyLedgerChain,
@@ -102,6 +103,66 @@ describe('CaseSchema', () => {
     });
 });
 
+describe('OutcomePayloadSchema', () => {
+    const confirmedOutcome = {
+        repairPerformed: 'Replaced radiator hose',
+        partsReplaced: ['Radiator hose'],
+        codesCleared: true,
+        symptomGone: true,
+        retestPassed: true,
+        confirmed: true,
+    };
+
+    it('accepts a confirmed outcome with all three checks passed', () => {
+        expect(OutcomePayloadSchema.safeParse(confirmedOutcome).success).toBe(true);
+    });
+
+    it('accepts an unconfirmed outcome with checks unmet', () => {
+        const result = OutcomePayloadSchema.safeParse({
+            ...confirmedOutcome,
+            codesCleared: false,
+            symptomGone: false,
+            retestPassed: false,
+            confirmed: false,
+            notes: 'Coolant still weeping at the clamp; needs a second look',
+        });
+        expect(result.success).toBe(true);
+    });
+
+    it('rejects a confirmed outcome when any check failed', () => {
+        for (const failedCheck of ['codesCleared', 'symptomGone', 'retestPassed'] as const) {
+            const result = OutcomePayloadSchema.safeParse({ ...confirmedOutcome, [failedCheck]: false });
+            expect(result.success).toBe(false);
+        }
+    });
+
+    it('defaults partsReplaced to an empty list', () => {
+        const { repairPerformed, codesCleared, symptomGone, retestPassed, confirmed } = confirmedOutcome;
+        const result = OutcomePayloadSchema.safeParse({
+            repairPerformed,
+            codesCleared,
+            symptomGone,
+            retestPassed,
+            confirmed,
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.partsReplaced).toEqual([]);
+        }
+    });
+
+    it('rejects an outcome without the repair performed', () => {
+        const result = OutcomePayloadSchema.safeParse({
+            partsReplaced: ['Radiator hose'],
+            codesCleared: true,
+            symptomGone: true,
+            retestPassed: true,
+            confirmed: true,
+        });
+        expect(result.success).toBe(false);
+    });
+});
+
 describe('LedgerEntrySchema', () => {
     it('parses each event type with its own payload', () => {
         const payloads: Array<{ type: LedgerEntry['type']; payload: LedgerEntry['payload'] }> = [
@@ -118,7 +179,17 @@ describe('LedgerEntrySchema', () => {
             },
             { type: 'hypothesis', payload: { text: 'Head gasket leak', confidence: 0.7 } },
             { type: 'safety_stop', payload: { reason: 'Fuel leak near a hot exhaust' } },
-            { type: 'outcome', payload: { resolution: 'Replaced radiator hose', repaired: true } },
+            {
+                type: 'outcome',
+                payload: {
+                    repairPerformed: 'Replaced radiator hose',
+                    partsReplaced: ['Radiator hose'],
+                    codesCleared: true,
+                    symptomGone: true,
+                    retestPassed: true,
+                    confirmed: true,
+                },
+            },
             { type: 'correction', payload: { text: 'Cylinder was 3, not 1' } },
         ];
         for (const { type, payload } of payloads) {

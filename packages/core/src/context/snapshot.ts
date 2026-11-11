@@ -80,9 +80,15 @@ function renderPayloadLines(entry: LedgerEntry): string[] {
             ];
         case 'outcome':
             return [
-                `resolution: ${quoted(entry.payload.resolution)}`,
+                `repair performed: ${quoted(entry.payload.repairPerformed)}`,
+                ...(entry.payload.partsReplaced.length > 0
+                    ? [`parts replaced: ${entry.payload.partsReplaced.map(quoted).join(', ')}`]
+                    : []),
                 ...[
-                    optionalBoolean('repaired', entry.payload.repaired),
+                    optionalBoolean('codes cleared', entry.payload.codesCleared),
+                    optionalBoolean('symptom gone', entry.payload.symptomGone),
+                    optionalBoolean('re-test passed', entry.payload.retestPassed),
+                    optionalBoolean('confirmed', entry.payload.confirmed),
                     optionalText('notes', entry.payload.notes),
                 ].filter((line): line is string => line !== null),
             ];

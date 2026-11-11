@@ -5,7 +5,7 @@ import { AppError, ErrorCode } from '@lemonade/core';
 import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 
-export async function validateRequest<T>(request: Request, schema: ZodSchema<T>): Promise<T> {
+export async function validateRequest<S extends z.ZodTypeAny>(request: Request, schema: S): Promise<z.infer<S>> {
     try {
         const body = await request.json();
         return schema.parse(body);

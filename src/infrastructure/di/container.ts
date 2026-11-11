@@ -24,6 +24,7 @@ import type {
     IVideoAnalysisService,
     IReactiveSafetyService,
     ISessionService,
+    ICaseService,
     IChatService,
     ISummarizationService,
     IEdgeSecurityService,
@@ -69,6 +70,7 @@ import { CONFIG } from '@/infrastructure/config';
 // Services (Application)
 import { VehicleService } from '@/application/services/VehicleService';
 import { SessionService } from '@/application/services/SessionService';
+import { CaseService } from '@/application/services/CaseService';
 import { ChatService } from '@/application/services/ChatService';
 import { VideoAnalysisService } from '@/application/services/VideoAnalysisService';
 import { SummarizationService } from '@/application/services/SummarizationService';
@@ -128,6 +130,8 @@ container.bind<ISummarizationService>(TYPES.SummarizationService).to(Summarizati
 
 // Bind focused interfaces to their specific implementations
 container.bind<ISessionService>(TYPES.SessionService).to(SessionService).inSingletonScope();
+
+container.bind<ICaseService>(TYPES.CaseService).to(CaseService).inSingletonScope();
 
 container.bind<IChatService>(TYPES.ChatService).to(ChatService).inSingletonScope();
 

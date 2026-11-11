@@ -17,6 +17,7 @@ import { useMobileChat } from '@mobile/hooks/useMobileChat';
 import { useChatUploads } from '@mobile/hooks/useChatUploads';
 import { useSessionVehicle } from '@mobile/hooks/useSessionVehicle';
 import { ChatBubble } from '../domain/chat/ChatBubble';
+import { OutcomeCapture } from '../domain/case/OutcomeCapture';
 import { InputBar } from '../domain/chat/InputBar';
 import { GradientButton } from '../ui/GradientButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -176,6 +177,7 @@ export default function ChatScreen() {
                             <ChatBubble role={item.role} content={item.content} sessionId={sessionId} />
                         )}
                         contentContainerStyle={styles.listContent}
+                        ListFooterComponent={<OutcomeCapture sessionId={sessionId ?? ''} />}
                     />
 
                     <InputBar

@@ -26,6 +26,7 @@ export * from './interfaces/IRealtimeAIService';
 export * from './interfaces/ISafetyMonitor';
 export * from './interfaces/IServerAuthService';
 export * from './interfaces/ISessionRepository';
+export * from './interfaces/ICaseService';
 export * from './interfaces/ISessionService';
 export * from './interfaces/ISummarizationService';
 export * from './interfaces/ITracingService';
