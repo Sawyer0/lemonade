@@ -9,6 +9,7 @@ export interface ISessionRepository {
     updateStatus(sessionId: string, status: DiagnosticSession['status']): Promise<void>;
     flagSafetyStop(sessionId: string, reason: string): Promise<void>;
     findById(id: string): Promise<DiagnosticSession | null>;
+    attachCase(sessionId: string, caseId: string): Promise<void>;
     updateVideo(sessionId: string, videoUrl: string): Promise<void>;
     findByVehicleId(vehicleId: string): Promise<DiagnosticSession[]>;
     findByUserId(userId: string): Promise<DiagnosticSession[]>;

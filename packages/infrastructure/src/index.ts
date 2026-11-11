@@ -21,6 +21,8 @@ export * from './observability/EvalRunner';
 export * from './context/request-context';
 export * from './firebase/admin';
 export * from './repositories/FirestoreSessionRepository';
+export * from './repositories/PostgresCaseRepository';
+export * from './crypto/NodeCryptoLedgerHasher';
 export * from './repositories/FirestoreUserRepository';
 export * from './repositories/FirestoreVehicleRepository';
 export * from './repositories/BillingFirestoreRepository';

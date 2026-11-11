@@ -28,6 +28,9 @@ export interface IConfigProvider {
         enabled: boolean;
         project: string;
     };
+    getCaseLedgerConfig(): {
+        connectionString: string;
+    };
 }
 
 // Runtime value to satisfy Bun/ESM imports

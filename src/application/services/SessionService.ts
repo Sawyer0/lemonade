@@ -12,7 +12,7 @@ export class SessionService implements ISessionService {
         @inject(TYPES.Logger) private logger: ILogger,
     ) {}
 
-    async startSession(vehicleId: string, userId: string): Promise<string> {
+    async startSession(vehicleId: string, userId: string, caseId?: string): Promise<string> {
         const vehicle = await this.vehicleRepo.findById(vehicleId, userId);
         if (!vehicle) throw new AppError(ErrorCode.RESOURCE_NOT_FOUND, 'Vehicle not found');
 
@@ -29,6 +29,7 @@ export class SessionService implements ISessionService {
             id: uuidv4(),
             vehicleId: vehicle.id,
             userId: vehicle.userId,
+            ...(caseId ? { caseId } : {}),
             status: 'active',
             complaint: 'New Session',
             obdCodes: [],

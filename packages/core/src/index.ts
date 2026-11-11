@@ -56,6 +56,8 @@ export * from './types/billing';
 export * from './types/evals';
 
 export * from './types/models';
+export * from './types/case';
+export * from './ports/ICaseRepository';
 
 // Exports DiagnosticSession, AIAnalysis, User, Vehicle, MessagePart, SafetyRecall, AIAnalysisSchema, DiagnosticSessionSchema, UserSchema, VehicleSchema etc.
 export * from './types/localPerception';

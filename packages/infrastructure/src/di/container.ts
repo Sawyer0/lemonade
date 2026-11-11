@@ -4,6 +4,8 @@ import {
     ILogger,
     IMechanicReasoningService,
     ISessionRepository,
+    ICaseRepository,
+    LedgerHasher,
     IGoogleSearchService,
     IMemoryService,
     IReactiveSafetyService,
@@ -39,9 +41,12 @@ import { bindAiProviders } from './aiBindings';
 import { FirestoreUserRepository } from '../repositories/FirestoreUserRepository';
 import { GeminiCoreAdapter } from '../ai/GeminiCoreAdapter';
 import { FunctionCallService } from '../ai/FunctionCallHandler';
+import { Pool } from 'pg';
 import { BillingService } from '../services/BillingService';
 import { BillingFirestoreRepository } from '../repositories/BillingFirestoreRepository';
 import { InMemoryResponseCache } from '../cache/InMemoryResponseCache';
+import { PostgresCaseRepository } from '../repositories/PostgresCaseRepository';
+import { NodeCryptoLedgerHasher } from '../crypto/NodeCryptoLedgerHasher';
 
 export function createContainer(): Container {
     const container = new Container();
@@ -68,6 +73,18 @@ export function createContainer(): Container {
 
     // 3. Services & Repositories
     container.bind<ISessionRepository>(TYPES.SessionRepository).to(FirestoreSessionRepository).inSingletonScope();
+    // Case ledger (Postgres). The pool is lazy: it opens no connection until
+    // the first query, so an unset LEMONADE_CASE_LEDGER_DATABASE_URL breaks
+    // only case-ledger calls, not container creation.
+    container
+        .bind<Pool>(TYPES.PostgresPool)
+        .toDynamicValue((context) => {
+            const configProvider = context.get<IConfigProvider>(TYPES.ConfigProvider);
+            return new Pool({ connectionString: configProvider.getCaseLedgerConfig().connectionString });
+        })
+        .inSingletonScope();
+    container.bind<LedgerHasher>(TYPES.LedgerHasher).to(NodeCryptoLedgerHasher).inSingletonScope();
+    container.bind<ICaseRepository>(TYPES.CaseRepo).to(PostgresCaseRepository).inSingletonScope();
     container.bind<IUserRepository>(TYPES.UserRepo).to(FirestoreUserRepository).inSingletonScope();
     container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(GoogleSearchService).inSingletonScope();
     container.bind<IMemoryService>(TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
