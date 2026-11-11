@@ -96,10 +96,9 @@ export const SHARED_CONFIG = {
         MEDIA_BUCKET: process.env.GCLOUD_MEDIA_BUCKET || 'lemonade-3c4e7.firebasestorage.app',
     },
 
-    // Google Services
-    GOOGLE: {
-        SEARCH_API_KEY: process.env.GOOGLE_SEARCH_API_KEY,
-        SEARCH_CX: process.env.GOOGLE_SEARCH_CX,
+    // Tavily web search (mechanic tool)
+    TAVILY: {
+        API_KEY: process.env.TAVILY_API_KEY,
     },
 
     // Observability / LangSmith
