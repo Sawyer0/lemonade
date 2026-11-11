@@ -71,11 +71,13 @@ export type VehicleKey = z.infer<typeof VehicleKeySchema>;
 
 // --- Case facts (the query) ---
 // SAE J2012 OBD-II code: a system letter, a designator 0-3, then three hex
-// digits. This is the same shape packages/core/src/dtc enforces; bench DTCs
+// digits. The match is case-insensitive: normalizeCaseFacts uppercases
+// before storing, so a lowercase code from a scanner log is accepted, not
+// rejected. This is the same shape packages/core/src/dtc enforces; bench DTCs
 // (BMW ECU codes such as 5D0C) are NOT OBD codes and never pass through
 // this schema — they live in FixCount.dtcs, which holds normalized code
 // strings of either shape.
-export const ObdDtcSchema = z.string().regex(/^[PBCU][0-3][0-9A-F]{3}$/, 'DTC must be an SAE J2012 code');
+export const ObdDtcSchema = z.string().regex(/^[PBCU][0-3][0-9A-F]{3}$/i, 'DTC must be an SAE J2012 code');
 
 export const CaseFactsSchema = z.object({
     vehicle: VehicleKeySchema,
