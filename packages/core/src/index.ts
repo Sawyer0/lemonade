@@ -58,6 +58,12 @@ export * from './types/evals';
 export * from './types/models';
 export * from './types/case';
 export * from './ports/ICaseRepository';
+export * from './context/types';
+export * from './context/snapshot';
+export * from './context/catalog';
+export * from './context/assembly';
+export * from './context/compaction';
+export * from './context/reinjection';
 
 // Exports DiagnosticSession, AIAnalysis, User, Vehicle, MessagePart, SafetyRecall, AIAnalysisSchema, DiagnosticSessionSchema, UserSchema, VehicleSchema etc.
 export * from './types/localPerception';
