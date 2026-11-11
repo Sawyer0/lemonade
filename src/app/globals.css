@@ -52,10 +52,16 @@ h3 {
     font-weight: 700;
 }
 
-input:focus,
-button:focus,
-textarea:focus {
-    outline: none; /* Native apps don't have blue focus rings */
+/* Visible keyboard focus ring. The color is the dark focusRing token
+   (BRAND_TOKENS.dark.focusRing); the app is dark-only until issue #45
+   lands the modes and toggle, which will replace this with the
+   mode-aware var(--lemonade-color-focus-ring). Focus outlines are never
+   removed without a replacement: keyboard navigation is a code standard.
+   :focus-visible keeps the native-app feel for mouse users while the
+   ring shows for keyboard users. */
+:focus-visible {
+    outline: 2px solid #ff9a4d;
+    outline-offset: 2px;
 }
 
 img {
