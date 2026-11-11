@@ -1,5 +1,6 @@
 import { setup, fromPromise, assign } from 'xstate';
 import { NeurosymbolicState } from '../types/neurosymbolic';
+import type { CaseEvidence } from '../case/CaseRunQueue';
 import type { IMultimodalUploadAnalyzer, IChatAssistantAI } from '../interfaces/IAIService';
 import type { INHTSAService } from '../interfaces/INHTSAService';
 import type { IVectorRepository } from '../interfaces/IVectorRepository';
@@ -61,6 +62,9 @@ export interface MechanicInput {
     // Parsed DTCs for this session (LM-02). The machine never invents a code
     // meaning: these come from the deterministic parser, via the session.
     dtcCodes?: ParsedDtc[];
+    // Evidence queued before the run started (LM-17): folded into the first
+    // model call. Evidence that arrives mid-run joins through APPEND_EVIDENCE.
+    queuedEvidence?: CaseEvidence[];
 }
 
 export interface MechanicContext extends MechanicInput {
@@ -74,6 +78,10 @@ export interface MechanicContext extends MechanicInput {
     error?: string;
     localTriage?: LocalTriageResult;
     dtcCodes: ParsedDtc[];
+    // Evidence that arrived after the run started, folded in at checkpoints
+    // (LM-17). The intuition model call reads this when its state is entered,
+    // so evidence queued during context gathering reaches the first model call.
+    queuedEvidence: CaseEvidence[];
 }
 
 export interface MechanicServices {
@@ -97,7 +105,11 @@ export type MechanicEvent =
           localTriage?: LocalTriageResult;
           dtcCodes?: ParsedDtc[];
       }
-    | { type: 'UPDATE_SERVICES'; services: MechanicServices };
+    | { type: 'UPDATE_SERVICES'; services: MechanicServices }
+    // LM-17 checkpoint steering: appends one piece of queued evidence to the
+    // run. Handled at the machine root so it lands in any state, including
+    // after a snapshot restore; it never interrupts a running tool call.
+    | { type: 'APPEND_EVIDENCE'; evidence: CaseEvidence };
 
 export interface IntuitionInput {
     userQuery: string;
@@ -107,6 +119,8 @@ export interface IntuitionInput {
     videoUrl?: string;
     userId: string;
     sessionId: string;
+    // Evidence queued before this model call (LM-17 checkpoint input).
+    queuedEvidence: CaseEvidence[];
 }
 
 export const mechanicMachine = setup({
@@ -171,10 +185,33 @@ export const mechanicMachine = setup({
         videoDuration: input.videoDuration,
         services: input.services,
         dtcCodes: input.dtcCodes ?? [],
+        queuedEvidence: input.queuedEvidence ?? [],
         nhtsaResults: [],
         embeddingInfo: [],
         vehicleHistory: [],
     }),
+    // Root-level events, handled in every state. UPDATE_SERVICES lives here
+    // (not only in idle) so a snapshot-restored actor can receive live
+    // services in whatever state it resumes in; APPEND_EVIDENCE is the
+    // checkpoint steering event (LM-17).
+    on: {
+        UPDATE_SERVICES: {
+            actions: assign(({ event }) => {
+                if ('services' in event) {
+                    return { services: event.services };
+                }
+                return {};
+            }),
+        },
+        APPEND_EVIDENCE: {
+            actions: assign(({ context, event }) => {
+                if (event.type === 'APPEND_EVIDENCE') {
+                    return { queuedEvidence: [...context.queuedEvidence, event.evidence] };
+                }
+                return {};
+            }),
+        },
+    },
     states: {
         idle: {
             on: {
@@ -192,14 +229,6 @@ export const mechanicMachine = setup({
                                 localTriage: event.localTriage,
                                 dtcCodes: event.dtcCodes ?? [],
                             };
-                        }
-                        return {};
-                    }),
-                },
-                UPDATE_SERVICES: {
-                    actions: assign(({ event }) => {
-                        if ('services' in event) {
-                            return { services: event.services };
                         }
                         return {};
                     }),
@@ -246,6 +275,9 @@ export const mechanicMachine = setup({
                     videoUrl: context.videoUrl,
                     userId: context.userId,
                     sessionId: context.sessionId,
+                    // Checkpoint: evidence queued during gathering reaches the
+                    // model call because the input is built on state entry.
+                    queuedEvidence: context.queuedEvidence,
                 }),
                 onDone: {
                     target: 'investigating',

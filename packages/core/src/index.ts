@@ -59,6 +59,7 @@ export * from './types/evals';
 
 export * from './types/models';
 export * from './types/case';
+export * from './case/CaseRunQueue';
 export * from './ports/ICaseRepository';
 export * from './context/types';
 export * from './context/snapshot';

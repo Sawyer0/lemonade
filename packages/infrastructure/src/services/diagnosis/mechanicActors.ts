@@ -57,6 +57,7 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                 input.nhtsaResults,
                 input.vehicleHistory,
                 input.sessionId,
+                input.queuedEvidence ?? [],
             ),
         ),
 

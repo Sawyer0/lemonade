@@ -16,6 +16,9 @@ export enum ErrorCode {
     RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
     RESOURCE_ALREADY_EXISTS = 'RESOURCE_ALREADY_EXISTS',
 
+    /** A write was attempted with a case version that is no longer current. */
+    VERSION_CONFLICT = 'VERSION_CONFLICT',
+
     PAYMENT_REQUIRED = 'PAYMENT_REQUIRED',
     SUBSCRIPTION_INACTIVE = 'SUBSCRIPTION_INACTIVE',
     STRIPE_ERROR = 'STRIPE_ERROR',
