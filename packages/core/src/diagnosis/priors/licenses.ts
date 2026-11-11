@@ -1,4 +1,4 @@
-// Source licenses (LM-33): the license check, recorded per source.
+// Prior source licenses (LM-33): the license check, recorded per source.
 //
 // Checked 2026-11-11. The findings:
 // - NHTSA complaints, recalls, and TSB summaries are U.S. federal
@@ -18,9 +18,9 @@
 //   expert has validated them (LM-35).
 import { AppError } from '../../errors/AppError';
 import { ErrorCode } from '../../errors/codes';
-import type { PriorSource, SourceLicense } from './types';
+import type { PriorSource, PriorSourceLicense } from './types';
 
-export const SOURCE_LICENSES: Readonly<Record<PriorSource, SourceLicense>> = {
+export const PRIOR_SOURCE_LICENSES: Readonly<Record<PriorSource, PriorSourceLicense>> = {
     'nhtsa-complaints': {
         source: 'nhtsa-complaints',
         license: 'Public domain (U.S. federal government work, 17 U.S.C. § 105)',
@@ -79,8 +79,8 @@ export const SOURCE_LICENSES: Readonly<Record<PriorSource, SourceLicense>> = {
 };
 
 /** The recorded license check for one source. */
-export function licenseFor(source: PriorSource): SourceLicense {
-    return SOURCE_LICENSES[source];
+export function licenseFor(source: PriorSource): PriorSourceLicense {
+    return PRIOR_SOURCE_LICENSES[source];
 }
 
 /**
@@ -88,8 +88,8 @@ export function licenseFor(source: PriorSource): SourceLicense {
  * AutoRepairBench, whose dataset is research-use-only. Eval and seed use
  * goes through ingestion directly and stays labelled with its source.
  */
-export function requireProductionLicense(source: PriorSource): SourceLicense {
-    const license = SOURCE_LICENSES[source];
+export function requireProductionLicense(source: PriorSource): PriorSourceLicense {
+    const license = PRIOR_SOURCE_LICENSES[source];
     if (!license.approvedForProduction) {
         throw new AppError(
             ErrorCode.FORBIDDEN,

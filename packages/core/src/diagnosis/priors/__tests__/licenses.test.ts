@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { licenseFor, requireProductionLicense, SOURCE_LICENSES } from '../licenses';
+import { licenseFor, requireProductionLicense, PRIOR_SOURCE_LICENSES } from '../licenses';
 import { PriorSourceSchema } from '../types';
 
 describe('source licenses', () => {
@@ -13,7 +13,7 @@ describe('source licenses', () => {
             expect(license.checkedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
             expect(license.evidence.length).toBeGreaterThan(0);
         }
-        expect(Object.keys(SOURCE_LICENSES)).toHaveLength(6);
+        expect(Object.keys(PRIOR_SOURCE_LICENSES)).toHaveLength(6);
     });
 
     it('records NHTSA feeds as public domain and approved for production', () => {

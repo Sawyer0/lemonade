@@ -15,6 +15,22 @@ import {
 } from '@lemonade/core';
 import { TYPES } from '../di/types';
 
+// The fix_counts row key as one string, so a batch can lock its rows in a
+// fixed order. JSON keeps the fields unambiguous; the order only needs to
+// be deterministic, not human-readable.
+function fixCountKey(count: FixCount): string {
+    return JSON.stringify([
+        count.vehicle.make,
+        count.vehicle.model,
+        count.vehicle.yearFrom,
+        count.vehicle.yearTo,
+        count.vehicle.engine ?? null,
+        count.dtcs,
+        count.mileageBand ?? null,
+        count.hypothesis,
+    ]);
+}
+
 interface FixCountRow extends QueryResultRow {
     make: string;
     model: string;
@@ -70,10 +86,14 @@ export class PostgresFixCountStore implements IFixCountStore {
 
     async recordFixes(counts: ReadonlyArray<FixCount>): Promise<void> {
         const normalized = counts.map((count) => normalizeFixCount(count));
+        // Lock rows in a fixed key order so two concurrent multi-key
+        // batches cannot deadlock on opposite lock order (Postgres 40P01):
+        // every batch takes its row locks in the same sequence.
+        const ordered = [...normalized].sort((a, b) => fixCountKey(a).localeCompare(fixCountKey(b)));
         const client = await this.pool.connect();
         try {
             await client.query('BEGIN');
-            for (const count of normalized) {
+            for (const count of ordered) {
                 await this.upsertFixCount(client, count);
             }
             await client.query('COMMIT');

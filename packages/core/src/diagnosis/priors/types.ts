@@ -182,7 +182,7 @@ export const ExpertValidationSchema = z.object({
 });
 export type ExpertValidation = z.infer<typeof ExpertValidationSchema>;
 
-// --- Source licenses ---
+// --- Prior source licenses ---
 // Every ingestion source carries a recorded license check. `licenseStatus`
 // is the finding; `approvedForProduction` is what the code enforces — a
 // source that is not approved may seed priors and feed evals but must never
@@ -190,7 +190,7 @@ export type ExpertValidation = z.infer<typeof ExpertValidationSchema>;
 export const SourceLicenseStatusSchema = z.enum(['public-domain', 'open', 'research-use-only', 'shop-owned']);
 export type SourceLicenseStatus = z.infer<typeof SourceLicenseStatusSchema>;
 
-export const SourceLicenseSchema = z.object({
+export const PriorSourceLicenseSchema = z.object({
     source: PriorSourceSchema,
     license: z.string().min(1),
     licenseStatus: SourceLicenseStatusSchema,
@@ -199,4 +199,4 @@ export const SourceLicenseSchema = z.object({
     evidence: z.string().min(1),
     notes: z.string().min(1),
 });
-export type SourceLicense = z.infer<typeof SourceLicenseSchema>;
+export type PriorSourceLicense = z.infer<typeof PriorSourceLicenseSchema>;
