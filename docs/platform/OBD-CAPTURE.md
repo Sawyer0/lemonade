@@ -65,7 +65,7 @@ scan never poses as a complete one.
   recorded as `verify_fix` for close-out.
 - `packages/core/src/types/case.ts` — the four new ledger event types
   (`obd_scan`, `obd_fault_window`, `guided_test`, `verify_fix`) and
-  `db/migrations/0003_obd_ledger_types.sql`, which extends the ledger
+  `db/migrations/0005_obd_ledger_types.sql`, which extends the ledger
   type CHECK. The OBD events are also fact-eligible for memory (LM-31)
   and guided-test / verify-fix verdicts are context milestones (LM-21).
 - `src/application/services/SessionService.ts` — `recordObdScan` (ledger
