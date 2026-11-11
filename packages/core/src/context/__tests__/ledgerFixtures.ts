@@ -103,6 +103,7 @@ function payloadFor(type: LedgerEntry['type'], index: number): LedgerEntry['payl
         case 'frame_captured':
             return {
                 media: { storageUri: `gs://bucket/frame-${index}.jpg`, sha256: sha256Hex(`frame-${index}`) },
+                resolution: 'high',
             };
         case 'test_result':
             return {

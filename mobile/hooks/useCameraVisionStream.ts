@@ -7,10 +7,28 @@ import { useLocalPerception } from '../context/LocalPerceptionContext';
 import { useSharedValue } from 'react-native-reanimated';
 import { runOnJS } from 'react-native-reanimated';
 import { MobileLogger } from '../services/MobileLogger';
+import { base64ToBytes } from '../services/frameStream';
+import { frameDifference, frameSharpness, toGrayscale } from '../services/frameGate';
 import { SemanticTriageResult } from '@lemonade/core';
 
 interface UseCameraVisionStreamOptions {
     sessionId: string;
+}
+
+/** Native resize target for triage frames: 384x384 RGB, the SmolVLM input size. */
+export const TRIAGE_FRAME_WIDTH = 384;
+export const TRIAGE_FRAME_HEIGHT = 384;
+
+/** The best recent frame for handoff, with the signals the frame gate judges. */
+export interface SemanticPeak {
+    path: string;
+    detections: SemanticTriageResult[];
+    /** Laplacian variance of the frame; sharp frames score in the hundreds or more. */
+    sharpness: number;
+    /** Mean difference from the previous triage frame (0-255); low means the camera is steady. */
+    motion: number;
+    /** Raw RGB888 bytes of the frame, for gating and streaming. */
+    rgb: Uint8Array;
 }
 
 export function useCameraVisionStream({ sessionId }: UseCameraVisionStreamOptions) {
@@ -37,8 +55,9 @@ export function useCameraVisionStream({ sessionId }: UseCameraVisionStreamOption
     const triageBufferPath = `${FileSystem.cacheDirectory}triage_buffer_${sessionId}.jpg`;
 
     // Semantic Peak Buffer: Stores the best frames from the last 5 seconds
-    const triageHistory = useRef<{ path: string; detections: SemanticTriageResult[] }[]>([]);
+    const triageHistory = useRef<SemanticPeak[]>([]);
     const MAX_HISTORY = 5;
+    const previousGrayscale = useRef<Uint8Array | null>(null);
 
     /**
      * JS-side process to handle the resized buffer, save it, and run local TRIAGE.
@@ -53,6 +72,15 @@ export function useCameraVisionStream({ sessionId }: UseCameraVisionStreamOption
                     encoding: FileSystem.EncodingType.Base64,
                 });
 
+                // Frame-gate signals, from the same resized buffer.
+                const rgb = base64ToBytes(base64Data);
+                const grayscale = toGrayscale(rgb);
+                const sharpness = frameSharpness(grayscale, TRIAGE_FRAME_WIDTH, TRIAGE_FRAME_HEIGHT);
+                const motion = previousGrayscale.current
+                    ? frameDifference(grayscale, previousGrayscale.current)
+                    : 0;
+                previousGrayscale.current = grayscale;
+
                 // Perform Local Inference
                 const detections = await localPerception.triageFrame(triageBufferPath);
 
@@ -63,7 +91,7 @@ export function useCameraVisionStream({ sessionId }: UseCameraVisionStreamOption
                     setCurrentDetections(detections);
 
                     // Update History for Semantic Peak
-                    triageHistory.current.push({ path: triageBufferPath, detections });
+                    triageHistory.current.push({ path: triageBufferPath, detections, sharpness, motion, rgb });
                     if (triageHistory.current.length > MAX_HISTORY) {
                         triageHistory.current.shift();
                     }
@@ -127,10 +155,7 @@ export function useCameraVisionStream({ sessionId }: UseCameraVisionStreamOption
     /**
      * Logic to find the "Semantic Peak" (best frame) for Handoff.
      */
-    const getSemanticPeak = useCallback(async (): Promise<{
-        path: string;
-        detections: SemanticTriageResult[];
-    } | null> => {
+    const getSemanticPeak = useCallback(async (): Promise<SemanticPeak | null> => {
         if (triageHistory.current.length === 0) return null;
 
         // Sort by confidence (default to 0 if missing)

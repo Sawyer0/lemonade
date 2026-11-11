@@ -3,7 +3,9 @@ package expo.modules.metawearables
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import com.meta.wearable.dat.camera.Camera
 import com.meta.wearable.dat.camera.addCamera
 import com.meta.wearable.dat.camera.types.PhotoData
@@ -131,6 +133,11 @@ class MetaWearablesModule : Module() {
       streamStateJob = scope.launch {
         newCamera.stream.state.collect { sendEvent("onStreamStateChange", mapOf("state" to it.name)) }
       }
+      // LM-15: the glasses present a Bluetooth HFP mic. While the camera
+      // streams, the phone mic is the voice input, so release the hands-free
+      // route before the stream starts instead of letting Android keep
+      // routing mic audio to the glasses.
+      closeHandsFreeRoute()
       newCamera.stream.start().errorOrNull()?.let {
         stopStreaming()
         throw CodedException("ERR_STREAM", it.description, null)
@@ -168,6 +175,17 @@ class MetaWearablesModule : Module() {
   private fun permissionOf(name: String): Permission =
     Permission.entries.firstOrNull { it.name == name.uppercase() }
       ?: throw CodedException("ERR_PERMISSION", "Unknown permission: $name", null)
+
+  private fun closeHandsFreeRoute() {
+    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    audioManager.mode = AudioManager.MODE_NORMAL
+    // clearCommunicationDevice needs API 31+; below that the mode change
+    // alone drops the hands-free route. The next audio capture
+    // re-establishes routing as needed, so nothing is restored on stop.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      audioManager.clearCommunicationDevice()
+    }
+  }
 
   private fun stopStreaming() {
     streamStateJob?.cancel()

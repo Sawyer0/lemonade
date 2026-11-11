@@ -1,17 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { LiveChannelTopic, encodeLiveMessage } from '@lemonade/core';
 import { LiveChannelRouter } from '../src/channel/LiveChannelRouter';
-import type { BurstAnalyzer } from '../src/diagnosis/BurstAnalyzer';
-import { detection, fakeLogger, fakeResponder, session } from './fakes';
+import { detection, fakeLogger, session } from './fakes';
 
 function setup() {
     const conversation = { say: vi.fn().mockResolvedValue(undefined), replyTo: vi.fn(), inform: vi.fn() };
-    const bursts = { analyze: vi.fn().mockResolvedValue(undefined) } as unknown as BurstAnalyzer;
-    const responder = fakeResponder();
     const logger = fakeLogger();
-    const jobs = { submitJob: vi.fn(), trackJob: vi.fn() };
-    const router = new LiveChannelRouter(session, conversation, bursts, responder, logger, jobs);
-    return { router, conversation, bursts, responder, logger, jobs };
+    const router = new LiveChannelRouter(session, conversation, logger);
+    return { router, conversation, logger };
 }
 
 describe('LiveChannelRouter', () => {
@@ -46,11 +42,12 @@ describe('LiveChannelRouter', () => {
         expect(conversation.say).toHaveBeenCalledWith(expect.stringContaining('Brake Rotor'));
     });
 
-    it('hands valid bursts to the analyzer with the session responder and job port', async () => {
-        const { router, bursts, responder, jobs } = setup();
+    it('ignores frame packets: frames arrive as byte streams, not data packets', async () => {
+        const { router, conversation } = setup();
         const burst = { frames: ['f'], metadata: { reason: 'r', sessionId: 's', timestamp: 1 } };
-        await router.handle(encodeLiveMessage(burst), 'user-1', LiveChannelTopic.VisualBurstResponse);
-        expect(bursts.analyze).toHaveBeenCalledWith(burst, session, responder, jobs);
+        await router.handle(encodeLiveMessage(burst), 'user-1', LiveChannelTopic.VisualFrameStream);
+        expect(conversation.replyTo).not.toHaveBeenCalled();
+        expect(conversation.say).not.toHaveBeenCalled();
     });
 
     it('tells the model about device tool results', async () => {
@@ -61,13 +58,18 @@ describe('LiveChannelRouter', () => {
     });
 
     it('drops malformed packets with a warning and logs handler failures', async () => {
-        const { router, bursts, logger } = setup();
-        await router.handle(new TextEncoder().encode('{bad'), 'user-1', LiveChannelTopic.VisualBurstResponse);
+        const { router, conversation, logger } = setup();
+        await router.handle(new TextEncoder().encode('{bad'), 'user-1', LiveChannelTopic.UserMessage);
         expect(logger.warn).toHaveBeenCalled();
 
-        vi.mocked(bursts.analyze).mockRejectedValueOnce(new Error('vertex down'));
-        const burst = { frames: ['f'], metadata: { reason: 'r', sessionId: 's', timestamp: 1 } };
-        await router.handle(encodeLiveMessage(burst), 'user-1', LiveChannelTopic.VisualBurstResponse);
+        conversation.say.mockRejectedValueOnce(new Error('session down'));
+        const ping = encodeLiveMessage({
+            type: 'PROACTIVE_PING',
+            detection: detection('Brake Rotor', 'Braking', true),
+            sessionId: 's',
+            timestamp: 1,
+        });
+        await router.handle(ping, 'user-1', LiveChannelTopic.ProactivePing);
         expect(logger.error).toHaveBeenCalled();
     });
 });

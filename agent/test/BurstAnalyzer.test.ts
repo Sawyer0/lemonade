@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { ILiveStreamAnalyzer, VisualBurstMessage } from '@lemonade/core';
+import type { IMechanicReasoningService, ILiveStreamAnalyzer, VisualBurstMessage } from '@lemonade/core';
 import { BurstAnalyzer, type DiagnosticJobSubmission } from '../src/diagnosis/BurstAnalyzer';
-import { detection, fakeResponder, session } from './fakes';
+import { detection, diagnosis, fakeResponder, session } from './fakes';
 
 function burst(localDetections?: VisualBurstMessage['metadata']['localDetections']): VisualBurstMessage {
     return {
@@ -16,16 +16,19 @@ function setup(liveResult: Awaited<ReturnType<ILiveStreamAnalyzer['analyzeLiveIm
         submitJob: vi.fn(async () => ({ jobId: 'job-1' })),
         trackJob: vi.fn(),
     };
+    const reasoning = {
+        diagnose: vi.fn().mockResolvedValue(diagnosis('Replace the ABS sensor.')),
+    } as unknown as IMechanicReasoningService;
     const live = {
         analyzeLiveImageFrame: vi.fn().mockResolvedValue(liveResult),
         analyzeLiveAudioChunk: vi.fn(),
     } as unknown as ILiveStreamAnalyzer;
-    return { analyzer: new BurstAnalyzer(live), jobs, live, respond: fakeResponder() };
+    return { analyzer: new BurstAnalyzer(reasoning, live), reasoning, jobs, live, respond: fakeResponder() };
 }
 
 describe('BurstAnalyzer', () => {
     it('files complex systems as a job ticket and keeps talking, without waiting on the reasoner', async () => {
-        const { analyzer, jobs, live, respond } = setup(null);
+        const { analyzer, reasoning, jobs, live, respond } = setup(null);
         await analyzer.analyze(burst([detection('Wheel speed sensor', 'ABS')]), session, respond, jobs);
 
         expect(jobs.submitJob).toHaveBeenCalledWith(
@@ -40,6 +43,7 @@ describe('BurstAnalyzer', () => {
         );
         expect(jobs.trackJob).toHaveBeenCalledWith('job-1');
         expect(respond.say).toHaveBeenCalledWith('Scanning the brakes system. One moment...');
+        expect(reasoning.diagnose).not.toHaveBeenCalled();
         expect(live.analyzeLiveImageFrame).not.toHaveBeenCalled();
     });
 
@@ -89,6 +93,32 @@ describe('BurstAnalyzer', () => {
             args: { component: 'belt' },
         });
         expect(respond.say).not.toHaveBeenCalled();
+    });
+
+    it('sends a full-resolution still through full reasoning, never the live-frame path', async () => {
+        const { analyzer, reasoning, jobs, live, respond } = setup({ diagnosis: 'Pads are worn.' } as never);
+        const still: VisualBurstMessage = {
+            frames: ['still-b64'],
+            component: 'brakes',
+            metadata: {
+                reason: 'Meta Glasses Capture',
+                sessionId: 's',
+                timestamp: 7,
+                still: true,
+                stillUri: 'gs://bucket/frame.jpg',
+            },
+        };
+        await analyzer.analyze(still, session, respond, jobs);
+
+        expect(reasoning.diagnose).toHaveBeenCalledWith(
+            expect.objectContaining({
+                userQuery: expect.stringContaining('gs://bucket/frame.jpg'),
+                sessionId: 'session-1',
+            }),
+        );
+        expect(live.analyzeLiveImageFrame).not.toHaveBeenCalled();
+        expect(respond.say).toHaveBeenLastCalledWith('Replace the ABS sensor.');
+        expect(jobs.submitJob).not.toHaveBeenCalled();
     });
 
     it('stays quiet when the analyzer has nothing to add', async () => {
