@@ -42,9 +42,13 @@ interface ExistingCountRow extends QueryResultRow {
 //
 // A row is one (vehicle key, DTC set, mileage band, hypothesis) aggregate.
 // recordFix merges into the row: observations and per-source counts add,
-// inside a transaction that locks the row, so two concurrent records for
-// the same key can never lose an observation. The table is mutable by
-// design (unlike the append-only ledger) — see db/migrations/0004.
+// inside a transaction. The row is locked when it exists; a new key is
+// inserted with ON CONFLICT DO NOTHING, so if a concurrent transaction
+// inserted the same key first, the insert skips and the merge below picks
+// the row up instead of failing on the unique index — two concurrent
+// records for the same key can never lose an observation. The table is
+// mutable by design (unlike the append-only ledger) — see
+// db/migrations/0004.
 @injectable()
 export class PostgresFixCountStore implements IFixCountStore {
     constructor(@inject(TYPES.PostgresPool) private pool: Pool) {}
@@ -116,9 +120,69 @@ export class PostgresFixCountStore implements IFixCountStore {
     /**
      * Merges one count into its row inside the caller's transaction: locks
      * the row when it exists (IS NOT DISTINCT FROM matches NULL engine /
-     * mileage band as part of the key), otherwise inserts it.
+     * mileage band as part of the key), otherwise inserts it. The insert
+     * is ON CONFLICT DO NOTHING: if a concurrent transaction inserted the
+     * same new key first, the insert skips instead of failing on the
+     * unique index, and the row is re-read under lock and merged into
+     * below — so a concurrent record can never roll this transaction
+     * back and lose the observation.
      */
     private async upsertFixCount(client: PoolClient, count: FixCount): Promise<void> {
+        let row = await this.findRowForUpdate(client, count);
+        if (!row) {
+            const inserted = await client.query(
+                `INSERT INTO fix_counts
+                    (make, model, year_from, year_to, engine, dtcs, mileage_band,
+                     hypothesis, observation_count, source_counts)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
+                 ON CONFLICT DO NOTHING`,
+                [
+                    count.vehicle.make,
+                    count.vehicle.model,
+                    count.vehicle.yearFrom,
+                    count.vehicle.yearTo,
+                    count.vehicle.engine ?? null,
+                    count.dtcs,
+                    count.mileageBand ?? null,
+                    count.hypothesis,
+                    count.observationCount,
+                    JSON.stringify(count.sourceCounts),
+                ],
+            );
+            if (inserted.rowCount === 1) {
+                return;
+            }
+            // A concurrent transaction inserted the same new key while this
+            // one was in flight. The row exists now, so re-read it under
+            // lock and merge into it instead of failing.
+            row = await this.findRowForUpdate(client, count);
+            if (!row) {
+                throw new AppError(
+                    ErrorCode.INTERNAL_SERVER_ERROR,
+                    `Fix count ${count.vehicle.make} ${count.vehicle.model} ${count.hypothesis} ` +
+                        'conflicted on insert but no row exists',
+                );
+            }
+        }
+        const storedSourceCounts = FixCountSchema.shape.sourceCounts.parse(row.source_counts);
+        const mergedSourceCounts: Record<string, number> = { ...storedSourceCounts };
+        for (const [source, sourceCount] of Object.entries(count.sourceCounts)) {
+            mergedSourceCounts[source] = (mergedSourceCounts[source] ?? 0) + sourceCount;
+        }
+        await client.query(
+            `UPDATE fix_counts
+             SET observation_count = $1, source_counts = $2::jsonb, updated_at = now()
+             WHERE id = $3`,
+            [row.observation_count + count.observationCount, JSON.stringify(mergedSourceCounts), row.id],
+        );
+    }
+
+    /**
+     * The row for a count's key, locked for the caller's transaction, or
+     * undefined when no row exists yet. IS NOT DISTINCT FROM matches NULL
+     * engine / mileage band as part of the key.
+     */
+    private async findRowForUpdate(client: PoolClient, count: FixCount): Promise<ExistingCountRow | undefined> {
         const existing = await client.query<ExistingCountRow>(
             `SELECT id, observation_count, source_counts FROM fix_counts
              WHERE make = $1 AND model = $2 AND year_from = $3 AND year_to = $4
@@ -138,39 +202,7 @@ export class PostgresFixCountStore implements IFixCountStore {
                 count.hypothesis,
             ],
         );
-        const row = existing.rows[0];
-        if (!row) {
-            await client.query(
-                `INSERT INTO fix_counts
-                    (make, model, year_from, year_to, engine, dtcs, mileage_band,
-                     hypothesis, observation_count, source_counts)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)`,
-                [
-                    count.vehicle.make,
-                    count.vehicle.model,
-                    count.vehicle.yearFrom,
-                    count.vehicle.yearTo,
-                    count.vehicle.engine ?? null,
-                    count.dtcs,
-                    count.mileageBand ?? null,
-                    count.hypothesis,
-                    count.observationCount,
-                    JSON.stringify(count.sourceCounts),
-                ],
-            );
-            return;
-        }
-        const storedSourceCounts = FixCountSchema.shape.sourceCounts.parse(row.source_counts);
-        const mergedSourceCounts: Record<string, number> = { ...storedSourceCounts };
-        for (const [source, sourceCount] of Object.entries(count.sourceCounts)) {
-            mergedSourceCounts[source] = (mergedSourceCounts[source] ?? 0) + sourceCount;
-        }
-        await client.query(
-            `UPDATE fix_counts
-             SET observation_count = $1, source_counts = $2::jsonb, updated_at = now()
-             WHERE id = $3`,
-            [row.observation_count + count.observationCount, JSON.stringify(mergedSourceCounts), row.id],
-        );
+        return existing.rows[0];
     }
 
     private rowToFixCount(row: FixCountRow): FixCount {

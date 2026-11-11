@@ -102,4 +102,26 @@ describe('PostgresFixCountStore', () => {
         expect(seeded).toHaveLength(5);
         expect(seeded.find((count) => count.hypothesis === 'ignition coil')?.observationCount).toBe(7);
     });
+
+    it('does not lose an observation when two transactions record the same new key concurrently', async () => {
+        const count = {
+            vehicle: { make: 'Honda', model: 'Civic', yearFrom: 2017, yearTo: 2017 },
+            dtcs: ['P0420'],
+            hypothesis: 'oxygen sensor',
+            observationCount: 2,
+            sourceCounts: { 'repair-order': 2 },
+        };
+        // Each recordFix runs in its own transaction on its own pooled
+        // client, so the two inserts race on the same new key: before the
+        // ON CONFLICT fix the second one failed on the unique index and
+        // its observation was lost. Either interleaving must merge to 4.
+        await Promise.all([store.recordFix(count), store.recordFix(count)]);
+        const result = await store.prior({
+            vehicle: { make: 'Honda', model: 'Civic', yearFrom: 2017, yearTo: 2017 },
+            dtcs: ['P0420'],
+        });
+        expect(result.hypotheses).toHaveLength(1);
+        expect(result.hypotheses[0]?.n).toBe(4);
+        expect(result.hypotheses[0]?.sources).toEqual([{ source: 'repair-order', observationCount: 4 }]);
+    });
 });
