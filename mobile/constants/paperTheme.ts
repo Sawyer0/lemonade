@@ -21,9 +21,8 @@
  *   mode and the primary tint in light mode.
  * - roundness 12 matches the app's rounded cards and buttons.
  *
- * The provider uses the dark scheme until #46 adds the light scheme and
- * the mode toggle; both schemes are mapped here so the toggle only has
- * to switch the argument.
+ * The provider picks one scheme per the stored mode (#46); both schemes
+ * are mapped here so the toggle only has to switch the argument.
  */
 import { MD3DarkTheme, MD3LightTheme, type MD3Theme } from 'react-native-paper';
 import { BRAND_TOKENS, type ColorScheme } from '@lemonade/core';
@@ -102,6 +101,6 @@ export function buildPaperTheme(scheme: PaperColorScheme): MD3Theme {
     };
 }
 
-/** Prebuilt schemes; the provider picks one (dark until #46 adds the toggle). */
+/** Prebuilt schemes; the provider picks one per the stored mode (#46). */
 export const paperThemeLight: MD3Theme = buildPaperTheme('light');
 export const paperThemeDark: MD3Theme = buildPaperTheme('dark');

@@ -1,19 +1,21 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import * as SystemUI from 'expo-system-ui';
-import { buildPaperTheme } from '@mobile/constants/paperTheme';
+import { paperThemeDark, paperThemeLight } from '@mobile/constants/paperTheme';
+import { BrandColorSchemeProvider, useBrandColorScheme } from './brandColorScheme';
 
 /**
- * Brand providers for the mobile app: Paper (Material 3) themed from the
- * brand tokens. The color scheme is dark until #46 adds the light scheme
- * and the mode toggle.
+ * Brand providers for the mobile app: the color-scheme setting resolved
+ * against the OS preference, and Paper (Material 3) themed from the
+ * brand tokens in that scheme.
  *
  * On Android the navigation bar background follows the themed surface so
  * the app draws edge-to-edge instead of floating over a black bar.
  */
-export function BrandProviders({ children }: { children: React.ReactNode }) {
-    const theme = useMemo(() => buildPaperTheme('dark'), []);
+function PaperThemeProvider({ children }: { children: React.ReactNode }) {
+    const { scheme } = useBrandColorScheme();
+    const theme = scheme === 'dark' ? paperThemeDark : paperThemeLight;
 
     useEffect(() => {
         if (Platform.OS === 'android') {
@@ -24,4 +26,12 @@ export function BrandProviders({ children }: { children: React.ReactNode }) {
     }, [theme]);
 
     return <PaperProvider theme={theme}>{children}</PaperProvider>;
+}
+
+export function BrandProviders({ children }: { children: React.ReactNode }) {
+    return (
+        <BrandColorSchemeProvider>
+            <PaperThemeProvider>{children}</PaperThemeProvider>
+        </BrandColorSchemeProvider>
+    );
 }

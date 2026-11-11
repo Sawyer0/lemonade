@@ -3,14 +3,18 @@
  * of truth for brand colors (packages/core/src/config/brandTokens.ts).
  * No brand color may be hardcoded here.
  *
- * Both schemes map to the dark token set for now: the app is dark-only
- * until #46 wires the light scheme and the mode toggle.
+ * Both schemes are mapped: `Colors.light` is the light token set,
+ * `Colors.dark` the dark token set. Components read the scheme the app
+ * renders in through the `useBrandColors` hook, so a mode change
+ * re-renders them in the other scheme; nothing here is static.
  *
  * Legacy key mapping (kept so existing consumers work unchanged):
  * tint is the action accent, card is the surface, gradientStart/gradientEnd
  * are the primary-to-accent gradient, success/error/warning are the go/stop/
  * caution states, and the *Soft tints are the washed backgrounds for badges
- * and error boxes.
+ * and error boxes. The plain token names surface, primary, and stop are
+ * also exposed, so new code can use the token names directly instead of
+ * the legacy aliases.
  */
 import { BRAND_TOKENS, type ColorScheme } from '@lemonade/core';
 
@@ -24,6 +28,9 @@ function toLegacyColors(scheme: ColorScheme) {
         tabIconDefault: scheme.textSecondary,
         tabIconSelected: scheme.accent,
         card: scheme.surface,
+        surface: scheme.surface,
+        primary: scheme.primary,
+        stop: scheme.stop,
         surfaceRaised: scheme.surfaceRaised,
         border: scheme.border,
         gradientStart: scheme.primary,
@@ -44,9 +51,8 @@ function toLegacyColors(scheme: ColorScheme) {
 }
 
 export const Colors = {
-    light: toLegacyColors(BRAND_TOKENS.dark),
+    light: toLegacyColors(BRAND_TOKENS.light),
     dark: toLegacyColors(BRAND_TOKENS.dark),
 };
 
-// The app is dark-only until #46 adds the mode toggle.
-export const Theme = Colors.dark;
+export type ThemeColors = ReturnType<typeof toLegacyColors>;

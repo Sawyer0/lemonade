@@ -1,3 +1,10 @@
+// The brand scheme provider reads AsyncStorage; the native module is
+// null in Jest, so every suite importing a themed component needs this.
+// Suites that assert on storage behavior define their own mock instead.
+jest.mock('@react-native-async-storage/async-storage', () =>
+    require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 jest.mock('@react-native-google-signin/google-signin', () => ({
     GoogleSignin: {
         configure: jest.fn(),
