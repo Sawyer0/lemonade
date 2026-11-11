@@ -9,6 +9,7 @@ import type {
     DiagnosticSession,
     Vehicle,
     Case,
+    ObdScanResult,
 } from '@lemonade/core';
 import { SessionService } from '../SessionService';
 
@@ -242,5 +243,215 @@ describe('SessionService addDtcCodes', () => {
             statusCode: 403,
         });
         expect(sessionRepo.addObdCodes).not.toHaveBeenCalled();
+    });
+});
+
+describe('SessionService recordObdScan', () => {
+    function buildSessionService(session: DiagnosticSession) {
+        const { service, sessionRepo, caseRepo } = buildService();
+        sessionRepo.findById.mockResolvedValue(session);
+        return { service, sessionRepo, caseRepo };
+    }
+
+    function buildSession(overrides: Partial<DiagnosticSession> = {}): DiagnosticSession {
+        return {
+            id: uuidv4(),
+            vehicleId: uuidv4(),
+            userId: 'user-1',
+            status: 'active',
+            complaint: 'New Session',
+            obdCodes: [],
+            messages: [],
+            updatedAt: new Date(),
+            startedAt: new Date(),
+            aiAnalysis: null,
+            safety_stop: false,
+            cumulativeVideoDurationProcessedMinutes: 0,
+            cumulativeAudioDurationProcessedMinutes: 0,
+            ...overrides,
+        };
+    }
+
+    function buildScan(overrides: Partial<ObdScanResult> = {}): ObdScanResult {
+        return {
+            adapter: { name: 'OBDLink CX', transport: 'ble', model: 'OBDLink CX' },
+            capturedAt: '2026-11-11T15:00:00.000Z',
+            storedCodes: ['P0300', 'P0420'],
+            pendingCodes: ['P0300'],
+            permanentCodes: [],
+            freezeFrame: {
+                dtc: 'P0300',
+                readings: [{ pid: '0C', label: 'Engine RPM', value: 2500, unit: 'rpm', capturedAt: '2026-11-11T15:00:00.000Z' }],
+            },
+            mode06: [{ testId: '01', componentId: '01', value: 10, min: 0, max: 128, unit: 'count', passed: true }],
+            readiness: {
+                milOn: true,
+                storedCodeCount: 2,
+                monitors: [{ name: 'Catalyst', supported: true, complete: true }],
+            },
+            vin: '1HGCM82633A004352',
+            calibrationIds: ['P0123456'],
+            calibrationVerificationNumbers: ['12345678'],
+            liveReadings: [],
+            ...overrides,
+        };
+    }
+
+    it('writes one obd_scan ledger entry and appends stored codes to the session', async () => {
+        const caseId = uuidv4();
+        const session = buildSession({ caseId });
+        const { service, sessionRepo, caseRepo } = buildSessionService(session);
+        const scan = buildScan();
+
+        const recorded = await service.recordObdScan(session.id, 'user-1', scan);
+
+        expect(recorded).toEqual(scan);
+        expect(caseRepo.appendEntry).toHaveBeenCalledWith(
+            caseId,
+            expect.objectContaining({
+                type: 'obd_scan',
+                source: 'OBD',
+                actor: { kind: 'user', id: 'user-1' },
+                occurredAt: new Date('2026-11-11T15:00:00.000Z'),
+                payload: scan,
+            }),
+        );
+        expect(sessionRepo.addObdCodes).toHaveBeenCalledWith(session.id, ['P0300', 'P0420']);
+    });
+
+    it('records stored codes on the session without touching the ledger when there is no case', async () => {
+        const session = buildSession();
+        const { service, sessionRepo, caseRepo } = buildSessionService(session);
+
+        await service.recordObdScan(session.id, 'user-1', buildScan());
+
+        expect(sessionRepo.addObdCodes).toHaveBeenCalledWith(session.id, ['P0300', 'P0420']);
+        expect(caseRepo.appendEntry).not.toHaveBeenCalled();
+    });
+
+    it('skips the session write when the scan has no stored codes', async () => {
+        const session = buildSession({ caseId: uuidv4() });
+        const { service, sessionRepo, caseRepo } = buildSessionService(session);
+
+        await service.recordObdScan(session.id, 'user-1', buildScan({ storedCodes: [] }));
+
+        expect(sessionRepo.addObdCodes).not.toHaveBeenCalled();
+        expect(caseRepo.appendEntry).toHaveBeenCalledOnce();
+    });
+
+    it('rejects a malformed scan and writes nothing', async () => {
+        const session = buildSession({ caseId: uuidv4() });
+        const { service, sessionRepo, caseRepo } = buildSessionService(session);
+        const badScan = { ...buildScan(), vin: 'too-short' } as unknown as ObdScanResult;
+
+        await expect(service.recordObdScan(session.id, 'user-1', badScan)).rejects.toMatchObject({
+            code: ErrorCode.INVALID_INPUT,
+            statusCode: 400,
+        });
+        expect(sessionRepo.addObdCodes).not.toHaveBeenCalled();
+        expect(caseRepo.appendEntry).not.toHaveBeenCalled();
+    });
+
+    it('rejects a session owned by another user with 403', async () => {
+        const session = buildSession({ userId: 'someone-else' });
+        const { service, sessionRepo, caseRepo } = buildSessionService(session);
+
+        await expect(service.recordObdScan(session.id, 'user-1', buildScan())).rejects.toMatchObject({
+            code: ErrorCode.FORBIDDEN,
+            statusCode: 403,
+        });
+        expect(sessionRepo.addObdCodes).not.toHaveBeenCalled();
+        expect(caseRepo.appendEntry).not.toHaveBeenCalled();
+    });
+});
+
+describe('SessionService recordObdLedgerEvent', () => {
+    it('appends a guided-test outcome to the case ledger', async () => {
+        const caseId = uuidv4();
+        const { service, sessionRepo, caseRepo } = buildService();
+        const session: DiagnosticSession = {
+            id: uuidv4(),
+            vehicleId: uuidv4(),
+            userId: 'user-1',
+            status: 'active',
+            complaint: 'New Session',
+            obdCodes: [],
+            messages: [],
+            updatedAt: new Date(),
+            startedAt: new Date(),
+            aiAnalysis: null,
+            safety_stop: false,
+            cumulativeVideoDurationProcessedMinutes: 0,
+            cumulativeAudioDurationProcessedMinutes: 0,
+            caseId,
+        };
+        sessionRepo.findById.mockResolvedValue(session);
+
+        await service.recordObdLedgerEvent(session.id, 'user-1', {
+            type: 'guided_test',
+            payload: {
+                definitionId: 'hold-2500-rpm',
+                definitionName: 'Hold 2,500 RPM',
+                result: 'pass',
+                checks: [
+                    {
+                        pid: '0C',
+                        label: 'Engine RPM',
+                        unit: 'rpm',
+                        observedMin: 2450,
+                        observedMax: 2550,
+                        expectedMin: 2400,
+                        expectedMax: 2600,
+                        passed: true,
+                    },
+                ],
+                samplesRecorded: 30,
+                startedAt: '2026-11-11T15:00:00.000Z',
+                endedAt: '2026-11-11T15:00:30.000Z',
+            },
+        });
+
+        expect(caseRepo.appendEntry).toHaveBeenCalledWith(
+            caseId,
+            expect.objectContaining({ type: 'guided_test', source: 'OBD' }),
+        );
+    });
+
+    it('refuses an OBD event for a session without a case', async () => {
+        const { service, sessionRepo, caseRepo } = buildService();
+        const session: DiagnosticSession = {
+            id: uuidv4(),
+            vehicleId: uuidv4(),
+            userId: 'user-1',
+            status: 'active',
+            complaint: 'New Session',
+            obdCodes: [],
+            messages: [],
+            updatedAt: new Date(),
+            startedAt: new Date(),
+            aiAnalysis: null,
+            safety_stop: false,
+            cumulativeVideoDurationProcessedMinutes: 0,
+            cumulativeAudioDurationProcessedMinutes: 0,
+        };
+        sessionRepo.findById.mockResolvedValue(session);
+
+        await expect(
+            service.recordObdLedgerEvent(session.id, 'user-1', {
+                type: 'verify_fix',
+                payload: {
+                    clearedAt: '2026-11-11T15:00:00.000Z',
+                    rescannedAt: '2026-11-11T15:30:00.000Z',
+                    driveCycleCompleted: true,
+                    monitorsReady: true,
+                    monitorsNotReady: [],
+                    returnedStoredCodes: [],
+                    returnedPendingCodes: [],
+                    returnedPermanentCodes: [],
+                    passed: true,
+                },
+            }),
+        ).rejects.toMatchObject({ code: ErrorCode.INVALID_INPUT, statusCode: 400 });
+        expect(caseRepo.appendEntry).not.toHaveBeenCalled();
     });
 });

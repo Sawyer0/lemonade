@@ -292,6 +292,15 @@ export const AppendLedgerEntryInputSchema = z.discriminatedUnion('type', [
 ]);
 export type AppendLedgerEntryInput = z.infer<typeof AppendLedgerEntryInputSchema>;
 
+// LM-03: the OBD evidence a session can append after the scan itself:
+// a guided-test outcome, a saved fault window, or a verify-fix verdict.
+// The scan has its own method (recordObdScan) because it also writes the
+// session's obdCodes; these three only touch the ledger.
+export type ObdLedgerEventInput = Extract<
+    AppendLedgerEntryInput,
+    { type: 'guided_test' | 'obd_fault_window' | 'verify_fix' }
+>;
+
 // --- Hash chain ---
 // The chain is the audit spine: each entry's hash covers its content plus the
 // previous entry's hash, so any edit to an earlier entry breaks every hash
