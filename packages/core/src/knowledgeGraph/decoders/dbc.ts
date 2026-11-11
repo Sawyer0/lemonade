@@ -144,7 +144,18 @@ export class DbcDatabase {
                         .map((receiver) => receiver.trim())
                         .filter(Boolean),
                 });
-                if (signal.startBit + signal.lengthBits > current.dlc * 8) {
+                // A Motorola (big-endian) signal's start bit is its most
+                // significant bit: it fills the rest of its first byte, then
+                // continues into following bytes, so startBit + lengthBits can
+                // exceed dlc * 8 for a valid trailing signal (e.g. 55|16@0 in
+                // an 8-byte message). Intel signals read upward from the
+                // start bit, so the plain sum applies there.
+                const runsPastEnd = signal.littleEndian
+                    ? signal.startBit + signal.lengthBits > current.dlc * 8
+                    : Math.floor(signal.startBit / 8) +
+                          Math.ceil(Math.max(signal.lengthBits - (signal.startBit % 8) - 1, 0) / 8) >=
+                      current.dlc;
+                if (runsPastEnd) {
                     throw new Error(`DBC signal '${signal.name}' runs past the end of message '${current.name}'`);
                 }
                 if (current.signals.some((existing) => existing.name === signal.name)) {

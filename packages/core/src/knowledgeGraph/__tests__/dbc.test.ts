@@ -51,6 +51,21 @@ describe('DbcDatabase.parse', () => {
         ).toThrow(/runs past the end of message 'B'/);
     });
 
+    it('accepts trailing Motorola signals that fit in the last bytes', () => {
+        // A Motorola start bit is the signal's most significant bit, so
+        // 55|16@0 fills bytes 6-7 and 63|8@0 fills byte 7 of an 8-byte
+        // message even though startBit + lengthBits exceeds dlc * 8.
+        // cantools accepts both (decoding 1000 and 255) and rejects 56|16@0.
+        const database = DbcDatabase.parse(
+            'BO_ 100 A: 8 Vector__XXX\n SG_ Tail : 55|16@0+ (1,0) [0|65535] "" Vector__XXX\n',
+        );
+        expect(database.messageById(100)?.signals.map((signal) => signal.name)).toEqual(['Tail']);
+        const lastByte = DbcDatabase.parse(
+            'BO_ 100 A: 8 Vector__XXX\n SG_ Last : 63|8@0+ (1,0) [0|255] "" Vector__XXX\n',
+        );
+        expect(lastByte.messageById(100)?.signals.map((signal) => signal.name)).toEqual(['Last']);
+    });
+
     it('ignores lines that match no known pattern instead of failing', () => {
         const database = DbcDatabase.parse('BO_ 100 A: 8 Vector__XXX\n# a comment\nNS_ :\n');
         expect(database.allMessages()).toHaveLength(1);
