@@ -573,6 +573,63 @@ describe('MechanicReasoningService', () => {
             );
         });
 
+        it('re-queues evidence that arrives after the last checkpoint so the next run sees it', async () => {
+            let releaseVideo!: (value: unknown) => void;
+            const videoGate = new Promise((resolve) => {
+                releaseVideo = resolve;
+            });
+            const videoResult = {
+                diagnosis: 'Loose Fan Belt',
+                confidence: 0.9,
+                visual_evidence: [],
+                acoustic_evidence: [],
+                severity: 'low',
+                safety_alert: false,
+                suggested_actions: [],
+                engineDescription: 'Stock',
+                isStock: true,
+                visualConflictDetected: false,
+                detectedCondition: 'clean',
+            };
+            mockVideoAI.analyzeUploadedVideo = vi.fn().mockImplementation(() => videoGate);
+
+            const runningService = caseService(caseCoordinator);
+            const first = runningService.diagnose(
+                caseInput({ caseId: CASE_ID, videoUrl: 'http://example.com/video.mp4' }),
+            );
+            await waitForMockCall(mockVideoAI.analyzeUploadedVideo as unknown as { mock: { calls: unknown[][] } });
+
+            // The vision call started, so its input was already built: this
+            // evidence arrives after the run's last checkpoint.
+            const lateSummary = 'the noise stops when the belt is off';
+            caseCoordinator.submitEvidence(CASE_ID, caseCoordinator.evidenceFromQuery(lateSummary));
+            // Let the 250 ms forward loop deliver it to the actor.
+            await new Promise((resolve) => setTimeout(resolve, 400));
+
+            releaseVideo(videoResult);
+            const firstResult = await first;
+            expect(firstResult).toBeDefined();
+
+            // The late evidence reached no model call in this run...
+            const firstVideoContext = (mockVideoAI.analyzeUploadedVideo as unknown as { mock: { calls: unknown[][] } })
+                .mock.calls[0][1] as string;
+            expect(firstVideoContext).not.toContain(lateSummary);
+            // ...but it was re-queued with a log line instead of dropped.
+            expect(caseCoordinator.pendingCount(CASE_ID)).toBe(1);
+            expect(mockLogger.info).toHaveBeenCalledWith(
+                expect.stringContaining('Re-queued evidence that arrived after the last checkpoint'),
+                expect.objectContaining({ caseId: CASE_ID, count: 1 }),
+            );
+
+            // The next run drains the re-queued evidence and folds it into its vision call.
+            mockVideoAI.analyzeUploadedVideo = vi.fn().mockResolvedValue(videoResult);
+            await runningService.diagnose(caseInput({ caseId: CASE_ID, videoUrl: 'http://example.com/video.mp4' }));
+            const secondVideoContext = (mockVideoAI.analyzeUploadedVideo as unknown as { mock: { calls: unknown[][] } })
+                .mock.calls[0][1] as string;
+            expect(secondVideoContext).toContain(lateSummary);
+            expect(caseCoordinator.pendingCount(CASE_ID)).toBe(0);
+        });
+
         it('resumes from the stored snapshot after the worker is killed mid-case', async () => {
             let releaseGather!: () => void;
             const gatherGate = new Promise<[]>((resolve) => {

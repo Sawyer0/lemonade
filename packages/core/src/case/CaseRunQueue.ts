@@ -1,6 +1,4 @@
 import { z } from 'zod';
-import { AppError } from '../errors/AppError';
-import { ErrorCode } from '../errors/codes';
 
 // --- Case evidence ---
 // One item of new information that arrived while a run was in progress: a
@@ -19,25 +17,6 @@ export const CaseEvidenceSchema = z.object({
 });
 export type CaseEvidence = z.infer<typeof CaseEvidenceSchema>;
 
-// --- Tool-call steering ---
-// The exact reason an unstarted tool call reports when it is skipped so the
-// run can fold in queued evidence. A running tool is never killed: it keeps
-// its 'continue' decision and finishes on its own.
-export const SKIPPED_TO_PROCESS_NEW_EVIDENCE = 'skipped to process new evidence';
-
-export const PlannedToolCallStatusSchema = z.enum(['pending', 'running', 'done']);
-export type PlannedToolCallStatus = z.infer<typeof PlannedToolCallStatusSchema>;
-
-export interface PlannedToolCall {
-    id: string;
-    name: string;
-    status: PlannedToolCallStatus;
-}
-
-export type ToolCallDecision =
-    | { id: string; name: string; outcome: 'continue' }
-    | { id: string; name: string; outcome: 'skipped'; reason: typeof SKIPPED_TO_PROCESS_NEW_EVIDENCE };
-
 /**
  * Per-case run queue (LM-17). One queue per case: new evidence is queued and
  * enters the run only at checkpoints — before each model call and between
@@ -47,7 +26,12 @@ export type ToolCallDecision =
  *
  * This class is pure: it holds no I/O, no timers, and no case state beyond
  * its own pending list. The caller owns the checkpoint loop (see
- * CaseRunCoordinator in infrastructure) and the run's write guard below.
+ * CaseRunCoordinator in infrastructure); the run's write guard is
+ * PostgresCaseRepository.advanceCaseVersion, not a helper here.
+ *
+ * Sequential tool-call steering is future work, not a method here: the
+ * machine's tools are XState-invoked actors with no planned call list to
+ * steer, so a skip/continue planner would have no production caller.
  */
 export class CaseRunQueue {
     private readonly pending: CaseEvidence[] = [];
@@ -76,28 +60,6 @@ export class CaseRunQueue {
      */
     drainAtCheckpoint(): CaseEvidence[] {
         return this.pending.splice(0, this.pending.length);
-    }
-
-    /**
-     * Steers a planned sequence of tool calls at a checkpoint. Calls that
-     * have not started are skipped so the run can process the queued
-     * evidence first; a running call is never killed and a finished call is
-     * untouched. With no evidence pending, every call continues.
-     */
-    planToolCalls(calls: PlannedToolCall[]): ToolCallDecision[] {
-        if (!this.hasPending()) {
-            return calls.map((call) => ({ id: call.id, name: call.name, outcome: 'continue' as const }));
-        }
-        return calls.map((call) =>
-            call.status === 'pending'
-                ? {
-                      id: call.id,
-                      name: call.name,
-                      outcome: 'skipped' as const,
-                      reason: SKIPPED_TO_PROCESS_NEW_EVIDENCE,
-                  }
-                : { id: call.id, name: call.name, outcome: 'continue' as const },
-        );
     }
 }
 
@@ -128,28 +90,5 @@ export class CaseRunRegistry {
 
     activeRunId(caseId: string): string | null {
         return this.activeRuns.get(caseId) ?? null;
-    }
-}
-
-/**
- * Optimistic-concurrency guard for a run's write. A run reads the case
- * version when it starts and writes with that version; when the case has
- * moved on (another run committed, or a ledger append landed mid-run) the
- * stale run's write is refused instead of overwriting the newer state.
- * Throws a 409 VERSION_CONFLICT; the caller keeps the diagnosis but must
- * not record the stale run as the case's latest.
- */
-export function assertRunVersionCurrent(readVersion: number, currentVersion: number, caseId: string): void {
-    if (!Number.isInteger(readVersion) || !Number.isInteger(currentVersion)) {
-        throw new AppError(
-            ErrorCode.INVALID_INPUT,
-            `Case versions must be integers: read ${readVersion}, current ${currentVersion}`,
-        );
-    }
-    if (readVersion !== currentVersion) {
-        throw new AppError(
-            ErrorCode.VERSION_CONFLICT,
-            `Case ${caseId} changed since this run started (read version ${readVersion}, current version ${currentVersion}); refusing the stale write`,
-        );
     }
 }

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createActor, type AnyActorLogic } from 'xstate';
 import type {
     AIAnalysis,
+    CaseEvidence,
     IChatAssistantAI,
     IEmbeddingService,
     IGoogleSearchService,
@@ -146,6 +147,21 @@ describe('EvidenceAnalyzer', () => {
             'high',
             2,
         );
+    });
+
+    it('folds queued mid-run evidence into the vision and text prompts', async () => {
+        const { subject, videoAI, chatAI } = analyzer();
+        const queued: CaseEvidence[] = [
+            { id: 'e1', kind: 'reading', summary: 'OBD: P0300 misfire on cylinder 3', receivedAt: new Date() },
+        ];
+        await subject.analyze({ ...input, videoUrl: 'gs://b/v.mp4' }, undefined, undefined, undefined, [], queued);
+        expect(videoAI.analyzeUploadedVideo.mock.calls[0][1]).toContain('NEW EVIDENCE ARRIVED DURING THIS RUN');
+        expect(videoAI.analyzeUploadedVideo.mock.calls[0][1]).toContain('OBD: P0300 misfire on cylinder 3');
+
+        await subject.analyze(input, undefined, undefined, undefined, [], queued);
+        expect(chatAI.generateReply).toHaveBeenCalled();
+        const textPrompt = (chatAI.generateReply as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][1];
+        expect(textPrompt).toContain('OBD: P0300 misfire on cylinder 3');
     });
 
     it('falls back to a text diagnosis, joining part replies', async () => {

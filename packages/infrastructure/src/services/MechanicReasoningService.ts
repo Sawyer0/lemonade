@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type {
     IMechanicReasoningService,
     ReasoningInput,
+    CaseEvidence,
     INHTSAService,
     IEmbeddingService,
     IVectorRepository,
@@ -267,6 +268,9 @@ export class MechanicReasoningService implements IMechanicReasoningService {
      * the case resumes where it left off instead of starting over; evidence
      * that arrives mid-run is forwarded to the actor, which folds it in at
      * the next checkpoint (before a model call, between sequential tools).
+     * Evidence that arrives after the run's last checkpoint — when no model
+     * call is left to read it — is re-queued for the next run instead of
+     * being dropped (see the finally block below).
      */
     private async runMachine(input: ReasoningInput) {
         const inspectorEnabled = process.env.XSTATE_INSPECTOR === 'true';
@@ -332,7 +336,41 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             });
         }
 
+        // LM-17: evidence forwarded to the actor after the run's last model
+        // call started can be read by nothing — that call's input was already
+        // built, and synthesizing makes no model call. Track which forwarded
+        // items the last checkpoint consumed, so the rest can be re-queued
+        // for the next run instead of silently dropped.
+        const forwarded: CaseEvidence[] = [];
+        let consumedThrough = 0;
+        let recordedCheckpoint: 'intuition' | 'investigating' | 'vision_verifying' | null = null;
+        // The last checkpoint whose model call actually runs: with no video
+        // the vision actor returns without a model call, so investigating is
+        // the last one that can see evidence.
+        const checkpointOrder = ['intuition', 'investigating', 'vision_verifying'] as const;
+        const lastCheckpoint: (typeof checkpointOrder)[number] = input.videoUrl ? 'vision_verifying' : 'investigating';
+
         actor.subscribe((state) => {
+            // Record the first entry into each checkpoint state: everything
+            // forwarded up to that moment is in the model call's input. A
+            // later transition inside the same state (a parallel region
+            // finishing) must not move the mark — evidence forwarded after
+            // the call started is still unread.
+            const checkpoint: typeof recordedCheckpoint = state.matches('vision_verifying')
+                ? 'vision_verifying'
+                : state.matches('investigating')
+                  ? 'investigating'
+                  : state.matches('intuition')
+                    ? 'intuition'
+                    : null;
+            if (
+                checkpoint !== null &&
+                checkpoint !== recordedCheckpoint &&
+                checkpointOrder.indexOf(checkpoint) <= checkpointOrder.indexOf(lastCheckpoint)
+            ) {
+                recordedCheckpoint = checkpoint;
+                consumedThrough = forwarded.length;
+            }
             this.logger.debug(`[MechanicMachine] State: ${JSON.stringify(state.value)}`, {
                 error: state.context.error,
             });
@@ -360,9 +398,12 @@ export class MechanicReasoningService implements IMechanicReasoningService {
 
         // Evidence that arrives mid-run joins the actor at its next
         // checkpoint. The timer stops when the run settles, even on timeout.
+        // Evidence forwarded after the last checkpoint is re-queued in the
+        // finally block below, so it reaches the next run instead of vanishing.
         const forwardTimer = input.caseId
             ? setInterval(() => {
                   for (const item of this.runCoordinator.drainAtCheckpoint(input.caseId as string)) {
+                      forwarded.push(item);
                       actor.send({ type: 'APPEND_EVIDENCE', evidence: item });
                   }
               }, EVIDENCE_FORWARD_MS)
@@ -389,6 +430,12 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                 timeout: DIAGNOSIS_TIMEOUT_MS,
             });
 
+            // Stop forwarding now: the actor is done, so anything drained
+            // after this point would be sent to a finished actor and lost.
+            if (forwardTimer) {
+                clearInterval(forwardTimer);
+            }
+
             await this.sessionRepo
                 .clearXStateSnapshot(input.sessionId)
                 .catch((err) =>
@@ -399,6 +446,26 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         } finally {
             if (forwardTimer) {
                 clearInterval(forwardTimer);
+            }
+            // Evidence that arrived after the last checkpoint was forwarded
+            // to the actor but read by no model call — and it was already
+            // drained from the coordinator queue, so the next run would not
+            // see it either. Re-queue it so the next run for this case does.
+            if (input.caseId) {
+                const leftovers = forwarded.slice(consumedThrough);
+                if (leftovers.length > 0) {
+                    for (const item of leftovers) {
+                        this.runCoordinator.submitEvidence(input.caseId, item);
+                    }
+                    this.logger.info(
+                        '[MechanicReasoning] Re-queued evidence that arrived after the last checkpoint; the next run for this case will see it',
+                        {
+                            caseId: input.caseId,
+                            count: leftovers.length,
+                            evidenceIds: leftovers.map((item) => item.id),
+                        },
+                    );
+                }
             }
         }
     }
