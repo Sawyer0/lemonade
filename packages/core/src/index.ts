@@ -64,6 +64,7 @@ export * from './goal/goalSchema';
 export * from './goal/evaluateGoal';
 export * from './case/CaseRunQueue';
 export * from './ports/ICaseRepository';
+export * from './ports/ISandbox'; // Per-case sandbox exec contract (LM-16)
 export * from './context/types';
 export * from './context/snapshot';
 export * from './context/catalog';
