@@ -27,6 +27,13 @@ functions/lib/
 functions/livekit-agent/venv/
 functions/livekit-agent/__pycache__/
 
+# LM-40 bake-off assets: recorded noise beds and video clips are made in a
+# real shop and never committed (see docs/voice-bakeoff.md). The .gitkeep
+# files keep the directories; results tables ARE committed.
+agent/test/bakeoff/noise/*.wav
+agent/test/bakeoff/clips/*.mp4
+agent/test/bakeoff/clips/*.jpg
+
 # testing
 /coverage
 

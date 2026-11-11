@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "paths": { "@lemonade/infrastructure": ["../packages/infrastructure/dist/index"] },
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2022",
+    "types": ["node"]
+  }
+}

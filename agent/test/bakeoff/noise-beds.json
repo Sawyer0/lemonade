@@ -1,0 +1,31 @@
+{
+  "beds": [
+    {
+      "bedGainDb": -12,
+      "description": "Pneumatic impact wrench in short bursts, the loudest transient in the shop.",
+      "file": "noise/impact-gun.wav",
+      "id": "impact-gun"
+    },
+    {
+      "bedGainDb": -15,
+      "description": "Shop air compressor cycling, steady low drone with a start-up clunk.",
+      "file": "noise/compressor.wav",
+      "id": "compressor"
+    },
+    {
+      "bedGainDb": -18,
+      "description": "Engine at idle with the hood up, steady rumble plus fan noise.",
+      "file": "noise/engine-idle.wav",
+      "id": "engine-idle"
+    },
+    {
+      "bedGainDb": -20,
+      "description": "Shop radio at working volume, music and talking underneath the tech's voice.",
+      "file": "noise/radio.wav",
+      "id": "radio"
+    }
+  ],
+  "description": "Recorded shop-noise beds for the LM-40 bake-off. The WAV files themselves are NOT committed: record them in a real shop, 10-30 second loops, 16 kHz mono WAV, and drop them in agent/test/bakeoff/noise/ as <id>.wav. A run that needs a missing bed skips those turns with status missing-asset instead of scoring silence. bedGainDb is the bed's level relative to the prompt speech (negative = quieter than the voice); calibrate by ear once, in the shop, and record the value here.",
+  "howToRecord": "Stand a phone or field recorder where the tech stands, 1-2 m from the noise source, and record 10-30 seconds of steady noise with no talking. Trim to a clean loop, convert to 16 kHz mono WAV (ffmpeg -i in.m4a -ac 1 -ar 16000 noise/<id>.wav), and check the bed is steady by listening to a mixed turn once before a scored run.",
+  "version": 1
+}
