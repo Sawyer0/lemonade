@@ -2,7 +2,7 @@ import * as cartesia from '@livekit/agents-plugin-cartesia';
 import * as deepgram from '@livekit/agents-plugin-deepgram';
 import * as google from '@livekit/agents-plugin-google';
 import * as xai from '@livekit/agents-plugin-xai';
-import { Modality } from '@google/genai';
+import { Behavior, Modality } from '@google/genai';
 import type { VoicePlugins } from './provider';
 
 /**
@@ -29,6 +29,11 @@ export const livekitPlugins: VoicePlugins = {
             apiKey,
             voice,
             temperature,
+            // LM-13: non-blocking tool calls must be explicit. Google's docs
+            // disagree on the default, and with the default the plugin drops
+            // a tool's result when the model keeps talking (livekit/agents-js
+            // #2593). The patched plugin only keeps the result when this is set.
+            toolBehavior: Behavior.NON_BLOCKING,
             // Gemini Developer API, not Vertex: Vertex ignores result
             // scheduling, and the model choice must not leak in from the
             // GOOGLE_GENAI_USE_VERTEXAI environment default.

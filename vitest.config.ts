@@ -6,6 +6,18 @@ export default defineConfig({
         environment: 'node',
         globals: true,
         exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/*.spec.ts', 'mobile/**'],
+        server: {
+            deps: {
+                // LM-13: the patched Google plugin must run through Vitest's
+                // module runner (not native ESM) so the vi.mock of the
+                // plugin's own nested `@google/genai` copy in
+                // agent/test/googlePluginPatch.test.ts intercepts its
+                // live.connect() with the fake Gemini socket. The mocked
+                // '@google/genai' must be inlined too, or the runner loads
+                // it natively and the mock never applies.
+                inline: ['@livekit/agents-plugin-google', '@google/genai'],
+            },
+        },
         coverage: {
             provider: 'v8',
             reporter: ['text-summary', 'json-summary', 'html'],
