@@ -59,6 +59,16 @@ export function parseDtc(raw: string): ParseDtcResult {
     if (!isDtcSystemLetter(systemLetter)) {
         return reject(`System letter must be P, B, C or U, got '${systemLetter}'`);
     }
+    // SAE J2012 / ISO 15031-6 §5.1: the designator (second character) is
+    // only 0-3 (B0-B3, C0-C3, P0-P3, U0-U3). 4-F are valid hex digits but
+    // not valid designators, so they are rejected here, not by the hex
+    // check below.
+    const designator = normalized[1];
+    if (designator < '0' || designator > '3') {
+        return reject(
+            `Second character (designator) must be 0-3 (B0-B3, C0-C3, P0-P3, U0-U3 per SAE J2012), got '${designator}'`,
+        );
+    }
     const digits = normalized.slice(1);
     if (![...digits].every((character) => HEX_DIGIT.test(character))) {
         return reject(`Characters after the system letter must be hexadecimal digits (0-9, A-F): '${normalized}'`);

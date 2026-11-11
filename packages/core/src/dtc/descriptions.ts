@@ -3,14 +3,19 @@ import type { DtcSystem } from './types';
 // --- Generic vs manufacturer-specific (SAE J2012) ---
 // P0xxx and P2xxx are SAE generic, P1xxx is manufacturer-specific, and P3xxx
 // is split: P30xx-P33xx manufacturer-specific, P34xx and above SAE generic.
-// B/C: 0 and 3 are SAE generic, 1 and 2 manufacturer-specific.
+// "And above" runs through the hex range, so P3Axx-P3Fxx are SAE generic
+// too (the third character is compared as a hex digit, and A-F sort above
+// 4). B/C: 0 and 3 are SAE generic, 1 and 2 manufacturer-specific.
 // U: 0 and 3 are SAE generic, 1 and 2 manufacturer-specific.
+// A designator outside 0-3 is not a valid DTC at all: the parser rejects
+// it before this runs, so the fall-through below only guards direct callers.
 export function isGenericDtc(system: DtcSystem, secondDigit: string, thirdDigit: string): boolean {
     switch (system) {
         case 'P':
             if (secondDigit === '0' || secondDigit === '2') return true;
             if (secondDigit === '1') return false;
-            return thirdDigit >= '4';
+            if (secondDigit === '3') return thirdDigit >= '4';
+            return false;
         case 'B':
         case 'C':
         case 'U':
