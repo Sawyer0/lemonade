@@ -1,15 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withRepeat,
-    withTiming,
-    withSequence,
-    Easing,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Card } from 'react-native-paper';
 import { Theme } from '@mobile/constants/theme';
+import { usePulseOpacity } from '@mobile/hooks/usePulseOpacity';
 
 /**
  * Android (Material 3) loading skeleton. Same props as the shared
@@ -22,26 +16,11 @@ interface GhostCardProps {
 }
 
 export const GhostCard: React.FC<GhostCardProps> = ({ title, subtitle }) => {
-    const opacity = useSharedValue(0.3);
-
-    useEffect(() => {
-        opacity.value = withRepeat(
-            withSequence(
-                withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-                withTiming(0.3, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-            ),
-            -1,
-            true,
-        );
-    }, [opacity]);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        opacity: opacity.value,
-    }));
+    const animatedStyle = usePulseOpacity();
 
     return (
         <Card mode="elevated" style={styles.container}>
-            <View style={styles.content}>
+            <View>
                 <View style={styles.headerRow}>
                     <Text style={styles.title}>{title}</Text>
                     <Animated.View style={[styles.pulseDot, animatedStyle]} />
@@ -64,9 +43,6 @@ const styles = StyleSheet.create({
         marginVertical: 8,
         padding: 16,
         borderRadius: 16,
-    },
-    content: {
-        padding: 0,
     },
     headerRow: {
         flexDirection: 'row',

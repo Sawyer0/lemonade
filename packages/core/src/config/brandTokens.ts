@@ -3,7 +3,10 @@
  *
  * Closes #44. Web (#45) and mobile (#46) consume these tokens; no brand color
  * or font family may be hardcoded anywhere else. If a color or font is needed
- * that is not here, add it here first.
+ * that is not here, add it here first. One unavoidable mirror lives outside
+ * this file: mobile/app.json's adaptiveIcon.backgroundColor duplicates
+ * light.background (#FAF7F0) because JSON cannot import these tokens —
+ * update both if the base changes.
  *
  * Direction (user, Nov 11, 2026): Quilt's approach, not Quilt's colors or
  * fonts. Blue, white, and orange in shades, not the pure colors. Light mode

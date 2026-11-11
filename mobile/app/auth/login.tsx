@@ -51,6 +51,7 @@ export default function LoginScreen() {
 
                         <TextInput
                             testID="login-email-input"
+                            label="Email"
                             placeholder="Email"
                             value={email}
                             onChangeText={setEmail}
@@ -60,6 +61,7 @@ export default function LoginScreen() {
 
                         <TextInput
                             testID="login-password-input"
+                            label="Password"
                             placeholder="Password"
                             value={password}
                             onChangeText={setPassword}

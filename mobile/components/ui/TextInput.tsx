@@ -1,8 +1,8 @@
 /**
  * Re-export shim: TypeScript cannot resolve Metro's platform extensions
  * (`.android`, `.native`), so extensionless imports of this component
- * resolve through this file for typechecking. At runtime Metro resolves
- * the platform file directly (`TextInput.android` on Android,
- * `TextInput.native` elsewhere) and never loads this file.
+ * resolve through this file for typechecking. On Android and iOS Metro
+ * resolves the platform file directly (`TextInput.android` / `TextInput.native`); on web
+ * this shim resolves to the `.native` implementation.
  */
 export * from './TextInput.native';

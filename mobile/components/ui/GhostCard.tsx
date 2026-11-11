@@ -1,15 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withRepeat,
-    withTiming,
-    withSequence,
-    Easing,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { GlassCard } from './GlassCard';
 import { Theme } from '../../constants/theme';
+import { usePulseOpacity } from '../../hooks/usePulseOpacity';
 
 interface GhostCardProps {
     title: string;
@@ -17,22 +11,7 @@ interface GhostCardProps {
 }
 
 export const GhostCard: React.FC<GhostCardProps> = ({ title, subtitle }) => {
-    const opacity = useSharedValue(0.3);
-
-    useEffect(() => {
-        opacity.value = withRepeat(
-            withSequence(
-                withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-                withTiming(0.3, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-            ),
-            -1,
-            true,
-        );
-    }, [opacity]);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        opacity: opacity.value,
-    }));
+    const animatedStyle = usePulseOpacity();
 
     return (
         <GlassCard style={styles.container} variant="thin">

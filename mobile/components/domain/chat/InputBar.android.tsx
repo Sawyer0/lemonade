@@ -27,15 +27,19 @@ export function InputBar({ onSend, onMediaSelect, loading }: InputBarProps) {
     };
 
     const handlePickMedia = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images', 'videos'],
-            allowsEditing: true,
-            quality: 0.8,
-        });
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images', 'videos'],
+                allowsEditing: true,
+                quality: 0.8,
+            });
 
-        if (!result.canceled && onMediaSelect) {
-            const asset = result.assets[0];
+            if (result.canceled || !onMediaSelect) return;
+            const asset = result.assets?.[0];
+            if (!asset) return;
             await onMediaSelect(asset.uri, asset.type === 'video' ? 'video' : 'image');
+        } catch (error) {
+            console.error('Failed to pick media', error);
         }
     };
 

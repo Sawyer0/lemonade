@@ -27,7 +27,7 @@
  */
 import { MD3DarkTheme, MD3LightTheme, type MD3Theme } from 'react-native-paper';
 import { BRAND_TOKENS, type ColorScheme } from '@lemonade/core';
-import { JETBRAINS_MONO_FAMILY, RUBIK_FAMILY } from './brandFonts';
+import { RUBIK_FAMILY } from './brandFonts';
 
 export type PaperColorScheme = 'light' | 'dark';
 
@@ -100,11 +100,6 @@ export function buildPaperTheme(scheme: PaperColorScheme): MD3Theme {
         },
         fonts: buildFonts(),
     };
-}
-
-/** Data text (DTC codes, VINs, readings) renders in JetBrains Mono. */
-export function monoFontFamily(weight: keyof typeof JETBRAINS_MONO_FAMILY): string {
-    return JETBRAINS_MONO_FAMILY[weight];
 }
 
 /** Prebuilt schemes; the provider picks one (dark until #46 adds the toggle). */

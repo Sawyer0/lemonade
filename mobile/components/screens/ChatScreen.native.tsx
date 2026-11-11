@@ -144,7 +144,11 @@ export default function ChatScreen() {
                                 <ThemedText style={styles.summaryBody}>{summaryText}</ThemedText>
                             )}
                             <View style={styles.summaryActions}>
-                                <GradientButton title="Continue" onPress={handleContinue} style={styles.summaryButton} />
+                                <GradientButton
+                                    title="Continue"
+                                    onPress={handleContinue}
+                                    style={styles.summaryButton}
+                                />
                                 <GradientButton
                                     title="Fresh Start"
                                     variant="outline"

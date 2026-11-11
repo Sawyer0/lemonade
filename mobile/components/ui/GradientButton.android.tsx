@@ -46,7 +46,7 @@ export function GradientButton({
         <Button
             mode={MODE[variant]}
             onPress={onPress}
-            disabled={disabled}
+            disabled={disabled || loading}
             loading={loading}
             icon={iconSource}
             testID={testID}

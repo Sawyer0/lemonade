@@ -47,6 +47,7 @@ export default function SignupScreen() {
 
                         <TextInput
                             testID="signup-username-input"
+                            label="Username"
                             placeholder="Username"
                             value={username}
                             onChangeText={setUsername}
@@ -54,6 +55,7 @@ export default function SignupScreen() {
 
                         <TextInput
                             testID="signup-email-input"
+                            label="Email"
                             placeholder="Email"
                             value={email}
                             onChangeText={setEmail}
@@ -63,6 +65,7 @@ export default function SignupScreen() {
 
                         <TextInput
                             testID="signup-password-input"
+                            label="Password"
                             placeholder="Password"
                             value={password}
                             onChangeText={setPassword}

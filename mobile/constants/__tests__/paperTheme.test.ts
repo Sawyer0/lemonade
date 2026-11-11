@@ -71,6 +71,30 @@ describe('paperTheme', () => {
         expect(paperThemeDark.fonts.bodyLarge.fontFamily).toBe('Rubik_400Regular');
         expect(paperThemeDark.fonts.labelLarge.fontFamily).toBe('Rubik_600SemiBold');
         expect(paperThemeDark.fonts.displayLarge.fontFamily).toBe('Rubik_700Bold');
+        expect(paperThemeLight.fonts.default.fontFamily).toBe('Rubik_400Regular');
+        expect(paperThemeLight.fonts.titleLarge.fontFamily).toBe('Rubik_600SemiBold');
+        expect(paperThemeLight.fonts.headlineLarge.fontFamily).toBe('Rubik_700Bold');
+        expect(paperThemeLight.fonts.bodySmall.fontFamily).toBe('Rubik_400Regular');
+        expect(paperThemeLight.fonts.labelSmall.fontFamily).toBe('Rubik_500Medium');
+    });
+
+    it('covers the remaining roles in both schemes', () => {
+        for (const [theme, tokens] of [
+            [paperThemeLight, BRAND_TOKENS.light],
+            [paperThemeDark, BRAND_TOKENS.dark],
+        ] as const) {
+            expect(theme.colors.onBackground).toBe(tokens.text);
+            expect(theme.colors.outlineVariant).toBe(tokens.border);
+            expect(theme.colors.elevation.level0).toBe(tokens.surface);
+            expect(theme.colors.elevation.level1).toBe(tokens.surfaceRaised);
+            expect(theme.colors.elevation.level2).toBe(tokens.surfaceRaised);
+            expect(theme.colors.elevation.level3).toBe(tokens.surfaceRaised);
+            expect(theme.colors.elevation.level4).toBe(tokens.surfaceRaised);
+            expect(theme.colors.elevation.level5).toBe(tokens.surfaceRaised);
+            expect(theme.roundness).toBe(12);
+        }
+        expect(paperThemeLight.colors.inversePrimary).toBe(BRAND_TOKENS.light.primarySoft);
+        expect(paperThemeDark.colors.inversePrimary).toBe(BRAND_TOKENS.light.primary);
     });
 
     it('keeps light and dark schemes distinct', () => {

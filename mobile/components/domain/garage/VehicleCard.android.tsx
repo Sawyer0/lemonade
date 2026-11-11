@@ -23,7 +23,7 @@ export function VehicleCard({ vehicle, onPress, testID }: VehicleCardProps) {
             <Card.Content>
                 <View style={styles.cardHeader}>
                     <Ionicons name="car" size={24} color={theme.colors.secondary} />
-                    <Chip mode="flat" style={styles.badge} textStyle={styles.badgeText}>
+                    <Chip mode="flat" textStyle={styles.badgeText}>
                         {vehicle.activeIssuesCount} Issues
                     </Chip>
                 </View>
@@ -58,7 +58,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginTop: 4,
     },
-    badge: {},
     badgeText: {
         fontSize: 10,
         fontWeight: 'bold',

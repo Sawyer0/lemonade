@@ -17,7 +17,9 @@ export function BrandProviders({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (Platform.OS === 'android') {
-            void SystemUI.setBackgroundColorAsync(theme.colors.surface);
+            SystemUI.setBackgroundColorAsync(theme.colors.surface).catch((error: unknown) => {
+                console.error('Failed to set Android navigation bar color', error);
+            });
         }
     }, [theme]);
 
