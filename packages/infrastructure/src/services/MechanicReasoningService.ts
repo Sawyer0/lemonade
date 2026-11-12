@@ -23,7 +23,7 @@ import type {
     ICaseRepository,
     IFixCountStore,
 } from '@lemonade/core';
-import { AppError, ErrorCode, mechanicMachine } from '@lemonade/core';
+import { AppError, ErrorCode, isMechanicTerminalState, mechanicMachine } from '@lemonade/core';
 import { GEMINI_PRO_MODEL } from '@lemonade/core';
 import type { ReasonerActorRunner, ReasonerModel, ReasonerRegionResult, ReasonerRunRequest } from '@lemonade/core';
 import { createActor, waitFor } from 'xstate';
@@ -338,11 +338,13 @@ export class MechanicReasoningService implements IMechanicReasoningService {
     }
 
     /**
-     * Runs the mechanic machine to its synthesizing state, persisting each
-     * snapshot. LM-17: a stored snapshot from a crashed run is restored, so
-     * the case resumes where it left off instead of starting over; evidence
-     * that arrives mid-run is forwarded to the actor, which folds it in at
-     * the next checkpoint (before a model call, between sequential tools).
+     * Runs the mechanic machine to one of its terminal states (LM-26:
+     * verified_fix, diagnosed_unverified, abstained, safety_stopped,
+     * escalated or budget_limited), persisting each snapshot. LM-17: a
+     * stored snapshot from a crashed run is restored, so the case resumes
+     * where it left off instead of starting over; evidence that arrives
+     * mid-run is forwarded to the actor, which folds it in at the next
+     * checkpoint (before a model call, between sequential tools).
      * Evidence that arrives after the run's last checkpoint — when no model
      * call is left to read it — is re-queued for the next run instead of
      * being dropped (see the finally block below).
@@ -467,7 +469,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             // functions did not survive JSON); put the live ones back
             // before anything invokes them.
             actor.send({ type: 'UPDATE_SERVICES', services });
-            if (!restoredState.matches('idle') && !restoredState.matches('synthesizing')) {
+            if (!restoredState.matches('idle') && !isMechanicTerminalState(restoredState.value)) {
                 // Re-enter the restored state so its dead invoked actor
                 // starts again; without this the run would sit there forever.
                 actor.send({ type: 'RESUME' });
@@ -507,7 +509,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                 });
             }
 
-            const finalState = await waitFor(actor, (state) => state.matches('synthesizing'), {
+            const finalState = await waitFor(actor, (state) => isMechanicTerminalState(state.value), {
                 timeout: DIAGNOSIS_TIMEOUT_MS,
             });
 
