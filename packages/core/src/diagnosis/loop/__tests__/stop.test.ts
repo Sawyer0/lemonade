@@ -110,6 +110,15 @@ describe('evaluateStop', () => {
         expect(decision).toMatchObject({ kind: 'escalate', reason: 'other-too-high' });
     });
 
+    it('escalates when OTHER is exactly 25%', () => {
+        // The spec escalates at OTHER >= 0.25, matching the safety
+        // gate's >=: exactly at the threshold is already too high.
+        const differential = buildDifferential({ priorHypotheses: misfirePriors(), testDefinitions: [] });
+        const state = stateFor({ ...differential, otherProbability: 0.25 });
+        const decision = evaluateStop(state, { plan: planFor(state) });
+        expect(decision).toMatchObject({ kind: 'escalate', reason: 'other-too-high' });
+    });
+
     it('escalates when every cause was ruled out', () => {
         const state = stateFor({ hypotheses: [], otherProbability: 1, round: 2 });
         const decision = evaluateStop(state, { plan: planFor(state) });

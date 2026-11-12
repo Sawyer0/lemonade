@@ -307,6 +307,35 @@ describe('tuneThresholds', () => {
         const holdout = Array.from({ length: 10 }, () => holdoutCase(0.99, 0));
         expect(tuneThresholds(holdout, [{ tauFloor: 0.8, epsSafety: 0.01, otherEscalate: 0.25 }])).toBeNull();
     });
+
+    it('rejects a candidate the safety gate had to save', () => {
+        // Twenty correct commits plus one wrong repair that cleared τ
+        // with OTHER low, but whose true cause was safety-critical and
+        // still at 5% — above eps 0.01. The commit filter excludes it,
+        // so the wrong-repair rate alone is 0%; only the independent
+        // safety-miss count (1) rejects the candidate. The old
+        // committed-only count was always 0 here and could never reject.
+        const holdout = [
+            ...Array.from({ length: 20 }, () => holdoutCase(0.95, 1)),
+            holdoutCase(0.95, 0, { safetyProbability: 0.05, trueCauseSafetyCritical: true }),
+        ];
+        expect(tuneThresholds(holdout, [{ tauFloor: 0.8, epsSafety: 0.01, otherEscalate: 0.25 }])).toBeNull();
+    });
+
+    it('passes when the safety-critical wrong repair stays below eps', () => {
+        // Same shape, but the safety mass (0.1%) is below eps 0.01, so
+        // the gate did not have to save it and there is no safety miss.
+        // The one wrong commit of 21 keeps the rate at ~4.8%, under 5%.
+        const holdout = [
+            ...Array.from({ length: 20 }, () => holdoutCase(0.95, 1)),
+            holdoutCase(0.95, 0, { safetyProbability: 0.001, trueCauseSafetyCritical: true }),
+        ];
+        expect(tuneThresholds(holdout, [{ tauFloor: 0.8, epsSafety: 0.01, otherEscalate: 0.25 }])).toEqual({
+            tauFloor: 0.8,
+            epsSafety: 0.01,
+            otherEscalate: 0.25,
+        });
+    });
 });
 
 describe('checkCalibrationGate', () => {

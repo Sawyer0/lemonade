@@ -72,7 +72,7 @@ export function evaluateStop(state: DiagnosticLoopState, context: StopContext): 
     const leaderGroup = subsystemGroupForHypothesisId(leader.id);
     const leaderProbability = calibrateProbability(leader.probability, leaderGroup, config).calibrated;
     const otherProbability = calibrateOtherMass(differential.otherProbability, config).calibrated;
-    if (otherProbability > thresholds.otherEscalate) {
+    if (otherProbability >= thresholds.otherEscalate) {
         return {
             kind: 'escalate',
             reason: 'other-too-high',

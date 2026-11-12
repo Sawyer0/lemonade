@@ -80,9 +80,17 @@ interface TunedHoldoutCase {
  * Tunes the thresholds on the holdout: the first candidate, in
  * least-conservative-first order, whose simulated commits keep the
  * wrong-repair rate at or under 5% with zero safety misses. A safety
- * miss is a commit to a wrong repair while the true cause was
- * safety-critical and still probable. Returns null when no candidate
- * meets the bar, so the caller keeps the defaults and says so.
+ * miss is counted independently of the commit filter, so the check can
+ * actually reject a candidate: a holdout case that would have
+ * committed on probability and OTHER alone (calibrated P at or above
+ * τ, OTHER below other_escalate) but was saved by the safety gate
+ * (safetyProbability at or above eps_safety), where the commit would
+ * have been a wrong repair (label 0) while the true cause was
+ * safety-critical. Counting misses among the committed cases instead
+ * would be vacuous — the filter already excludes every case at or
+ * above eps_safety, so that count could never exceed zero. Returns
+ * null when no candidate meets the bar, so the caller keeps the
+ * defaults and says so.
  */
 export function tuneThresholds(
     holdout: TunedHoldoutCase[],
@@ -98,9 +106,13 @@ export function tuneThresholds(
         if (committed.length === 0) continue;
         const wrong = committed.filter((entry) => entry.label === 0).length;
         const wrongRepairRate = wrong / committed.length;
-        const safetyMisses = committed.filter(
+        const safetyMisses = holdout.filter(
             (entry) =>
-                entry.label === 0 && entry.trueCauseSafetyCritical && entry.safetyProbability >= candidate.epsSafety,
+                entry.label === 0 &&
+                entry.trueCauseSafetyCritical &&
+                entry.calibratedProbability >= candidate.tauFloor &&
+                entry.otherProbability < candidate.otherEscalate &&
+                entry.safetyProbability >= candidate.epsSafety,
         ).length;
         if (wrongRepairRate <= 0.05 && safetyMisses === 0) return candidate;
     }

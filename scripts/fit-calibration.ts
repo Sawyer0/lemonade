@@ -153,12 +153,16 @@ export function reliabilitySvg(group: string, cases: ResolvedCase[], config: Gen
     const height = 300;
     const pad = 36;
     const plot = width - pad * 2;
-    const scale = (value: number): number => pad + plot - value * plot;
+    // The vertical scale is the plot height, not the plot width: reusing
+    // the width (348) in a 300-tall SVG put the x-axis 84px below the
+    // viewport and clipped every bar at the bottom edge.
+    const plotHeight = height - pad * 2;
+    const scale = (value: number): number => pad + plotHeight - value * plotHeight;
     const bars = bins
         .map((bin, i) => {
             const x = pad + (i * plot) / 10;
             const barWidth = plot / 10 - 2;
-            const barHeight = bin.observedFrequency * plot;
+            const barHeight = bin.observedFrequency * plotHeight;
             const y = scale(bin.observedFrequency);
             const meanX = pad + bin.meanPredicted * plot;
             return (
