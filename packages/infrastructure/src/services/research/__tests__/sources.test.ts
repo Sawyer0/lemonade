@@ -94,9 +94,7 @@ describe('NhtsaRecallSource', () => {
             checkRecalls: async () => [],
             validateVin: async () => true,
         } as unknown as INHTSAService;
-        const summary = await new NhtsaRecallSource(nhtsa).lookup(
-            request({ component: 'ENGINE AND ENGINE COOLING' }),
-        );
+        const summary = await new NhtsaRecallSource(nhtsa).lookup(request({ component: 'ENGINE AND ENGINE COOLING' }));
         expect(summary.status).toBe('found');
         expect(summary.items).toHaveLength(1);
         expect(summary.items[0].title).toContain('ENGINE AND ENGINE COOLING');
@@ -163,7 +161,9 @@ describe('KnownFailureSource', () => {
             search: async () => searchResponse(['Civic rough idle: common causes']),
         } as unknown as IGoogleSearchService;
         const source = new KnownFailureSource(search);
-        expect(source.canRun(request({ year: undefined, make: undefined, model: undefined, symptom: 'rough idle' }))).toBe(true);
+        expect(
+            source.canRun(request({ year: undefined, make: undefined, model: undefined, symptom: 'rough idle' })),
+        ).toBe(true);
         const summary = await source.lookup(
             request({ year: undefined, make: undefined, model: undefined, symptom: 'rough idle' }),
         );

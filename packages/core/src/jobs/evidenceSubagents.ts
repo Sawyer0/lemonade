@@ -157,15 +157,12 @@ export async function runEvidenceChildren(
     const runnable = dedupeByKind(sources).filter((source) => source.canRun(request));
     const results: EvidenceChildSummary[] = [];
     const queue = [...runnable];
-    const workers = Array.from(
-        { length: Math.min(EVIDENCE_MAX_CONCURRENT, queue.length) },
-        async () => {
-            while (queue.length > 0) {
-                const source = queue.shift()!;
-                results.push(await runOneChild(source, request));
-            }
-        },
-    );
+    const workers = Array.from({ length: Math.min(EVIDENCE_MAX_CONCURRENT, queue.length) }, async () => {
+        while (queue.length > 0) {
+            const source = queue.shift()!;
+            results.push(await runOneChild(source, request));
+        }
+    });
     await Promise.all(workers);
     return EVIDENCE_CHILD_KINDS.map((kind) => results.find((result) => result.kind === kind)).filter(
         (result): result is EvidenceChildSummary => result !== undefined,
@@ -185,10 +182,7 @@ function dedupeByKind(sources: ReadonlyArray<EvidenceChildSource>): EvidenceChil
 }
 
 /** One child, fail-soft: any throw or invalid summary becomes 'unknown'. */
-async function runOneChild(
-    source: EvidenceChildSource,
-    request: EvidenceChildRequest,
-): Promise<EvidenceChildSummary> {
+async function runOneChild(source: EvidenceChildSource, request: EvidenceChildRequest): Promise<EvidenceChildSummary> {
     try {
         const summary = await source.lookup(request);
         const parsed = EvidenceChildSummarySchema.safeParse(summary);

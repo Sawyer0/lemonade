@@ -107,7 +107,17 @@ describe('runEvidenceChildren', () => {
     it('records a child that returns an invalid summary as unknown', async () => {
         const summaries = await runEvidenceChildren(
             [
-                source('recall', async () => ({ kind: 'recall', status: 'found', summary: '', items: [], source: 'fake' }) as unknown as EvidenceChildSummary),
+                source(
+                    'recall',
+                    async () =>
+                        ({
+                            kind: 'recall',
+                            status: 'found',
+                            summary: '',
+                            items: [],
+                            source: 'fake',
+                        }) as unknown as EvidenceChildSummary,
+                ),
             ],
             request(),
         );
@@ -117,10 +127,7 @@ describe('runEvidenceChildren', () => {
     });
 
     it('records a child that returns another kind as unknown', async () => {
-        const summaries = await runEvidenceChildren(
-            [source('recall', async () => foundSummary('tsb'))],
-            request(),
-        );
+        const summaries = await runEvidenceChildren([source('recall', async () => foundSummary('tsb'))], request());
         expect(summaries).toHaveLength(1);
         expect(summaries[0].status).toBe('unknown');
     });

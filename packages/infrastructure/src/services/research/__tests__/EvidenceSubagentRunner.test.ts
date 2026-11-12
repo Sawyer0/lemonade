@@ -105,9 +105,7 @@ describe('EvidenceSubagentRunner', () => {
         const recall = summaries.find((summary) => summary.kind === 'recall')!;
         expect(recall.status).toBe('unknown');
         expect(recall.summary).toContain('Recall status unknown');
-        const filedRecall = filed.find(
-            (entry) => (entry.input.payload as EvidenceChildSummary).kind === 'recall',
-        )!;
+        const filedRecall = filed.find((entry) => (entry.input.payload as EvidenceChildSummary).kind === 'recall')!;
         expect((filedRecall.input.payload as EvidenceChildSummary).status).toBe('unknown');
     });
 
@@ -150,10 +148,7 @@ describe('EvidenceSubagentRunner', () => {
     });
 
     it('launches only runnable children from partial speech', async () => {
-        const { runner: evidence, filed } = runner([
-            source('recall', undefined, false),
-            source('known_failure'),
-        ]);
+        const { runner: evidence, filed } = runner([source('recall', undefined, false), source('known_failure')]);
         const summaries = await evidence.launchEarlyFromPartialSpeech({
             caseId,
             symptom: 'rough idle',
