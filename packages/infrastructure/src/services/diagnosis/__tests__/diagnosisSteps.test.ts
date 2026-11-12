@@ -20,7 +20,7 @@ import type {
 import { parseModelJson } from '../modelJson';
 import { EvidenceAnalyzer, buildEnhancedContext } from '../EvidenceAnalyzer';
 import { DiagnosisMemoryWriter } from '../DiagnosisMemoryWriter';
-import { calculateMetaConfidence, findMatchingRecall, synthesizeDiagnosis } from '../DiagnosisSynthesizer';
+import { findMatchingRecall, synthesizeDiagnosis } from '../DiagnosisSynthesizer';
 import { createMechanicActors } from '../mechanicActors';
 import type { IntuitionGenerator } from '../IntuitionGenerator';
 
@@ -179,18 +179,6 @@ describe('EvidenceAnalyzer', () => {
 });
 
 describe('DiagnosisSynthesizer', () => {
-    it('scores meta-confidence from every grounding signal and clamps it', () => {
-        const base = analysis({ confidence: 0.6 });
-        expect(calculateMetaConfidence(base, [], unverified)).toBeCloseTo(0.3);
-        expect(calculateMetaConfidence(base, [{}], { ...unverified, isVerified: true }, undefined, true)).toBe(1);
-        expect(calculateMetaConfidence(base, [], { ...unverified, conflictingEvidence: 'no' })).toBeCloseTo(0.1);
-        const triage = { detections: [{ id: { obj: 'brake pads' }, confidence: 0.9 }] };
-        expect(calculateMetaConfidence(base, [], unverified, triage)).toBeCloseTo(0.4);
-        expect(
-            calculateMetaConfidence(analysis({ confidence: 0 }), [], { ...unverified, conflictingEvidence: 'x' }),
-        ).toBe(0);
-    });
-
     it('matches recalls by component or by summary words', () => {
         expect(findMatchingRecall('failing service brakes', [recall()])?.Component).toBe('SERVICE BRAKES');
         expect(findMatchingRecall('loose caliper', [recall()])).toBeDefined();
@@ -209,26 +197,31 @@ describe('DiagnosisSynthesizer', () => {
             ...unverified,
             conflictingEvidence: 'TSB says rotor',
         });
-        expect(result).toMatchObject({ decision: 'REFER_TO_HUMAN', metaConfidence: 0.5 });
+        expect(result).toMatchObject({ decision: 'REFER_TO_HUMAN', metaConfidence: 0 });
         expect(result.userOutput).toContain('TSB says rotor');
     });
 
-    it('asks for checks when confidence is low and there is a plan, else refers', () => {
+    it('no longer punts on low confidence: weak unverified intuition proceeds best-effort', () => {
+        // LM-37 deleted the hand-tuned meta-confidence blend that drove
+        // the REQUEST_MORE_INFO punt. This layer claims no confidence
+        // (metaConfidence 0) and the loop's calibrated stop rule owns
+        // escalation, so weak intuition proceeds instead of punting.
         const weak = analysis({ confidence: 0.2 });
         expect(synthesizeDiagnosis(weak, [], [], unverified)).toMatchObject({
-            decision: 'REQUEST_MORE_INFO',
-            requiredActions: ['Measure pad thickness'],
+            decision: 'PROCEED',
+            metaConfidence: 0,
         });
-        expect(synthesizeDiagnosis({ ...weak, investigationPlan: [] }, [], [], unverified).decision).toBe(
-            'REFER_TO_HUMAN',
-        );
+        expect(synthesizeDiagnosis({ ...weak, investigationPlan: [] }, [], [], unverified)).toMatchObject({
+            decision: 'PROCEED',
+            metaConfidence: 0,
+        });
     });
 
     it('refers when strong consensus contradicts an unverified hypothesis', () => {
         const consensus = [{ text: 'Warped rotors' }, { text: 'Warped rotors' }, { text: 'Warped rotors' }];
         expect(synthesizeDiagnosis(analysis(), [], consensus, unverified)).toMatchObject({
             decision: 'REFER_TO_HUMAN',
-            metaConfidence: 0.4,
+            metaConfidence: 0,
         });
     });
 

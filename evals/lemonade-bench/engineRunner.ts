@@ -35,6 +35,14 @@ export interface EngineRunOutcome {
     safetyViolations: SafetyViolation[];
     autoRepairClosed: boolean;
     testsOrdered: string[];
+    /** The leader's raw posterior at the end of the run (LM-37 fit input). */
+    leaderProbability: number;
+    /** The OTHER mass at the end of the run (LM-37 fit input). */
+    otherProbability: number;
+    /** The highest safety-critical probability besides the leader (LM-37 fit input). */
+    maxSafetyProbability: number;
+    /** The hypothesis ids still listed in the final differential (LM-37 fit input). */
+    finalHypothesisIds: string[];
 }
 
 /** The diagnosis text for one rule id, for the report. */
@@ -155,5 +163,18 @@ export function runEngineCase(snapshot: CaseSnapshot, table: BenchRuleTable, lib
         safetyViolations,
         autoRepairClosed,
         testsOrdered: readings.map((reading) => reading.testId),
+        leaderProbability: leader?.probability ?? 0,
+        otherProbability: state.differential.otherProbability,
+        maxSafetyProbability: Math.max(
+            0,
+            ...state.differential.hypotheses
+                .filter(
+                    (hypothesis) =>
+                        hypothesis.id !== committedHypothesisId &&
+                        snapshot.safetyCriticalHypothesisIds.includes(hypothesis.id),
+                )
+                .map((hypothesis) => hypothesis.probability),
+        ),
+        finalHypothesisIds: state.differential.hypotheses.map((hypothesis) => hypothesis.id),
     };
 }

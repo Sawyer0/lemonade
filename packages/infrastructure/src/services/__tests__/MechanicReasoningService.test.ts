@@ -176,7 +176,11 @@ describe('MechanicReasoningService', () => {
         expect(result.finalDiagnosis.userOutput).toContain('CONFLICT');
     });
 
-    it('should calculate high meta-confidence when all layers align', async () => {
+    it('should proceed when all layers align, claiming no meta-confidence', async () => {
+        // LM-37 deleted the hand-tuned meta-confidence blend: the
+        // synthesizer no longer scores confidence, so a fully aligned
+        // case proceeds with metaConfidence 0 (no confidence claimed)
+        // and the loop's calibrated posterior governs the commit.
         const input: ReasoningInput = {
             sessionId: 'session-high-conf',
             userId: 'user-1',
@@ -214,7 +218,7 @@ describe('MechanicReasoningService', () => {
 
         const result = await service.diagnose(input);
 
-        expect(result.finalDiagnosis.metaConfidence).toBeGreaterThan(0.7);
+        expect(result.finalDiagnosis.metaConfidence).toBe(0);
         expect(result.finalDiagnosis.decision).toBe('PROCEED');
     });
 

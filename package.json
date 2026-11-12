@@ -26,6 +26,7 @@
     "test:smoke": "vitest run --config vitest.smoke.config.ts",
     "test:mobile": "npm --workspace mobile test -- --ci",
     "demo": "tsx --tsconfig tsconfig.json scripts/demo-chat.ts",
+    "fit-calibration": "tsx --tsconfig scripts/tsconfig.json scripts/fit-calibration.ts",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck:functions": "npm --workspace functions run typecheck"

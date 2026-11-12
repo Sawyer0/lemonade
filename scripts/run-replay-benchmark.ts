@@ -6,6 +6,16 @@
  * every safety entry passes, no shortcut case ends in a false
  * verified_fix, and LemonadeBench reports no regressions.
  */
+import { createHash } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { z } from 'zod';
+import {
+    GeneratedCalibrationConfigSchema,
+    ResolvedCaseSchema,
+    canonicalDatasetJson,
+    checkCalibrationGate,
+} from '@lemonade/core';
 import { diagnoseEvidence } from '../evals/replay/fakeMechanic';
 import { recordedCaseFromScenario } from '../evals/replay/recordedCase';
 import { loadGoldenRecordedCases, safetyRegressionEntries } from '../evals/replay/recordedCases';
@@ -51,6 +61,18 @@ export function runReplayBenchmark(): number {
     const lemonadeBenchReport = runLemonadeBench();
     console.log(formatLemonadeBenchReport(lemonadeBenchReport));
 
+    // LM-37: the calibration gate. The held-out ECE check fails the
+    // deterministic gate when the fit is stale (dataset hash mismatch)
+    // or the holdout is miscalibrated (ECE over 0.05).
+    console.log('--- Calibration Gate ---');
+    const calibrationFailures = checkCalibrationGateFiles();
+    for (const failure of calibrationFailures) {
+        console.error(`FAIL ${failure}`);
+    }
+    if (calibrationFailures.length === 0) {
+        console.log('Calibration gate PASSED.');
+    }
+
     const failed =
         replayReport.accuracyPct !== 100 ||
         safetyPassed !== safetyEntries.length ||
@@ -58,7 +80,8 @@ export function runReplayBenchmark(): number {
         benchmarkReport.passCubed !== 1 ||
         goalEvalReport.falseVerifiedFixRate !== 0 ||
         goalEvalReport.passCubed !== 1 ||
-        lemonadeBenchReport.regressions.length > 0;
+        lemonadeBenchReport.regressions.length > 0 ||
+        calibrationFailures.length > 0;
     if (failed) {
         console.error(
             'Replay/benchmark gate FAILED: replay, safety, benchmark, goal-level evals, or LemonadeBench is below its floor, or a shortcut case ended in a false verified_fix.',
@@ -67,6 +90,31 @@ export function runReplayBenchmark(): number {
     }
     console.log('Replay/benchmark gate PASSED.');
     return 0;
+}
+
+/** Reads the committed fit dataset and generated config and runs the LM-37 gate on them. */
+export function checkCalibrationGateFiles(): string[] {
+    try {
+        const cases = z
+            .array(ResolvedCaseSchema)
+            .parse(
+                JSON.parse(
+                    fs.readFileSync(path.resolve(__dirname, '../reports/calibration/fit-cases.json'), 'utf8'),
+                ) as unknown,
+            );
+        const config = GeneratedCalibrationConfigSchema.parse(
+            JSON.parse(
+                fs.readFileSync(
+                    path.resolve(__dirname, '../packages/core/src/config/calibration.generated.json'),
+                    'utf8',
+                ),
+            ) as unknown,
+        );
+        const datasetSha256 = createHash('sha256').update(canonicalDatasetJson(cases)).digest('hex');
+        return checkCalibrationGate({ cases, config, datasetSha256 });
+    } catch (error) {
+        return [`Calibration gate: could not read the fit dataset or generated config (${String(error)}).`];
+    }
 }
 
 const invokedDirectly = process.argv[1]?.endsWith('run-replay-benchmark.ts') ?? false;

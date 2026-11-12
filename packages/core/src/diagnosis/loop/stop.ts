@@ -1,15 +1,32 @@
-// Stop rule (LM-04): commit, keep testing, or escalate.
+// Stop rule (LM-04, calibrated by LM-37): commit, keep testing, or escalate.
 //
 // Commit when repairing now has the lowest expected cost or the top
-// probability clears its threshold — but never past a safety gate: a
-// safety-critical fault (brakes, steering, airbags, HV, hydraulics)
-// above ~1% blocks the release. Escalate when OTHER says the real cause
-// probably is not listed, when the evidence contradicts every listed
-// cause, when the budget or the round cap runs out, or when a
-// safety-critical fault stays unresolved with no test left to run it
-// down. The thresholds live in config; LM-37 owns calibrating the
-// commit threshold, LM-29 the budget, LM-35 the escalation workflow.
+// calibrated probability clears its per-case threshold — but never
+// past a safety gate: a safety-critical fault (brakes, steering,
+// airbags, HV, hydraulics) at or above eps_safety blocks the release.
+// Escalate when calibrated OTHER says the real cause probably is not
+// listed, when the evidence contradicts every listed cause, when the
+// budget or the round cap runs out, or when a safety-critical fault
+// stays unresolved with no test left to run it down.
+//
+// Every probability the rule reads is the calibrated posterior from
+// the generated config (LM-37): the raw Bayes posterior is calibrated
+// per subsystem group before any comparison. The commit threshold τ
+// is computed per case from LM-34 costs — τ = C_wrong_repair /
+// (C_wrong_repair + C_next_best_test), floored at tau_floor — and the
+// early-commit (ECR) rule still needs the calibrated probability to
+// clear that floor. When no repair cost or next test exists, the rule
+// falls back to the shared config's fixed commit threshold.
 import { SHARED_CONFIG } from '../../config';
+import {
+    CALIBRATION_CONFIG,
+    calibrateOtherMass,
+    calibrateProbability,
+    commitThresholdUsd,
+    resolveThresholds,
+    safetyBlocksRelease,
+    subsystemGroupForHypothesisId,
+} from '../calibration';
 import type { DiagnosticLoopState, LoopDecision } from './types';
 import type { PlanResult } from './planner';
 
@@ -36,11 +53,14 @@ export interface StopContext {
 /**
  * Decides the loop's next move. The order matters: inconsistent
  * evidence, OTHER, and budget are checked before any commit, and the
- * safety gate is checked before a repair is offered.
+ * safety gate is checked before a repair is offered. All probabilities
+ * below are calibrated; the raw posterior never reaches a comparison.
  */
 export function evaluateStop(state: DiagnosticLoopState, context: StopContext): LoopDecision {
     const { differential } = state;
     const leader = differential.hypotheses[0];
+    const thresholds = resolveThresholds(CALIBRATION_CONFIG.config);
+    const config = CALIBRATION_CONFIG.uncalibrated ? null : CALIBRATION_CONFIG.config;
 
     if (!leader) {
         return {
@@ -49,11 +69,14 @@ export function evaluateStop(state: DiagnosticLoopState, context: StopContext): 
             detail: 'Every listed cause was ruled out by the readings; the real cause is not in the differential.',
         };
     }
-    if (differential.otherProbability > LOOP.OTHER_ESCALATE_THRESHOLD) {
+    const leaderGroup = subsystemGroupForHypothesisId(leader.id);
+    const leaderProbability = calibrateProbability(leader.probability, leaderGroup, config).calibrated;
+    const otherProbability = calibrateOtherMass(differential.otherProbability, config).calibrated;
+    if (otherProbability >= thresholds.otherEscalate) {
         return {
             kind: 'escalate',
             reason: 'other-too-high',
-            detail: `OTHER is ${(differential.otherProbability * 100).toFixed(0)}%: the listed causes probably do not include the real one.`,
+            detail: `OTHER is ${(otherProbability * 100).toFixed(0)}%: the listed causes probably do not include the real one.`,
         };
     }
     if (state.spentUsd >= state.budgetUsd) {
@@ -82,19 +105,30 @@ export function evaluateStop(state: DiagnosticLoopState, context: StopContext): 
     }
 
     // The safety gate: any safety-critical cause other than the repair
-    // target still above ~1% blocks a commit. When no test is left to
-    // run it down, that is an escalation, not a release.
-    const blockingSafety = differential.hypotheses.find(
-        (hypothesis) =>
-            hypothesis.id !== leader.id &&
-            state.safetyCriticalHypothesisIds.includes(hypothesis.id) &&
-            hypothesis.probability > LOOP.SAFETY_RELEASE_MAX_PROBABILITY,
+    // target still at or above eps_safety blocks a commit. When no test
+    // is left to run it down, that is an escalation, not a release.
+    const safetyCandidates = differential.hypotheses
+        .filter(
+            (hypothesis) => hypothesis.id !== leader.id && state.safetyCriticalHypothesisIds.includes(hypothesis.id),
+        )
+        .map((hypothesis) => ({
+            id: hypothesis.id,
+            calibrated: calibrateProbability(
+                hypothesis.probability,
+                subsystemGroupForHypothesisId(hypothesis.id),
+                config,
+            ).calibrated,
+        }));
+    const blockingSafety = safetyBlocksRelease(
+        safetyCandidates.map((candidate) => candidate.calibrated),
+        thresholds.epsSafety,
     );
+    const blockingSafetyId = safetyCandidates.find((candidate) => candidate.calibrated >= thresholds.epsSafety)?.id;
     if (blockingSafety && !context.plan.nextTest) {
         return {
             kind: 'escalate',
             reason: 'safety-critical-unresolved',
-            detail: `Safety-critical cause ${blockingSafety.id} is still at ${(blockingSafety.probability * 100).toFixed(1)}% with no test left to run it down.`,
+            detail: `Safety-critical cause ${blockingSafetyId ?? 'unknown'} is still at or above ${(thresholds.epsSafety * 100).toFixed(1)}% with no test left to run it down.`,
         };
     }
 
@@ -104,16 +138,31 @@ export function evaluateStop(state: DiagnosticLoopState, context: StopContext): 
             ? context.plan.nextTest.cost.totalUsd / Math.max(context.plan.nextTest.discriminationProbability, 0.01)
             : Number.POSITIVE_INFINITY;
     const repairNowCheapest =
-        repairCost !== undefined && expectedRepairCostUsd(leader.probability, repairCost, bestTestCost) < bestTestCost;
-    if (!blockingSafety && (leader.probability >= LOOP.COMMIT_PROBABILITY_THRESHOLD || repairNowCheapest)) {
+        repairCost !== undefined && expectedRepairCostUsd(leaderProbability, repairCost, bestTestCost) < bestTestCost;
+    // Per-case τ from LM-34 costs, floored at tau_floor; without a
+    // repair cost or a next test there is no τ to compute, so the fixed
+    // shared-config threshold governs instead.
+    const perCaseTau =
+        repairCost !== undefined && context.plan.nextTest !== null
+            ? commitThresholdUsd({
+                  wrongRepairCostUsd: repairCost + bestTestCost,
+                  nextBestTestCostUsd: bestTestCost,
+                  tauFloor: thresholds.tauFloor,
+              })
+            : null;
+    const commitThreshold = perCaseTau ?? LOOP.COMMIT_PROBABILITY_THRESHOLD;
+    const clearsThreshold = leaderProbability >= commitThreshold;
+    // ECR still needs the floor: a cheap repair never commits on a
+    // shaky posterior, however cheap it is.
+    const earlyCommit = repairNowCheapest && leaderProbability >= thresholds.tauFloor;
+    if (!blockingSafety && (clearsThreshold || earlyCommit)) {
         return {
             kind: 'repair',
             hypothesisId: leader.id,
             ...(repairCost !== undefined ? { expectedRepairCostUsd: repairCost } : {}),
-            reason:
-                leader.probability >= LOOP.COMMIT_PROBABILITY_THRESHOLD
-                    ? `Top cause ${leader.id} cleared the commit threshold at ${(leader.probability * 100).toFixed(0)}%.`
-                    : `Repairing ${leader.id} now has the lowest expected cost.`,
+            reason: clearsThreshold
+                ? `Top cause ${leader.id} cleared the commit threshold at ${(leaderProbability * 100).toFixed(0)}% (τ ${(commitThreshold * 100).toFixed(0)}%).`
+                : `Repairing ${leader.id} now has the lowest expected cost (calibrated ${(leaderProbability * 100).toFixed(0)}%, floor ${(thresholds.tauFloor * 100).toFixed(0)}%).`,
         };
     }
 
