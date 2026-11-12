@@ -18,7 +18,6 @@ import type {
     AIAnalysis,
     ILogger,
     NeurosymbolicState,
-    VerificationData,
     SafetyRecall,
     ICaseRepository,
     IFixCountStore,
@@ -38,7 +37,7 @@ import { DiagnosisSafetyGate } from './diagnosis/DiagnosisSafetyGate';
 import { IntuitionGenerator } from './diagnosis/IntuitionGenerator';
 import { EvidenceAnalyzer } from './diagnosis/EvidenceAnalyzer';
 import { DiagnosisMemoryWriter } from './diagnosis/DiagnosisMemoryWriter';
-import { synthesizeDiagnosis } from './diagnosis/DiagnosisSynthesizer';
+import { synthesizeDiagnosis, verificationDataFrom } from './diagnosis/DiagnosisSynthesizer';
 import { DiagnosticLoopPreparer } from './diagnosis/DiagnosticLoopPreparer';
 import { createMechanicActors } from './diagnosis/mechanicActors';
 import { CaseRunCoordinator } from './CaseRunCoordinator';
@@ -66,9 +65,6 @@ const NO_VISUAL_ANALYSIS: AIAnalysis = {
     reasoning: 'No analysis performed',
     investigationPlan: [],
 };
-
-/** Words in a failed verification's reasoning that mark it as contradicting the hypothesis. */
-const CONFLICT_MARKERS = ['electric', 'not', 'contradict', 'wrong'];
 
 /**
  * System 2 diagnosis. Gates on safety, then drives the mechanic state machine
@@ -288,16 +284,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             reasoning: 'No verification run',
         };
 
-        const reasoningLower = (verificationResult.reasoning || '').toLowerCase();
-        const isExplicitConflict =
-            !verificationResult.isVerified && CONFLICT_MARKERS.some((marker) => reasoningLower.includes(marker));
-
-        const verification: VerificationData = {
-            isVerified: verificationResult.isVerified,
-            verifiedSource: verificationResult.source || null,
-            searchQueryUsed: ctx.searchResults?.queryUsed || null,
-            conflictingEvidence: isExplicitConflict ? verificationResult.reasoning : null,
-        };
+        const verification = verificationDataFrom(verificationResult, ctx.searchResults?.queryUsed || null);
 
         const state: NeurosymbolicState = {
             complaint: input.complaint,

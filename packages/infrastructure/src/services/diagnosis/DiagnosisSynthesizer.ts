@@ -1,4 +1,4 @@
-import type { AIAnalysis, DeepPartial, NeurosymbolicState, SafetyRecall, VerificationData } from '@lemonade/core';
+import type { AIAnalysis, DeepPartial, NeurosymbolicState, SafetyRecall, VerificationData, VerificationResponse } from '@lemonade/core';
 
 export interface LocalTriageDetection {
     id?: { obj: string };
@@ -10,6 +10,31 @@ export interface LocalTriageDetections {
 }
 
 type FinalDiagnosis = NeurosymbolicState['finalDiagnosis'];
+
+/** Words in a failed verification's reasoning that mark it as contradicting the hypothesis. */
+const CONFLICT_MARKERS = ['electric', 'not', 'contradict', 'wrong'];
+
+/**
+ * Converts a verification model reply into the synthesis input. A failed
+ * verification whose reasoning reads as a contradiction is conflicting
+ * evidence, not merely unverified; without a reply there is nothing to
+ * convert, so the synthesis sees an unverified result.
+ */
+export function verificationDataFrom(
+    result: VerificationResponse | undefined,
+    searchQueryUsed: string | null,
+): VerificationData {
+    const response = result ?? { isVerified: false, source: null, reasoning: 'No verification run' };
+    const reasoningLower = (response.reasoning || '').toLowerCase();
+    const isExplicitConflict =
+        !response.isVerified && CONFLICT_MARKERS.some((marker) => reasoningLower.includes(marker));
+    return {
+        isVerified: response.isVerified,
+        verifiedSource: response.source || null,
+        searchQueryUsed,
+        conflictingEvidence: isExplicitConflict ? response.reasoning : null,
+    };
+}
 
 /**
  * Meta-confidence in [0, 1]: half the model's own confidence, raised by external
