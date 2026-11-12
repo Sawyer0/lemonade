@@ -66,6 +66,7 @@ export * from './goal/goalSchema';
 export * from './goal/drift';
 export * from './goal/blocker';
 export * from './goal/evaluateGoal';
+export * from './goal/heldOut';
 export * from './goal/phaseGate';
 export * from './diagnosis/priors/index';
 export * from './ports/IFixCountStore';

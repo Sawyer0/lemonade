@@ -308,26 +308,7 @@ function evaluateJudge(criterion: Criterion, _check: JudgeCheck): CriterionEvalu
 }
 
 export function evaluateGoal(goal: CaseGoal, ledger: ReadonlyArray<LedgerEntry>): GoalEvaluation {
-    const ordered = [...ledger].sort((a, b) => a.sequence - b.sequence);
-    const correctedEntryIds = retractedEntryIds(ordered);
-    const goalSetEntry = ordered.find((entry) => entry.type === 'goal_set' && entry.payload.goalId === goal.goalId);
-    const ctx: EvaluationContext = {
-        ordered,
-        correctedEntryIds,
-        goalSetSequence: goalSetEntry?.sequence,
-    };
-    const criteria = goal.criteria.map((criterion) => {
-        switch (criterion.check.kind) {
-            case 'ledger_has':
-                return evaluateLedgerHas(criterion, criterion.check, ctx);
-            case 'posterior':
-                return evaluatePosterior(criterion, criterion.check, ctx);
-            case 'pre_registered_test_passed':
-                return evaluatePreRegisteredTest(criterion, criterion.check, ctx);
-            case 'judge':
-                return evaluateJudge(criterion, criterion.check);
-        }
-    });
+    const criteria = evaluateCriteria(goal.criteria, ledger, goal.goalId);
     return {
         goalId: goal.goalId,
         goalVersion: goal.version,
@@ -338,6 +319,46 @@ export function evaluateGoal(goal: CaseGoal, ledger: ReadonlyArray<LedgerEntry>)
             .every((criterion) => criterion.verdict === 'met'),
         criteria,
     };
+}
+
+/**
+ * Evaluates a list of criteria against a ledger, in goal order. Shared by
+ * evaluateGoal (the visible criteria) and the LM-30 held-out checks, so
+ * the hidden checks are judged by exactly the same proof rules — model
+ * evidence never proves, corrected evidence is retracted, a re-test must
+ * run after goal_set — and a hidden check can never pass where the same
+ * visible check would fail.
+ */
+export function evaluateCriteria(
+    criteria: ReadonlyArray<Criterion>,
+    ledger: ReadonlyArray<LedgerEntry>,
+    goalId?: string,
+): CriterionEvaluation[] {
+    const ordered = [...ledger].sort((a, b) => a.sequence - b.sequence);
+    const correctedEntryIds = retractedEntryIds(ordered);
+    const goalSetEntry = ordered.find(
+        (entry) => entry.type === 'goal_set' && (goalId === undefined || entry.payload.goalId === goalId),
+    );
+    const ctx: EvaluationContext = {
+        ordered,
+        correctedEntryIds,
+        goalSetSequence: goalSetEntry?.sequence,
+    };
+    return criteria.map((criterion) => evaluateCriterion(criterion, ctx));
+}
+
+/** One criterion, judged by its check kind. */
+function evaluateCriterion(criterion: Criterion, ctx: EvaluationContext): CriterionEvaluation {
+    switch (criterion.check.kind) {
+        case 'ledger_has':
+            return evaluateLedgerHas(criterion, criterion.check, ctx);
+        case 'posterior':
+            return evaluatePosterior(criterion, criterion.check, ctx);
+        case 'pre_registered_test_passed':
+            return evaluatePreRegisteredTest(criterion, criterion.check, ctx);
+        case 'judge':
+            return evaluateJudge(criterion, criterion.check);
+    }
 }
 
 /**

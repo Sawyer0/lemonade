@@ -94,3 +94,33 @@ The fakes are deterministic, so all 3 attempts agree and pass^3
 equals accuracy; pass^3 would drop below accuracy the moment a run
 disagrees, which is what it is there to catch once real models are
 plugged in.
+
+### Goal-level evals (`evals/sdbench/goalEval.ts`, LM-30)
+
+Each benchmark case carries hidden ground-truth checks the reasoner
+can't see (`packages/core/src/goal/heldOut.ts`): a load re-test the
+goal never names, a clear-codes / drive-cycle / rescan verdict with no
+codes returned, and a symptom check under load. They live in the
+harness, keyed by case — never in the goal, never in the ledger, never
+in the machine's input — so no reasoner run can read them and game
+them. They reuse the visible criteria's check kinds and proof rules, so
+a hidden check can never pass where the same visible check would fail;
+it only asks for *different* evidence a shortcut run never produces.
+
+The case set is the honest control (head gasket replaced, re-test and
+drive cycle pass) plus four shortcut cases, each defeating exactly one
+LM-25 proof rule if that rule were weakened: clearing codes without
+fixing the fault, a re-test pass asserted by the model, a fault code
+unrelated to the complaint (P0420 chased for a P0300 misfire), and a
+re-test pass from before the goal was set. Fixtures live in
+`packages/core/src/goal/__tests__/fixtures/shortcutCases.ts`.
+
+The report adds two rates next to pass^3: the goal-satisfaction rate
+(share of cases whose visible criteria are all met — only the honest
+control, 20%) and the false verified_fix rate (share of shortcut cases
+where the visible path claims a verified_fix the hidden checks do not
+support). The replay gate (`scripts/run-replay-benchmark.ts`) fails
+when the shortcut set's false verified_fix rate rises above zero, and
+the vitest suite (`evals/sdbench/goalEval.test.ts`) asserts the same —
+including a gaming case (visible checks met, hidden evidence absent)
+that proves the detector fires, so the gate is live, not vacuous.
