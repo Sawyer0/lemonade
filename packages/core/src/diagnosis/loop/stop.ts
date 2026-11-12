@@ -63,6 +63,16 @@ export function evaluateStop(state: DiagnosticLoopState, context: StopContext): 
             detail: `Spent $${state.spentUsd.toFixed(0)} of a $${state.budgetUsd.toFixed(0)} budget.`,
         };
     }
+    // LM-29: the goal Budget's test-time cap is enforced alongside the
+    // dollar cap — a case that has spent its test minutes is over budget
+    // even when the dollars have room.
+    if (state.budget && state.spentTestMinutes >= state.budget.maxTestCostMinutes) {
+        return {
+            kind: 'escalate',
+            reason: 'budget-exhausted',
+            detail: `Test time spent ${state.spentTestMinutes} of ${state.budget.maxTestCostMinutes} budgeted minutes.`,
+        };
+    }
     if (differential.round >= LOOP.MAX_ROUNDS) {
         return {
             kind: 'escalate',
@@ -104,6 +114,19 @@ export function evaluateStop(state: DiagnosticLoopState, context: StopContext): 
                 leader.probability >= LOOP.COMMIT_PROBABILITY_THRESHOLD
                     ? `Top cause ${leader.id} cleared the commit threshold at ${(leader.probability * 100).toFixed(0)}%.`
                     : `Repairing ${leader.id} now has the lowest expected cost.`,
+        };
+    }
+
+    // LM-29: when the tech-ask budget is spent and no test the tech need
+    // not answer is left to run, the case is over budget — not out of
+    // tests. The planner already excludes ask tests at this point, so a
+    // null plan here means the only discriminating move left was a
+    // question the case can no longer afford.
+    if (state.budget && !context.plan.nextTest && state.techAsksUsed >= state.budget.maxTechAsks) {
+        return {
+            kind: 'escalate',
+            reason: 'budget-exhausted',
+            detail: `Tech-ask budget spent (${state.techAsksUsed} of ${state.budget.maxTechAsks} asks) with no other test to run.`,
         };
     }
 

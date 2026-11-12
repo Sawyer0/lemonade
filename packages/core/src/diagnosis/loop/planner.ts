@@ -24,6 +24,13 @@ const LOOP = SHARED_CONFIG.DIAGNOSTIC_LOOP;
 /** What the planner needs to know about the vehicle: where it is in disassembly, what is satisfied, what ran. */
 export interface PlannerState extends TestLibraryState {
     completedTestIds: ReadonlySet<string>;
+    /** Asks left in the per-case tech-ask budget (LM-29). Undefined means no ask cap is in force. */
+    techAsksRemaining?: number;
+}
+
+/** An ask test is affordable only while the tech-ask budget has asks left. */
+function askAffordable(state: PlannerState): boolean {
+    return state.techAsksRemaining === undefined || state.techAsksRemaining > 0;
 }
 
 /** Full cost of one run: labor + parts + downtime + risk, all in dollars. */
@@ -108,6 +115,11 @@ export function findChallenger(
         if (test.id === plannedTestId || state.completedTestIds.has(test.id)) {
             continue;
         }
+        // LM-29: a challenger that is a question cannot be asked once the
+        // tech-ask budget is spent.
+        if (test.costTier === 'ask' && !askAffordable(state)) {
+            continue;
+        }
         const target = test.targets.find((candidate) => candidate.hypothesisId === leader.id);
         if (!target) {
             continue;
@@ -155,6 +167,11 @@ export function planNextTest(
     const ranked: RankedPlan[] = library
         .rankCandidates(ids, state)
         .filter((candidate) => !state.completedTestIds.has(candidate.test.id))
+        // LM-29: a question to the tech is a test with a cost in
+        // next-best-test selection — and once the tech-ask budget is spent,
+        // an ask test is not a candidate at all, so the planner falls
+        // through to the cheapest test the tech need not answer.
+        .filter((candidate) => candidate.test.costTier !== 'ask' || askAffordable(state))
         .map((candidate) => {
             const cost = testCostUsd(candidate.test, library);
             return {

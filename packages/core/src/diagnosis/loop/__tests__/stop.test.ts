@@ -25,6 +25,8 @@ function stateFor(
         completedTestIds: [],
         history: [],
         decision: null,
+        techAsksUsed: 0,
+        spentTestMinutes: 0,
         ...overrides,
     };
 }
