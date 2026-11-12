@@ -24,6 +24,8 @@ export const TYPES = {
     SafetyMonitor: Symbol.for('SafetyMonitor'),
     MechanicReasoningService: Symbol.for('MechanicReasoningService'),
     CaseRunCoordinator: Symbol.for('CaseRunCoordinator'),
+    EvidenceSubagentRunner: Symbol.for('EvidenceSubagentRunner'),
+    EvidenceSubagentSources: Symbol.for('EvidenceSubagentSources'),
     EdgeSecurityService: Symbol.for('EdgeSecurityService'),
     RateLimiter: Symbol.for('RateLimiter'),
 

@@ -35,12 +35,16 @@ function appendToChain(
 ): LedgerEntry {
     const sequence = previous.length + 1;
     const previousHash = previous.length === 0 ? LEDGER_GENESIS_HASH : previous[previous.length - 1].entryHash;
+    // An override that changes a hashed field (source, actor) must change
+    // the hash too, or the entry fails chain verification.
+    const actor = overrides.actor ?? ({ kind: 'user', id: 'tech-123' } as const);
+    const source = overrides.source ?? 'tech';
     const entryHash = computeLedgerEntryHash(nodeHasher, {
         caseId,
         sequence,
         type,
-        actor: { kind: 'user', id: 'tech-123' },
-        source: 'tech',
+        actor,
+        source,
         occurredAt,
         payload,
         previousHash,
@@ -51,8 +55,8 @@ function appendToChain(
         caseId,
         sequence,
         type,
-        actor: { kind: 'user', id: 'tech-123' },
-        source: 'tech',
+        actor,
+        source,
         occurredAt,
         payload,
         previousHash,
@@ -536,5 +540,62 @@ describe('verifyLedgerChain', () => {
         const chain = buildChain();
         const relinked = { ...chain[1], previousHash: LEDGER_GENESIS_HASH };
         expect(verifyLedgerChain(nodeHasher, [chain[0], relinked, chain[2]])).toBe(false);
+    });
+});
+
+describe('advisory ledger entries (LM-18)', () => {
+    const advisoryPayload = {
+        kind: 'recall',
+        status: 'unknown',
+        summary: 'Recall status unknown: lookup failed',
+        items: [],
+        source: 'lookup failed',
+    } as const;
+
+    it('parses an advisory entry with a validated child summary', () => {
+        const entry = appendToChain([], 'advisory', advisoryPayload, { source: 'research' });
+        expect(entry.type).toBe('advisory');
+        expect(entry.source).toBe('research');
+        expect(entry.payload.status).toBe('unknown');
+    });
+
+    it('keeps an advisory entry in a verified chain', () => {
+        const entries: LedgerEntry[] = [];
+        entries.push(appendToChain(entries, 'vin_decoded', { vin: '1HGCM82633A004352' }));
+        entries.push(appendToChain(entries, 'advisory', advisoryPayload, { source: 'research' }));
+        expect(verifyLedgerChain(nodeHasher, entries)).toBe(true);
+    });
+
+    it('accepts an advisory append input', () => {
+        const parsed = AppendLedgerEntryInputSchema.safeParse({
+            type: 'advisory',
+            actor: { kind: 'agent', id: 'evidence-subagents' },
+            source: 'research',
+            occurredAt,
+            payload: advisoryPayload,
+        });
+        expect(parsed.success).toBe(true);
+    });
+
+    it('rejects an advisory payload with an empty summary', () => {
+        const parsed = AppendLedgerEntryInputSchema.safeParse({
+            type: 'advisory',
+            actor: { kind: 'agent', id: 'evidence-subagents' },
+            source: 'research',
+            occurredAt,
+            payload: { ...advisoryPayload, summary: '' },
+        });
+        expect(parsed.success).toBe(false);
+    });
+
+    it('rejects an advisory payload with an invented status', () => {
+        const parsed = AppendLedgerEntryInputSchema.safeParse({
+            type: 'advisory',
+            actor: { kind: 'agent', id: 'evidence-subagents' },
+            source: 'research',
+            occurredAt,
+            payload: { ...advisoryPayload, status: 'maybe' },
+        });
+        expect(parsed.success).toBe(false);
     });
 });

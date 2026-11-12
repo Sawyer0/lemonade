@@ -26,7 +26,9 @@ import {
 // Proof rules, in one place:
 // - A 'model'-sourced entry never satisfies a proof criterion, even if a
 //   hand-built goal lists 'model' as admissible (the schema rejects that,
-//   but the evaluator enforces it independently).
+//   but the evaluator enforces it independently). Neither does a
+//   'research'-sourced entry (LM-18): a background evidence sub-agent's
+//   advisory summary is never proof, whatever the goal lists.
 // - An entry retracted by a later `correction` is not evidence: the ledger's
 //   own rule is that a mistake is fixed by appending a correction, so the
 //   corrected entry no longer proves anything.
@@ -141,9 +143,14 @@ interface EvaluationContext {
     goalSetSequence: number | undefined;
 }
 
-/** An entry counts as proof only from an admissible, non-model source, uncorrected. */
+/** An entry counts as proof only from an admissible, non-model, non-research source, uncorrected. */
 function isProofEntry(entry: LedgerEntry, admissible: ReadonlyArray<EvidenceSource>, ctx: EvaluationContext): boolean {
-    return entry.source !== 'model' && admissible.includes(entry.source) && !ctx.correctedEntryIds.has(entry.id);
+    return (
+        entry.source !== 'model' &&
+        entry.source !== 'research' &&
+        admissible.includes(entry.source) &&
+        !ctx.correctedEntryIds.has(entry.id)
+    );
 }
 
 /** Ledger kinds that are audit records, never proof: a `ledger_has` check must never match them. Exported for the LM-28 drift detector, which reuses the same proof rule for run progress. */

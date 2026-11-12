@@ -163,6 +163,19 @@ function renderPayloadLines(entry: LedgerEntry): string[] {
                 `monitors ready: ${entry.payload.monitorsReady ? 'yes' : `no (${entry.payload.monitorsNotReady.join(', ')})`}`,
                 `returned codes: ${[...entry.payload.returnedStoredCodes, ...entry.payload.returnedPendingCodes, ...entry.payload.returnedPermanentCodes].join(', ') || '(none)'}`,
             ];
+        case 'advisory':
+            // LM-18: a background evidence child's summary. Rendered as a
+            // fact like any other entry; the payload itself carries the
+            // 'unknown' status when the lookup failed, so a failed lookup
+            // shows as unknown in the report, never as 'no recalls'.
+            return [
+                `kind: ${entry.payload.kind}`,
+                `status: ${entry.payload.status}`,
+                `summary: ${quoted(entry.payload.summary)}`,
+                ...(entry.payload.items.length > 0
+                    ? [`items: ${entry.payload.items.map((item) => quoted(item.title)).join(', ')}`]
+                    : []),
+            ];
     }
 }
 

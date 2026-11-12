@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EvidenceChildSummarySchema } from '../jobs/evidenceSubagents';
 import {
     CriterionMetPayloadSchema,
     GoalAmendedPayloadSchema,
@@ -74,6 +75,13 @@ export const LedgerEventTypeSchema = z.enum([
     'obd_fault_window',
     'guided_test',
     'verify_fix',
+    // LM-18: background evidence sub-agents (recalls, TSBs, known failures,
+    // similar closed cases). An `advisory` entry is a schema-validated child
+    // summary. It carries no authority: it can never instruct the tech or
+    // change the plan, so it is deliberately NOT in
+    // FACT_ELIGIBLE_EVENT_TYPES and 'research' is NOT an admissible goal
+    // source — the reasoner may read it, never obey it.
+    'advisory',
 ]);
 export type LedgerEventType = z.infer<typeof LedgerEventTypeSchema>;
 
@@ -86,7 +94,9 @@ export type LedgerActor = z.infer<typeof LedgerActorSchema>;
 // 'sandbox' is a test run in the sandbox (LM-25): deterministic, model-free
 // evidence, admissible as proof. 'model' stays a source an entry can carry,
 // but it is never admissible as proof — see AdmissibleSourcesSchema.
-export const LedgerSourceSchema = z.enum(['tech', 'glasses', 'OBD', 'sandbox', 'model', 'NHTSA']);
+// 'research' (LM-18) is a background evidence sub-agent: read-only lookups
+// whose summaries are advisory only, never proof.
+export const LedgerSourceSchema = z.enum(['tech', 'glasses', 'OBD', 'sandbox', 'model', 'NHTSA', 'research']);
 export type LedgerSource = z.infer<typeof LedgerSourceSchema>;
 
 export const MediaReferenceSchema = z.object({
@@ -205,6 +215,12 @@ export type GuidedTestPayload = z.infer<typeof GuidedTestPayloadSchema>;
 export const VerifyFixPayloadSchema = VerifyFixResultSchema;
 export type VerifyFixPayload = z.infer<typeof VerifyFixPayloadSchema>;
 
+// LM-18: an `advisory` payload is exactly one evidence child's validated
+// summary — kind, status, summary text, items, source. No other shape is
+// admitted, so a child can never smuggle instructions into the ledger.
+export const AdvisoryPayloadSchema = EvidenceChildSummarySchema;
+export type AdvisoryPayload = z.infer<typeof AdvisoryPayloadSchema>;
+
 const LedgerEntryBaseSchema = z.object({
     id: z.string().uuid(),
     caseId: z.string().uuid(),
@@ -241,6 +257,7 @@ export const LedgerEntrySchema = z
         LedgerEntryBaseSchema.extend({ type: z.literal('obd_fault_window'), payload: ObdFaultWindowPayloadSchema }),
         LedgerEntryBaseSchema.extend({ type: z.literal('guided_test'), payload: GuidedTestPayloadSchema }),
         LedgerEntryBaseSchema.extend({ type: z.literal('verify_fix'), payload: VerifyFixPayloadSchema }),
+        LedgerEntryBaseSchema.extend({ type: z.literal('advisory'), payload: AdvisoryPayloadSchema }),
     ])
     .superRefine((entry, ctx) => {
         if (entry.type === 'correction' && !entry.correctsEntryId) {
@@ -298,6 +315,7 @@ export const AppendLedgerEntryInputSchema = z.discriminatedUnion('type', [
     }).strict(),
     AppendEntryBaseSchema.extend({ type: z.literal('guided_test'), payload: GuidedTestPayloadSchema }).strict(),
     AppendEntryBaseSchema.extend({ type: z.literal('verify_fix'), payload: VerifyFixPayloadSchema }).strict(),
+    AppendEntryBaseSchema.extend({ type: z.literal('advisory'), payload: AdvisoryPayloadSchema }).strict(),
 ]);
 export type AppendLedgerEntryInput = z.infer<typeof AppendLedgerEntryInputSchema>;
 

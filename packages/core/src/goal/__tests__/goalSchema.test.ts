@@ -32,6 +32,11 @@ describe('AdmissibleSourcesSchema', () => {
         expect(AdmissibleSourcesSchema.safeParse(['tech', 'model']).success).toBe(false);
         expect(AdmissibleSourcesSchema.safeParse(['model']).success).toBe(false);
     });
+
+    it('rejects research evidence as proof (LM-18)', () => {
+        expect(AdmissibleSourcesSchema.safeParse(['tech', 'research']).success).toBe(false);
+        expect(AdmissibleSourcesSchema.safeParse(['research']).success).toBe(false);
+    });
 });
 
 describe('CriterionSchema', () => {

@@ -46,6 +46,8 @@ export const TYPES = {
     EmbeddingService: Symbol.for('EmbeddingService'),
     MechanicReasoningService: Symbol.for('MechanicReasoningService'),
     CaseRunCoordinator: Symbol.for('CaseRunCoordinator'),
+    EvidenceSubagentRunner: Symbol.for('EvidenceSubagentRunner'),
+    EvidenceSubagentSources: Symbol.for('EvidenceSubagentSources'),
     ComplaintIdentificationService: Symbol.for('ComplaintIdentificationService'),
     GeminiCoreAdapter: Symbol.for('GeminiCoreAdapter'),
     ConfigProvider: Symbol.for('ConfigProvider'),
