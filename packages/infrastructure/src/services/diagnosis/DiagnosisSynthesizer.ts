@@ -1,6 +1,5 @@
 import type {
     AIAnalysis,
-    DeepPartial,
     NeurosymbolicState,
     SafetyRecall,
     VerificationData,
@@ -41,37 +40,6 @@ export function verificationDataFrom(
         searchQueryUsed,
         conflictingEvidence: isExplicitConflict ? response.reasoning : null,
     };
-}
-
-/**
- * Meta-confidence in [0, 1]: half the model's own confidence, raised by external
- * verification, consensus, a recall match and agreeing on-device detections, and
- * lowered by contradicting evidence.
- */
-export function calculateMetaConfidence(
-    intuition: AIAnalysis,
-    consensus: unknown[],
-    verification: VerificationData,
-    localTriage?: LocalTriageDetections,
-    hasRecallMatch: boolean = false,
-): number {
-    let score = intuition.confidence * 0.5;
-    if (verification.isVerified) score += 0.4;
-    else if (verification.conflictingEvidence) score -= 0.2;
-    if (consensus.length > 0) score += 0.1;
-    if (hasRecallMatch) score += 0.3;
-
-    if (localTriage?.detections?.length && intuition.diagnosis) {
-        const match = localTriage.detections.find(
-            (d) =>
-                (d.confidence || 0) > 0.7 &&
-                d.id?.obj &&
-                intuition.diagnosis.toLowerCase().includes(d.id.obj.toLowerCase()),
-        );
-        if (match) score = Math.min(1.0, score + 0.1);
-    }
-
-    return Math.max(0, Math.min(1, score));
 }
 
 /** The first recall whose component or summary lines up with the diagnosis. */
@@ -129,37 +97,19 @@ export function synthesizeDiagnosis(
             reasoningTrace: decisionTrace.join('\n'),
             userOutput: `CONFLICT DETECTED: My initial analysis suggests "${diagnosis}", but technical records indicate: ${conflict}. This requires human verification to avoid incorrect repair.`,
             requiredActions: ['Consult Human Mechanic', 'Verify with Technical Manual'],
-            metaConfidence: 0.5,
+            // LM-37: the hand-tuned meta-confidence blend is gone, and no
+            // calibrated posterior exists at this layer — the LM-04 loop's
+            // calibrated posterior governs commit decisions, not this
+            // field. It stays 0 (no confidence claimed) because the
+            // FinalDiagnosis schema requires the number.
+            metaConfidence: 0,
         };
     }
 
-    const metaConfidence = calculateMetaConfidence(intuition, consensus, verification, localTriage, !!recallMatch);
-    decisionTrace.push(`META-COGNITION: Final confidence calculated at ${(metaConfidence * 100).toFixed(1)}%`);
-
-    // Only punt when there is no grounding at all and confidence is very low.
-    if (metaConfidence < 0.3 && !recallMatch && !verification.isVerified) {
-        const typedIntuition = intuition as DeepPartial<AIAnalysis>;
-        if (typedIntuition.investigationPlan && typedIntuition.investigationPlan.length > 0) {
-            decisionTrace.push('LOW CONFIDENCE: Initiating iterative diagnosis request.');
-            return {
-                decision: 'REQUEST_MORE_INFO',
-                reasoningTrace: decisionTrace.join('\n'),
-                userOutput: `I have a hypothesis (${diagnosis}), but I need you to check a few things to be sure:\n\n${typedIntuition.investigationPlan.map((step) => `- ${step}`).join('\n')}\n\nCan you perform these checks and tell me what you find?`,
-                requiredActions: typedIntuition.investigationPlan as string[],
-                metaConfidence: metaConfidence,
-            };
-        }
-
-        decisionTrace.push('LOW CONFIDENCE: No grounding found and initial intuition is extremely weak.');
-        return {
-            decision: 'REFER_TO_HUMAN',
-            reasoningTrace: decisionTrace.join('\n'),
-            userOutput:
-                "I'm having trouble forming a confident diagnosis with the available information. To be safe, I recommend consulting a human mechanic for a physical inspection.",
-            requiredActions: ['Consult Human Mechanic'],
-            metaConfidence: metaConfidence,
-        };
-    }
+    // LM-37: the low-confidence punt lived here, driven by the deleted
+    // blend. This layer no longer scores confidence at all — weak
+    // intuition proceeds best-effort, and the loop escalates on its own
+    // calibrated stop rule — so there is no branch left to take here.
 
     const strongConsensusContradiction =
         consensus.length > 2 &&
@@ -175,7 +125,7 @@ export function synthesizeDiagnosis(
             userOutput:
                 'My analysis conflicts with strong community consensus, and I cannot verify a definitive solution. Please refer to a human expert.',
             requiredActions: ['Consult Human Mechanic'],
-            metaConfidence: 0.4,
+            metaConfidence: 0,
         };
     }
 
@@ -201,6 +151,7 @@ export function synthesizeDiagnosis(
         reasoningTrace: decisionTrace.join('\n'),
         userOutput,
         requiredActions: actions,
-        metaConfidence,
+        // LM-37: see the conflict branch above — no confidence is claimed here.
+        metaConfidence: 0,
     };
 }
