@@ -37,6 +37,7 @@ export function canonicalDatasetJson(cases: ResolvedCase[]): string {
             committedHypothesisId: entry.committedHypothesisId,
             trueHypothesisId: entry.trueHypothesisId,
             trueCauseSafetyCritical: entry.trueCauseSafetyCritical,
+            trueCauseListed: entry.trueCauseListed,
             rawProbability: entry.rawProbability,
             otherProbability: entry.otherProbability,
             safetyProbability: entry.safetyProbability,

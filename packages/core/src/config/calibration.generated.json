@@ -1,1 +1,28 @@
-{"dataset_sha256":"","fitted_at":"","groups":{"_pooled":{"method":"identity","n_fit":0,"n_holdout":0}},"other_mass":{"method":"identity"},"split":{"holdout":"newest_20pct_by_closed_at"},"thresholds":{"eps_safety":0.01,"other_escalate":0.25,"tau_floor":0.8},"version":1}
+{
+  "version": 1,
+  "fitted_at": "2026-11-30T00:00:00.000Z",
+  "dataset_sha256": "92b192ae8bb7c02112551c064ba077891a354fe5e033b53967073c2e8ac33aea",
+  "split": {
+    "holdout": "newest_20pct_by_closed_at"
+  },
+  "groups": {
+    "_pooled": {
+      "method": "identity",
+      "n_fit": 24,
+      "n_holdout": 6,
+      "metrics": {
+        "ece": 0.040225,
+        "brier": 0.001618,
+        "top1": 1
+      }
+    }
+  },
+  "other_mass": {
+    "method": "identity"
+  },
+  "thresholds": {
+    "tau_floor": 0.8,
+    "eps_safety": 0.01,
+    "other_escalate": 0.25
+  }
+}

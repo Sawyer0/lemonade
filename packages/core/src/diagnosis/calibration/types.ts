@@ -10,44 +10,51 @@ export type SubsystemGroup = z.infer<typeof SubsystemGroupSchema>;
 export const CalibrationMethodSchema = z.enum(['isotonic', 'platt', 'identity']);
 export type CalibrationMethod = z.infer<typeof CalibrationMethodSchema>;
 
-/** One calibration map: isotonic knots, Platt (a, b), or the identity pass-through. */
-export const CalibrationMapSchema = z
-    .object({
-        method: CalibrationMethodSchema,
-        map: z
-            .object({
-                x: z.array(z.number().min(0).max(1)),
-                y: z.array(z.number().min(0).max(1)),
-            })
-            .strict()
-            .optional(),
-        a: z.number().optional(),
-        b: z.number().optional(),
-    })
-    .strict()
-    .superRefine((value, ctx) => {
-        if (value.method === 'isotonic' && value.map === undefined) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'isotonic calibration needs map knots' });
-        }
-        if (value.method === 'platt' && (value.a === undefined || value.b === undefined)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'platt calibration needs a and b' });
-        }
-    });
-export type CalibrationMap = z.infer<typeof CalibrationMapSchema>;
-
-/** A group's fitted map plus its fit/holdout counts and holdout metrics. */
-export const GroupCalibrationSchema = CalibrationMapSchema.extend({
-    n_fit: z.number().int().min(0),
-    n_holdout: z.number().int().min(0),
-    metrics: z
+const calibrationMapShape = {
+    method: CalibrationMethodSchema,
+    map: z
         .object({
-            ece: z.number().min(0),
-            brier: z.number().min(0),
-            top1: z.number().min(0).max(1),
+            x: z.array(z.number().min(0).max(1)),
+            y: z.array(z.number().min(0).max(1)),
         })
         .strict()
         .optional(),
-}).strict();
+    a: z.number().optional(),
+    b: z.number().optional(),
+};
+
+type CalibrationMapShape = z.infer<z.ZodObject<typeof calibrationMapShape>>;
+
+function checkMapRequirements(value: CalibrationMapShape, ctx: z.RefinementCtx): void {
+    if (value.method === 'isotonic' && value.map === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'isotonic calibration needs map knots' });
+    }
+    if (value.method === 'platt' && (value.a === undefined || value.b === undefined)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'platt calibration needs a and b' });
+    }
+}
+
+/** One calibration map: isotonic knots, Platt (a, b), or the identity pass-through. */
+export const CalibrationMapSchema = z.object(calibrationMapShape).strict().superRefine(checkMapRequirements);
+export type CalibrationMap = z.infer<typeof CalibrationMapSchema>;
+
+/** A group's fitted map plus its fit/holdout counts and holdout metrics. */
+export const GroupCalibrationSchema = z
+    .object({
+        ...calibrationMapShape,
+        n_fit: z.number().int().min(0),
+        n_holdout: z.number().int().min(0),
+        metrics: z
+            .object({
+                ece: z.number().min(0),
+                brier: z.number().min(0),
+                top1: z.number().min(0).max(1),
+            })
+            .strict()
+            .optional(),
+    })
+    .strict()
+    .superRefine(checkMapRequirements);
 export type GroupCalibration = z.infer<typeof GroupCalibrationSchema>;
 
 /** The generated config: only the fit script writes it, never by hand. */
@@ -85,6 +92,8 @@ export const ResolvedCaseSchema = z
         committedHypothesisId: z.string().min(1),
         trueHypothesisId: z.string().min(1),
         trueCauseSafetyCritical: z.boolean(),
+        /** Whether the true cause was among the hypotheses listed at commit. */
+        trueCauseListed: z.boolean(),
         rawProbability: z.number().min(0).max(1),
         otherProbability: z.number().min(0).max(1),
         safetyProbability: z.number().min(0).max(1),

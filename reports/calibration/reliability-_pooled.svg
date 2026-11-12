@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="300" role="img" aria-label="Reliability diagram for _pooled">
+<line x1="36" y1="384" x2="384" y2="36" stroke="#94a3b8" stroke-dasharray="4"/>
+<line x1="36" y1="384" x2="36" y2="36" stroke="#334155"/>
+<line x1="36" y1="384" x2="384" y2="384" stroke="#334155"/>
+<rect x="36.0" y="384.0" width="32.8" height="0.0" fill="#2563eb" opacity="0.7"/>
+<rect x="70.8" y="384.0" width="32.8" height="0.0" fill="#2563eb" opacity="0.7"/>
+<rect x="105.6" y="384.0" width="32.8" height="0.0" fill="#2563eb" opacity="0.7"/>
+<rect x="140.4" y="384.0" width="32.8" height="0.0" fill="#2563eb" opacity="0.7"/>
+<rect x="175.2" y="384.0" width="32.8" height="0.0" fill="#2563eb" opacity="0.7"/>
+<rect x="210.0" y="384.0" width="32.8" height="0.0" fill="#2563eb" opacity="0.7"/>
+<rect x="244.8" y="384.0" width="32.8" height="0.0" fill="#2563eb" opacity="0.7"/>
+<rect x="279.6" y="384.0" width="32.8" height="0.0" fill="#2563eb" opacity="0.7"/>
+<rect x="314.4" y="384.0" width="32.8" height="0.0" fill="#2563eb" opacity="0.7"/>
+<rect x="349.2" y="36.0" width="32.8" height="348.0" fill="#2563eb" opacity="0.7"/><circle cx="370.0" cy="36.0" r="3" fill="#dc2626"/>
+<text x="36" y="292" font-size="12" fill="#334155">calibrated probability (blue bar: observed frequency, red dot: mean predicted)</text>
+<text x="8" y="136" font-size="12" fill="#334155" transform="rotate(-90 8 136)">observed frequency</text>
+<text x="36" y="20" font-size="14" font-weight="bold" fill="#0f172a">Reliability — _pooled (n=6)</text>
+</svg>

@@ -305,6 +305,7 @@ describe('checkCalibrationGate', () => {
             committedHypothesisId: 'misfire',
             trueHypothesisId: 'misfire',
             trueCauseSafetyCritical: false,
+            trueCauseListed: true,
             rawProbability: 0.95,
             otherProbability: 0.02,
             safetyProbability: 0.001,
