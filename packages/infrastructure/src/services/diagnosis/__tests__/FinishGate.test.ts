@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { GenerativeModel } from '@google-cloud/vertexai';
 import type {
     AIAnalysis,
+    CaseGoal,
     DiagnosisClaim,
     FinalDiagnosis,
     FinishGateRunInput,
@@ -13,8 +14,13 @@ import type {
     LedgerEntry,
     LoopDecision,
 } from '@lemonade/core';
-import { parseDtc, TestLibrary } from '@lemonade/core';
+import { buildGoal, parseDtc, TestLibrary } from '@lemonade/core';
 import { misfireDefinitions } from '../../../../../core/src/diagnosis/loop/__tests__/fixtures';
+import {
+    buildGoldenCase,
+    buildGoldenGoal,
+    GOLDEN_GOAL_ID,
+} from '../../../../../core/src/goal/__tests__/fixtures/goldenCase';
 import { Challenger } from '../Challenger';
 import { FinishGate } from '../FinishGate';
 
@@ -107,6 +113,29 @@ function challengerReply(objections: unknown[]): string {
 
 function judgeReply(passed: boolean, unmappedClaimIds: string[] = [], reasons: string[] = []): string {
     return JSON.stringify({ passed, unmappedClaimIds, stopRuleMet: true, reasons });
+}
+
+/** A fake model whose calls the test can count and inspect. */
+function spyingModel(
+    text: string | null,
+    error?: Error,
+): { model: GenerativeModel; generateContent: ReturnType<typeof vi.fn> } {
+    const generateContent = vi.fn();
+    if (error) {
+        generateContent.mockRejectedValue(error);
+    } else {
+        generateContent.mockResolvedValue({
+            response: { candidates: [{ content: { parts: [{ text }] } }] },
+        });
+    }
+    return { model: { generateContent } as unknown as GenerativeModel, generateContent };
+}
+
+/** The judge prompt the fake judge model was called with. */
+function judgePrompt(generateContent: ReturnType<typeof vi.fn>): string {
+    const call = generateContent.mock.calls[0]?.[0] as
+        { contents: Array<{ parts: Array<{ text: string }> }> } | undefined;
+    return call?.contents[0]?.parts[0]?.text ?? '';
 }
 
 const logger: ILogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -286,6 +315,304 @@ describe('FinishGate.evaluateCandidate', () => {
         });
         expect(verdict.passed).toBe(false);
         expect(verdict.reasons).toContain('Independent gate passed while leaving claims unmapped: hypothesis');
+    });
+});
+
+describe('FinishGate with a goal (LM-27)', () => {
+    /** The golden goal plus one blocking `judge`-kind criterion. Same goal id as the golden ledger's goal_set entry. */
+    function goalWithJudgeCriterion(): CaseGoal {
+        return buildGoal({
+            goalId: GOLDEN_GOAL_ID,
+            caseId: CASE_ID,
+            complaint: {
+                text: 'Misfire on cylinder 1 at idle',
+                symptoms: ['misfire at idle'],
+                confirmedByTech: true,
+            },
+            outcome: 'Root cause of misfire confirmed and repair verified',
+            constraints: [],
+            criteria: [
+                {
+                    id: 'differentiate.top_hypothesis',
+                    phase: 'differentiate',
+                    description: 'One root-cause hypothesis leads the posterior by a clear margin',
+                    check: { kind: 'posterior', minTop: 0.7, minMargin: 0.2 },
+                },
+                {
+                    id: 'verify.retest',
+                    phase: 'verify',
+                    description: 'Pre-registered compression re-test passes after the repair',
+                    check: {
+                        kind: 'pre_registered_test_passed',
+                        testName: 'compression-cylinder-1',
+                        admissible: ['tech', 'sandbox'],
+                    },
+                },
+                {
+                    id: 'verify.symptom_absent',
+                    phase: 'verify',
+                    description: 'No misfire at idle after the repair',
+                    check: {
+                        kind: 'ledger_has',
+                        entryKind: 'observation',
+                        where: { text: 'No misfire at idle after repair' },
+                        admissible: ['tech'],
+                    },
+                },
+                {
+                    id: 'commit.cause_named',
+                    phase: 'commit',
+                    description: 'The diagnosis names the single root cause the ledger supports',
+                    check: {
+                        kind: 'judge',
+                        rubric: 'The spoken diagnosis names one root cause, and every part of that cause is supported by a cited ledger entry.',
+                    },
+                },
+            ],
+            budget: { maxTokens: 200000, maxWallMinutes: 60, maxTestCostMinutes: 30 },
+        });
+    }
+
+    /** Claims over the golden ledger: the hypothesis cites every citable entry, the DTC cites its reading. */
+    function goldenClaims(diagnosis: string, entries: LedgerEntry[]): DiagnosisClaim[] {
+        const citableIds = entries
+            .filter((entry) =>
+                ['vin_decoded', 'dtc_read', 'observation', 'test_result', 'outcome'].includes(entry.type),
+            )
+            .map((entry) => entry.id);
+        const dtcEntry = entries.find((entry) => entry.type === 'dtc_read');
+        return [
+            { kind: 'hypothesis', id: 'hypothesis', text: diagnosis, citations: citableIds },
+            {
+                kind: 'dtc',
+                id: 'dtc-p0300',
+                text: 'DTC P0300 was read from the vehicle',
+                code: 'P0300',
+                citations: dtcEntry ? [dtcEntry.id] : [],
+            },
+        ];
+    }
+
+    function judgeCriteriaReply(
+        passed: boolean,
+        scores: Array<{ criterionId: string; passed: boolean; reason: string }>,
+        reasons: string[] = [],
+    ): string {
+        return JSON.stringify({ passed, stopRuleMet: true, reasons, judgeCriteria: scores });
+    }
+
+    it('blocks on an unmet deterministic goal criterion without calling the challenger or the judge', async () => {
+        const { entries } = buildGoldenCase({ retestResult: 'absent', symptomAbsent: false });
+        const challenger = spyingModel(challengerReply([]));
+        const judge = spyingModel(judgeReply(true));
+        const gate = gateWith(challenger.model, judge.model);
+        const verdict = await gate.evaluateCandidate({
+            candidate: candidateFor('Fuel pump failure'),
+            claims: goldenClaims('Fuel pump failure', entries),
+            ledger: entries,
+            goal: buildGoldenGoal(),
+            loopDecision: repairDecision(),
+            attempt: 1,
+        });
+        expect(verdict.passed).toBe(false);
+        expect(verdict.outcome).toBe('retry');
+        expect(verdict.reasons).toContain(
+            'Goal criterion verify.retest unmet: no passing compression-cylinder-1 result after the goal was set',
+        );
+        expect(verdict.reasons).toContain(
+            'Goal criterion verify.symptom_absent unmet: no observation entry from an admissible source matches',
+        );
+        expect(verdict.unmetCriteria.map((criterion) => criterion.criterionId)).toEqual([
+            'verify.retest',
+            'verify.symptom_absent',
+        ]);
+        expect(verdict.handoff).toBeUndefined();
+        // The deterministic gate runs before the challenger and the judge:
+        // no model is called while a deterministic criterion is unmet.
+        expect(challenger.generateContent).not.toHaveBeenCalled();
+        expect(judge.generateContent).not.toHaveBeenCalled();
+    });
+
+    it('abstains on the final attempt when the goal still blocks, with a criterion-level handoff reason', async () => {
+        const { entries } = buildGoldenCase({ retestResult: 'absent', symptomAbsent: false });
+        const challenger = spyingModel(challengerReply([]));
+        const judge = spyingModel(judgeReply(true));
+        const gate = gateWith(challenger.model, judge.model);
+        const verdict = await gate.evaluateCandidate({
+            candidate: candidateFor('Fuel pump failure'),
+            claims: goldenClaims('Fuel pump failure', entries),
+            ledger: entries,
+            goal: buildGoldenGoal(),
+            loopDecision: repairDecision(),
+            attempt: 3,
+        });
+        expect(verdict.passed).toBe(false);
+        expect(verdict.outcome).toBe('abstain');
+        expect(verdict.handoff).toBeDefined();
+        expect(verdict.handoff?.reason).toContain('verify.retest');
+        expect(challenger.generateContent).not.toHaveBeenCalled();
+        expect(judge.generateContent).not.toHaveBeenCalled();
+    });
+
+    it('runs the judge on the goal judge criteria once the deterministic criteria are met', async () => {
+        const { entries } = buildGoldenCase();
+        const challenger = spyingModel(challengerReply([]));
+        const judge = spyingModel(
+            judgeCriteriaReply(true, [
+                {
+                    criterionId: 'commit.cause_named',
+                    passed: true,
+                    reason: 'The diagnosis names the head gasket leak, supported by the compression re-test.',
+                },
+            ]),
+        );
+        const gate = gateWith(challenger.model, judge.model);
+        const verdict = await gate.evaluateCandidate({
+            candidate: candidateFor('Head gasket leak'),
+            claims: goldenClaims('Head gasket leak', entries),
+            ledger: entries,
+            goal: goalWithJudgeCriterion(),
+            loopDecision: repairDecision(),
+            attempt: 1,
+        });
+        expect(verdict.passed).toBe(true);
+        expect(verdict.outcome).toBe('pass');
+        expect(verdict.reasons).toEqual([]);
+        expect(verdict.unmetCriteria).toEqual([]);
+        expect(challenger.generateContent).toHaveBeenCalledTimes(1);
+        expect(judge.generateContent).toHaveBeenCalledTimes(1);
+        // The judge scores only the judge criterion, against the ledger snapshot.
+        const prompt = judgePrompt(judge.generateContent);
+        expect(prompt).toContain('commit.cause_named');
+        expect(prompt).toContain('Score ONLY the judge criteria');
+        expect(prompt).toContain('Case ledger snapshot');
+        expect(prompt).not.toContain('unmappedClaimIds');
+    });
+
+    it('blocks when the judge fails a judge criterion, and the failure becomes the retry prompt', async () => {
+        const { entries } = buildGoldenCase();
+        const challenger = spyingModel(challengerReply([]));
+        const judge = spyingModel(
+            judgeCriteriaReply(false, [
+                {
+                    criterionId: 'commit.cause_named',
+                    passed: false,
+                    reason: 'The diagnosis names a fuel pump failure the ledger does not support.',
+                },
+            ]),
+        );
+        const gate = gateWith(challenger.model, judge.model);
+        const verdict = await gate.evaluateCandidate({
+            candidate: candidateFor('Fuel pump failure'),
+            claims: goldenClaims('Fuel pump failure', entries),
+            ledger: entries,
+            goal: goalWithJudgeCriterion(),
+            loopDecision: repairDecision(),
+            attempt: 1,
+        });
+        expect(verdict.passed).toBe(false);
+        expect(verdict.outcome).toBe('retry');
+        expect(verdict.reasons).toContain(
+            'Independent gate: judge criterion commit.cause_named failed: The diagnosis names a fuel pump failure the ledger does not support.',
+        );
+        expect(verdict.unmetCriteria).toEqual([
+            {
+                criterionId: 'commit.cause_named',
+                phase: 'commit',
+                verdict: 'unmet',
+                blocking: true,
+                evidence: [],
+                reason: 'The diagnosis names a fuel pump failure the ledger does not support.',
+            },
+        ]);
+    });
+
+    it('fails closed when the judge never scores a judge criterion', async () => {
+        const { entries } = buildGoldenCase();
+        const gate = gateWith(fakeModel(challengerReply([])), fakeModel(judgeCriteriaReply(true, [])));
+        const verdict = await gate.evaluateCandidate({
+            candidate: candidateFor('Head gasket leak'),
+            claims: goldenClaims('Head gasket leak', entries),
+            ledger: entries,
+            goal: goalWithJudgeCriterion(),
+            loopDecision: repairDecision(),
+            attempt: 1,
+        });
+        expect(verdict.passed).toBe(false);
+        expect(verdict.outcome).toBe('retry');
+        expect(verdict.reasons).toContain('Independent gate did not score judge criterion commit.cause_named');
+        expect(verdict.unmetCriteria.map((criterion) => criterion.criterionId)).toEqual(['commit.cause_named']);
+    });
+
+    it('falls back to the classic judge when the goal has no judge criteria', async () => {
+        const { entries } = buildGoldenCase();
+        const challenger = spyingModel(challengerReply([]));
+        const judge = spyingModel(judgeReply(true));
+        const gate = gateWith(challenger.model, judge.model);
+        const verdict = await gate.evaluateCandidate({
+            candidate: candidateFor('Head gasket leak'),
+            claims: goldenClaims('Head gasket leak', entries),
+            ledger: entries,
+            goal: buildGoldenGoal(),
+            loopDecision: repairDecision(),
+            attempt: 1,
+        });
+        expect(verdict.passed).toBe(true);
+        expect(verdict.outcome).toBe('pass');
+        expect(judge.generateContent).toHaveBeenCalledTimes(1);
+        expect(judgePrompt(judge.generateContent)).toContain('Pass ONLY when every claim maps');
+    });
+
+    it('blocks a run through evaluateRun when the goal is unmet, without calling any model', async () => {
+        const { entries } = buildGoldenCase({ retestResult: 'absent', symptomAbsent: false });
+        const challenger = spyingModel(challengerReply([]));
+        const judge = spyingModel(judgeReply(true));
+        const gate = gateWith(challenger.model, judge.model);
+        const parsed = parseDtc('P0300');
+        if (!parsed.ok) throw new Error('P0300 must parse');
+        const visual: AIAnalysis = {
+            diagnosis: 'Fuel pump failure',
+            confidence: 0.9,
+            visual_evidence: [],
+            acoustic_evidence: [],
+            severity: 'medium',
+            safety_alert: false,
+            suggested_actions: ['Replace the fuel pump'],
+            engineDescription: 'Stock',
+            isStock: true,
+            visualConflictDetected: false,
+            detectedCondition: 'clean',
+            reasoning: 'Misfire with fuel pressure',
+            investigationPlan: [],
+        };
+        const result = await gate.evaluateRun({
+            visual,
+            recalls: [],
+            similar: [],
+            verification: {
+                isVerified: true,
+                verifiedSource: 'http://example.com/tsb',
+                searchQueryUsed: null,
+                conflictingEvidence: null,
+            },
+            dtcCodes: [parsed.parsed],
+            ledger: entries,
+            goal: buildGoldenGoal(),
+            loopDecision: repairDecision(),
+            attempt: 1,
+        });
+        expect(result.passed).toBe(false);
+        expect(result.outcome).toBe('retry');
+        expect(result.reasons).toContain(
+            'Goal criterion verify.retest unmet: no passing compression-cylinder-1 result after the goal was set',
+        );
+        expect(result.unmetCriteria.map((criterion) => criterion.criterionId)).toEqual([
+            'verify.retest',
+            'verify.symptom_absent',
+        ]);
+        expect(result.candidate?.userOutput).toContain('Fuel pump failure');
+        expect(challenger.generateContent).not.toHaveBeenCalled();
+        expect(judge.generateContent).not.toHaveBeenCalled();
     });
 });
 

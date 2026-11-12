@@ -1,6 +1,7 @@
 import { setup, fromPromise, assign } from 'xstate';
 import type { FinalDiagnosis, NeurosymbolicState } from '../types/neurosymbolic';
 import type { CaseGoal, GoalPhase } from '../goal/goalSchema';
+import type { CriterionEvaluation } from '../goal/evaluateGoal';
 import {
     EMPTY_BUDGET_USAGE,
     evaluatePhase,
@@ -186,6 +187,10 @@ export interface FinishGateInput {
     localTriage?: LocalTriageResult;
     dtcCodes: ParsedDtc[];
     ledger: LedgerEntry[];
+    // LM-27: the case goal, when one is set. The gate checks it
+    // deterministically before any model call, and the judge scores only
+    // its `judge`-kind criteria.
+    goal?: CaseGoal;
     // True when the case exists but its ledger could not be read: the
     // actor abstains instead of skipping, so a failed read never
     // silently disables the gate.
@@ -207,6 +212,21 @@ function objectionsAsEvidence(objections: ChallengerObjection[], attempt: number
         id: `finish-gate-attempt-${attempt}-objection-${index}`,
         kind: 'answer' as const,
         summary: `Finish gate objection: ${objection.text}`,
+        receivedAt: new Date(),
+    }));
+}
+
+/**
+ * Turns a failed attempt's unmet goal criteria into evidence the next
+ * attempt's intuition call reads (LM-27): the unmet criteria are the
+ * retry prompt, so the reasoner revises toward the goal's definition of
+ * done instead of re-judging the same candidate.
+ */
+function unmetCriteriaAsEvidence(unmetCriteria: CriterionEvaluation[], attempt: number): CaseEvidence[] {
+    return unmetCriteria.map((criterion) => ({
+        id: `finish-gate-attempt-${attempt}-criterion-${criterion.criterionId}`,
+        kind: 'answer' as const,
+        summary: `Goal criterion ${criterion.criterionId} unmet: ${criterion.reason}`,
         receivedAt: new Date(),
     }));
 }
@@ -409,6 +429,7 @@ export const mechanicMachine = setup({
             objections: [],
             checklistFailures: [],
             reasons: [],
+            unmetCriteria: [],
         })),
     },
 }).createMachine({
@@ -968,6 +989,7 @@ export const mechanicMachine = setup({
                     localTriage: context.localTriage,
                     dtcCodes: context.dtcCodes,
                     ledger: context.ledger,
+                    goal: context.goal,
                     ledgerReadFailed: context.ledgerReadFailed,
                     loopState: context.diagnosticLoop,
                     loopDecision: context.diagnosticLoop?.decision ?? null,
@@ -1016,6 +1038,7 @@ export const mechanicMachine = setup({
                             queuedEvidence: ({ context, event }) => [
                                 ...context.queuedEvidence,
                                 ...objectionsAsEvidence(event.output.objections, context.gateAttempts + 1),
+                                ...unmetCriteriaAsEvidence(event.output.unmetCriteria, context.gateAttempts + 1),
                             ],
                         }),
                     },

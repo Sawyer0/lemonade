@@ -10,6 +10,8 @@
 // state machine loop lives in mechanic.machine.
 import { z } from 'zod';
 import { GENERIC_DTC_DESCRIPTIONS, parseDtc } from '../dtc';
+import { CriterionEvaluationSchema } from '../goal/evaluateGoal';
+import type { CaseGoal } from '../goal/goalSchema';
 import { retractedEntryIds, type LedgerEntry } from '../types/case';
 import type { FinalDiagnosis, VerificationData } from '../types/neurosymbolic';
 import type { AIAnalysis, SafetyRecall } from '../types/models';
@@ -150,6 +152,13 @@ export const FinishGateVerdictSchema = z
         objections: z.array(ChallengerObjectionSchema),
         checklistFailures: z.array(ChecklistFailureSchema),
         reasons: z.array(z.string().min(1)),
+        // LM-27: the blocking goal criteria that failed this attempt, with
+        // the reason that failed each one. Empty when no goal was supplied
+        // or nothing goal-related failed. The machine folds these into the
+        // next attempt's evidence, so the unmet criteria are the retry
+        // prompt; on an abstention they are already in `reasons`, which
+        // the handoff carries.
+        unmetCriteria: z.array(CriterionEvaluationSchema),
         handoff: AbstainHandoffSchema.optional(),
     })
     .strict();
@@ -169,6 +178,10 @@ export interface FinishGateRunInput {
     localTriage?: LocalTriageResult;
     dtcCodes: ParsedDtc[];
     ledger: LedgerEntry[];
+    // LM-27: the case goal, when one is set. The gate checks it
+    // deterministically before any model call, and the judge scores only
+    // its `judge`-kind criteria. Absent, the gate runs as before.
+    goal?: CaseGoal;
     loopState?: DiagnosticLoopState | null;
     loopDecision?: LoopDecision | null;
     testDefinitions?: TestDefinition[];

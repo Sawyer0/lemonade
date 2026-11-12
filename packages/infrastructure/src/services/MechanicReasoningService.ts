@@ -175,6 +175,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                         objections: [],
                         checklistFailures: [],
                         reasons: [],
+                        unmetCriteria: [],
                     };
                 }
                 return gate.evaluateRun(input);
