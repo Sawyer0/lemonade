@@ -20,12 +20,7 @@ export interface CaseBudgetUsage {
 }
 
 /** One field of the goal's `Budget`, named as the handoff names it. */
-export type BudgetLimit =
-    | 'maxTechAsks'
-    | 'maxTestCostMinutes'
-    | 'maxReasonerRuns'
-    | 'maxTokens'
-    | 'maxWallMinutes';
+export type BudgetLimit = 'maxTechAsks' | 'maxTestCostMinutes' | 'maxReasonerRuns' | 'maxTokens' | 'maxWallMinutes';
 
 export interface BudgetExhaustion {
     exhausted: boolean;
@@ -33,7 +28,10 @@ export interface BudgetExhaustion {
     detail: string;
 }
 
-const LIMIT_COPY: Record<BudgetLimit, { used: (usage: CaseBudgetUsage) => number; cap: (budget: Budget) => number; label: string }> = {
+const LIMIT_COPY: Record<
+    BudgetLimit,
+    { used: (usage: CaseBudgetUsage) => number; cap: (budget: Budget) => number; label: string }
+> = {
     maxTechAsks: {
         used: (usage) => usage.techAsksUsed,
         cap: (budget) => budget.maxTechAsks,
@@ -128,9 +126,7 @@ export function exhaustBudget(
     const knownItems: string[] = [];
     const unknownItems: string[] = [];
     for (const criterion of evaluation.criteria) {
-        const description = goal.criteria.find(
-            (candidate) => candidate.id === criterion.criterionId,
-        )?.description;
+        const description = goal.criteria.find((candidate) => candidate.id === criterion.criterionId)?.description;
         if (description === undefined) {
             continue;
         }

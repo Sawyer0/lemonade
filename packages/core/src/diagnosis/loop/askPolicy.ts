@@ -77,10 +77,7 @@ export function decideAsk(request: AskRequest, context: AskPolicyContext): AskDe
         case 'physical-evidence':
             return { allowed: true, category: category.data };
         case 'safety-confirmation':
-            if (
-                request.safetyBlocker !== undefined &&
-                context.pendingSafetyBlockers.includes(request.safetyBlocker)
-            ) {
+            if (request.safetyBlocker !== undefined && context.pendingSafetyBlockers.includes(request.safetyBlocker)) {
                 return { allowed: true, category: category.data };
             }
             return {

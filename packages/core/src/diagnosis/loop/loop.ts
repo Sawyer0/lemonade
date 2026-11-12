@@ -44,9 +44,7 @@ export function plannerStateFrom(state: DiagnosticLoopState): {
         completedTestIds: new Set(state.completedTestIds),
         // LM-29: the ask budget the planner enforces. No bound budget
         // means no cap, so the key stays absent.
-        ...(state.budget
-            ? { techAsksRemaining: state.budget.maxTechAsks - state.techAsksUsed }
-            : {}),
+        ...(state.budget ? { techAsksRemaining: state.budget.maxTechAsks - state.techAsksUsed } : {}),
     };
 }
 
