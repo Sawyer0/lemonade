@@ -101,6 +101,12 @@ export interface MechanicInput {
     // caller appends real ones with APPEND_LEDGER_ENTRY as the run (or
     // the case) records them.
     ledger?: LedgerEntry[];
+    // Whether the caller's ledger read failed (LM-19): the case exists
+    // but its ledger could not be read, so the finish gate must abstain
+    // instead of skipping. False (or absent) means the ledger is
+    // genuinely empty — no case, or a still-empty case — and the gate
+    // skips as before.
+    ledgerReadFailed?: boolean;
     // Budget already spent on this case (LM-26): the machine counts its
     // own reasoner runs and test minutes on top of this.
     budgetUsage?: BudgetUsage;
@@ -141,6 +147,9 @@ export interface MechanicContext extends MechanicInput {
     // same goal version.
     goal: CaseGoal | undefined;
     ledger: LedgerEntry[];
+    // LM-19: whether the ledger read failed. Plain data, so a stored
+    // snapshot round-trips it and a restart abstains the same way.
+    ledgerReadFailed: boolean;
     budgetUsage: BudgetUsage;
     phase: GoalPhase;
     // LM-26: the one named terminal status the run settled in, and why.
@@ -177,6 +186,10 @@ export interface FinishGateInput {
     localTriage?: LocalTriageResult;
     dtcCodes: ParsedDtc[];
     ledger: LedgerEntry[];
+    // True when the case exists but its ledger could not be read: the
+    // actor abstains instead of skipping, so a failed read never
+    // silently disables the gate.
+    ledgerReadFailed: boolean;
     loopState?: DiagnosticLoopState | null;
     loopDecision?: LoopDecision | null;
     testDefinitions?: TestDefinition[];
@@ -240,6 +253,7 @@ export type MechanicEvent =
           // started without them settles as diagnosed_unverified.
           goal?: CaseGoal;
           ledger?: LedgerEntry[];
+          ledgerReadFailed?: boolean;
           budgetUsage?: BudgetUsage;
       }
     | { type: 'UPDATE_SERVICES'; services: MechanicServices }
@@ -418,6 +432,7 @@ export const mechanicMachine = setup({
         loopTestDefinitions: [],
         goal: input.goal,
         ledger: input.ledger ?? [],
+        ledgerReadFailed: input.ledgerReadFailed ?? false,
         budgetUsage: input.budgetUsage ?? { ...EMPTY_BUDGET_USAGE },
         phase: 'intake',
         terminalStatus: undefined,
@@ -529,6 +544,7 @@ export const mechanicMachine = setup({
                                 diagnosticLoopInput: event.diagnosticLoopInput ?? context.diagnosticLoopInput,
                                 goal: event.goal ?? context.goal,
                                 ledger: event.ledger ?? context.ledger,
+                                ledgerReadFailed: event.ledgerReadFailed ?? context.ledgerReadFailed,
                                 budgetUsage: event.budgetUsage ?? context.budgetUsage,
                                 phase: 'intake' as const,
                                 terminalStatus: undefined,
@@ -952,6 +968,7 @@ export const mechanicMachine = setup({
                     localTriage: context.localTriage,
                     dtcCodes: context.dtcCodes,
                     ledger: context.ledger,
+                    ledgerReadFailed: context.ledgerReadFailed,
                     loopState: context.diagnosticLoop,
                     loopDecision: context.diagnosticLoop?.decision ?? null,
                     testDefinitions: context.loopTestDefinitions,

@@ -846,5 +846,72 @@ describe('MechanicReasoningService', () => {
             expect(result.finalDiagnosis.userOutput).not.toContain("can't confirm a diagnosis");
             expect(result.finalDiagnosis.userOutput).not.toContain('When to escalate:');
         });
+        it('abstains instead of speaking a diagnosis when the case ledger cannot be read', async () => {
+            // A real case whose ledger read fails is not an empty ledger:
+            // the gate must abstain (fail closed), never skip and speak
+            // the diagnosis ungated. No challenger or judge call runs —
+            // the abstention happens in the gating actor before the gate
+            // is invoked — and no retry burns attempts on a failed read.
+            const { adapter, generateContent } = fakeCoreAdapter();
+            const mockCaseRepo = {
+                findCaseById: vi.fn().mockResolvedValue({
+                    id: CASE_ID,
+                    vehicleId: 'vehicle-1',
+                    userId: 'user-1',
+                    status: 'open',
+                    version: 1,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                }),
+                listEntries: vi.fn().mockRejectedValue(new Error('missing index for case ledger query')),
+                advanceCaseVersion: vi.fn().mockResolvedValue(2),
+            } as unknown as ICaseRepository;
+            const gatedService = new MechanicReasoningService(
+                mockVideoAI,
+                mockChatAI,
+                mockNHTSA,
+                mockEmbedding,
+                mockVector,
+                mockSearch,
+                mockMemory,
+                mockSessionRepo,
+                mockReactive,
+                mockSafetyMonitor,
+                mockTracing,
+                mockLogger,
+                adapter,
+                new CaseRunCoordinator(),
+                mockCaseRepo,
+            );
+            const parsed = parseDtc('P0300');
+            if (!parsed.ok) throw new Error('P0300 must parse');
+            const result = await gatedService.diagnose({
+                sessionId: 'session-gate-read-failed',
+                userId: 'user-1',
+                vehicleContext: { year: 2022, make: 'Ford', model: 'F-150', vin: 'VIN123' },
+                userQuery: 'misfire at idle',
+                complaint: 'Engine misfires at idle',
+                caseId: CASE_ID,
+                dtcCodes: [parsed.parsed],
+            });
+
+            expect(mockCaseRepo.listEntries).toHaveBeenCalledWith(CASE_ID);
+            const prompts = generateContent.mock.calls.map(
+                (call) =>
+                    (call[0] as { contents: { parts: { text: string }[] }[] }).contents[0]?.parts?.[0]?.text ?? '',
+            );
+            expect(prompts.some((prompt) => prompt.includes('You are the challenger'))).toBe(false);
+            expect(prompts.some((prompt) => prompt.includes('independent finish gate'))).toBe(false);
+            // One intuition call only: the abstention needs no gate calls and no retries.
+            expect(generateContent).toHaveBeenCalledTimes(1);
+
+            expect(result.finalDiagnosis.decision).toBe('REFER_TO_HUMAN');
+            expect(result.finalDiagnosis.metaConfidence).toBe(0);
+            expect(result.finalDiagnosis.userOutput).toContain("can't confirm a diagnosis");
+            expect(result.finalDiagnosis.userOutput).toContain('When to escalate:');
+            expect(result.finalDiagnosis.userOutput).toContain('The case ledger could not be read');
+            expect(result.finalDiagnosis.userOutput).not.toContain('Replace the fuel pump');
+            expect(result.finalDiagnosis.requiredActions).toContain('Consult Human Mechanic');
+        });
     });
 });

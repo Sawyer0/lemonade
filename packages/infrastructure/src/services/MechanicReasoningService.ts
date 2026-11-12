@@ -82,6 +82,19 @@ const NO_VISUAL_ANALYSIS: AIAnalysis = {
 };
 
 /**
+ * What a ledger read returns (LM-19): the entries, plus whether the read
+ * itself failed. The two empty cases are distinct on purpose — `[]` with
+ * `readFailed: false` means there is genuinely no ledger to argue from
+ * (no case, no repository, or a still-empty case), while `readFailed:
+ * true` means the case exists but its ledger could not be read, and the
+ * finish gate must abstain instead of skipping.
+ */
+interface LedgerReadResult {
+    entries: LedgerEntry[];
+    readFailed: boolean;
+}
+
+/**
  * System 2 diagnosis. Gates on safety, then drives the mechanic state machine
  * through context gathering, intuition, research and evidence, and synthesizes
  * a final decision. Each step lives in its own module under ./diagnosis.
@@ -452,11 +465,11 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         const storedSnapshot = await this.readStoredSnapshot(input.sessionId);
         const queuedEvidence =
             storedSnapshot || !input.caseId ? [] : this.runCoordinator.drainAtCheckpoint(input.caseId);
-        // LM-19: the case ledger the finish gate argues from. A read
-        // failure leaves the gate with no entries, so the gate skips and
-        // the diagnosis runs ungated, as before the gate existed — a
-        // failed read is indistinguishable from an empty ledger here.
-        const ledger = await this.readLedger(input.caseId);
+        // LM-19: the case ledger the finish gate argues from. A failed
+        // read is tri-state, not an empty ledger: the machine carries
+        // `ledgerReadFailed` alongside the entries, so the gate abstains
+        // (fail closed) instead of skipping and speaking ungated.
+        const ledgerRead = await this.readLedger(input.caseId);
 
         const providedMachine = mechanicMachine.provide({
             actors: this.actors,
@@ -478,7 +491,8 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             caseId: input.caseId,
             scanData: input.scanData,
             diagnosticLoopInput: input.diagnosticLoopInput,
-            ledger,
+            ledger: ledgerRead.entries,
+            ledgerReadFailed: ledgerRead.readFailed,
         };
         let actor = createActor(providedMachine, {
             input: actorInput,
@@ -598,7 +612,8 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     caseId: input.caseId,
                     scanData: input.scanData,
                     diagnosticLoopInput: input.diagnosticLoopInput,
-                    ledger,
+                    ledger: ledgerRead.entries,
+                    ledgerReadFailed: ledgerRead.readFailed,
                 });
             }
 
@@ -647,26 +662,29 @@ export class MechanicReasoningService implements IMechanicReasoningService {
     }
 
     /**
-     * Reads the case ledger for the finish gate, or an empty list when
-     * there is no case, no repository, or the read fails. A failed read
-     * never fails the diagnosis: the gate sees no entries, so it skips
-     * and the diagnosis runs ungated, as before the gate existed.
+     * Reads the case ledger for the finish gate. Tri-state, so a failed
+     * read is never confused with a genuinely empty ledger: no case or no
+     * repository means there is nothing to read (`readFailed: false`),
+     * while a repository that throws means the case exists but its
+     * ledger could not be read (`readFailed: true`) — the gate must
+     * abstain on that, never skip, or a transient read failure would
+     * silently disable the safety gate for every cased diagnosis.
      */
-    private async readLedger(caseId: string | undefined): Promise<LedgerEntry[]> {
+    private async readLedger(caseId: string | undefined): Promise<LedgerReadResult> {
         if (!caseId || !this.caseRepo) {
-            return [];
+            return { entries: [], readFailed: false };
         }
         try {
-            return await this.caseRepo.listEntries(caseId);
+            return { entries: await this.caseRepo.listEntries(caseId), readFailed: false };
         } catch (error) {
-            this.logger.warn(
-                '[MechanicReasoning] Could not read the case ledger; the finish gate will see no entries',
+            this.logger.error(
+                '[MechanicReasoning] Could not read the case ledger; the finish gate will abstain rather than speak an ungated diagnosis',
                 {
                     caseId,
                     error,
                 },
             );
-            return [];
+            return { entries: [], readFailed: true };
         }
     }
 

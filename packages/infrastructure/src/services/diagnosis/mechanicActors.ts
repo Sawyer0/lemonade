@@ -132,8 +132,25 @@ export function createMechanicActors(deps: MechanicActorDeps) {
         // gate skips instead of burning all three attempts and then
         // abstaining. That keeps a diagnosis without a case — no ledger
         // to read — running exactly as before the gate existed, and the
-        // same for a case whose ledger is still empty.
+        // same for a case whose ledger is still empty. A failed ledger
+        // read is the opposite case and must never take that path: the
+        // case exists but its ledger could not be read, so there is no
+        // evidence the gate could have checked the diagnosis against.
+        // Skipping would speak an ungated diagnosis; the actor abstains
+        // instead (fail closed), before any gate call, so no retry can
+        // burn attempts on a read that will not heal mid-run.
         runFinishGate: fromPromise(async ({ input }: { input: FinishGateInput }): Promise<FinishGateRunResult> => {
+            if (input.ledgerReadFailed) {
+                return {
+                    passed: false,
+                    outcome: 'abstain',
+                    objections: [],
+                    checklistFailures: [],
+                    reasons: [
+                        'The case ledger could not be read, so no claim in the diagnosis can be checked against it',
+                    ],
+                };
+            }
             const skipped: FinishGateRunResult = {
                 passed: false,
                 outcome: 'skipped',

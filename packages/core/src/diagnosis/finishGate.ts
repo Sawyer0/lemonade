@@ -135,8 +135,10 @@ export interface ChecklistVerdict {
 // One attempt's outcome. `pass` speaks the candidate; `retry` sends the
 // objections back as evidence for another attempt; `abstain` speaks the
 // handoff instead. `skipped` means no gate was bound, or the ledger was
-// empty so there was nothing to argue from: the diagnosis runs as it did
-// before the gate existed.
+// genuinely empty so there was nothing to argue from: the diagnosis runs
+// as it did before the gate existed. A ledger read that failed is not a
+// skip — the case exists but its entries could not be read, so the
+// gating actor abstains instead (fail closed).
 
 export const FinishGateOutcomeSchema = z.enum(['pass', 'retry', 'abstain', 'skipped']);
 export type FinishGateOutcome = z.infer<typeof FinishGateOutcomeSchema>;
