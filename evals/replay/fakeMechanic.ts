@@ -14,7 +14,7 @@ export interface FakeDiagnosis {
     confidence: number;
 }
 
-interface FakeRule {
+export interface FakeRule {
     id: string;
     /** One set matching is enough; every keyword in the set must appear. */
     matchSets: string[][];
@@ -240,21 +240,55 @@ export const UNCERTAIN_DIAGNOSIS: FakeDiagnosis = {
     confidence: 0.2,
 };
 
+/** The vehicle rule table, for benches that build a library over every rule. A copy: the table itself never mutates. */
+export function vehicleRules(): FakeRule[] {
+    return [...RULES];
+}
+
 /** First matching rule wins; no rule matches means the uncertain fallback. */
 export function diagnoseEvidence(evidence: string): FakeDiagnosis {
-    const lowered = evidence.toLowerCase();
-    for (const rule of RULES) {
-        const matched = rule.matchSets.some((keywords) => keywords.every((keyword) => lowered.includes(keyword)));
-        if (!matched) {
-            continue;
-        }
-        return {
-            ruleId: rule.id,
-            diagnosis: rule.diagnosis,
-            safetyStop: rule.safetyStop,
-            actions: [...rule.actions],
-            confidence: 0.85,
-        };
+    const [rule] = matchingRules(evidence);
+    if (rule === undefined) {
+        return { ...UNCERTAIN_DIAGNOSIS, actions: [...UNCERTAIN_DIAGNOSIS.actions] };
     }
-    return { ...UNCERTAIN_DIAGNOSIS, actions: [...UNCERTAIN_DIAGNOSIS.actions] };
+    return {
+        ruleId: rule.id,
+        diagnosis: rule.diagnosis,
+        safetyStop: rule.safetyStop,
+        actions: [...rule.actions],
+        confidence: 0.85,
+    };
+}
+
+/**
+ * Every rule whose match sets hit this evidence, in rule order. The
+ * LemonadeBench proposer (LM-36) uses this, not the single winner: a
+ * differential starts from every cause the complaint is consistent
+ * with, and the engine has to work out which one it is. A bench suite
+ * may pass its own rule table (heavy equipment, sensors); the vehicle
+ * table is the default.
+ */
+export function matchingRules(evidence: string, rules: FakeRule[] = RULES): FakeRule[] {
+    const lowered = evidence.toLowerCase();
+    return rules.filter((rule) =>
+        rule.matchSets.some((keywords) => keywords.every((keyword) => lowered.includes(keyword))),
+    );
+}
+
+/**
+ * Rules that share a keyword with the evidence but match no full set:
+ * the near-miss confusables. A complaint about brake squeal shares
+ * 'brake' with the brake-fluid rule without matching it, so the
+ * differential keeps brake-fluid as a live alternative the engine must
+ * test down, instead of a single-candidate differential that would
+ * commit with no evidence at all.
+ */
+export function nearMissRules(evidence: string, rules: FakeRule[] = RULES): FakeRule[] {
+    const lowered = evidence.toLowerCase();
+    const matched = new Set(matchingRules(evidence, rules).map((rule) => rule.id));
+    return rules.filter(
+        (rule) =>
+            !matched.has(rule.id) &&
+            rule.matchSets.some((keywords) => keywords.some((keyword) => lowered.includes(keyword))),
+    );
 }

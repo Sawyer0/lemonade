@@ -124,3 +124,49 @@ when the shortcut set's false verified_fix rate rises above zero, and
 the vitest suite (`evals/sdbench/goalEval.test.ts`) asserts the same —
 including a gaming case (visible checks met, hidden evidence absent)
 that proves the detector fires, so the gate is live, not vacuous.
+
+### LemonadeBench (`evals/lemonade-bench/`)
+
+Sequential diagnosis against the LM-04 engine, modeled on SDBench.
+A snapshot gatekeeper (`snapshot.ts`) holds one replayable case and
+reveals only what is asked or tested — and invents a plausible normal
+result for an unrecorded test, identical for every case, so a missing
+result is never itself a clue. The engine run (`engineRunner.ts`)
+drives the loop one gatekeeper answer per round: the loop plans the
+next test, the gatekeeper answers it, the result goes back in as a
+recorded result, until the loop commits to a repair or escalates. The
+cost model (`costModel.ts`) prices each run in dollars through the
+loop's own cost function — labor, parts, downtime, risk — plus the
+repair it committed to. Process scoring (`processScore.ts`) is
+Cloud-OpsBench style: every differential change must be backed by
+evidence, checked by replaying each round through the same Bayes
+update and comparing, by requiring every trace entry to name a test
+the gatekeeper actually answered, and by requiring a commit to have
+a positive test result behind it. A run can be right and still score
+below 1.0 on process.
+
+Four suites run in `benchRunner.ts`, all deterministic, all in CI
+through the vitest run and the `run-replay-benchmark.ts` gate:
+
+- **lemonade-bench**: the 20 golden vehicle cases. The proposer
+  lists every cause in the table — matched causes split most of the
+  prior, near-miss confusables a share, the rest a background share —
+  so no case starts as a single-candidate differential that would
+  commit with no evidence.
+- **auto-repair-bench**: the same 20 cases scored the AutoRepairBench
+  way — joint accuracy (diagnosis AND repair verified AND safety
+  right). AutoRepairBench itself is a BMW-centered ECU/DTC benchmark;
+  its 500-case set is not vendored here.
+- **assetops-bench**: six heavy-equipment snapshots (AssetOpsBench
+  lens; the full 141-scenario set is not vendored).
+- **failure-sensor-iq**: four sensor-to-failure-mode snapshots
+  (FailureSensorIQ lens; the full 8,296-question set is not vendored).
+
+Latest run: lemonade-bench 20/20 accurate (100%), joint 100%,
+repair verified 100%, mean cost $545, mean steps 2.45, 0 safety
+violations, mean process 1.00; assetops-bench 6/6, mean cost $1773,
+mean steps 4.33; failure-sensor-iq 4/4, mean cost $1416, mean steps
+2.00. Any threshold breach is a regression and fails the build.
+Follow-up: bind bench runs to LM-30 goal budgets once LM-30 lands,
+so the bench also scores work under a case goal's ask and test-time
+caps.
