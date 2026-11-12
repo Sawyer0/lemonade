@@ -18,14 +18,26 @@ import type {
     AIAnalysis,
     ILogger,
     NeurosymbolicState,
-    VerificationData,
     SafetyRecall,
     ICaseRepository,
     IFixCountStore,
 } from '@lemonade/core';
-import { AppError, ErrorCode, isMechanicTerminalState, mechanicMachine } from '@lemonade/core';
-import { GEMINI_PRO_MODEL } from '@lemonade/core';
-import type { ReasonerActorRunner, ReasonerModel, ReasonerRegionResult, ReasonerRunRequest } from '@lemonade/core';
+import {
+    AppError,
+    ErrorCode,
+    buildAbstainFinalDiagnosis,
+    isMechanicTerminalState,
+    mechanicMachine,
+} from '@lemonade/core';
+import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL } from '@lemonade/core';
+import type {
+    FinishGateRunner,
+    LedgerEntry,
+    ReasonerActorRunner,
+    ReasonerModel,
+    ReasonerRegionResult,
+    ReasonerRunRequest,
+} from '@lemonade/core';
 import { createActor, waitFor } from 'xstate';
 import type { SnapshotFrom } from 'xstate';
 import { createBrowserInspector } from '@statelyai/inspect';
@@ -38,8 +50,10 @@ import { DiagnosisSafetyGate } from './diagnosis/DiagnosisSafetyGate';
 import { IntuitionGenerator } from './diagnosis/IntuitionGenerator';
 import { EvidenceAnalyzer } from './diagnosis/EvidenceAnalyzer';
 import { DiagnosisMemoryWriter } from './diagnosis/DiagnosisMemoryWriter';
-import { synthesizeDiagnosis } from './diagnosis/DiagnosisSynthesizer';
+import { synthesizeDiagnosis, verificationDataFrom } from './diagnosis/DiagnosisSynthesizer';
 import { DiagnosticLoopPreparer } from './diagnosis/DiagnosticLoopPreparer';
+import { Challenger } from './diagnosis/Challenger';
+import { FinishGate } from './diagnosis/FinishGate';
 import { createMechanicActors } from './diagnosis/mechanicActors';
 import { CaseRunCoordinator } from './CaseRunCoordinator';
 
@@ -67,8 +81,18 @@ const NO_VISUAL_ANALYSIS: AIAnalysis = {
     investigationPlan: [],
 };
 
-/** Words in a failed verification's reasoning that mark it as contradicting the hypothesis. */
-const CONFLICT_MARKERS = ['electric', 'not', 'contradict', 'wrong'];
+/**
+ * What a ledger read returns (LM-19): the entries, plus whether the read
+ * itself failed. The two empty cases are distinct on purpose — `[]` with
+ * `readFailed: false` means there is genuinely no ledger to argue from
+ * (no case, no repository, or a still-empty case), while `readFailed:
+ * true` means the case exists but its ledger could not be read, and the
+ * finish gate must abstain instead of skipping.
+ */
+interface LedgerReadResult {
+    entries: LedgerEntry[];
+    readFailed: boolean;
+}
 
 /**
  * System 2 diagnosis. Gates on safety, then drives the mechanic state machine
@@ -85,6 +109,11 @@ export class MechanicReasoningService implements IMechanicReasoningService {
     // failed (no namespaces, no diaglib) and will not be retried.
     private reasonerRunnerCache: ReasonerRunner | null | undefined;
     private reasonerModelCache: ReasonerModel | undefined;
+    // LM-19: lazily built on the first gated run, like the reasoner
+    // runner. null means the attempt already failed and will not be
+    // retried: the gate resolves `skipped` and the diagnosis runs as
+    // before, instead of failing every diagnosis for a missing model.
+    private finishGateCache: FinishGate | null | undefined;
 
     constructor(
         @inject(TYPES.MultimodalUploadAI) private videoAI: IMultimodalUploadAnalyzer,
@@ -123,7 +152,63 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             logger,
             reasoner: this.reasonerActor(),
             loopPreparer: new DiagnosticLoopPreparer({ fixCountStore: this.fixCountStore }, logger),
+            finishGate: this.finishGateRunner(),
         });
+    }
+
+    /**
+     * LM-19: the `gating` state's runner. Bound as an object so the
+     * machine actor never sees the lazy construction: when no model is
+     * available the gate reports `skipped` and the diagnosis runs as
+     * before. The challenger and the judge both run on Flash — a separate
+     * model call from the Pro reasoner, never the reasoner grading
+     * itself.
+     */
+    private finishGateRunner(): FinishGateRunner {
+        return {
+            evaluateRun: async (input) => {
+                const gate = this.getFinishGate();
+                if (!gate) {
+                    return {
+                        passed: false,
+                        outcome: 'skipped',
+                        objections: [],
+                        checklistFailures: [],
+                        reasons: [],
+                    };
+                }
+                return gate.evaluateRun(input);
+            },
+        };
+    }
+
+    private getFinishGate(): FinishGate | undefined {
+        if (this.finishGateCache === undefined) {
+            this.finishGateCache = this.buildFinishGate();
+        }
+        return this.finishGateCache ?? undefined;
+    }
+
+    private buildFinishGate(): FinishGate | null {
+        try {
+            const adapter = this.coreAdapter;
+            if (!adapter) {
+                this.logger.info('[MechanicReasoning] No core adapter bound; the finish gate will skip');
+                return null;
+            }
+            const challengerModel = adapter.getGenerativeModel(GEMINI_FLASH_MODEL);
+            const gateModel = adapter.getGenerativeModel(GEMINI_FLASH_MODEL);
+            return new FinishGate({
+                challenger: new Challenger(challengerModel, this.logger),
+                gateModel,
+                logger: this.logger,
+            });
+        } catch (error) {
+            this.logger.warn('[MechanicReasoning] Could not build the finish gate; diagnoses will run ungated', {
+                error,
+            });
+            return null;
+        }
     }
 
     /**
@@ -202,7 +287,11 @@ export class MechanicReasoningService implements IMechanicReasoningService {
      * active run. A second caller for the same case never starts a competing
      * run: its question joins the active run's evidence queue, and it
      * observes the active run's result. A diagnosis without a case runs
-     * exactly as before.
+     * without a ledger, so the finish gate has nothing to argue from and
+     * skips: the diagnosis is spoken ungated, exactly as before the gate
+     * existed, instead of burning three attempts on claims that cannot
+     * cite anything and then abstaining. A diagnosis with a case runs
+     * through the gate.
      */
     private async runCaseOrDirectDiagnosis(input: ReasoningInput): Promise<NeurosymbolicState> {
         if (!input.caseId) {
@@ -288,16 +377,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             reasoning: 'No verification run',
         };
 
-        const reasoningLower = (verificationResult.reasoning || '').toLowerCase();
-        const isExplicitConflict =
-            !verificationResult.isVerified && CONFLICT_MARKERS.some((marker) => reasoningLower.includes(marker));
-
-        const verification: VerificationData = {
-            isVerified: verificationResult.isVerified,
-            verifiedSource: verificationResult.source || null,
-            searchQueryUsed: ctx.searchResults?.queryUsed || null,
-            conflictingEvidence: isExplicitConflict ? verificationResult.reasoning : null,
-        };
+        const verification = verificationDataFrom(verificationResult, ctx.searchResults?.queryUsed || null);
 
         const state: NeurosymbolicState = {
             complaint: input.complaint,
@@ -325,8 +405,27 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                 isKnownIssue: similar.length > 1,
             },
             verification,
-            finalDiagnosis: synthesizeDiagnosis(visual, nhtsa, similar, verification, ctx.localTriage),
+            // LM-19: speak the gated diagnosis when the gate passed, the
+            // gate's own synthesis otherwise. An abstention replaces the
+            // diagnosis with the abstain handoff below.
+            finalDiagnosis:
+                ctx.gatedDiagnosis ?? synthesizeDiagnosis(visual, nhtsa, similar, verification, ctx.localTriage),
         };
+
+        if (ctx.abstain) {
+            this.logger.info('[MechanicReasoning] Finish gate abstained; speaking the abstain handoff', {
+                sessionId: input.sessionId,
+                caseId: input.caseId,
+            });
+            state.intuition = {
+                hypothesis: 'Withheld — diagnosis abstained',
+                confidence: 0,
+                reasoning: 'Finish gate abstained',
+                investigationPlan: [],
+            };
+            state.finalDiagnosis = buildAbstainFinalDiagnosis(ctx.abstain, ctx.gateReasons);
+            return state;
+        }
 
         if (state.intuition.confidence > MEMORY_SAVE_CONFIDENCE && state.finalDiagnosis.decision === 'PROCEED') {
             this.memoryWriter
@@ -366,6 +465,11 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         const storedSnapshot = await this.readStoredSnapshot(input.sessionId);
         const queuedEvidence =
             storedSnapshot || !input.caseId ? [] : this.runCoordinator.drainAtCheckpoint(input.caseId);
+        // LM-19: the case ledger the finish gate argues from. A failed
+        // read is tri-state, not an empty ledger: the machine carries
+        // `ledgerReadFailed` alongside the entries, so the gate abstains
+        // (fail closed) instead of skipping and speaking ungated.
+        const ledgerRead = await this.readLedger(input.caseId);
 
         const providedMachine = mechanicMachine.provide({
             actors: this.actors,
@@ -387,6 +491,8 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             caseId: input.caseId,
             scanData: input.scanData,
             diagnosticLoopInput: input.diagnosticLoopInput,
+            ledger: ledgerRead.entries,
+            ledgerReadFailed: ledgerRead.readFailed,
         };
         let actor = createActor(providedMachine, {
             input: actorInput,
@@ -506,6 +612,8 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     caseId: input.caseId,
                     scanData: input.scanData,
                     diagnosticLoopInput: input.diagnosticLoopInput,
+                    ledger: ledgerRead.entries,
+                    ledgerReadFailed: ledgerRead.readFailed,
                 });
             }
 
@@ -550,6 +658,33 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                     );
                 }
             }
+        }
+    }
+
+    /**
+     * Reads the case ledger for the finish gate. Tri-state, so a failed
+     * read is never confused with a genuinely empty ledger: no case or no
+     * repository means there is nothing to read (`readFailed: false`),
+     * while a repository that throws means the case exists but its
+     * ledger could not be read (`readFailed: true`) — the gate must
+     * abstain on that, never skip, or a transient read failure would
+     * silently disable the safety gate for every cased diagnosis.
+     */
+    private async readLedger(caseId: string | undefined): Promise<LedgerReadResult> {
+        if (!caseId || !this.caseRepo) {
+            return { entries: [], readFailed: false };
+        }
+        try {
+            return { entries: await this.caseRepo.listEntries(caseId), readFailed: false };
+        } catch (error) {
+            this.logger.error(
+                '[MechanicReasoning] Could not read the case ledger; the finish gate will abstain rather than speak an ungated diagnosis',
+                {
+                    caseId,
+                    error,
+                },
+            );
+            return { entries: [], readFailed: true };
         }
     }
 
