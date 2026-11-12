@@ -38,7 +38,10 @@ function modelEntry(id: string): LedgerEntry {
     } as LedgerEntry;
 }
 
-function fakeModel(text: string | null, error?: Error): { model: GenerativeModel; generateContent: ReturnType<typeof vi.fn> } {
+function fakeModel(
+    text: string | null,
+    error?: Error,
+): { model: GenerativeModel; generateContent: ReturnType<typeof vi.fn> } {
     const generateContent = vi.fn();
     if (error) {
         generateContent.mockRejectedValue(error);
@@ -105,7 +108,9 @@ describe('Challenger', () => {
     it('throws on an empty model response instead of reporting no objections', async () => {
         const { model } = fakeModel(null);
         const challenger = new Challenger(model, logger);
-        await expect(challenger.challenge('Ignition coil failure', goldenLedger())).rejects.toThrow('Empty challenger response');
+        await expect(challenger.challenge('Ignition coil failure', goldenLedger())).rejects.toThrow(
+            'Empty challenger response',
+        );
     });
 
     it('throws when the reply has no usable objections list', async () => {
@@ -119,6 +124,8 @@ describe('Challenger', () => {
     it('throws when the model call itself fails', async () => {
         const { model } = fakeModel(null, new Error('model unavailable'));
         const challenger = new Challenger(model, logger);
-        await expect(challenger.challenge('Ignition coil failure', goldenLedger())).rejects.toThrow('model unavailable');
+        await expect(challenger.challenge('Ignition coil failure', goldenLedger())).rejects.toThrow(
+            'model unavailable',
+        );
     });
 });

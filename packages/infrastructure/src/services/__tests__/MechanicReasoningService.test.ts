@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MechanicReasoningService } from '../MechanicReasoningService';
 import { CaseRunCoordinator } from '../CaseRunCoordinator';
 import { AppError, ErrorCode } from '@lemonade/core';
+import { parseDtc } from '@lemonade/core';
 import {
     ILogger,
     IMultimodalUploadAnalyzer,
@@ -16,6 +17,7 @@ import {
     ISafetyMonitor,
     ITracingService,
     ICaseRepository,
+    LedgerEntry,
     ReasoningInput,
 } from '@lemonade/core';
 import type { GeminiCoreAdapter } from '../../ai/GeminiCoreAdapter';
@@ -662,6 +664,145 @@ describe('MechanicReasoningService', () => {
             // Let the abandoned first run finish so its timers do not linger.
             releaseGather();
             await expect(firstRun).resolves.toBeDefined();
+        });
+    });
+
+    describe('finish gate (LM-19)', () => {
+        const CASE_ID = '22222222-2222-4222-8222-222222222222';
+
+        function modelReply(json: unknown): unknown {
+            return { response: { candidates: [{ content: { parts: [{ text: JSON.stringify(json) }] } }] } };
+        }
+
+        /** One fake model serving intuition, challenger and judge, dispatched on the prompt. */
+        function fakeCoreAdapter(): { adapter: GeminiCoreAdapter; generateContent: ReturnType<typeof vi.fn> } {
+            const generateContent = vi.fn(async (request: { contents: { parts: { text: string }[] }[] }) => {
+                const text = request.contents[0]?.parts?.[0]?.text ?? '';
+                if (text.includes('You are the challenger')) {
+                    return modelReply({
+                        objections: [
+                            {
+                                text: 'Fuel pressure held at 55 psi, so a fuel pump failure does not explain the misfire',
+                                ledgerEntryIds: ['entry-fuel'],
+                                decisive: true,
+                            },
+                        ],
+                    });
+                }
+                if (text.includes('independent finish gate')) {
+                    return modelReply({
+                        passed: false,
+                        unmappedClaimIds: ['hypothesis'],
+                        stopRuleMet: true,
+                        reasons: ['The fuel pressure reading contradicts a fuel pump failure.'],
+                    });
+                }
+                return modelReply({
+                    diagnosis: 'Fuel pump failure',
+                    confidence: 0.9,
+                    reasoning: 'Misfire with low fuel pressure suspected.',
+                    investigationPlan: ['Measure fuel pressure'],
+                    severity: 'medium',
+                    safety_alert: false,
+                    suggested_actions: ['Replace the fuel pump'],
+                });
+            });
+            return {
+                adapter: {
+                    getGenerativeModel: vi.fn().mockReturnValue({ generateContent }),
+                } as unknown as GeminiCoreAdapter,
+                generateContent,
+            };
+        }
+
+        function goldenLedger(): LedgerEntry[] {
+            const base = {
+                caseId: CASE_ID,
+                sequence: 1,
+                actor: { kind: 'user', id: 'tech-1' } as const,
+                occurredAt: new Date('2026-11-11T10:00:00.000Z'),
+                previousHash: '0'.repeat(64),
+                entryHash: 'a'.repeat(64),
+                createdAt: new Date('2026-11-11T10:00:00.000Z'),
+            };
+            return [
+                { ...base, id: 'entry-dtc', type: 'dtc_read', payload: { codes: ['P0300'] } } as LedgerEntry,
+                {
+                    ...base,
+                    id: 'entry-fuel',
+                    type: 'test_result',
+                    payload: { testName: 'measure-fuel-pressure', result: 'pass' },
+                } as LedgerEntry,
+                {
+                    ...base,
+                    id: 'entry-spark',
+                    type: 'test_result',
+                    payload: { testName: 'measure-spark-strength', result: 'fail' },
+                } as LedgerEntry,
+            ];
+        }
+
+        it('abstains with the handoff instead of speaking a planted wrong lead', async () => {
+            const { adapter, generateContent } = fakeCoreAdapter();
+            const mockCaseRepo = {
+                findCaseById: vi.fn().mockResolvedValue({
+                    id: CASE_ID,
+                    vehicleId: 'vehicle-1',
+                    userId: 'user-1',
+                    status: 'open',
+                    version: 1,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                }),
+                listEntries: vi.fn().mockResolvedValue(goldenLedger()),
+                advanceCaseVersion: vi.fn().mockResolvedValue(2),
+            } as unknown as ICaseRepository;
+            const gatedService = new MechanicReasoningService(
+                mockVideoAI,
+                mockChatAI,
+                mockNHTSA,
+                mockEmbedding,
+                mockVector,
+                mockSearch,
+                mockMemory,
+                mockSessionRepo,
+                mockReactive,
+                mockSafetyMonitor,
+                mockTracing,
+                mockLogger,
+                adapter,
+                new CaseRunCoordinator(),
+                mockCaseRepo,
+            );
+            const parsed = parseDtc('P0300');
+            if (!parsed.ok) throw new Error('P0300 must parse');
+            const result = await gatedService.diagnose({
+                sessionId: 'session-gate-1',
+                userId: 'user-1',
+                vehicleContext: { year: 2022, make: 'Ford', model: 'F-150', vin: 'VIN123' },
+                userQuery: 'misfire at idle',
+                complaint: 'Engine misfires at idle',
+                caseId: CASE_ID,
+                dtcCodes: [parsed.parsed],
+            });
+
+            expect(mockCaseRepo.listEntries).toHaveBeenCalledWith(CASE_ID);
+            const prompts = generateContent.mock.calls.map(
+                (call) =>
+                    (call[0] as { contents: { parts: { text: string }[] }[] }).contents[0]?.parts?.[0]?.text ?? '',
+            );
+            expect(prompts.some((prompt) => prompt.includes('You are the challenger'))).toBe(true);
+            expect(prompts.some((prompt) => prompt.includes('independent finish gate'))).toBe(true);
+
+            expect(result.finalDiagnosis.decision).toBe('REFER_TO_HUMAN');
+            expect(result.finalDiagnosis.metaConfidence).toBe(0);
+            expect(result.finalDiagnosis.userOutput).toContain('Confirmed: DTC P0300 was read from the vehicle');
+            expect(result.finalDiagnosis.userOutput).toContain(
+                'Ruled out: Fuel pressure held at 55 psi, so a fuel pump failure does not explain the misfire',
+            );
+            expect(result.finalDiagnosis.userOutput).toContain('When to escalate:');
+            expect(result.finalDiagnosis.userOutput).not.toContain('Replace the fuel pump');
+            expect(result.finalDiagnosis.requiredActions).toContain('Consult Human Mechanic');
         });
     });
 });

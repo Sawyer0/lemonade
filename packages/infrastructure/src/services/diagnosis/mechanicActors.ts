@@ -1,6 +1,9 @@
 import { fromPromise } from 'xstate';
 import type {
     AIAnalysis,
+    FinishGateInput,
+    FinishGateRunResult,
+    FinishGateRunner,
     GatherAllContextInput,
     IChatAssistantAI,
     IGoogleSearchService,
@@ -26,6 +29,7 @@ import { MemoryTags } from '@lemonade/core';
 import type { IntuitionGenerator } from './IntuitionGenerator';
 import type { EvidenceAnalyzer } from './EvidenceAnalyzer';
 import type { DiagnosticLoopPreparer } from './DiagnosticLoopPreparer';
+import { verificationDataFrom } from './DiagnosisSynthesizer';
 
 const SIMILAR_CASE_LIMIT = 3;
 
@@ -44,6 +48,8 @@ export interface MechanicActorDeps {
     reasoner?: ReasonerActorRunner;
     /** LM-04: when bound, the `workup` state prepares its loop input through it. */
     loopPreparer?: DiagnosticLoopPreparer;
+    /** LM-19: when bound, the `gating` state runs the finish gate through it. */
+    finishGate?: FinishGateRunner;
 }
 
 /** Runs one context source and degrades to an empty result if it fails; a missing source is routine, so it logs at debug. */
@@ -77,7 +83,8 @@ function caseFilesFromScanData(scanData: ReasonerScanData): SandboxStagedFile[] 
  * blocks a diagnosis.
  */
 export function createMechanicActors(deps: MechanicActorDeps) {
-    const { intuition, evidence, nhtsaService, searchService, chatAI, logger, reasoner, loopPreparer } = deps;
+    const { intuition, evidence, nhtsaService, searchService, chatAI, logger, reasoner, loopPreparer, finishGate } =
+        deps;
 
     return {
         generateIntuition: fromPromise(async ({ input }: { input: IntuitionInput }) =>
@@ -114,6 +121,36 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                 userId: input.userId,
                 goal: REASONER_GOAL,
                 caseFiles: caseFilesFromScanData(input.scanData),
+            });
+        }),
+
+        // LM-19: the finish gate. Without a bound gate the state resolves
+        // `skipped` and the diagnosis runs as before; without a candidate
+        // there is nothing to gate, so it skips too.
+        runFinishGate: fromPromise(async ({ input }: { input: FinishGateInput }): Promise<FinishGateRunResult> => {
+            const skipped: FinishGateRunResult = {
+                passed: false,
+                outcome: 'skipped',
+                objections: [],
+                checklistFailures: [],
+                reasons: [],
+            };
+            if (!finishGate || !input.visual) {
+                return skipped;
+            }
+            return finishGate.evaluateRun({
+                visual: input.visual,
+                recalls: input.recalls,
+                similar: input.similar,
+                verification: verificationDataFrom(input.verification, input.searchQueryUsed),
+                localTriage: input.localTriage,
+                dtcCodes: input.dtcCodes,
+                ledger: input.ledger,
+                loopState: input.loopState,
+                loopDecision: input.loopDecision,
+                testDefinitions: input.testDefinitions,
+                attempt: input.attempt,
+                traceId: input.sessionId,
             });
         }),
 

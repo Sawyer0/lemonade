@@ -143,8 +143,10 @@ describe('phaseGate (LM-26)', () => {
                     budgetUsage: EMPTY_BUDGET_USAGE,
                     abstain: {
                         reason: 'Cannot distinguish coil from plug from the evidence',
-                        known: ['Misfire on cylinder 1'],
-                        unknown: ['Whether the coil or the plug is at fault'],
+                        confirmed: ['Misfire on cylinder 1'],
+                        ruledOut: [],
+                        nextTest: 'Measure spark at the plug',
+                        escalateWhen: 'Escalate if the next test does not confirm a cause.',
                     },
                 }).status,
             ).toBe('abstained');
@@ -235,7 +237,13 @@ describe('phaseGate (LM-26)', () => {
         it('orders safety above budget above abstain', () => {
             const { goal, entries } = buildGoldenCase();
             const overBudget: BudgetUsage = { ...EMPTY_BUDGET_USAGE, tokensUsed: 200001 };
-            const abstain = { reason: 'Cannot tell', known: [], unknown: ['root cause'] };
+            const abstain = {
+                reason: 'Cannot tell',
+                confirmed: [],
+                ruledOut: [],
+                nextTest: null,
+                escalateWhen: 'Escalate if the next test does not confirm a cause.',
+            };
             expect(resolveTerminalStatus({ goal, ledger: entries, budgetUsage: overBudget, abstain }).status).toBe(
                 'budget_limited',
             );

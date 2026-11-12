@@ -4,7 +4,7 @@
 // This module is pure and model-free: it holds the claim types, the
 // deterministic checklist (every cited code, spec value and test name
 // validated against the DTC table and the test library), the claim builder
-// that turns a run's structured evidence into claims, and the known/unknown
+// that turns a run's structured evidence into claims, and the abstain
 // handoff an abstention speaks instead of a diagnosis. The two model calls
 // (challenger, independent judge) live in infrastructure's FinishGate; the
 // state machine loop lives in mechanic.machine.
@@ -82,20 +82,24 @@ export const ChallengerObjectionSchema = z
     .strict();
 export type ChallengerObjection = z.infer<typeof ChallengerObjectionSchema>;
 
-// --- Known/unknown handoff ---
-// What an abstention speaks instead of a diagnosis: what the ledger
-// confirmed, what it ruled out, the next test to run, and when a human
-// must take over.
+// --- Abstain handoff ---
+// What an abstention speaks instead of a diagnosis: why the run stopped,
+// what the ledger confirmed, what it ruled out, the next test to run, and
+// when a human must take over. This is the one handoff shape the machine
+// uses: the goal terminal resolver reads `reason`, the service speaks the
+// rest. The `reason` is the attempt's own failure reasons; `escalateWhen`
+// folds the same reasons into the human handover rule.
 
-export const KnownUnknownHandoffSchema = z
+export const AbstainHandoffSchema = z
     .object({
+        reason: z.string().min(1),
         confirmed: z.array(z.string().min(1)),
         ruledOut: z.array(z.string().min(1)),
         nextTest: z.string().min(1).nullable(),
         escalateWhen: z.string().min(1),
     })
     .strict();
-export type KnownUnknownHandoff = z.infer<typeof KnownUnknownHandoffSchema>;
+export type AbstainHandoff = z.infer<typeof AbstainHandoffSchema>;
 
 // --- Checklist ---
 
@@ -143,7 +147,7 @@ export const FinishGateVerdictSchema = z
         objections: z.array(ChallengerObjectionSchema),
         checklistFailures: z.array(ChecklistFailureSchema),
         reasons: z.array(z.string().min(1)),
-        handoff: KnownUnknownHandoffSchema.optional(),
+        handoff: AbstainHandoffSchema.optional(),
     })
     .strict();
 export type FinishGateVerdict = z.infer<typeof FinishGateVerdictSchema>;
@@ -234,7 +238,11 @@ function checkCitations(
     for (const entryId of claim.citations) {
         const entry = entriesById.get(entryId);
         if (!entry) {
-            failures.push({ claimId: claim.id, code: 'unknown-citation', reason: `Cited ledger entry ${entryId} does not exist` });
+            failures.push({
+                claimId: claim.id,
+                code: 'unknown-citation',
+                reason: `Cited ledger entry ${entryId} does not exist`,
+            });
             continue;
         }
         if (retracted.has(entryId)) {
@@ -259,7 +267,11 @@ function checkCitations(
 }
 
 /** Checks one DTC claim against the parser and the SAE table, then against the cited entries. */
-function checkDtcClaim(claim: Extract<DiagnosisClaim, { kind: 'dtc' }>, cited: LedgerEntry[], failures: ChecklistFailure[]): void {
+function checkDtcClaim(
+    claim: Extract<DiagnosisClaim, { kind: 'dtc' }>,
+    cited: LedgerEntry[],
+    failures: ChecklistFailure[],
+): void {
     const parsed = parseDtc(claim.code);
     if (!parsed.ok) {
         failures.push({
@@ -336,7 +348,9 @@ function checkSpecClaim(
         return;
     }
     const within =
-        expected.kind === 'value' ? claim.value === expected.value : claim.value >= expected.min && claim.value <= expected.max;
+        expected.kind === 'value'
+            ? claim.value === expected.value
+            : claim.value >= expected.min && claim.value <= expected.max;
     if (!within) {
         const expectedText =
             expected.kind === 'value'
@@ -506,14 +520,13 @@ export function summarizeLedgerEntry(entry: LedgerEntry): string {
 /** The ledger lines the challenger and the judge may argue from. */
 export function citableLedgerSummaries(ledger: ReadonlyArray<LedgerEntry>): string[] {
     const retracted = retractedEntryIds(ledger);
-    return ledger
-        .filter((entry) => isCitableLedgerEntry(entry) && !retracted.has(entry.id))
-        .map(summarizeLedgerEntry);
+    return ledger.filter((entry) => isCitableLedgerEntry(entry) && !retracted.has(entry.id)).map(summarizeLedgerEntry);
 }
 
 // --- Handoff ---
 
 export interface HandoffInput {
+    reason: string;
     confirmed: string[];
     ruledOut: string[];
     nextTest: string | null;
@@ -521,13 +534,14 @@ export interface HandoffInput {
 }
 
 /**
- * Builds the known/unknown handoff from what the gate established. When
- * to escalate is fixed — a human takes over when the next test still
- * does not confirm a cause, or when any safety-critical symptom appears —
+ * Builds the abstain handoff from what the gate established. When to
+ * escalate is fixed — a human takes over when the next test still does
+ * not confirm a cause, or when any safety-critical symptom appears —
  * plus the concrete reasons this attempt was blocked.
  */
-export function buildKnownUnknownHandoff(input: HandoffInput): KnownUnknownHandoff {
+export function buildAbstainHandoff(input: HandoffInput): AbstainHandoff {
     return {
+        reason: input.reason,
         confirmed: input.confirmed,
         ruledOut: input.ruledOut,
         nextTest: input.nextTest,
@@ -536,7 +550,7 @@ export function buildKnownUnknownHandoff(input: HandoffInput): KnownUnknownHando
 }
 
 /** The final diagnosis an abstention speaks: the handoff, never a guess. */
-export function buildAbstainFinalDiagnosis(handoff: KnownUnknownHandoff, reasons: string[]): FinalDiagnosis {
+export function buildAbstainFinalDiagnosis(handoff: AbstainHandoff, reasons: string[]): FinalDiagnosis {
     const confirmed = handoff.confirmed.length > 0 ? handoff.confirmed.join('; ') : 'Nothing is confirmed yet.';
     const ruledOut = handoff.ruledOut.length > 0 ? handoff.ruledOut.join('; ') : 'Nothing has been ruled out yet.';
     const nextTest =
@@ -554,7 +568,9 @@ export function buildAbstainFinalDiagnosis(handoff: KnownUnknownHandoff, reasons
             `When to escalate: ${handoff.escalateWhen}`,
         ].join('\n'),
         requiredActions:
-            handoff.nextTest !== null ? ['Consult Human Mechanic', `Run the next test: ${handoff.nextTest}`] : ['Consult Human Mechanic'],
+            handoff.nextTest !== null
+                ? ['Consult Human Mechanic', `Run the next test: ${handoff.nextTest}`]
+                : ['Consult Human Mechanic'],
         metaConfidence: 0,
     };
 }

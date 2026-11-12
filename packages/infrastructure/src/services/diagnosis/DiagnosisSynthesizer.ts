@@ -1,4 +1,11 @@
-import type { AIAnalysis, DeepPartial, NeurosymbolicState, SafetyRecall, VerificationData, VerificationResponse } from '@lemonade/core';
+import type {
+    AIAnalysis,
+    DeepPartial,
+    NeurosymbolicState,
+    SafetyRecall,
+    VerificationData,
+    VerificationResponse,
+} from '@lemonade/core';
 
 export interface LocalTriageDetection {
     id?: { obj: string };

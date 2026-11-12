@@ -75,7 +75,9 @@ export class Challenger {
     async challenge(hypothesis: string, ledger: LedgerEntry[], traceId?: string): Promise<ChallengerObjection[]> {
         this.logger.debug('Challenging leading hypothesis against the ledger', { hypothesis, traceId });
         const result = await this.model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: buildChallengerPrompt(hypothesis, citableLedgerSummaries(ledger)) }] }],
+            contents: [
+                { role: 'user', parts: [{ text: buildChallengerPrompt(hypothesis, citableLedgerSummaries(ledger)) }] },
+            ],
             generationConfig: { responseMimeType: 'application/json' } as unknown as GenerationConfig,
         });
         const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -87,7 +89,11 @@ export class Challenger {
             throw new Error('Challenger response did not contain a usable objections list');
         }
         const objections = parsed.objections ?? [];
-        this.logger.info('Challenger returned objections', { count: objections.length, decisive: objections.filter((o) => o.decisive).length, traceId });
+        this.logger.info('Challenger returned objections', {
+            count: objections.length,
+            decisive: objections.filter((o) => o.decisive).length,
+            traceId,
+        });
         return objections;
     }
 }

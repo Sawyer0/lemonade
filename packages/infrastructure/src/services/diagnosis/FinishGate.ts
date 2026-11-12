@@ -8,10 +8,11 @@
 // grading itself — checks each claim maps to a ledger entry and the stop
 // rule was met. The attempt passes only when all three pass. A failed
 // attempt is a retry while attempts remain, then an abstention with a
-// known/unknown handoff. The checklist runs even when a model stage
+// abstain handoff. The checklist runs even when a model stage
 // fails, so the retry always carries the fullest feedback.
 import type { GenerationConfig, GenerativeModel } from '@google-cloud/vertexai';
 import type {
+    AbstainHandoff,
     ChallengerObjection,
     ChecklistFailure,
     DiagnosisClaim,
@@ -21,13 +22,12 @@ import type {
     FinishGateRunner,
     FinishGateVerdict,
     ILogger,
-    KnownUnknownHandoff,
     LedgerEntry,
     LoopDecision,
     TestLibrary,
 } from '@lemonade/core';
 import {
-    buildKnownUnknownHandoff,
+    buildAbstainHandoff,
     checkDiagnosisClaims,
     citableLedgerSummaries,
     claimsForRun,
@@ -84,12 +84,17 @@ function buildJudgePrompt(
     );
     const objectionLines =
         objections.length > 0
-            ? objections.map((o) => `- ${o.decisive ? '[decisive] ' : ''}${o.text} (entries: ${o.ledgerEntryIds.join(', ') || 'none'})`)
+            ? objections.map(
+                  (o) =>
+                      `- ${o.decisive ? '[decisive] ' : ''}${o.text} (entries: ${o.ledgerEntryIds.join(', ') || 'none'})`,
+              )
             : ['No objections.'];
     const checklistLines =
         checklistFailures.length > 0
             ? checklistFailures.map((failure) => `- [${failure.claimId}] ${failure.code}: ${failure.reason}`)
-            : ['Checklist passed: every citation exists, is admissible, and every code, test and spec value validated.'];
+            : [
+                  'Checklist passed: every citation exists, is admissible, and every code, test and spec value validated.',
+              ];
     const stopRuleLine =
         stopRuleMet === null
             ? 'No workup ran, so judge the stop rule from the evidence: was enough verified to commit, or is more testing needed?'
@@ -157,7 +162,9 @@ export class FinishGate implements FinishGateRunner {
         try {
             this.libraryCache = loadTestLibraryFromDirectory(this.deps.testLibraryDir ?? defaultTestLibraryDir());
         } catch (error) {
-            this.deps.logger.warn('[FinishGate] Test library could not be loaded; cited tests cannot validate', { error });
+            this.deps.logger.warn('[FinishGate] Test library could not be loaded; cited tests cannot validate', {
+                error,
+            });
             this.libraryCache = null;
         }
         return this.libraryCache ?? undefined;
@@ -196,16 +203,30 @@ export class FinishGate implements FinishGateRunner {
         // lets the diagnosis be spoken. Without a workup the judge decides.
         const stopRuleMet = loopDecision === undefined || loopDecision === null ? null : loopDecision.kind === 'repair';
         if (stopRuleMet === false && loopDecision) {
-            reasons.push(
-                loopDecision.kind === 'next-test'
-                    ? `Stop rule not met: the workup's next step is "${loopDecision.nextTest.title}"`
-                    : `Stop rule not met: the workup escalated (${loopDecision.reason}: ${loopDecision.detail})`,
-            );
+            if (loopDecision.kind === 'next-test') {
+                reasons.push(`Stop rule not met: the workup's next step is "${loopDecision.nextTest.title}"`);
+            } else if (loopDecision.kind === 'escalate') {
+                reasons.push(
+                    `Stop rule not met: the workup escalated (${loopDecision.reason}: ${loopDecision.detail})`,
+                );
+            } else {
+                reasons.push(
+                    `Stop rule not met: the workup ended in "${loopDecision.kind}" instead of a repair commit`,
+                );
+            }
         }
 
         let judge: JudgeReply | null = null;
         try {
-            judge = await this.judge(candidate, claims, objections, checklist.failures, stopRuleMet, ledger, input.traceId);
+            judge = await this.judge(
+                candidate,
+                claims,
+                objections,
+                checklist.failures,
+                stopRuleMet,
+                ledger,
+                input.traceId,
+            );
         } catch (error) {
             reasons.push(`Independent gate could not run: ${error instanceof Error ? error.message : String(error)}`);
         }
@@ -256,7 +277,13 @@ export class FinishGate implements FinishGateRunner {
      * caller speaks the gated diagnosis, never a re-synthesized one.
      */
     async evaluateRun(input: FinishGateRunInput): Promise<FinishGateRunResult> {
-        const candidate = synthesizeDiagnosis(input.visual, input.recalls, input.similar, input.verification, input.localTriage);
+        const candidate = synthesizeDiagnosis(
+            input.visual,
+            input.recalls,
+            input.similar,
+            input.verification,
+            input.localTriage,
+        );
         const claims = claimsForRun({
             diagnosis: input.visual.diagnosis,
             dtcCodes: input.dtcCodes,
@@ -332,9 +359,10 @@ export class FinishGate implements FinishGateRunner {
         objections: ChallengerObjection[],
         loopDecision: LoopDecision | null,
         reasons: string[],
-    ): KnownUnknownHandoff {
+    ): AbstainHandoff {
         const failedClaimIds = new Set(failures.map((failure) => failure.claimId));
-        return buildKnownUnknownHandoff({
+        return buildAbstainHandoff({
+            reason: reasons.join('; ') || 'The finish gate abstained',
             confirmed: claims
                 .filter((claim) => claim.kind !== 'hypothesis' && !failedClaimIds.has(claim.id))
                 .map((claim) => claim.text),

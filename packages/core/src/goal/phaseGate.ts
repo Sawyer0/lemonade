@@ -1,5 +1,6 @@
 import { evaluateGoal, type CriterionEvaluation, type GoalEvaluation } from './evaluateGoal';
 import type { CaseGoal, GoalPhase, GoalStatus } from './goalSchema';
+import type { AbstainHandoff } from '../diagnosis/finishGate';
 import type { LedgerEntry } from '../types/case';
 import type { LoopDecision } from '../diagnosis/loop/types';
 import type { ReasonerRegionResult } from '../reasoning/types';
@@ -53,16 +54,14 @@ export interface SafetyStopSignal {
     hazard?: string;
 }
 
-/**
- * What an abstaining run hands over (LM-19's judge sends this shape):
- * what the run established, and what it could not establish. The
- * abstained terminal state carries it in machine context.
- */
-export interface AbstainHandoff {
-    reason: string;
-    known: string[];
-    unknown: string[];
-}
+// The abstain handoff is the one shape the machine uses (LM-19's gate
+// produces it, the terminal resolver reads its reason, the service speaks
+// the rest). It is defined with the gate in ../diagnosis/finishGate:
+// why the run stopped, what the ledger confirmed, what was ruled out, the
+// next test, and when a human must take over. There is no separate
+// known/unknown list: what could not be established is the diagnosis
+// itself, and the reasons it was blocked live in `reason` and in the
+// gate's verdict reasons, folded into `escalateWhen`.
 
 /** The blocking criteria of one phase, and whether they are all met. */
 export interface PhaseEvaluation {

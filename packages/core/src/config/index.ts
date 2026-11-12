@@ -171,7 +171,7 @@ export const SHARED_CONFIG = {
 
     FINISH_GATE: {
         // Challenger + checklist + independent gate attempts before the
-        // diagnosis is withheld and the known/unknown handoff is spoken
+        // diagnosis is withheld and the abstain handoff is spoken
         // instead (LM-19). The attempt count includes the first try.
         MAX_ATTEMPTS: 3,
     },

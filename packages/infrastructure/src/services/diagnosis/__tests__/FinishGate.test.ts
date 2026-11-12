@@ -54,7 +54,13 @@ function goldenLedger(): LedgerEntry[] {
 function claimsFor(diagnosis: string, citations: string[]): DiagnosisClaim[] {
     return [
         { kind: 'hypothesis', id: 'hypothesis', text: diagnosis, citations },
-        { kind: 'dtc', id: 'dtc-p0300', text: 'DTC P0300 was read from the vehicle', code: 'P0300', citations: ['entry-dtc'] },
+        {
+            kind: 'dtc',
+            id: 'dtc-p0300',
+            text: 'DTC P0300 was read from the vehicle',
+            code: 'P0300',
+            citations: ['entry-dtc'],
+        },
         {
             kind: 'test',
             id: 'test-measure-spark-strength',
@@ -76,7 +82,11 @@ function candidateFor(diagnosis: string): FinalDiagnosis {
 }
 
 function repairDecision(): LoopDecision {
-    return { kind: 'repair', hypothesisId: 'ignition-coil-failure', reason: 'Top cause cleared the commit threshold at 90%.' };
+    return {
+        kind: 'repair',
+        hypothesisId: 'ignition-coil-failure',
+        reason: 'Top cause cleared the commit threshold at 90%.',
+    };
 }
 
 function fakeModel(text: string | null, error?: Error): GenerativeModel {
@@ -137,7 +147,9 @@ describe('FinishGate.evaluateCandidate', () => {
                     },
                 ]),
             ),
-            fakeModel(judgeReply(false, ['hypothesis'], ['The fuel pressure reading contradicts a fuel pump failure.'])),
+            fakeModel(
+                judgeReply(false, ['hypothesis'], ['The fuel pressure reading contradicts a fuel pump failure.']),
+            ),
         );
         const verdict = await gate.evaluateCandidate({
             candidate: candidateFor('Fuel pump failure'),
@@ -170,7 +182,7 @@ describe('FinishGate.evaluateCandidate', () => {
         );
     });
 
-    it('abstains with a known/unknown handoff after the third failed attempt', async () => {
+    it('abstains with a abstain handoff after the third failed attempt', async () => {
         const gate = gateWith(
             fakeModel(
                 challengerReply([
@@ -181,7 +193,9 @@ describe('FinishGate.evaluateCandidate', () => {
                     },
                 ]),
             ),
-            fakeModel(judgeReply(false, ['hypothesis'], ['The fuel pressure reading contradicts a fuel pump failure.'])),
+            fakeModel(
+                judgeReply(false, ['hypothesis'], ['The fuel pressure reading contradicts a fuel pump failure.']),
+            ),
         );
         const verdict = await gate.evaluateCandidate({
             candidate: candidateFor('Fuel pump failure'),
@@ -204,6 +218,8 @@ describe('FinishGate.evaluateCandidate', () => {
         ]);
         expect(verdict.handoff?.nextTest).toBeNull();
         expect(verdict.handoff?.escalateWhen).toContain('Fuel pressure held at 55 psi');
+        // The handoff carries the attempt's own failure reasons as its reason.
+        expect(verdict.handoff?.reason).toContain('Fuel pressure held at 55 psi');
     });
 
     it('blocks when the workup stop rule was not met, even when the judge would pass', async () => {
@@ -297,7 +313,12 @@ describe('FinishGate.evaluateRun', () => {
             visual,
             recalls: [],
             similar: [],
-            verification: { isVerified: true, verifiedSource: 'http://example.com/tsb', searchQueryUsed: null, conflictingEvidence: null },
+            verification: {
+                isVerified: true,
+                verifiedSource: 'http://example.com/tsb',
+                searchQueryUsed: null,
+                conflictingEvidence: null,
+            },
             dtcCodes: [parsed.parsed],
             ledger: goldenLedger(),
             loopDecision: repairDecision(),

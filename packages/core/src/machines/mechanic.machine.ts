@@ -1,16 +1,17 @@
 import { setup, fromPromise, assign } from 'xstate';
-import { NeurosymbolicState } from '../types/neurosymbolic';
+import type { FinalDiagnosis, NeurosymbolicState } from '../types/neurosymbolic';
 import type { CaseGoal, GoalPhase } from '../goal/goalSchema';
 import {
     EMPTY_BUDGET_USAGE,
     evaluatePhase,
     resolveTerminalStatus,
-    type AbstainHandoff,
     type BudgetUsage,
     type SafetyStopSignal,
     type TerminalGoalStatus,
 } from '../goal/phaseGate';
 import type { LedgerEntry } from '../types/case';
+import type { AbstainHandoff, ChallengerObjection, FinishGateRunResult } from '../diagnosis/finishGate';
+import { buildAbstainHandoff } from '../diagnosis/finishGate';
 import type { CaseEvidence } from '../case/CaseRunQueue';
 import type { ReasonerRegionResult, ReasonerScanData } from '../reasoning/types';
 import type { IMultimodalUploadAnalyzer, IChatAssistantAI } from '../interfaces/IAIService';
@@ -23,7 +24,7 @@ import type { ParsedDtc } from '../dtc/types';
 import type { VerificationRequest, VerificationResponse, SearchRequest, SearchResponse } from '../types/verification';
 import type { LocalTriageResult } from '../types/localPerception';
 import type { TestDefinition } from '../diagnosis/tests/testSchema';
-import type { DiagnosticLoopInput, DiagnosticLoopState, TestResultInput } from '../diagnosis/loop/types';
+import type { DiagnosticLoopInput, DiagnosticLoopState, LoopDecision, TestResultInput } from '../diagnosis/loop/types';
 import { loopIsTerminal } from '../diagnosis/loop/loop';
 import { enterWorkup, applyWorkupResult } from '../diagnosis/loop/workup';
 
@@ -95,9 +96,10 @@ export interface MechanicInput {
     // phase are met (evaluateGoal over the ledger). Without a goal the
     // machine runs as before and settles as diagnosed_unverified.
     goal?: CaseGoal;
-    // Case ledger the phase guards evaluate (LM-26): the evidence so far.
-    // The machine never mints entries — the caller appends real ones with
-    // APPEND_LEDGER_ENTRY as the run (or the case) records them.
+    // Case ledger the phase guards and the finish gate evaluate (LM-26,
+    // LM-19): the evidence so far. The machine never mints entries — the
+    // caller appends real ones with APPEND_LEDGER_ENTRY as the run (or
+    // the case) records them.
     ledger?: LedgerEntry[];
     // Budget already spent on this case (LM-26): the machine counts its
     // own reasoner runs and test minutes on top of this.
@@ -132,10 +134,11 @@ export interface MechanicContext extends MechanicInput {
     // so a stored snapshot round-trips).
     diagnosticLoop?: DiagnosticLoopState | null;
     loopTestDefinitions?: TestDefinition[];
-    // LM-26: the goal driving this run, the ledger the phase guards read,
-    // the budget spent so far, and the phase the run is in. The goal and
-    // ledger are plain data, so a stored snapshot round-trips them and a
-    // restart resumes in the same phase with the same goal version.
+    // LM-26: the goal driving this run, the ledger the phase guards and
+    // the finish gate read, the budget spent so far, and the phase the run
+    // is in. The goal and ledger are plain data, so a stored snapshot
+    // round-trips them and a restart resumes in the same phase with the
+    // same goal version.
     goal: CaseGoal | undefined;
     ledger: LedgerEntry[];
     budgetUsage: BudgetUsage;
@@ -145,13 +148,55 @@ export interface MechanicContext extends MechanicInput {
     terminalStatus: TerminalGoalStatus | undefined;
     terminalReason: string | undefined;
     // LM-26: a safety stop raised during the run, or an abstain handoff
-    // from the judge (LM-19). Either settles the run with that status.
+    // from the finish gate (LM-19). Either settles the run with that
+    // status. The handoff is the one rich shape the machine uses
+    // (confirmed, ruled out, next test, when to escalate), defined with
+    // the gate that produces it.
     safetyStop: SafetyStopSignal | undefined;
     abstain: AbstainHandoff | undefined;
+    // LM-19: the finish gate's attempts used so far, the objections from
+    // the last attempt, and — on a pass — the gated diagnosis the service
+    // speaks instead of re-synthesizing one.
+    gateAttempts: number;
+    gateObjections: ChallengerObjection[];
+    gateReasons: string[];
+    gatedDiagnosis?: FinalDiagnosis;
 }
 
 /** Invoking states a crash resume can re-enter (LM-17). */
-export type ResumeTarget = 'gathering_context' | 'intuition' | 'workup' | 'investigating' | 'vision_verifying';
+export type ResumeTarget =
+    'gathering_context' | 'intuition' | 'workup' | 'investigating' | 'vision_verifying' | 'gating';
+
+/** Input to the `runFinishGate` actor (LM-19). */
+export interface FinishGateInput {
+    visual?: AIAnalysis;
+    recalls: SafetyRecall[];
+    similar: unknown[];
+    verification?: VerificationResponse;
+    searchQueryUsed: string | null;
+    localTriage?: LocalTriageResult;
+    dtcCodes: ParsedDtc[];
+    ledger: LedgerEntry[];
+    loopState?: DiagnosticLoopState | null;
+    loopDecision?: LoopDecision | null;
+    testDefinitions?: TestDefinition[];
+    attempt: number;
+    sessionId: string;
+}
+
+/**
+ * Turns a failed attempt's objections into evidence the next attempt's
+ * intuition call reads: the reasoner revises with the critique as
+ * feedback, instead of re-judging the same candidate.
+ */
+function objectionsAsEvidence(objections: ChallengerObjection[], attempt: number): CaseEvidence[] {
+    return objections.map((objection, index) => ({
+        id: `finish-gate-attempt-${attempt}-objection-${index}`,
+        kind: 'answer' as const,
+        summary: `Finish gate objection: ${objection.text}`,
+        receivedAt: new Date(),
+    }));
+}
 
 /** The machine's final states: exactly one named terminal status per run (LM-26). */
 export const TERMINAL_MECHANIC_STATES: ReadonlyArray<TerminalGoalStatus> = [
@@ -207,9 +252,11 @@ export type MechanicEvent =
     // ignored, so a re-delivered append cannot double-count evidence.
     | { type: 'APPEND_LEDGER_ENTRY'; entry: LedgerEntry }
     // LM-26: the judge abstains (LM-19 sends this): the run settles as
-    // abstained with the known/unknown handoff. Handled at the root so it
-    // lands in any phase.
-    | { type: 'ABSTAIN'; reason: string; known: string[]; unknown: string[] }
+    // abstained with the handoff. Handled at the root so it lands in any
+    // phase. The handoff is the one rich shape the machine uses: what the
+    // ledger confirmed, what was ruled out, the next test, and when a
+    // human must take over.
+    | { type: 'ABSTAIN'; reason: string; confirmed: string[]; ruledOut: string[]; nextTest: string | null; escalateWhen: string }
     // LM-26: a safety stop raised during the run (LM-20's hook): the run
     // settles as safety_stopped. Handled at the root so it lands in any phase.
     | { type: 'SAFETY_STOP'; reason: string; hazard?: string }
@@ -330,6 +377,18 @@ export const mechanicMachine = setup({
         // workup completes immediately and the diagnosis runs as before.
         // The service provides the real actor via createMechanicActors.
         prepareDiagnosticLoop: fromPromise<DiagnosticLoopInput | null, PrepareLoopInput>(async () => null),
+        // LM-19: the challenger + checklist + independent finish gate.
+        // The default resolves `skipped`: without a bound gate the
+        // diagnosis runs as before, and the service falls back to its own
+        // synthesis. The service provides the real actor via
+        // createMechanicActors.
+        runFinishGate: fromPromise<FinishGateRunResult, FinishGateInput>(async () => ({
+            passed: false,
+            outcome: 'skipped',
+            objections: [],
+            checklistFailures: [],
+            reasons: [],
+        })),
     },
 }).createMachine({
     id: 'mechanic',
@@ -358,6 +417,9 @@ export const mechanicMachine = setup({
         terminalReason: undefined,
         safetyStop: undefined,
         abstain: undefined,
+        gateAttempts: 0,
+        gateObjections: [],
+        gateReasons: [],
         nhtsaResults: [],
         embeddingInfo: [],
         vehicleHistory: [],
@@ -401,7 +463,13 @@ export const mechanicMachine = setup({
             actions: assign(({ event }) => {
                 if (event.type === 'ABSTAIN') {
                     return {
-                        abstain: { reason: event.reason, known: event.known, unknown: event.unknown },
+                        abstain: {
+                            reason: event.reason,
+                            confirmed: event.confirmed,
+                            ruledOut: event.ruledOut,
+                            nextTest: event.nextTest,
+                            escalateWhen: event.escalateWhen,
+                        },
                     };
                 }
                 return {};
@@ -460,6 +528,10 @@ export const mechanicMachine = setup({
                                 terminalReason: undefined,
                                 safetyStop: undefined,
                                 abstain: undefined,
+                                gateAttempts: 0,
+                                gateObjections: [],
+                                gateReasons: [],
+                                gatedDiagnosis: undefined,
                             };
                         }
                         return {};
@@ -831,7 +903,7 @@ export const mechanicMachine = setup({
                     },
                 }),
                 onDone: {
-                    target: 'test_gate',
+                    target: 'gating',
                     actions: assign(({ event, context }) => {
                         // Merge Vision result with Intuition result if vision ran
                         // If no video, we keep the Intuition result (already in visualAnalysis)
@@ -842,8 +914,103 @@ export const mechanicMachine = setup({
                     }),
                 },
                 onError: {
-                    target: 'test_gate',
+                    target: 'gating',
                     actions: assign({ error: ({ event }) => String(event.error) }),
+                },
+            },
+        },
+        // LM-19: challenger + checklist + independent finish gate before
+        // any diagnosis is spoken. It sits where LM-26 puts the test
+        // gate's slot — after vision verification, before synthesis — and
+        // a pass continues into the test gate, so both gates judge the
+        // run in order: the finish gate first (does the diagnosis hold
+        // up?), then the test gate (are the goal's test criteria met?).
+        // A retry sends the objections back as evidence for another
+        // attempt; an abstention settles the run as `abstained` with the
+        // handoff, through `settling` like every other ending.
+        gating: {
+            description:
+                'LM-19: challenger + checklist + independent finish gate before any diagnosis is spoken. A pass continues to the test gate; a retry sends the objections back as evidence for another attempt; an abstention settles the run with the handoff.',
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this state and restarts the invoked gate call.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'gating' as const }) } },
+            invoke: {
+                src: 'runFinishGate',
+                input: ({ context }: { context: MechanicContext }): FinishGateInput => ({
+                    visual: context.visualAnalysis,
+                    recalls: context.nhtsaResults,
+                    similar: context.embeddingInfo,
+                    verification: context.verificationResult,
+                    searchQueryUsed: context.searchResults?.queryUsed ?? null,
+                    localTriage: context.localTriage,
+                    dtcCodes: context.dtcCodes,
+                    ledger: context.ledger,
+                    loopState: context.diagnosticLoop,
+                    loopDecision: context.diagnosticLoop?.decision ?? null,
+                    testDefinitions: context.loopTestDefinitions,
+                    attempt: context.gateAttempts + 1,
+                    sessionId: context.sessionId,
+                }),
+                onDone: [
+                    {
+                        target: 'test_gate',
+                        guard: ({ event }) => event.output.outcome === 'pass' || event.output.outcome === 'skipped',
+                        actions: assign({
+                            gatedDiagnosis: ({ event }) => event.output.candidate,
+                            gateObjections: ({ event }) => event.output.objections,
+                            gateReasons: ({ event }) => event.output.reasons,
+                        }),
+                    },
+                    {
+                        target: 'settling',
+                        guard: ({ event }) => event.output.outcome === 'abstain',
+                        actions: assign({
+                            // An abstention always carries a handoff; a
+                            // gate that reports one without it still ends
+                            // the run as `abstained`, with a handoff built
+                            // from its own reasons.
+                            abstain: ({ event }) =>
+                                event.output.handoff ??
+                                buildAbstainHandoff({
+                                    reason: event.output.reasons.join('; ') || 'The finish gate abstained',
+                                    confirmed: [],
+                                    ruledOut: [],
+                                    nextTest: null,
+                                    blockedReasons: event.output.reasons,
+                                }),
+                            gateObjections: ({ event }) => event.output.objections,
+                            gateReasons: ({ event }) => event.output.reasons,
+                        }),
+                    },
+                    {
+                        target: 'intuition',
+                        guard: ({ event }) => event.output.outcome === 'retry',
+                        actions: assign({
+                            gateAttempts: ({ context }) => context.gateAttempts + 1,
+                            gateObjections: ({ event }) => event.output.objections,
+                            gateReasons: ({ event }) => event.output.reasons,
+                            queuedEvidence: ({ context, event }) => [
+                                ...context.queuedEvidence,
+                                ...objectionsAsEvidence(event.output.objections, context.gateAttempts + 1),
+                            ],
+                        }),
+                    },
+                ],
+                onError: {
+                    // A gate that crashes is a failed gate, never a skipped
+                    // one: settle as `abstained` with a handoff that says so.
+                    target: 'settling',
+                    actions: assign({
+                        abstain: () =>
+                            buildAbstainHandoff({
+                                reason: 'The finish gate could not run',
+                                confirmed: [],
+                                ruledOut: [],
+                                nextTest: null,
+                                blockedReasons: ['The finish gate could not run'],
+                            }),
+                        gateReasons: () => ['The finish gate could not run'],
+                    }),
                 },
             },
         },
@@ -942,7 +1109,7 @@ export const mechanicMachine = setup({
             type: 'final',
         },
         abstained: {
-            description: 'LM-26: the run abstained, with the known/unknown handoff in context',
+            description: 'LM-26: the run abstained, with the handoff in context',
             type: 'final',
         },
         safety_stopped: {
@@ -966,6 +1133,7 @@ export const mechanicMachine = setup({
                 { target: 'workup', guard: ({ context }) => context.resumeTarget === 'workup' },
                 { target: 'investigating', guard: ({ context }) => context.resumeTarget === 'investigating' },
                 { target: 'vision_verifying', guard: ({ context }) => context.resumeTarget === 'vision_verifying' },
+                { target: 'gating', guard: ({ context }) => context.resumeTarget === 'gating' },
                 { target: 'gathering_context' },
             ],
         },

@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     buildAbstainFinalDiagnosis,
-    buildKnownUnknownHandoff,
+    buildAbstainHandoff,
     checkDiagnosisClaims,
     claimsForRun,
     type DiagnosisClaim,
@@ -105,21 +105,35 @@ describe('checkDiagnosisClaims', () => {
 
     it('fails unknown-citation when a cited entry is not in the ledger', () => {
         const entries = [testResultEntry([], 'swap-coil-cylinder', 'fail')];
-        const verdict = checkDiagnosisClaims([hypothesisClaim(['00000000-0000-4000-8000-000000000000'])], entries, MISFIRE_LIBRARY);
+        const verdict = checkDiagnosisClaims(
+            [hypothesisClaim(['00000000-0000-4000-8000-000000000000'])],
+            entries,
+            MISFIRE_LIBRARY,
+        );
         expect(verdict.passed).toBe(false);
         expect(verdict.failures[0].code).toBe('unknown-citation');
     });
 
     it('fails retracted-citation when the cited entry was corrected', () => {
         const wrong = testResultEntry([], 'swap-coil-cylinder', 'pass');
-        const corrected = appendToChain([wrong], 'correction', { text: 'The coil swap result was misread.' }, { correctsEntryId: wrong.id });
+        const corrected = appendToChain(
+            [wrong],
+            'correction',
+            { text: 'The coil swap result was misread.' },
+            { correctsEntryId: wrong.id },
+        );
         const verdict = checkDiagnosisClaims([hypothesisClaim([wrong.id])], [wrong, corrected], MISFIRE_LIBRARY);
         expect(verdict.passed).toBe(false);
         expect(verdict.failures[0].code).toBe('retracted-citation');
     });
 
     it('fails inadmissible-citation when the cited entry is model-sourced', () => {
-        const modelEntry = appendToChain([], 'test_result', { testName: 'swap-coil-cylinder', result: 'fail' }, { source: 'model' });
+        const modelEntry = appendToChain(
+            [],
+            'test_result',
+            { testName: 'swap-coil-cylinder', result: 'fail' },
+            { source: 'model' },
+        );
         const verdict = checkDiagnosisClaims([hypothesisClaim([modelEntry.id])], [modelEntry], MISFIRE_LIBRARY);
         expect(verdict.passed).toBe(false);
         expect(verdict.failures[0].code).toBe('inadmissible-citation');
@@ -127,7 +141,11 @@ describe('checkDiagnosisClaims', () => {
 
     it('fails inadmissible-citation when the cited entry is a hypothesis entry', () => {
         const hypothesisEntry = appendToChain([], 'hypothesis', { text: 'Ignition coil failure', confidence: 0.9 });
-        const verdict = checkDiagnosisClaims([hypothesisClaim([hypothesisEntry.id])], [hypothesisEntry], MISFIRE_LIBRARY);
+        const verdict = checkDiagnosisClaims(
+            [hypothesisClaim([hypothesisEntry.id])],
+            [hypothesisEntry],
+            MISFIRE_LIBRARY,
+        );
         expect(verdict.passed).toBe(false);
         expect(verdict.failures[0].code).toBe('inadmissible-citation');
     });
@@ -175,19 +193,31 @@ describe('checkDiagnosisClaims', () => {
 
     it('passes a test claim for a test id in the library', () => {
         const entries = [testResultEntry([], 'swap-coil-cylinder', 'fail')];
-        const verdict = checkDiagnosisClaims([testClaim('swap-coil-cylinder', [entries[0].id])], entries, MISFIRE_LIBRARY);
+        const verdict = checkDiagnosisClaims(
+            [testClaim('swap-coil-cylinder', [entries[0].id])],
+            entries,
+            MISFIRE_LIBRARY,
+        );
         expect(verdict).toEqual({ passed: true, failures: [] });
     });
 
     it('passes a test claim when the ledger recorded the test title', () => {
         const entries = [testResultEntry([], 'Swap the coil to another cylinder', 'fail')];
-        const verdict = checkDiagnosisClaims([testClaim('swap-coil-cylinder', [entries[0].id])], entries, MISFIRE_LIBRARY);
+        const verdict = checkDiagnosisClaims(
+            [testClaim('swap-coil-cylinder', [entries[0].id])],
+            entries,
+            MISFIRE_LIBRARY,
+        );
         expect(verdict).toEqual({ passed: true, failures: [] });
     });
 
     it('fails unknown-test when the cited test is not in the library', () => {
         const entries = [testResultEntry([], 'replace-the-engine', 'fail')];
-        const verdict = checkDiagnosisClaims([testClaim('replace-the-engine', [entries[0].id])], entries, MISFIRE_LIBRARY);
+        const verdict = checkDiagnosisClaims(
+            [testClaim('replace-the-engine', [entries[0].id])],
+            entries,
+            MISFIRE_LIBRARY,
+        );
         expect(verdict.passed).toBe(false);
         expect(verdict.failures[0].code).toBe('unknown-test');
     });
@@ -295,14 +325,16 @@ describe('claimsForRun', () => {
     });
 });
 
-describe('buildKnownUnknownHandoff', () => {
+describe('buildAbstainHandoff', () => {
     it('carries confirmed, ruled out, next test and an escalation rule naming the block', () => {
-        const handoff = buildKnownUnknownHandoff({
+        const handoff = buildAbstainHandoff({
+            reason: 'Challenger found a decisive objection',
             confirmed: ['P0300 was read from the vehicle'],
             ruledOut: ['Fuel pump failure: fuel pressure held at 55 psi'],
             nextTest: 'Measure spark at the plug',
             blockedReasons: ['Challenger found a decisive objection'],
         });
+        expect(handoff.reason).toBe('Challenger found a decisive objection');
         expect(handoff.confirmed).toEqual(['P0300 was read from the vehicle']);
         expect(handoff.ruledOut).toEqual(['Fuel pump failure: fuel pressure held at 55 psi']);
         expect(handoff.nextTest).toBe('Measure spark at the plug');
@@ -312,7 +344,8 @@ describe('buildKnownUnknownHandoff', () => {
 
 describe('buildAbstainFinalDiagnosis', () => {
     it('speaks the handoff as a referral, never a diagnosis', () => {
-        const handoff = buildKnownUnknownHandoff({
+        const handoff = buildAbstainHandoff({
+            reason: 'Challenger found a decisive objection',
             confirmed: ['P0300 was read from the vehicle'],
             ruledOut: ['Fuel pump failure'],
             nextTest: 'Measure spark at the plug',
@@ -330,7 +363,8 @@ describe('buildAbstainFinalDiagnosis', () => {
     });
 
     it('asks for a human with no next test when nothing is planned', () => {
-        const handoff = buildKnownUnknownHandoff({
+        const handoff = buildAbstainHandoff({
+            reason: 'No ledger citations',
             confirmed: [],
             ruledOut: [],
             nextTest: null,

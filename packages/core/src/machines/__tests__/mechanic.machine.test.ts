@@ -766,7 +766,7 @@ describe('mechanicMachine', () => {
             actor.stop();
         });
 
-        it('settles abstained on ABSTAIN with the known/unknown handoff', async () => {
+        it('settles abstained on ABSTAIN with the abstain handoff', async () => {
             const actor = createActor(
                 mechanicMachine.provide({
                     actors: {
@@ -789,16 +789,20 @@ describe('mechanicMachine', () => {
             actor.send({
                 type: 'ABSTAIN',
                 reason: 'Cannot distinguish coil from plug from the evidence',
-                known: ['Misfire on cylinder 1'],
-                unknown: ['Whether the coil or the plug is at fault'],
+                confirmed: ['Misfire on cylinder 1'],
+                ruledOut: [],
+                nextTest: 'Measure spark at the plug',
+                escalateWhen: 'Escalate if the next test does not confirm a cause.',
             });
             await waitFor(actor, (s) => isMechanicTerminalState(s.value), { timeout: 2000 });
             const snapshot = actor.getSnapshot();
             expect(snapshot.matches('abstained')).toBe(true);
             expect(snapshot.context.abstain).toEqual({
                 reason: 'Cannot distinguish coil from plug from the evidence',
-                known: ['Misfire on cylinder 1'],
-                unknown: ['Whether the coil or the plug is at fault'],
+                confirmed: ['Misfire on cylinder 1'],
+                ruledOut: [],
+                nextTest: 'Measure spark at the plug',
+                escalateWhen: 'Escalate if the next test does not confirm a cause.',
             });
             actor.stop();
         });
@@ -869,6 +873,131 @@ describe('mechanicMachine', () => {
             expect(snapshot.context.phase).toBe('verify');
 
             restored.stop();
+            actor.stop();
+        });
+    });
+
+    describe('finish gate (LM-19)', () => {
+        const gatedDiagnosis = {
+            decision: 'PROCEED',
+            reasoningTrace: 'gate passed',
+            userOutput: 'Ignition coil failure',
+            requiredActions: ['Replace the ignition coil'],
+            metaConfidence: 0.9,
+        } as const;
+
+        const driveWithGate = async (gateResults: Array<Parameters<typeof gateResult>[0]>) => {
+            let gateCalls = 0;
+            let intuitionCalls = 0;
+            const actor = createActor(
+                mechanicMachine.provide({
+                    actors: {
+                        generateIntuition: fromPromise(async () => {
+                            intuitionCalls += 1;
+                            return { diagnosis: 'Ignition coil failure', confidence: 0.9 } as unknown as AIAnalysis;
+                        }),
+                        runFinishGate: fromPromise(async () => {
+                            const result = gateResults[Math.min(gateCalls, gateResults.length - 1)];
+                            gateCalls += 1;
+                            return result;
+                        }),
+                    },
+                }),
+                { input: createDefaultInput({ videoUrl: undefined }) },
+            );
+            actor.start();
+            actor.send({
+                type: 'DIAGNOSE',
+                userId: 'u1',
+                sessionId: 's1',
+                vehicleContext: {},
+                userQuery: 'misfire at idle',
+            });
+            return { actor, calls: () => ({ gateCalls, intuitionCalls }) };
+        };
+
+        function gateResult(outcome: 'pass' | 'retry' | 'abstain') {
+            if (outcome === 'pass') {
+                return {
+                    passed: true,
+                    outcome: 'pass' as const,
+                    objections: [],
+                    checklistFailures: [],
+                    reasons: [],
+                    candidate: { ...gatedDiagnosis },
+                };
+            }
+            if (outcome === 'abstain') {
+                return {
+                    passed: false,
+                    outcome: 'abstain' as const,
+                    objections: [
+                        {
+                            text: 'Fuel pressure held, so the pump lead is out',
+                            ledgerEntryIds: ['entry-fuel'],
+                            decisive: true,
+                        },
+                    ],
+                    checklistFailures: [],
+                    reasons: ['Challenger: Fuel pressure held, so the pump lead is out'],
+                    handoff: {
+                        reason: 'Challenger: Fuel pressure held, so the pump lead is out',
+                        confirmed: ['DTC P0300 was read from the vehicle'],
+                        ruledOut: ['Fuel pressure held, so the pump lead is out'],
+                        nextTest: 'Measure spark at the plug',
+                        escalateWhen: 'Escalate if the next test does not confirm a cause.',
+                    },
+                };
+            }
+            return {
+                passed: false,
+                outcome: 'retry' as const,
+                objections: [
+                    {
+                        text: 'Fuel pressure held, so the pump lead is out',
+                        ledgerEntryIds: ['entry-fuel'],
+                        decisive: true,
+                    },
+                ],
+                checklistFailures: [],
+                reasons: ['Challenger: Fuel pressure held, so the pump lead is out'],
+            };
+        }
+
+        it('speaks the gated diagnosis when the gate passes', async () => {
+            const { actor } = await driveWithGate([gateResult('pass')]);
+            await waitFor(actor, (s) => s.matches('diagnosed_unverified'), { timeout: 5000 });
+            expect(actor.getSnapshot().context.gatedDiagnosis).toEqual({ ...gatedDiagnosis });
+            actor.stop();
+        });
+
+        it('retries with the objections as evidence, then speaks the revised diagnosis', async () => {
+            const { actor, calls } = await driveWithGate([gateResult('retry'), gateResult('pass')]);
+            await waitFor(actor, (s) => s.matches('diagnosed_unverified'), { timeout: 5000 });
+            const context = actor.getSnapshot().context;
+            expect(calls().gateCalls).toBe(2);
+            expect(calls().intuitionCalls).toBe(2);
+            expect(context.gateAttempts).toBe(1);
+            expect(context.queuedEvidence.map((item) => item.summary)).toEqual([
+                'Finish gate objection: Fuel pressure held, so the pump lead is out',
+            ]);
+            expect(context.gatedDiagnosis).toEqual({ ...gatedDiagnosis });
+            actor.stop();
+        });
+
+        it('abstains with the handoff when the gate runs out of attempts', async () => {
+            const { actor } = await driveWithGate([gateResult('abstain')]);
+            await waitFor(actor, (s) => s.matches('abstained'), { timeout: 5000 });
+            const context = actor.getSnapshot().context;
+            expect(context.terminalStatus).toBe('abstained');
+            expect(context.abstain).toEqual({
+                reason: 'Challenger: Fuel pressure held, so the pump lead is out',
+                confirmed: ['DTC P0300 was read from the vehicle'],
+                ruledOut: ['Fuel pressure held, so the pump lead is out'],
+                nextTest: 'Measure spark at the plug',
+                escalateWhen: 'Escalate if the next test does not confirm a cause.',
+            });
+            expect(context.gatedDiagnosis).toBeUndefined();
             actor.stop();
         });
     });

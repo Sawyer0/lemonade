@@ -8,7 +8,14 @@
 import { SHARED_CONFIG } from '../config';
 
 export type MechanicState =
-    'idle' | 'gathering_context' | 'intuition' | 'investigating' | 'vision_verifying' | 'synthesizing';
+    | 'idle'
+    | 'gathering_context'
+    | 'intuition'
+    | 'investigating'
+    | 'vision_verifying'
+    | 'gating'
+    | 'abstained'
+    | 'synthesizing';
 
 export interface ModelRoutingConfig {
     model: string;
@@ -53,6 +60,19 @@ export const MODEL_ROUTING: Record<MechanicState, ModelRoutingConfig> = {
     vision_verifying: {
         model: LOCAL_MODEL,
         reason: 'On-device triage (SmolVLM2 via llama.rn)',
+        costMultiplier: 0,
+    },
+    // LM-19: the challenger and the independent judge run on Flash — a
+    // separate model call from the Pro reasoner, never the reasoner
+    // grading itself.
+    gating: {
+        model: FLASH_MODEL,
+        reason: 'Challenger, checklist and independent finish gate',
+        costMultiplier: 1.0,
+    },
+    abstained: {
+        model: FLASH_MODEL,
+        reason: 'No LLM needed - diagnosis withheld with a handoff',
         costMultiplier: 0,
     },
     synthesizing: {
