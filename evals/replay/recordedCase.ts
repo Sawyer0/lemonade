@@ -75,13 +75,14 @@ export function buildLedger(caseId: string, appends: LedgerAppendInput[]): Ledge
             id: deterministicUuid(`${caseId}:entry:${sequence}`),
             caseId,
             sequence,
+            type: append.type,
             actor: append.actor,
             source: append.source,
             occurredAt,
+            payload: append.payload,
             previousHash,
             entryHash,
             createdAt: occurredAt,
-            ...append,
         } as LedgerEntry);
         previousHash = entryHash;
     }
