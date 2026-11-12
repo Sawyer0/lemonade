@@ -248,7 +248,10 @@ function testsOf(usable: LedgerEntry[], citationOf: (entry: LedgerEntry) => Repo
 function correctionsOf(ordered: LedgerEntry[], citationOf: (entry: LedgerEntry) => ReportCitation): ReportCorrection[] {
     const corrections: ReportCorrection[] = [];
     for (const entry of ordered) {
-        if (entry.type === 'correction') {
+        // The schema requires a correction to reference an entry, but the
+        // type leaves it optional; a correction with nothing to retract
+        // proves nothing, so it is excluded like any unproven statement.
+        if (entry.type === 'correction' && entry.correctsEntryId !== undefined) {
             corrections.push({
                 text: entry.payload.text,
                 correctedEntryId: entry.correctsEntryId,
