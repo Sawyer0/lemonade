@@ -106,9 +106,9 @@ export function createContainer(): Container {
         .bind<EvidenceChildSource[]>(TYPES.EvidenceSubagentSources)
         .toDynamicValue((context) =>
             createDefaultEvidenceSources({
-                nhtsa: context.container.get<INHTSAService>(TYPES.NHTSAService),
-                search: context.container.get<IGoogleSearchService>(TYPES.GoogleSearchService),
-                caseRepo: context.container.get<ICaseRepository>(TYPES.CaseRepo),
+                nhtsa: context.get<INHTSAService>(TYPES.NHTSAService),
+                search: context.get<IGoogleSearchService>(TYPES.GoogleSearchService),
+                caseRepo: context.get<ICaseRepository>(TYPES.CaseRepo),
             }),
         )
         .inSingletonScope();

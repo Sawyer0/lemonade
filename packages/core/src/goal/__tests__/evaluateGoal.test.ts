@@ -104,6 +104,13 @@ describe('evaluateGoal on the golden case', () => {
         expect(verdictOf(evaluation, 'verify.retest')).toBe('unmet');
     });
 
+    it('never lets a research-sourced advisory satisfy the proof criterion (LM-18)', () => {
+        const { goal, entries } = buildGoldenCase({ retestSource: 'research' });
+        const evaluation = evaluateGoal(goal, entries);
+        expect(evaluation.allMet).toBe(false);
+        expect(verdictOf(evaluation, 'verify.retest')).toBe('unmet');
+    });
+
     it('marks the re-test contradicted when it fails after the goal was set', () => {
         const { goal, entries } = buildGoldenCase({ retestResult: 'fail' });
         const evaluation = evaluateGoal(goal, entries);

@@ -31,7 +31,7 @@ import type {
     IRateLimiter,
     IComplaintIdentificationService,
     ICaseRepository,
-    type EvidenceChildSource,
+    EvidenceChildSource,
 } from '@lemonade/core';
 
 // Implementations (Shared Infrastructure)
@@ -182,9 +182,9 @@ container
     .bind<EvidenceChildSource[]>(TYPES.EvidenceSubagentSources)
     .toDynamicValue((context) =>
         createDefaultEvidenceSources({
-            nhtsa: context.container.get<INHTSAService>(TYPES.NHTSAService),
-            search: context.container.get<IGoogleSearchService>(TYPES.GoogleSearchService),
-            caseRepo: context.container.get<ICaseRepository>(TYPES.CaseRepo),
+            nhtsa: context.get<INHTSAService>(TYPES.NHTSAService),
+            search: context.get<IGoogleSearchService>(TYPES.GoogleSearchService),
+            caseRepo: context.get<ICaseRepository>(TYPES.CaseRepo),
         }),
     )
     .inSingletonScope();
