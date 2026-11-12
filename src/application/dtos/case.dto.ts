@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CaseSchema, LedgerEntrySchema, OutcomePayloadSchema } from '@lemonade/core';
+import { CaseReportSchema, CaseSchema, LedgerEntrySchema, OutcomePayloadSchema } from '@lemonade/core';
 
 export const CloseCaseRequestSchema = z.object({
     outcome: OutcomePayloadSchema,
@@ -21,3 +21,10 @@ export const CaseDetailsResponseSchema = z.object({
     }),
 });
 export type CaseDetailsResponseDTO = z.infer<typeof CaseDetailsResponseSchema>;
+
+// LM-06: the one-page report built from the ledger, served as JSON. The
+// report page renders this; the browser's print dialog saves it as PDF.
+export const CaseReportResponseSchema = z.object({
+    data: CaseReportSchema,
+});
+export type CaseReportResponseDTO = z.infer<typeof CaseReportResponseSchema>;

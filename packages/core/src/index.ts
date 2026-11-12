@@ -61,6 +61,7 @@ export * from './types/evals';
 
 export * from './types/models';
 export * from './types/case';
+export * from './report/index';
 export * from './goal/goalSchema';
 export * from './goal/drift';
 export * from './goal/blocker';
