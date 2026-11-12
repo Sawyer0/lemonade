@@ -69,7 +69,11 @@ function traceReplays(input: ProcessScoreInput): ProcessCheck {
     for (const round of input.rounds) {
         const test = input.library.byId(round.testId);
         if (test === undefined) {
-            return { id: 'trace-replays', passed: false, rationale: `Round ${round.round} names unknown test ${round.testId}.` };
+            return {
+                id: 'trace-replays',
+                passed: false,
+                rationale: `Round ${round.round} names unknown test ${round.testId}.`,
+            };
         }
         const recomputed = bayesUpdate(
             previous,
@@ -105,9 +109,7 @@ function everyChangeTraced(input: ProcessScoreInput): ProcessCheck {
         }
     }
     for (const round of input.rounds) {
-        const entries = input.history.filter(
-            (entry) => entry.round === round.round && entry.testId === round.testId,
-        );
+        const entries = input.history.filter((entry) => entry.round === round.round && entry.testId === round.testId);
         if (entries.length === 0) {
             return {
                 id: 'every-change-traced',

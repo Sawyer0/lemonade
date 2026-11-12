@@ -19,13 +19,7 @@
 // on any of them.
 import { loadGoldenRecordedCases } from '../replay/recordedCases';
 import { vehicleRules } from '../replay/fakeMechanic';
-import {
-    benchLibrary,
-    benchRuleTable,
-    benchSnapshot,
-    trueRuleIdFor,
-    type BenchRuleTable,
-} from './benchLibrary';
+import { benchLibrary, benchRuleTable, benchSnapshot, trueRuleIdFor, type BenchRuleTable } from './benchLibrary';
 import { runEngineCase, type EngineRunOutcome } from './engineRunner';
 import { HEAVY_RULE_TABLE, loadHeavyEquipmentSnapshots } from './heavyEquipmentCases';
 import { SENSOR_RULE_TABLE, loadSensorSnapshots } from './sensorCases';
@@ -78,7 +72,11 @@ export const VEHICLE_RULE_TABLE: BenchRuleTable = benchRuleTable(vehicleRules(),
 export function loadVehicleSnapshots(): CaseSnapshot[] {
     return loadGoldenRecordedCases().map((recorded) => {
         const complaint = recorded.transcript.find((turn) => turn.role === 'user')?.text ?? '';
-        return benchSnapshot(recorded, VEHICLE_RULE_TABLE, trueRuleIdFor(recorded.expectedDiagnosis, complaint, VEHICLE_RULE_TABLE));
+        return benchSnapshot(
+            recorded,
+            VEHICLE_RULE_TABLE,
+            trueRuleIdFor(recorded.expectedDiagnosis, complaint, VEHICLE_RULE_TABLE),
+        );
     });
 }
 

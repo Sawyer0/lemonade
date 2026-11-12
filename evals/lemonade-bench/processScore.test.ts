@@ -66,8 +66,18 @@ const LIBRARY = benchLibrary(TABLE);
 function openingDifferential(): Differential {
     return buildDifferential({
         priorHypotheses: [
-            { hypothesis: 'alpha', n: 1, pi: 0.6, sources: [{ source: 'lemonade-bench-proposer', observationCount: 1 }] },
-            { hypothesis: 'beta', n: 1, pi: 0.4, sources: [{ source: 'lemonade-bench-proposer', observationCount: 1 }] },
+            {
+                hypothesis: 'alpha',
+                n: 1,
+                pi: 0.6,
+                sources: [{ source: 'lemonade-bench-proposer', observationCount: 1 }],
+            },
+            {
+                hypothesis: 'beta',
+                n: 1,
+                pi: 0.4,
+                sources: [{ source: 'lemonade-bench-proposer', observationCount: 1 }],
+            },
         ],
         testDefinitions: LIBRARY.all(),
     });
@@ -142,7 +152,10 @@ describe('scoreProcess, hand-graded', () => {
             differential: {
                 ...round.differential,
                 hypotheses: [
-                    { ...round.differential.hypotheses[0], probability: round.differential.hypotheses[0].probability + 0.01 },
+                    {
+                        ...round.differential.hypotheses[0],
+                        probability: round.differential.hypotheses[0].probability + 0.01,
+                    },
                     ...round.differential.hypotheses.slice(1),
                 ],
             },

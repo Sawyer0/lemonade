@@ -19,12 +19,7 @@
 // The bench passes no repair costs to the loop: the loop then commits
 // on the probability threshold alone, and repair dollars enter through
 // the cost model, not the stop rule.
-import {
-    TestLibrary,
-    type DiagnosticLoopInput,
-    type TestDefinition,
-    type TestPart,
-} from '@lemonade/core';
+import { TestLibrary, type DiagnosticLoopInput, type TestDefinition, type TestPart } from '@lemonade/core';
 import { matchingRules, nearMissRules, type FakeRule } from '../replay/fakeMechanic';
 import { diagnosisMatches } from '../replay/replayRunner';
 import type { CaseSnapshot } from './snapshot';
@@ -142,9 +137,7 @@ export function repairUsdFor(table: BenchRuleTable, ruleId: string): number {
 
 /** The safety-critical rule ids in the table: the safety gate must run them down before any commit. */
 export function safetyCriticalRuleIds(table: BenchRuleTable): string[] {
-    return table.rules
-        .filter((rule) => table.specsById.get(rule.id)?.safetyCritical ?? false)
-        .map((rule) => rule.id);
+    return table.rules.filter((rule) => table.specsById.get(rule.id)?.safetyCritical ?? false).map((rule) => rule.id);
 }
 
 /**
@@ -198,11 +191,7 @@ export function benchHypotheses(complaint: string, table: BenchRuleTable): Bench
 }
 
 /** The rule whose diagnosis matches the recorded expected diagnosis: the case's true cause. */
-export function trueRuleIdFor(
-    expectedDiagnosis: string,
-    complaint: string,
-    table: BenchRuleTable,
-): string {
+export function trueRuleIdFor(expectedDiagnosis: string, complaint: string, table: BenchRuleTable): string {
     const candidates = matchingRules(complaint, table.rules);
     for (const rule of candidates) {
         const candidate = {
@@ -246,7 +235,11 @@ export function benchSnapshot(
 }
 
 /** The LM-04 loop input for one snapshot: priors from the complaint, the bench library, no repair costs. */
-export function benchLoopInput(snapshot: CaseSnapshot, table: BenchRuleTable, library: TestLibrary): DiagnosticLoopInput {
+export function benchLoopInput(
+    snapshot: CaseSnapshot,
+    table: BenchRuleTable,
+    library: TestLibrary,
+): DiagnosticLoopInput {
     const complaint = snapshot.recorded.transcript.find((turn) => turn.role === 'user')?.text ?? '';
     const { priorHypotheses } = benchHypotheses(complaint, table);
     return {

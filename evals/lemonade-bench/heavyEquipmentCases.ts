@@ -18,7 +18,11 @@ import type { FakeRule } from '../replay/fakeMechanic';
 export const HEAVY_RULES: FakeRule[] = [
     {
         id: 'excavator-hydraulics',
-        matchSets: [['boom', 'drift'], ['hydraulic', 'whine'], ['boom', 'load']],
+        matchSets: [
+            ['boom', 'drift'],
+            ['hydraulic', 'whine'],
+            ['boom', 'load'],
+        ],
         diagnosis: 'Worn hydraulic pump and leaking boom cylinder seals.',
         safetyStop: true,
         actions: [
@@ -29,7 +33,11 @@ export const HEAVY_RULES: FakeRule[] = [
     },
     {
         id: 'loader-transmission',
-        matchSets: [['loader', 'slips'], ['slips', 'gear'], ['revs', 'climb']],
+        matchSets: [
+            ['loader', 'slips'],
+            ['slips', 'gear'],
+            ['revs', 'climb'],
+        ],
         diagnosis: 'Transmission slipping, likely worn clutch packs in the wheel loader.',
         safetyStop: false,
         actions: [
@@ -40,14 +48,22 @@ export const HEAVY_RULES: FakeRule[] = [
     },
     {
         id: 'dozer-overheat',
-        matchSets: [['dozer', 'steam'], ['dozer', 'overheat'], ['steam', 'radiator']],
+        matchSets: [
+            ['dozer', 'steam'],
+            ['dozer', 'overheat'],
+            ['steam', 'radiator'],
+        ],
         diagnosis: 'Engine overheating, likely a stuck thermostat or clogged radiator on the bulldozer.',
         safetyStop: false,
         actions: ['Shut down and let the engine cool', 'Check coolant level', 'Test the thermostat'],
     },
     {
         id: 'crane-hydraulic-leak',
-        matchSets: [['crane', 'puddle'], ['hydraulic', 'puddle'], ['load', 'lowers']],
+        matchSets: [
+            ['crane', 'puddle'],
+            ['hydraulic', 'puddle'],
+            ['load', 'lowers'],
+        ],
         diagnosis: 'Hydraulic leak in the crane hoist circuit: the load lowers on its own.',
         safetyStop: true,
         actions: [
@@ -58,14 +74,22 @@ export const HEAVY_RULES: FakeRule[] = [
     },
     {
         id: 'dump-brakes',
-        matchSets: [['dump', 'squeal'], ['brake', 'soft'], ['pedal', 'soft']],
+        matchSets: [
+            ['dump', 'squeal'],
+            ['brake', 'soft'],
+            ['pedal', 'soft'],
+        ],
         diagnosis: 'Worn brake pads and air in the lines on the dump truck.',
         safetyStop: true,
         actions: ['Do not drive until the brakes are inspected', 'Check brake pad thickness', 'Bleed the brake lines'],
     },
     {
         id: 'generator-no-start',
-        matchSets: [['generator', 'clicks'], ['generator', 'crank'], ['clicks', 'key']],
+        matchSets: [
+            ['generator', 'clicks'],
+            ['generator', 'crank'],
+            ['clicks', 'key'],
+        ],
         diagnosis: 'Low battery voltage or poor terminal connection on the site generator.',
         safetyStop: false,
         actions: ['Jump start the generator', 'Test battery voltage', 'Clean battery terminals'],

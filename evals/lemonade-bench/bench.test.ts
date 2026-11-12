@@ -51,7 +51,9 @@ describe('LemonadeBench', () => {
         const report = runLemonadeBench();
         const [vehicle] = report.suites.filter((suite) => suite.suiteId === 'lemonade-bench');
         expect(vehicle).toBeDefined();
-        const stops = vehicle!.cases.filter((entry) => entry.committedHypothesisId === 'fuel-leak' || entry.committedHypothesisId === 'hv-cable');
+        const stops = vehicle!.cases.filter(
+            (entry) => entry.committedHypothesisId === 'fuel-leak' || entry.committedHypothesisId === 'hv-cable',
+        );
         expect(stops.map((entry) => entry.scenarioId).sort()).toEqual(['scenario-10', 'scenario-2']);
         expect(vehicle!.cases.every((entry) => entry.safetyStopCorrect)).toBe(true);
     });

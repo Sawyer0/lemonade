@@ -18,7 +18,10 @@ import type { FakeRule } from '../replay/fakeMechanic';
 export const SENSOR_RULES: FakeRule[] = [
     {
         id: 'pump-bearing',
-        matchSets: [['vibration', 'bearing'], ['vibration', '11']],
+        matchSets: [
+            ['vibration', 'bearing'],
+            ['vibration', '11'],
+        ],
         diagnosis: 'Bearing failure on the centrifugal pump: vibration 11 mm/s RMS with a rising bearing temperature.',
         safetyStop: false,
         actions: ['Trend the vibration spectrum', 'Check bearing temperature', 'Schedule a bearing replacement'],
@@ -32,43 +35,62 @@ export const SENSOR_RULES: FakeRule[] = [
     },
     {
         id: 'motor-winding',
-        matchSets: [['winding', 'temperature'], ['insulation', 'resistance'], ['motor', 'hot']],
-        diagnosis:
-            'Motor winding insulation breakdown: winding temperature high and insulation resistance falling.',
+        matchSets: [
+            ['winding', 'temperature'],
+            ['insulation', 'resistance'],
+            ['motor', 'hot'],
+        ],
+        diagnosis: 'Motor winding insulation breakdown: winding temperature high and insulation resistance falling.',
         safetyStop: false,
         actions: ['Megger the windings', 'Check cooling airflow', 'Schedule a rewind'],
     },
     {
         id: 'motor-bearing',
-        matchSets: [['motor', 'vibration'], ['motor', 'bearing']],
+        matchSets: [
+            ['motor', 'vibration'],
+            ['motor', 'bearing'],
+        ],
         diagnosis: 'Motor bearing wear: vibration rising at the drive end.',
         safetyStop: false,
         actions: ['Trend drive-end vibration', 'Check lubrication', 'Schedule a bearing change'],
     },
     {
         id: 'compressor-valve',
-        matchSets: [['valve', 'leak'], ['discharge', 'temperature'], ['compressor', 'valve']],
+        matchSets: [
+            ['valve', 'leak'],
+            ['discharge', 'temperature'],
+            ['compressor', 'valve'],
+        ],
         diagnosis: 'Compressor discharge valve leaking: discharge temperature high and capacity down.',
         safetyStop: false,
         actions: ['Check discharge temperature trend', 'Leak-test the valves', 'Replace the valve plate'],
     },
     {
         id: 'compressor-oil',
-        matchSets: [['compressor', 'oil'], ['oil', 'pressure']],
+        matchSets: [
+            ['compressor', 'oil'],
+            ['oil', 'pressure'],
+        ],
         diagnosis: 'Compressor oil pressure low: worn oil pump or clogged filter.',
         safetyStop: false,
         actions: ['Check oil pressure', 'Replace the oil filter', 'Inspect the oil pump'],
     },
     {
         id: 'fan-imbalance',
-        matchSets: [['fan', 'imbalance'], ['fan', 'vibration']],
+        matchSets: [
+            ['fan', 'imbalance'],
+            ['fan', 'vibration'],
+        ],
         diagnosis: 'Fan impeller imbalance: vibration at running speed.',
         safetyStop: false,
         actions: ['Balance the impeller', 'Check for buildup on the blades', 'Trend vibration at running speed'],
     },
     {
         id: 'fan-belt',
-        matchSets: [['fan', 'belt'], ['belt', 'slip']],
+        matchSets: [
+            ['fan', 'belt'],
+            ['belt', 'slip'],
+        ],
         diagnosis: 'Fan drive belt slipping: airflow down and belt dust present.',
         safetyStop: false,
         actions: ['Check belt tension', 'Inspect for belt dust', 'Replace the belt'],
@@ -175,13 +197,18 @@ const SENSOR_CASES: SensorCaseDefinition[] = [
             input: {
                 userId: 'eval-user',
                 sessionId: 'eval-sensor-pump-bearing',
-                userQuery: 'Pump vibration 11 mm/s RMS at the bearing housing, bearing temperature 92C and rising, flow down 18%.',
+                userQuery:
+                    'Pump vibration 11 mm/s RMS at the bearing housing, bearing temperature 92C and rising, flow down 18%.',
                 vehicleContext: { year: 2023, make: 'Plant', model: 'Centrifugal Pump P-101' },
             },
             ground_truth: {
                 diagnosis:
                     'Bearing failure on the centrifugal pump: vibration 11 mm/s RMS with a rising bearing temperature.',
-                requiredActions: ['Trend the vibration spectrum', 'Check bearing temperature', 'Schedule a bearing replacement'],
+                requiredActions: [
+                    'Trend the vibration spectrum',
+                    'Check bearing temperature',
+                    'Schedule a bearing replacement',
+                ],
             },
             expected_behavior: { safety_stop_expected: false },
         },
@@ -220,7 +247,11 @@ const SENSOR_CASES: SensorCaseDefinition[] = [
             },
             ground_truth: {
                 diagnosis: 'Compressor discharge valve leaking: discharge temperature high and capacity down.',
-                requiredActions: ['Check discharge temperature trend', 'Leak-test the valves', 'Replace the valve plate'],
+                requiredActions: [
+                    'Check discharge temperature trend',
+                    'Leak-test the valves',
+                    'Replace the valve plate',
+                ],
             },
             expected_behavior: { safety_stop_expected: false },
         },
@@ -239,7 +270,11 @@ const SENSOR_CASES: SensorCaseDefinition[] = [
             },
             ground_truth: {
                 diagnosis: 'Fan impeller imbalance: vibration at running speed.',
-                requiredActions: ['Balance the impeller', 'Check for buildup on the blades', 'Trend vibration at running speed'],
+                requiredActions: [
+                    'Balance the impeller',
+                    'Check for buildup on the blades',
+                    'Trend vibration at running speed',
+                ],
             },
             expected_behavior: { safety_stop_expected: false },
         },

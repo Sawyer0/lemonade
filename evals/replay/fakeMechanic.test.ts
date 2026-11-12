@@ -3,9 +3,9 @@ import { diagnoseEvidence, matchingRules, nearMissRules } from './fakeMechanic';
 
 describe('matchingRules', () => {
     it('returns every rule the complaint is consistent with, in rule order', () => {
-        expect(matchingRules('There is a strong gasoline smell and a puddle under the car.').map((rule) => rule.id)).toEqual([
-            'fuel-leak',
-        ]);
+        expect(
+            matchingRules('There is a strong gasoline smell and a puddle under the car.').map((rule) => rule.id),
+        ).toEqual(['fuel-leak']);
         expect(matchingRules('The brakes squeal every time I stop.').map((rule) => rule.id)).toEqual(['brake-pads']);
         expect(matchingRules('The car shakes violently when I hit a bump.').map((rule) => rule.id)).toEqual([
             'death-wobble',

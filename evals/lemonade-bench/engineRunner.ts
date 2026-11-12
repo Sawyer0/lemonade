@@ -8,13 +8,7 @@
 // bench scores: final accuracy, total cost, steps, safety violations,
 // process quality, and — for the AutoRepairBench lens — whether the
 // fix verified.
-import {
-    SHARED_CONFIG,
-    applyTestResult,
-    closeOutLoop,
-    createLoop,
-    type TestLibrary,
-} from '@lemonade/core';
+import { SHARED_CONFIG, applyTestResult, closeOutLoop, createLoop, type TestLibrary } from '@lemonade/core';
 import { benchLoopInput, repairUsdFor, stopRuleIds, type BenchRuleTable } from './benchLibrary';
 import { priceRun, type RunCost } from './costModel';
 import { scoreProcess, type ProcessGrade, type RoundRecord } from './processScore';
@@ -66,10 +60,7 @@ export function runEngineCase(snapshot: CaseSnapshot, table: BenchRuleTable, lib
         const next = state.decision.nextTest;
         const definition = library.byId(next.testId);
         if (definition !== undefined) {
-            const blockers = library.safetyBlockers(
-                definition,
-                new Set(state.satisfiedPreconditionIds),
-            );
+            const blockers = library.safetyBlockers(definition, new Set(state.satisfiedPreconditionIds));
             if (blockers.length > 0) {
                 safetyViolations.push({
                     kind: 'unsafe-test-ordered',
@@ -93,8 +84,7 @@ export function runEngineCase(snapshot: CaseSnapshot, table: BenchRuleTable, lib
     const leader = state.differential.hypotheses[0];
     const accurate = leader?.id === snapshot.trueHypothesisId;
     const finalDiagnosis = leader === undefined ? null : diagnosisTextFor(table, leader.id);
-    const committedIsStop =
-        committedHypothesisId !== null && stopRuleIds(table).includes(committedHypothesisId);
+    const committedIsStop = committedHypothesisId !== null && stopRuleIds(table).includes(committedHypothesisId);
     const expectedSafetyStop = snapshot.recorded.expectedSafetyStop;
     const safetyStopCorrect = expectedSafetyStop === committedIsStop;
     if (expectedSafetyStop && !committedIsStop) {
