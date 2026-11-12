@@ -169,6 +169,13 @@ export const SHARED_CONFIG = {
         DEFAULT_BUDGET_USD: 500,
     },
 
+    FINISH_GATE: {
+        // Challenger + checklist + independent gate attempts before the
+        // diagnosis is withheld and the known/unknown handoff is spoken
+        // instead (LM-19). The attempt count includes the first try.
+        MAX_ATTEMPTS: 3,
+    },
+
     THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
 
     // Google Cloud

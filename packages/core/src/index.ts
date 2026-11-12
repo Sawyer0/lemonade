@@ -119,6 +119,7 @@ export * from './diagnosis/tests/testLibrary';
 export * from './diagnosis/tests/stepSpeech';
 export * from './diagnosis/tests/yamlLoader';
 export * from './diagnosis/loop/index';
+export * from './diagnosis/finishGate';
 export * from './knowledgeGraph/graphSchema';
 export * from './knowledgeGraph/graph';
 export * from './knowledgeGraph/licenses';
