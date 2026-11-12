@@ -26,12 +26,7 @@ import type { ReasonerRegionResult } from '../reasoning/types';
 
 /** The six terminal statuses a machine run can end in. */
 export type TerminalGoalStatus =
-    | 'verified_fix'
-    | 'diagnosed_unverified'
-    | 'abstained'
-    | 'safety_stopped'
-    | 'escalated'
-    | 'budget_limited';
+    'verified_fix' | 'diagnosed_unverified' | 'abstained' | 'safety_stopped' | 'escalated' | 'budget_limited';
 
 /** Budget the run has spent so far, in the goal budget's own units. */
 export interface BudgetUsage {
@@ -90,24 +85,15 @@ export function phaseCriteria(goal: CaseGoal, phase: GoalPhase): CaseGoal['crite
  * blockingMet. A phase with no blocking criteria is met vacuously, so a
  * goal that only constrains some phases lets the others through.
  */
-export function evaluatePhase(
-    goal: CaseGoal,
-    ledger: ReadonlyArray<LedgerEntry>,
-    phase: GoalPhase,
-): PhaseEvaluation {
+export function evaluatePhase(goal: CaseGoal, ledger: ReadonlyArray<LedgerEntry>, phase: GoalPhase): PhaseEvaluation {
     const evaluation = evaluateGoal(goal, ledger);
-    const blocking = evaluation.criteria.filter(
-        (criterion) => criterion.phase === phase && criterion.blocking,
-    );
+    const blocking = evaluation.criteria.filter((criterion) => criterion.phase === phase && criterion.blocking);
     const unmetBlocking = blocking.filter((criterion) => criterion.verdict !== 'met');
     return { phase, evaluation, blocking, unmetBlocking, met: unmetBlocking.length === 0 };
 }
 
 /** Whether the spent budget exceeds any dimension of the goal's budget. */
-export function budgetExceeded(
-    goal: CaseGoal,
-    usage: BudgetUsage,
-): { exceeded: boolean; reason: string } {
+export function budgetExceeded(goal: CaseGoal, usage: BudgetUsage): { exceeded: boolean; reason: string } {
     const budget = goal.budget;
     if (usage.reasonerRuns > budget.maxReasonerRuns) {
         return {
@@ -153,9 +139,7 @@ export interface TerminalResolution {
 
 /** One line naming the unmet blocking criteria, for the honest ending. */
 function unmetSummary(evaluation: GoalEvaluation): string {
-    const unmet = evaluation.criteria.filter(
-        (criterion) => criterion.blocking && criterion.verdict !== 'met',
-    );
+    const unmet = evaluation.criteria.filter((criterion) => criterion.blocking && criterion.verdict !== 'met');
     if (unmet.length === 0) {
         return 'blocking criteria met but a non-blocking criterion is unmet';
     }

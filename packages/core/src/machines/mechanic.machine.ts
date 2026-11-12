@@ -165,9 +165,7 @@ export const TERMINAL_MECHANIC_STATES: ReadonlyArray<TerminalGoalStatus> = [
 
 /** Whether a machine state value is one of the terminal states (LM-26). */
 export function isMechanicTerminalState(value: unknown): value is TerminalGoalStatus {
-    return (
-        typeof value === 'string' && (TERMINAL_MECHANIC_STATES as ReadonlyArray<string>).includes(value)
-    );
+    return typeof value === 'string' && (TERMINAL_MECHANIC_STATES as ReadonlyArray<string>).includes(value);
 }
 
 export interface MechanicServices {
@@ -399,7 +397,7 @@ export const mechanicMachine = setup({
             }),
         },
         ABSTAIN: {
-            target: 'settling',
+            target: '#mechanic.settling',
             actions: assign(({ event }) => {
                 if (event.type === 'ABSTAIN') {
                     return {
@@ -410,7 +408,7 @@ export const mechanicMachine = setup({
             }),
         },
         SAFETY_STOP: {
-            target: 'settling',
+            target: '#mechanic.settling',
             actions: assign(({ event }) => {
                 if (event.type === 'SAFETY_STOP') {
                     return {
@@ -646,8 +644,7 @@ export const mechanicMachine = setup({
                                     diagnosticLoop: applied.state,
                                     budgetUsage: {
                                         ...context.budgetUsage,
-                                        testCostMinutesUsed:
-                                            context.budgetUsage.testCostMinutesUsed + spentMinutes,
+                                        testCostMinutesUsed: context.budgetUsage.testCostMinutesUsed + spentMinutes,
                                     },
                                     ...(applied.error ? { error: applied.error } : {}),
                                 };
@@ -666,8 +663,7 @@ export const mechanicMachine = setup({
                 {
                     target: 'investigating',
                     guard: ({ context }) =>
-                        context.goal === undefined ||
-                        evaluatePhase(context.goal, context.ledger, 'differentiate').met,
+                        context.goal === undefined || evaluatePhase(context.goal, context.ledger, 'differentiate').met,
                 },
                 { target: 'settling' },
             ],

@@ -571,8 +571,7 @@ describe('mechanicMachine', () => {
                             async () => ({ recalls: [], history: [], vectors: [] }) as GatherAllContextOutput,
                         ),
                         generateIntuition: fromPromise(
-                            async () =>
-                                ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
+                            async () => ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
                         ),
                     },
                 }),
@@ -636,7 +635,11 @@ describe('mechanicMachine', () => {
             const { goal, entries } = buildGoldenCase();
             const snapshot = await driveFixture(
                 {},
-                { goal, ledger: entries, budgetUsage: { reasonerRuns: 0, tokensUsed: 200001, wallMinutesUsed: 0, testCostMinutesUsed: 0 } },
+                {
+                    goal,
+                    ledger: entries,
+                    budgetUsage: { reasonerRuns: 0, tokensUsed: 200001, wallMinutesUsed: 0, testCostMinutesUsed: 0 },
+                },
             );
             expect(snapshot.matches('budget_limited')).toBe(true);
             expect(snapshot.context.terminalReason).toContain('tokens used');
@@ -651,8 +654,7 @@ describe('mechanicMachine', () => {
                             async () => ({ recalls: [], history: [], vectors: [] }) as GatherAllContextOutput,
                         ),
                         generateIntuition: fromPromise(
-                            async () =>
-                                ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
+                            async () => ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
                         ),
                         runReasoner: fromPromise(async () => ({
                             endState: 'finished',
@@ -748,8 +750,7 @@ describe('mechanicMachine', () => {
                                 }),
                         ),
                         generateIntuition: fromPromise(
-                            async () =>
-                                ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
+                            async () => ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
                         ),
                     },
                 }),
@@ -776,8 +777,7 @@ describe('mechanicMachine', () => {
                                 }),
                         ),
                         generateIntuition: fromPromise(
-                            async () =>
-                                ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
+                            async () => ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
                         ),
                     },
                 }),
@@ -842,8 +842,7 @@ describe('mechanicMachine', () => {
                         return { recalls: [], history: [], vectors: [] };
                     }),
                     generateIntuition: fromPromise(
-                        async () =>
-                            ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
+                        async () => ({ diagnosis: 'Head gasket leak', confidence: 0.8 }) as unknown as AIAnalysis,
                     ),
                 },
             });

@@ -95,9 +95,9 @@ describe('phaseGate (LM-26)', () => {
 
         it('escalates when the case never differentiated', () => {
             const { goal, entries } = buildGoldenCase({ hypothesisConfidences: [0.4, 0.35, 0.45] });
-            expect(
-                resolveTerminalStatus({ goal, ledger: entries, budgetUsage: EMPTY_BUDGET_USAGE }).status,
-            ).toBe('escalated');
+            expect(resolveTerminalStatus({ goal, ledger: entries, budgetUsage: EMPTY_BUDGET_USAGE }).status).toBe(
+                'escalated',
+            );
         });
 
         it('ends budget_limited when the goal budget is spent, even with full proof', () => {
@@ -117,9 +117,9 @@ describe('phaseGate (LM-26)', () => {
                 ...entries,
                 appendGoldenLedgerEntry(entries, 'safety_stop', { reason: 'Fuel leak at the rail' }),
             ];
-            expect(
-                resolveTerminalStatus({ goal, ledger: stopped, budgetUsage: EMPTY_BUDGET_USAGE }).status,
-            ).toBe('safety_stopped');
+            expect(resolveTerminalStatus({ goal, ledger: stopped, budgetUsage: EMPTY_BUDGET_USAGE }).status).toBe(
+                'safety_stopped',
+            );
         });
 
         it('ends safety_stopped on a safety stop signal', () => {
@@ -158,8 +158,12 @@ describe('phaseGate (LM-26)', () => {
                 detail: 'No remaining test separates the two leaders',
             };
             expect(
-                resolveTerminalStatus({ goal, ledger: entries, budgetUsage: EMPTY_BUDGET_USAGE, loopDecision: decision })
-                    .status,
+                resolveTerminalStatus({
+                    goal,
+                    ledger: entries,
+                    budgetUsage: EMPTY_BUDGET_USAGE,
+                    loopDecision: decision,
+                }).status,
             ).toBe('escalated');
         });
 
@@ -171,8 +175,12 @@ describe('phaseGate (LM-26)', () => {
                 detail: 'Loop test budget spent',
             };
             expect(
-                resolveTerminalStatus({ goal, ledger: entries, budgetUsage: EMPTY_BUDGET_USAGE, loopDecision: decision })
-                    .status,
+                resolveTerminalStatus({
+                    goal,
+                    ledger: entries,
+                    budgetUsage: EMPTY_BUDGET_USAGE,
+                    loopDecision: decision,
+                }).status,
             ).toBe('verified_fix');
         });
 
@@ -184,8 +192,12 @@ describe('phaseGate (LM-26)', () => {
                 detail: 'Suspected fuel leak unresolved',
             };
             expect(
-                resolveTerminalStatus({ goal, ledger: entries, budgetUsage: EMPTY_BUDGET_USAGE, loopDecision: decision })
-                    .status,
+                resolveTerminalStatus({
+                    goal,
+                    ledger: entries,
+                    budgetUsage: EMPTY_BUDGET_USAGE,
+                    loopDecision: decision,
+                }).status,
             ).toBe('safety_stopped');
         });
 
@@ -212,9 +224,9 @@ describe('phaseGate (LM-26)', () => {
                 reason: 'evidence-inconsistent',
                 detail: 'Evidence contradicts every hypothesis',
             };
-            expect(
-                resolveTerminalStatus({ ledger: [], budgetUsage: EMPTY_BUDGET_USAGE }).status,
-            ).toBe('diagnosed_unverified');
+            expect(resolveTerminalStatus({ ledger: [], budgetUsage: EMPTY_BUDGET_USAGE }).status).toBe(
+                'diagnosed_unverified',
+            );
             expect(
                 resolveTerminalStatus({ ledger: [], budgetUsage: EMPTY_BUDGET_USAGE, loopDecision: decision }).status,
             ).toBe('escalated');
@@ -224,16 +236,16 @@ describe('phaseGate (LM-26)', () => {
             const { goal, entries } = buildGoldenCase();
             const overBudget: BudgetUsage = { ...EMPTY_BUDGET_USAGE, tokensUsed: 200001 };
             const abstain = { reason: 'Cannot tell', known: [], unknown: ['root cause'] };
-            expect(
-                resolveTerminalStatus({ goal, ledger: entries, budgetUsage: overBudget, abstain }).status,
-            ).toBe('budget_limited');
+            expect(resolveTerminalStatus({ goal, ledger: entries, budgetUsage: overBudget, abstain }).status).toBe(
+                'budget_limited',
+            );
             const stopped = [
                 ...entries,
                 appendGoldenLedgerEntry(entries, 'safety_stop', { reason: 'Fuel leak at the rail' }),
             ];
-            expect(
-                resolveTerminalStatus({ goal, ledger: stopped, budgetUsage: overBudget, abstain }).status,
-            ).toBe('safety_stopped');
+            expect(resolveTerminalStatus({ goal, ledger: stopped, budgetUsage: overBudget, abstain }).status).toBe(
+                'safety_stopped',
+            );
         });
     });
 
