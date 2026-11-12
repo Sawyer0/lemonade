@@ -999,10 +999,7 @@ describe('mechanicMachine', () => {
                     reason: 'no passing compression-cylinder-1 result after the goal was set',
                 },
             ];
-            const { actor, calls } = await driveWithGate([
-                gateResult('retry', unmetCriteria),
-                gateResult('pass'),
-            ]);
+            const { actor, calls } = await driveWithGate([gateResult('retry', unmetCriteria), gateResult('pass')]);
             await waitFor(actor, (s) => s.matches('diagnosed_unverified'), { timeout: 5000 });
             const context = actor.getSnapshot().context;
             expect(calls().gateCalls).toBe(2);

@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { AppError } from '../../errors/AppError';
 import { ErrorCode } from '../../errors/codes';
 import type { LedgerEntry } from '../../types/case';
-import { amendGoal, buildGoal, evaluateGoal, transitionGoalStatus, unmetDeterministicBlockers, type CriterionEvaluation } from '../evaluateGoal';
+import {
+    amendGoal,
+    buildGoal,
+    evaluateGoal,
+    transitionGoalStatus,
+    unmetDeterministicBlockers,
+    type CriterionEvaluation,
+} from '../evaluateGoal';
 import type { CaseGoal } from '../goalSchema';
 import {
     buildGoldenCase,
@@ -214,10 +221,7 @@ describe('evaluateGoal on the golden case', () => {
         it('lists the unmet blocking deterministic criteria, with a criterion-level reason each', () => {
             const { goal, entries } = buildGoldenCase({ retestResult: 'absent', symptomAbsent: false });
             const blockers = unmetDeterministicBlockers(goal, evaluateGoal(goal, entries));
-            expect(blockers.map((blocker) => blocker.criterionId)).toEqual([
-                'verify.retest',
-                'verify.symptom_absent',
-            ]);
+            expect(blockers.map((blocker) => blocker.criterionId)).toEqual(['verify.retest', 'verify.symptom_absent']);
             expect(blockers[0].reason).toContain('compression-cylinder-1');
             expect(blockers[1].reason).toContain('observation');
         });

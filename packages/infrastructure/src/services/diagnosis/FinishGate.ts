@@ -85,9 +85,7 @@ function isJudgeCriterionScore(value: unknown): value is JudgeCriterionScore {
     if (typeof value !== 'object' || value === null) return false;
     const score = value as JudgeCriterionScore;
     return (
-        typeof score.criterionId === 'string' &&
-        typeof score.passed === 'boolean' &&
-        typeof score.reason === 'string'
+        typeof score.criterionId === 'string' && typeof score.passed === 'boolean' && typeof score.reason === 'string'
     );
 }
 
@@ -104,13 +102,10 @@ function isUsableJudgeReply(parsed: unknown, expectJudgeCriteria: boolean): pars
         if (!Array.isArray(reply.judgeCriteria) || !reply.judgeCriteria.every(isJudgeCriterionScore)) return false;
         return (
             reply.unmappedClaimIds === undefined ||
-            (Array.isArray(reply.unmappedClaimIds) &&
-                reply.unmappedClaimIds.every((id) => typeof id === 'string'))
+            (Array.isArray(reply.unmappedClaimIds) && reply.unmappedClaimIds.every((id) => typeof id === 'string'))
         );
     }
-    return (
-        Array.isArray(reply.unmappedClaimIds) && reply.unmappedClaimIds.every((id) => typeof id === 'string')
-    );
+    return Array.isArray(reply.unmappedClaimIds) && reply.unmappedClaimIds.every((id) => typeof id === 'string');
 }
 
 function buildJudgePrompt(
@@ -346,9 +341,7 @@ export class FinishGate implements FinishGateRunner {
         // judge criteria (or without a goal) it scores the claim mapping
         // as before.
         const judgeCriteria =
-            input.goal?.criteria.filter(
-                (criterion) => criterion.check.kind === 'judge' && criterion.blocking,
-            ) ?? [];
+            input.goal?.criteria.filter((criterion) => criterion.check.kind === 'judge' && criterion.blocking) ?? [];
         let judge: JudgeReply | null = null;
         try {
             judge = await this.judge(
@@ -380,8 +373,7 @@ export class FinishGate implements FinishGateRunner {
                         verdict: 'unmet' as const,
                         blocking: true,
                         evidence: [],
-                        reason:
-                            scored.get(criterion.id)?.reason ?? 'The independent gate did not score this criterion',
+                        reason: scored.get(criterion.id)?.reason ?? 'The independent gate did not score this criterion',
                     }));
                 for (const criterion of judgeCriteria) {
                     if (!scored.has(criterion.id)) {
@@ -390,9 +382,7 @@ export class FinishGate implements FinishGateRunner {
                 }
                 reasons.push(...judge.reasons.map((reason) => `Independent gate: ${reason}`));
                 for (const failed of failedJudgeCriteria) {
-                    reasons.push(
-                        `Independent gate: judge criterion ${failed.criterionId} failed: ${failed.reason}`,
-                    );
+                    reasons.push(`Independent gate: judge criterion ${failed.criterionId} failed: ${failed.reason}`);
                 }
                 judgePassed = judge.passed && failedJudgeCriteria.length === 0;
             } else if (judge.passed && (judge.unmappedClaimIds ?? []).length > 0) {

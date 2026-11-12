@@ -16,7 +16,11 @@ import type {
 } from '@lemonade/core';
 import { buildGoal, parseDtc, TestLibrary } from '@lemonade/core';
 import { misfireDefinitions } from '../../../../../core/src/diagnosis/loop/__tests__/fixtures';
-import { buildGoldenCase, buildGoldenGoal, GOLDEN_GOAL_ID } from '../../../../../core/src/goal/__tests__/fixtures/goldenCase';
+import {
+    buildGoldenCase,
+    buildGoldenGoal,
+    GOLDEN_GOAL_ID,
+} from '../../../../../core/src/goal/__tests__/fixtures/goldenCase';
 import { Challenger } from '../Challenger';
 import { FinishGate } from '../FinishGate';
 
@@ -130,8 +134,7 @@ function spyingModel(
 /** The judge prompt the fake judge model was called with. */
 function judgePrompt(generateContent: ReturnType<typeof vi.fn>): string {
     const call = generateContent.mock.calls[0]?.[0] as
-        | { contents: Array<{ parts: Array<{ text: string }> }> }
-        | undefined;
+        { contents: Array<{ parts: Array<{ text: string }> }> } | undefined;
     return call?.contents[0]?.parts[0]?.text ?? '';
 }
 
@@ -362,8 +365,7 @@ describe('FinishGate with a goal (LM-27)', () => {
                     description: 'The diagnosis names the single root cause the ledger supports',
                     check: {
                         kind: 'judge',
-                        rubric:
-                            'The spoken diagnosis names one root cause, and every part of that cause is supported by a cited ledger entry.',
+                        rubric: 'The spoken diagnosis names one root cause, and every part of that cause is supported by a cited ledger entry.',
                     },
                 },
             ],
@@ -374,7 +376,9 @@ describe('FinishGate with a goal (LM-27)', () => {
     /** Claims over the golden ledger: the hypothesis cites every citable entry, the DTC cites its reading. */
     function goldenClaims(diagnosis: string, entries: LedgerEntry[]): DiagnosisClaim[] {
         const citableIds = entries
-            .filter((entry) => ['vin_decoded', 'dtc_read', 'observation', 'test_result', 'outcome'].includes(entry.type))
+            .filter((entry) =>
+                ['vin_decoded', 'dtc_read', 'observation', 'test_result', 'outcome'].includes(entry.type),
+            )
             .map((entry) => entry.id);
         const dtcEntry = entries.find((entry) => entry.type === 'dtc_read');
         return [
@@ -525,10 +529,7 @@ describe('FinishGate with a goal (LM-27)', () => {
 
     it('fails closed when the judge never scores a judge criterion', async () => {
         const { entries } = buildGoldenCase();
-        const gate = gateWith(
-            fakeModel(challengerReply([])),
-            fakeModel(judgeCriteriaReply(true, [])),
-        );
+        const gate = gateWith(fakeModel(challengerReply([])), fakeModel(judgeCriteriaReply(true, [])));
         const verdict = await gate.evaluateCandidate({
             candidate: candidateFor('Head gasket leak'),
             claims: goldenClaims('Head gasket leak', entries),
