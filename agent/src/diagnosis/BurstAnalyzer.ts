@@ -78,6 +78,11 @@ export class BurstAnalyzer {
                 sessionId: session.sessionId,
                 userId: session.userId,
                 localTriage: triage,
+                // LM-19: the still belongs to the session's case, so the
+                // diagnosis runs against that case's ledger and the finish
+                // gate has entries to argue from. Without it the gate
+                // skips (no ledger) and the still is spoken ungated.
+                caseId: session.caseId,
             });
             await respond.say(state.finalDiagnosis.userOutput);
             return;

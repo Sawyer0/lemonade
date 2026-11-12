@@ -134,8 +134,9 @@ export interface ChecklistVerdict {
 // --- Gate verdict ---
 // One attempt's outcome. `pass` speaks the candidate; `retry` sends the
 // objections back as evidence for another attempt; `abstain` speaks the
-// handoff instead. `skipped` means no gate was bound, so the diagnosis
-// runs as it did before the gate existed.
+// handoff instead. `skipped` means no gate was bound, or the ledger was
+// empty so there was nothing to argue from: the diagnosis runs as it did
+// before the gate existed.
 
 export const FinishGateOutcomeSchema = z.enum(['pass', 'retry', 'abstain', 'skipped']);
 export type FinishGateOutcome = z.infer<typeof FinishGateOutcomeSchema>;

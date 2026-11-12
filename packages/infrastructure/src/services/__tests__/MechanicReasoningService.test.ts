@@ -804,5 +804,47 @@ describe('MechanicReasoningService', () => {
             expect(result.finalDiagnosis.userOutput).not.toContain('Replace the fuel pump');
             expect(result.finalDiagnosis.requiredActions).toContain('Consult Human Mechanic');
         });
+
+        it('skips the gate for a diagnosis without a case instead of burning three attempts and abstaining', async () => {
+            // No case, so no ledger: every claim would fail its citation
+            // check and no retry could create entries. The gate must skip
+            // with zero gate calls, and the diagnosis is spoken as before.
+            const { adapter, generateContent } = fakeCoreAdapter();
+            const ungatedService = new MechanicReasoningService(
+                mockVideoAI,
+                mockChatAI,
+                mockNHTSA,
+                mockEmbedding,
+                mockVector,
+                mockSearch,
+                mockMemory,
+                mockSessionRepo,
+                mockReactive,
+                mockSafetyMonitor,
+                mockTracing,
+                mockLogger,
+                adapter,
+            );
+            const result = await ungatedService.diagnose({
+                sessionId: 'session-gate-nocase',
+                userId: 'user-1',
+                vehicleContext: { year: 2022, make: 'Ford', model: 'F-150', vin: 'VIN123' },
+                userQuery: 'misfire at idle',
+                complaint: 'Engine misfires at idle',
+            });
+
+            const prompts = generateContent.mock.calls.map(
+                (call) =>
+                    (call[0] as { contents: { parts: { text: string }[] }[] }).contents[0]?.parts?.[0]?.text ?? '',
+            );
+            expect(prompts.some((prompt) => prompt.includes('You are the challenger'))).toBe(false);
+            expect(prompts.some((prompt) => prompt.includes('independent finish gate'))).toBe(false);
+            // One intuition call only: no challenger, no judge, no retries.
+            expect(generateContent).toHaveBeenCalledTimes(1);
+
+            expect(result.finalDiagnosis.decision).not.toBe('REFER_TO_HUMAN');
+            expect(result.finalDiagnosis.userOutput).not.toContain("can't confirm a diagnosis");
+            expect(result.finalDiagnosis.userOutput).not.toContain('When to escalate:');
+        });
     });
 });

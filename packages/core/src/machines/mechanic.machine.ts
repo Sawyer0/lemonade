@@ -256,7 +256,14 @@ export type MechanicEvent =
     // phase. The handoff is the one rich shape the machine uses: what the
     // ledger confirmed, what was ruled out, the next test, and when a
     // human must take over.
-    | { type: 'ABSTAIN'; reason: string; confirmed: string[]; ruledOut: string[]; nextTest: string | null; escalateWhen: string }
+    | {
+          type: 'ABSTAIN';
+          reason: string;
+          confirmed: string[];
+          ruledOut: string[];
+          nextTest: string | null;
+          escalateWhen: string;
+      }
     // LM-26: a safety stop raised during the run (LM-20's hook): the run
     // settles as safety_stopped. Handled at the root so it lands in any phase.
     | { type: 'SAFETY_STOP'; reason: string; hazard?: string }

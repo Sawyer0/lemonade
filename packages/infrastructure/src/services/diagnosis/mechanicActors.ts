@@ -126,7 +126,13 @@ export function createMechanicActors(deps: MechanicActorDeps) {
 
         // LM-19: the finish gate. Without a bound gate the state resolves
         // `skipped` and the diagnosis runs as before; without a candidate
-        // there is nothing to gate, so it skips too.
+        // there is nothing to gate, so it skips too. Without ledger
+        // entries there is nothing to argue from: every claim would fail
+        // its citation check, and no retry can create entries, so the
+        // gate skips instead of burning all three attempts and then
+        // abstaining. That keeps a diagnosis without a case — no ledger
+        // to read — running exactly as before the gate existed, and the
+        // same for a case whose ledger is still empty.
         runFinishGate: fromPromise(async ({ input }: { input: FinishGateInput }): Promise<FinishGateRunResult> => {
             const skipped: FinishGateRunResult = {
                 passed: false,
@@ -135,7 +141,7 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                 checklistFailures: [],
                 reasons: [],
             };
-            if (!finishGate || !input.visual) {
+            if (!finishGate || !input.visual || input.ledger.length === 0) {
                 return skipped;
             }
             return finishGate.evaluateRun({

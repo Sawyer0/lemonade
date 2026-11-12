@@ -274,7 +274,11 @@ export class MechanicReasoningService implements IMechanicReasoningService {
      * active run. A second caller for the same case never starts a competing
      * run: its question joins the active run's evidence queue, and it
      * observes the active run's result. A diagnosis without a case runs
-     * exactly as before.
+     * without a ledger, so the finish gate has nothing to argue from and
+     * skips: the diagnosis is spoken ungated, exactly as before the gate
+     * existed, instead of burning three attempts on claims that cannot
+     * cite anything and then abstaining. A diagnosis with a case runs
+     * through the gate.
      */
     private async runCaseOrDirectDiagnosis(input: ReasoningInput): Promise<NeurosymbolicState> {
         if (!input.caseId) {
@@ -449,9 +453,9 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         const queuedEvidence =
             storedSnapshot || !input.caseId ? [] : this.runCoordinator.drainAtCheckpoint(input.caseId);
         // LM-19: the case ledger the finish gate argues from. A read
-        // failure leaves the gate with no entries, so every claim fails
-        // its citation check and the run abstains rather than speaking
-        // an ungated diagnosis.
+        // failure leaves the gate with no entries, so the gate skips and
+        // the diagnosis runs ungated, as before the gate existed — a
+        // failed read is indistinguishable from an empty ledger here.
         const ledger = await this.readLedger(input.caseId);
 
         const providedMachine = mechanicMachine.provide({
@@ -645,8 +649,8 @@ export class MechanicReasoningService implements IMechanicReasoningService {
     /**
      * Reads the case ledger for the finish gate, or an empty list when
      * there is no case, no repository, or the read fails. A failed read
-     * never fails the diagnosis: the gate sees no entries, so it blocks
-     * the diagnosis instead of speaking it ungated.
+     * never fails the diagnosis: the gate sees no entries, so it skips
+     * and the diagnosis runs ungated, as before the gate existed.
      */
     private async readLedger(caseId: string | undefined): Promise<LedgerEntry[]> {
         if (!caseId || !this.caseRepo) {

@@ -108,12 +108,17 @@ describe('BurstAnalyzer', () => {
                 stillUri: 'gs://bucket/frame.jpg',
             },
         };
-        await analyzer.analyze(still, session, respond, jobs);
+        // The still belongs to the session's case, so the diagnosis runs
+        // against that case's ledger and the finish gate has entries to
+        // argue from.
+        const caseSession = { ...session, caseId: '22222222-2222-4222-8222-222222222222' };
+        await analyzer.analyze(still, caseSession, respond, jobs);
 
         expect(reasoning.diagnose).toHaveBeenCalledWith(
             expect.objectContaining({
                 userQuery: expect.stringContaining('gs://bucket/frame.jpg'),
                 sessionId: 'session-1',
+                caseId: '22222222-2222-4222-8222-222222222222',
             }),
         );
         expect(live.analyzeLiveImageFrame).not.toHaveBeenCalled();
