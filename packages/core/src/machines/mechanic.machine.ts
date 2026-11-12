@@ -1,5 +1,16 @@
 import { setup, fromPromise, assign } from 'xstate';
 import { NeurosymbolicState } from '../types/neurosymbolic';
+import type { CaseGoal, GoalPhase } from '../goal/goalSchema';
+import {
+    EMPTY_BUDGET_USAGE,
+    evaluatePhase,
+    resolveTerminalStatus,
+    type AbstainHandoff,
+    type BudgetUsage,
+    type SafetyStopSignal,
+    type TerminalGoalStatus,
+} from '../goal/phaseGate';
+import type { LedgerEntry } from '../types/case';
 import type { CaseEvidence } from '../case/CaseRunQueue';
 import type { ReasonerRegionResult, ReasonerScanData } from '../reasoning/types';
 import type { IMultimodalUploadAnalyzer, IChatAssistantAI } from '../interfaces/IAIService';
@@ -79,6 +90,18 @@ export interface MechanicInput {
     // results already recorded. Without it the `workup` state completes
     // immediately and the diagnosis runs as before.
     diagnosticLoopInput?: DiagnosticLoopInput;
+    // Case goal (LM-26): the machine-checkable definition of done for this
+    // case. Phases advance only when the goal's blocking criteria for the
+    // phase are met (evaluateGoal over the ledger). Without a goal the
+    // machine runs as before and settles as diagnosed_unverified.
+    goal?: CaseGoal;
+    // Case ledger the phase guards evaluate (LM-26): the evidence so far.
+    // The machine never mints entries — the caller appends real ones with
+    // APPEND_LEDGER_ENTRY as the run (or the case) records them.
+    ledger?: LedgerEntry[];
+    // Budget already spent on this case (LM-26): the machine counts its
+    // own reasoner runs and test minutes on top of this.
+    budgetUsage?: BudgetUsage;
 }
 
 export interface MechanicContext extends MechanicInput {
@@ -109,10 +132,41 @@ export interface MechanicContext extends MechanicInput {
     // so a stored snapshot round-trips).
     diagnosticLoop?: DiagnosticLoopState | null;
     loopTestDefinitions?: TestDefinition[];
+    // LM-26: the goal driving this run, the ledger the phase guards read,
+    // the budget spent so far, and the phase the run is in. The goal and
+    // ledger are plain data, so a stored snapshot round-trips them and a
+    // restart resumes in the same phase with the same goal version.
+    goal: CaseGoal | undefined;
+    ledger: LedgerEntry[];
+    budgetUsage: BudgetUsage;
+    phase: GoalPhase;
+    // LM-26: the one named terminal status the run settled in, and why.
+    // Set on entry to `settling`; the six final states below read it.
+    terminalStatus: TerminalGoalStatus | undefined;
+    terminalReason: string | undefined;
+    // LM-26: a safety stop raised during the run, or an abstain handoff
+    // from the judge (LM-19). Either settles the run with that status.
+    safetyStop: SafetyStopSignal | undefined;
+    abstain: AbstainHandoff | undefined;
 }
 
 /** Invoking states a crash resume can re-enter (LM-17). */
 export type ResumeTarget = 'gathering_context' | 'intuition' | 'workup' | 'investigating' | 'vision_verifying';
+
+/** The machine's final states: exactly one named terminal status per run (LM-26). */
+export const TERMINAL_MECHANIC_STATES: ReadonlyArray<TerminalGoalStatus> = [
+    'verified_fix',
+    'diagnosed_unverified',
+    'abstained',
+    'safety_stopped',
+    'escalated',
+    'budget_limited',
+];
+
+/** Whether a machine state value is one of the terminal states (LM-26). */
+export function isMechanicTerminalState(value: unknown): value is TerminalGoalStatus {
+    return typeof value === 'string' && (TERMINAL_MECHANIC_STATES as ReadonlyArray<string>).includes(value);
+}
 
 export interface MechanicServices {
     vision: IMultimodalUploadAnalyzer;
@@ -137,8 +191,28 @@ export type MechanicEvent =
           caseId?: string;
           scanData?: ReasonerScanData;
           diagnosticLoopInput?: DiagnosticLoopInput;
+          // Case goal, ledger, and budget spent so far (LM-26). A run
+          // started without them settles as diagnosed_unverified.
+          goal?: CaseGoal;
+          ledger?: LedgerEntry[];
+          budgetUsage?: BudgetUsage;
       }
     | { type: 'UPDATE_SERVICES'; services: MechanicServices }
+    // LM-26: sets the goal for the run, in idle only. The goal version in
+    // context is the version the run is judged against; a restart restores
+    // it from the snapshot, never from a newer goal.
+    | { type: 'SET_GOAL'; goal: CaseGoal; ledger?: LedgerEntry[] }
+    // LM-26: appends one real ledger entry to the guards' view, as the run
+    // or the case records it. An entry already present (same id) is
+    // ignored, so a re-delivered append cannot double-count evidence.
+    | { type: 'APPEND_LEDGER_ENTRY'; entry: LedgerEntry }
+    // LM-26: the judge abstains (LM-19 sends this): the run settles as
+    // abstained with the known/unknown handoff. Handled at the root so it
+    // lands in any phase.
+    | { type: 'ABSTAIN'; reason: string; known: string[]; unknown: string[] }
+    // LM-26: a safety stop raised during the run (LM-20's hook): the run
+    // settles as safety_stopped. Handled at the root so it lands in any phase.
+    | { type: 'SAFETY_STOP'; reason: string; hazard?: string }
     // LM-17 checkpoint steering: appends one piece of queued evidence to the
     // run. Handled at the machine root so it lands in any state, including
     // after a snapshot restore; it never interrupts a running tool call.
@@ -276,6 +350,14 @@ export const mechanicMachine = setup({
         diagnosticLoopInput: input.diagnosticLoopInput,
         diagnosticLoop: null,
         loopTestDefinitions: [],
+        goal: input.goal,
+        ledger: input.ledger ?? [],
+        budgetUsage: input.budgetUsage ?? { ...EMPTY_BUDGET_USAGE },
+        phase: 'intake',
+        terminalStatus: undefined,
+        terminalReason: undefined,
+        safetyStop: undefined,
+        abstain: undefined,
         nhtsaResults: [],
         embeddingInfo: [],
         vehicleHistory: [],
@@ -283,7 +365,9 @@ export const mechanicMachine = setup({
     // Root-level events, handled in every state. UPDATE_SERVICES lives here
     // (not only in idle) so a snapshot-restored actor can receive live
     // services in whatever state it resumes in; APPEND_EVIDENCE is the
-    // checkpoint steering event (LM-17).
+    // checkpoint steering event (LM-17). ABSTAIN and SAFETY_STOP (LM-26)
+    // settle the run from any phase: a safety stop or an abstention ends
+    // the run honestly instead of letting it advance on hope.
     on: {
         UPDATE_SERVICES: {
             actions: assign(({ event }) => {
@@ -301,10 +385,57 @@ export const mechanicMachine = setup({
                 return {};
             }),
         },
+        APPEND_LEDGER_ENTRY: {
+            actions: assign(({ context, event }) => {
+                if (event.type === 'APPEND_LEDGER_ENTRY') {
+                    if (context.ledger.some((entry) => entry.id === event.entry.id)) {
+                        return {};
+                    }
+                    return { ledger: [...context.ledger, event.entry] };
+                }
+                return {};
+            }),
+        },
+        ABSTAIN: {
+            target: '#mechanic.settling',
+            actions: assign(({ event }) => {
+                if (event.type === 'ABSTAIN') {
+                    return {
+                        abstain: { reason: event.reason, known: event.known, unknown: event.unknown },
+                    };
+                }
+                return {};
+            }),
+        },
+        SAFETY_STOP: {
+            target: '#mechanic.settling',
+            actions: assign(({ event }) => {
+                if (event.type === 'SAFETY_STOP') {
+                    return {
+                        safetyStop: {
+                            reason: event.reason,
+                            ...(event.hazard !== undefined ? { hazard: event.hazard } : {}),
+                        },
+                    };
+                }
+                return {};
+            }),
+        },
     },
     states: {
         idle: {
             on: {
+                SET_GOAL: {
+                    actions: assign(({ event }) => {
+                        if (event.type === 'SET_GOAL') {
+                            return {
+                                goal: event.goal,
+                                ...(event.ledger !== undefined ? { ledger: event.ledger } : {}),
+                            };
+                        }
+                        return {};
+                    }),
+                },
                 DIAGNOSE: {
                     target: 'gathering_context',
                     actions: assign(({ event, context }) => {
@@ -321,6 +452,14 @@ export const mechanicMachine = setup({
                                 caseId: event.caseId,
                                 scanData: event.scanData,
                                 diagnosticLoopInput: event.diagnosticLoopInput ?? context.diagnosticLoopInput,
+                                goal: event.goal ?? context.goal,
+                                ledger: event.ledger ?? context.ledger,
+                                budgetUsage: event.budgetUsage ?? context.budgetUsage,
+                                phase: 'intake' as const,
+                                terminalStatus: undefined,
+                                terminalReason: undefined,
+                                safetyStop: undefined,
+                                abstain: undefined,
                             };
                         }
                         return {};
@@ -331,6 +470,10 @@ export const mechanicMachine = setup({
         gathering_context: {
             description:
                 'Step 1: Gather Facts (Recalls & History) BEFORE Intuition - Using Promise.all workaround for XState parallel bug',
+            // LM-26: the intake phase. Both exits go through the intake
+            // gate: the run advances only when the goal's intake criteria
+            // are met (vacuously when the goal has none).
+            entry: assign({ phase: 'intake' as const }),
             // LM-17: exit to the transient `resuming` state, which re-enters
             // this state and restarts the invoked gather actor.
             on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'gathering_context' as const }) } },
@@ -343,7 +486,7 @@ export const mechanicMachine = setup({
                     userId: context.userId,
                 }),
                 onDone: {
-                    target: 'intuition',
+                    target: 'intake_gate',
                     actions: [
                         assign({
                             nhtsaResults: ({ event }) => event.output.recalls,
@@ -353,13 +496,31 @@ export const mechanicMachine = setup({
                     ],
                 },
                 onError: {
-                    target: 'intuition', // Continue even on error
+                    target: 'intake_gate', // Continue even on error
                     actions: [assign({ error: ({ event }) => String(event.error) })],
                 },
             },
         },
+        // LM-26: phase gates. Each is transient: it judges the phase just
+        // finished against the goal (evaluateGoal over the ledger) and
+        // either advances to the next phase's work or settles the run, so
+        // no phase starts on hope. A run with no goal, or a phase with no
+        // blocking criteria, passes vacuously.
+        intake_gate: {
+            description: 'LM-26: intake gate — the goal’s intake criteria must be met to differentiate',
+            always: [
+                {
+                    target: 'intuition',
+                    guard: ({ context }) =>
+                        context.goal === undefined || evaluatePhase(context.goal, context.ledger, 'intake').met,
+                },
+                { target: 'settling' },
+            ],
+        },
         intuition: {
             description: 'Step 2: Formulate Hypothesis (ASE Master Tech) using gathered context',
+            // LM-26: the differentiate phase starts here.
+            entry: assign({ phase: 'differentiate' as const }),
             // LM-17: exit to the transient `resuming` state, which re-enters
             // this state and restarts the invoked model call.
             on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'intuition' as const }) } },
@@ -388,7 +549,7 @@ export const mechanicMachine = setup({
                     }),
                 },
                 onError: {
-                    target: 'synthesizing', // Fail safe
+                    target: 'settling', // Fail safe: settle honestly instead of synthesizing on no belief
                     actions: assign({ error: ({ event }) => String(event.error) }),
                 },
             },
@@ -397,6 +558,10 @@ export const mechanicMachine = setup({
             description:
                 'LM-04: decision-theoretic workup — ranked differential, cost-based next test, stop/escalate. Runs the loop over the recorded results, then either waits for the next result (interactive) or moves on to repair guidance with the plan in context.',
             initial: 'checking',
+            // LM-26: the differentiate phase continues here (ranked
+            // differential). The planning exit goes through the
+            // differentiate gate, not straight to testing.
+            entry: assign({ phase: 'differentiate' as const }),
             // LM-17: exit to the transient `resuming` state, which re-enters
             // this state and restarts the workup from the loop state in context.
             on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'workup' as const }) } },
@@ -443,7 +608,7 @@ export const mechanicMachine = setup({
                     }),
                     always: [
                         {
-                            target: '#mechanic.investigating',
+                            target: '#mechanic.differentiate_gate',
                             guard: ({ context }) =>
                                 !context.diagnosticLoop ||
                                 !context.diagnosticLoopInput?.interactive ||
@@ -469,20 +634,45 @@ export const mechanicMachine = setup({
                                         source: event.source ?? 'tech',
                                     },
                                 );
+                                // LM-26: the recorded test's labor minutes
+                                // count against the goal's test budget.
+                                const recorded = (context.loopTestDefinitions ?? []).find(
+                                    (definition) => definition.id === event.testId,
+                                );
+                                const spentMinutes = recorded?.cost.laborMinutes ?? 0;
                                 return {
                                     diagnosticLoop: applied.state,
+                                    budgetUsage: {
+                                        ...context.budgetUsage,
+                                        testCostMinutesUsed: context.budgetUsage.testCostMinutesUsed + spentMinutes,
+                                    },
                                     ...(applied.error ? { error: applied.error } : {}),
                                 };
                             }),
                         },
-                        END_WORKUP: '#mechanic.investigating',
+                        END_WORKUP: '#mechanic.differentiate_gate',
                     },
                 },
             },
         },
+        // LM-26: the differentiate gate — the ranked differential must
+        // satisfy the goal's differentiate criteria before any test runs.
+        differentiate_gate: {
+            description: 'LM-26: differentiate gate — the goal’s differentiate criteria must be met to test',
+            always: [
+                {
+                    target: 'investigating',
+                    guard: ({ context }) =>
+                        context.goal === undefined || evaluatePhase(context.goal, context.ledger, 'differentiate').met,
+                },
+                { target: 'settling' },
+            ],
+        },
         investigating: {
             description: 'Step 3: Verify Hypothesis (Search & Web)',
             type: 'parallel',
+            // LM-26: the test phase starts here.
+            entry: assign({ phase: 'test' as const }),
             // LM-17: exit to the transient `resuming` state, which re-enters
             // this parallel state and restarts all regions' invoked actors.
             on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'investigating' as const }) } },
@@ -566,6 +756,12 @@ export const mechanicMachine = setup({
                 // diagnosis runs as before. A loop failure never fails the
                 // diagnosis: search and verification already ran, and the
                 // error is recorded in context.
+                // LM-26: the reasoner also runs only when the goal is
+                // active (LM-17's queue runs the reasoner only when the
+                // case is idle and the goal is active; the queue owns the
+                // idle side — one active run per case — and this guard owns
+                // the active side). A paused, held, or terminal goal skips
+                // the loop: no new reasoner work on a goal that is not live.
                 reasoner: {
                     initial: 'checking',
                     states: {
@@ -574,6 +770,7 @@ export const mechanicMachine = setup({
                                 {
                                     target: 'running',
                                     guard: ({ context }) =>
+                                        (context.goal === undefined || context.goal.status === 'active') &&
                                         Boolean(
                                             context.scanData &&
                                             (context.scanData.freezeFrame !== undefined ||
@@ -594,7 +791,15 @@ export const mechanicMachine = setup({
                                 }),
                                 onDone: {
                                     target: 'completed',
-                                    actions: assign({ reasonerResult: ({ event }) => event.output }),
+                                    actions: assign({
+                                        reasonerResult: ({ event }) => event.output,
+                                        // LM-26: a completed reasoner run
+                                        // counts against the goal's budget.
+                                        budgetUsage: ({ context }) => ({
+                                            ...context.budgetUsage,
+                                            reasonerRuns: context.budgetUsage.reasonerRuns + 1,
+                                        }),
+                                    }),
                                 },
                                 onError: {
                                     target: 'completed',
@@ -610,7 +815,7 @@ export const mechanicMachine = setup({
         },
         vision_verifying: {
             description: 'Step 4: Vision Check (if applicable) to anchor Reality',
-            entry: 'loadVisionModel', // Optimized Resource Management
+            entry: ['loadVisionModel', assign({ phase: 'test' as const })], // Optimized Resource Management
             exit: 'unloadVisionModel', // Release memory immediately
             // LM-17: exit to the transient `resuming` state, which re-enters
             // this state and restarts the invoked vision call.
@@ -626,7 +831,7 @@ export const mechanicMachine = setup({
                     },
                 }),
                 onDone: {
-                    target: 'synthesizing',
+                    target: 'test_gate',
                     actions: assign(({ event, context }) => {
                         // Merge Vision result with Intuition result if vision ran
                         // If no video, we keep the Intuition result (already in visualAnalysis)
@@ -637,13 +842,119 @@ export const mechanicMachine = setup({
                     }),
                 },
                 onError: {
-                    target: 'synthesizing',
+                    target: 'test_gate',
                     actions: assign({ error: ({ event }) => String(event.error) }),
                 },
             },
         },
+        // LM-26: the test gate — the goal's test criteria must be met to
+        // commit the diagnosis.
+        test_gate: {
+            description: 'LM-26: test gate — the goal’s test criteria must be met to commit',
+            always: [
+                {
+                    target: 'synthesizing',
+                    guard: ({ context }) =>
+                        context.goal === undefined || evaluatePhase(context.goal, context.ledger, 'test').met,
+                },
+                { target: 'settling' },
+            ],
+        },
         synthesizing: {
-            description: 'Step 5: Final Synthesis (Reflexion)',
+            description:
+                'Step 5: Final Synthesis (Reflexion) — LM-26: the commit phase. No longer the end of the run: it commits the diagnosis, then the run advances through the repair and verify gates to one named terminal status.',
+            // LM-26: the commit phase. The commit gate judges the goal's
+            // commit criteria; a run restored from a snapshot taken when
+            // synthesizing was still final re-enters through RESUME, which
+            // settles it instead of leaving it parked here.
+            entry: assign({ phase: 'commit' as const }),
+            on: { RESUME: 'settling' },
+            always: [
+                {
+                    target: 'repair_gate',
+                    guard: ({ context }) =>
+                        context.goal === undefined || evaluatePhase(context.goal, context.ledger, 'commit').met,
+                },
+                { target: 'settling' },
+            ],
+        },
+        // LM-26: the repair gate — the goal's repair criteria must be met
+        // to verify. Repair itself happens outside the machine (the tech
+        // performs it and the ledger records it); the gate reads the ledger.
+        repair_gate: {
+            description: 'LM-26: repair gate — the goal’s repair criteria must be met to verify',
+            entry: assign({ phase: 'repair' as const }),
+            always: [
+                {
+                    target: 'verify_gate',
+                    guard: ({ context }) =>
+                        context.goal === undefined || evaluatePhase(context.goal, context.ledger, 'repair').met,
+                },
+                { target: 'settling' },
+            ],
+        },
+        // LM-26: the verify gate — the goal's verify criteria decide the
+        // honest ending. The settling state resolves it; this gate exists
+        // so the verify phase is entered (and recorded) like every phase.
+        verify_gate: {
+            description: 'LM-26: verify gate — the goal’s verify criteria decide the terminal status',
+            entry: assign({ phase: 'verify' as const }),
+            always: [{ target: 'settling' }],
+        },
+        // LM-26: terminal decision. Resolves exactly one named terminal
+        // status from the goal, ledger, budget, safety, abstain, workup
+        // and reasoner signals, then routes to that final state. The
+        // resolver is total, so the last, guardless transition is only a
+        // defensive fallback.
+        settling: {
+            description: 'LM-26: terminal decision — resolves the run’s one named terminal status',
+            entry: assign(({ context }) => {
+                const resolution = resolveTerminalStatus({
+                    goal: context.goal,
+                    ledger: context.ledger,
+                    budgetUsage: context.budgetUsage,
+                    safetyStop: context.safetyStop,
+                    abstain: context.abstain,
+                    loopDecision: context.diagnosticLoop?.decision ?? null,
+                    reasonerResult: context.reasonerResult,
+                });
+                return { terminalStatus: resolution.status, terminalReason: resolution.reason };
+            }),
+            always: [
+                { target: 'verified_fix', guard: ({ context }) => context.terminalStatus === 'verified_fix' },
+                {
+                    target: 'diagnosed_unverified',
+                    guard: ({ context }) => context.terminalStatus === 'diagnosed_unverified',
+                },
+                { target: 'abstained', guard: ({ context }) => context.terminalStatus === 'abstained' },
+                { target: 'safety_stopped', guard: ({ context }) => context.terminalStatus === 'safety_stopped' },
+                { target: 'escalated', guard: ({ context }) => context.terminalStatus === 'escalated' },
+                { target: 'budget_limited', guard: ({ context }) => context.terminalStatus === 'budget_limited' },
+                { target: 'diagnosed_unverified' },
+            ],
+        },
+        verified_fix: {
+            description: 'LM-26: every goal criterion is met, including the pre-registered re-test',
+            type: 'final',
+        },
+        diagnosed_unverified: {
+            description: 'LM-26: a diagnosis was reached but the fix is not proven verified',
+            type: 'final',
+        },
+        abstained: {
+            description: 'LM-26: the run abstained, with the known/unknown handoff in context',
+            type: 'final',
+        },
+        safety_stopped: {
+            description: 'LM-26: the run stopped for safety',
+            type: 'final',
+        },
+        escalated: {
+            description: 'LM-26: the run could not proceed and hands the case to the tech',
+            type: 'final',
+        },
+        budget_limited: {
+            description: 'LM-26: the goal budget is spent; the run stops here',
             type: 'final',
         },
         resuming: {
