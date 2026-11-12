@@ -1,0 +1,1 @@
+{"dataset_sha256":"","fitted_at":"","groups":{"_pooled":{"method":"identity","n_fit":0,"n_holdout":0}},"other_mass":{"method":"identity"},"split":{"holdout":"newest_20pct_by_closed_at"},"thresholds":{"eps_safety":0.01,"other_escalate":0.25,"tau_floor":0.8},"version":1}

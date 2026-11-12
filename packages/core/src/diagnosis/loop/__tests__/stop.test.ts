@@ -66,12 +66,30 @@ describe('evaluateStop', () => {
         }
     });
 
-    it('commits when repairing now is cheaper than the best test, even below the threshold', () => {
+    it('does not commit on a cheap repair below the tau floor, even when repairing is cheaper than the best test', () => {
         const differential = buildDifferential({ priorHypotheses: misfirePriors(), testDefinitions: [] });
         const state = stateFor(differential, { repairCostsUsd: { 'ignition-coil-failure': 10 } });
         const decision = evaluateStop(state, { plan: planFor(state) });
-        // Repair $10 + 55% of the $65 test = $46 < $65 to resolve.
+        // Repair $10 + 55% of the $65 test = $46 < $65 to resolve, but the
+        // leader sits at ~45%: below the 0.80 tau floor, so the early
+        // commit (ECR) rule may not fire. The floor still applies.
+        expect(decision.kind).toBe('next-test');
+    });
+
+    it('commits when the leader clears the tau floor and repairing is cheaper than the best test', () => {
+        const differential = buildDifferential({
+            priorHypotheses: [
+                { hypothesis: 'ignition-coil-failure', n: 30, q: 1, pi: 0.9, sources: [] },
+                { hypothesis: 'spark-plug-fouled', n: 1, q: 0, pi: 0.1, sources: [] },
+            ],
+            testDefinitions: [],
+        });
+        const state = stateFor(differential, { repairCostsUsd: { 'ignition-coil-failure': 10 } });
+        const decision = evaluateStop(state, { plan: planFor(state) });
         expect(decision.kind).toBe('repair');
+        if (decision.kind === 'repair') {
+            expect(decision.hypothesisId).toBe('ignition-coil-failure');
+        }
     });
 
     it('keeps testing when the leader is below the threshold and a test is cheaper than the repair', () => {
@@ -119,6 +137,25 @@ describe('evaluateStop', () => {
             safetyCriticalHypothesisIds: ['spark-plug-fouled'],
         });
         // The cheap repair would commit, but plugs (33%) is safety-critical.
+        const decision = evaluateStop(state, { plan: planFor(state) });
+        expect(decision.kind).toBe('next-test');
+    });
+
+    it('blocks a release while a safety-critical cause sits at 1.1%, just above the 1% gate', () => {
+        const differential = buildDifferential({
+            priorHypotheses: [
+                { hypothesis: 'ignition-coil-failure', n: 95, q: 1, pi: 0.95, sources: [] },
+                { hypothesis: 'spark-plug-fouled', n: 1, q: 0, pi: 0.011, sources: [] },
+            ],
+            testDefinitions: [],
+        });
+        const state = stateFor(differential, {
+            repairCostsUsd: { 'ignition-coil-failure': 10 },
+            safetyCriticalHypothesisIds: ['spark-plug-fouled'],
+        });
+        // The leader clears the commit threshold and the repair is cheap,
+        // but plugs at ~1.1% is safety-critical: the gate blocks the
+        // release and the loop keeps testing instead.
         const decision = evaluateStop(state, { plan: planFor(state) });
         expect(decision.kind).toBe('next-test');
     });
