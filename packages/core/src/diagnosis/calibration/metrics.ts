@@ -23,9 +23,7 @@ export function reliabilityBins(entries: ScoredEntry[], binCount = 10): Reliabil
         const members = entries.filter(
             (entry) =>
                 entry.calibratedProbability >= binStart &&
-                (i === binCount - 1
-                    ? entry.calibratedProbability <= binEnd
-                    : entry.calibratedProbability < binEnd),
+                (i === binCount - 1 ? entry.calibratedProbability <= binEnd : entry.calibratedProbability < binEnd),
         );
         const n = members.length;
         bins.push({

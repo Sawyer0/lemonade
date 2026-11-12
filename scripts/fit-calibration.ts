@@ -44,10 +44,7 @@ import {
 } from '@lemonade/core';
 import { lemonadeBenchSuites, runBenchSuite } from '../evals/lemonade-bench/benchRunner';
 
-const GENERATED_CONFIG_PATH = path.resolve(
-    __dirname,
-    '../packages/core/src/config/calibration.generated.json',
-);
+const GENERATED_CONFIG_PATH = path.resolve(__dirname, '../packages/core/src/config/calibration.generated.json');
 const REPORTS_DIR = path.resolve(__dirname, '../reports/calibration');
 // Fixed base for the replay-order close-time proxy (see header).
 const CLOSED_AT_BASE_MS = Date.UTC(2026, 10, 1);
@@ -166,9 +163,7 @@ export function reliabilitySvg(group: string, cases: ResolvedCase[], config: Gen
             const meanX = pad + bin.meanPredicted * plot;
             return (
                 `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" fill="#2563eb" opacity="0.7"/>` +
-                (bin.n > 0
-                    ? `<circle cx="${meanX.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="#dc2626"/>`
-                    : '')
+                (bin.n > 0 ? `<circle cx="${meanX.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="#dc2626"/>` : '')
             );
         })
         .join('\n');
@@ -193,7 +188,11 @@ export function runFitCalibration(): number {
     }
     const datasetSha256 = createHash('sha256').update(canonicalDatasetJson(cases)).digest('hex');
     const { fit, holdout } = splitByClosedAt(cases);
-    const fittedAt = cases.map((entry) => entry.closedAt).sort().at(-1) ?? '';
+    const fittedAt =
+        cases
+            .map((entry) => entry.closedAt)
+            .sort()
+            .at(-1) ?? '';
 
     const grouped = poolGroups(fit);
     const groups: GeneratedCalibrationConfig['groups'] = {};
@@ -222,10 +221,13 @@ export function runFitCalibration(): number {
     // always lists the true cause, so this is degenerate today and
     // falls back to identity; it engages when unlisted causes appear.
     const otherMass = fitGroupCalibration(
-        fit.map((entry) => ({ x: entry.otherProbability, label: entry.trueCauseListed ? 0 : 1 }) as {
-            x: number;
-            label: 0 | 1;
-        }),
+        fit.map(
+            (entry) =>
+                ({ x: entry.otherProbability, label: entry.trueCauseListed ? 0 : 1 }) as {
+                    x: number;
+                    label: 0 | 1;
+                },
+        ),
     );
 
     // Thresholds: least-conservative first; the defaults stand when the

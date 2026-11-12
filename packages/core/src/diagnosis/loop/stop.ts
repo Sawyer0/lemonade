@@ -109,8 +109,7 @@ export function evaluateStop(state: DiagnosticLoopState, context: StopContext): 
     // is left to run it down, that is an escalation, not a release.
     const safetyCandidates = differential.hypotheses
         .filter(
-            (hypothesis) =>
-                hypothesis.id !== leader.id && state.safetyCriticalHypothesisIds.includes(hypothesis.id),
+            (hypothesis) => hypothesis.id !== leader.id && state.safetyCriticalHypothesisIds.includes(hypothesis.id),
         )
         .map((hypothesis) => ({
             id: hypothesis.id,
@@ -124,9 +123,7 @@ export function evaluateStop(state: DiagnosticLoopState, context: StopContext): 
         safetyCandidates.map((candidate) => candidate.calibrated),
         thresholds.epsSafety,
     );
-    const blockingSafetyId = safetyCandidates.find(
-        (candidate) => candidate.calibrated >= thresholds.epsSafety,
-    )?.id;
+    const blockingSafetyId = safetyCandidates.find((candidate) => candidate.calibrated >= thresholds.epsSafety)?.id;
     if (blockingSafety && !context.plan.nextTest) {
         return {
             kind: 'escalate',

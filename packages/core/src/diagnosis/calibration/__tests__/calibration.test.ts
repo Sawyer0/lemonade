@@ -75,7 +75,10 @@ describe('fitGroupCalibration', () => {
         expect(fitted.b).toBeCloseTo(-0.5, 0);
         const rawEce = computeEce(points.map((point) => ({ calibratedProbability: point.x, label: point.label })));
         const calibratedEce = computeEce(
-            points.map((point) => ({ calibratedProbability: applyCalibrationMap(fitted, point.x), label: point.label })),
+            points.map((point) => ({
+                calibratedProbability: applyCalibrationMap(fitted, point.x),
+                label: point.label,
+            })),
         );
         expect(calibratedEce).toBeLessThan(rawEce);
         expect(calibratedEce).toBeLessThan(0.05);
@@ -91,7 +94,10 @@ describe('fitGroupCalibration', () => {
         expect(applyCalibrationMap(fitted, 0.8)).toBeCloseTo(0.9, 2);
         expect(applyCalibrationMap(fitted, 0.1)).toBeLessThanOrEqual(applyCalibrationMap(fitted, 0.9));
         const ece = computeEce(
-            points.map((point) => ({ calibratedProbability: applyCalibrationMap(fitted, point.x), label: point.label })),
+            points.map((point) => ({
+                calibratedProbability: applyCalibrationMap(fitted, point.x),
+                label: point.label,
+            })),
         );
         expect(ece).toBeLessThan(0.05);
     });
@@ -132,7 +138,12 @@ describe('fitGroupCalibration', () => {
 describe('calibrateProbability', () => {
     function configWith(map: ReturnType<typeof fitPlatt>): GeneratedCalibrationConfig {
         const base = defaultCalibrationConfig();
-        return { ...base, fitted_at: '2026-11-12T00:00:00Z', dataset_sha256: 'abc', groups: { _pooled: { ...map, n_fit: 180, n_holdout: 45 } } };
+        return {
+            ...base,
+            fitted_at: '2026-11-12T00:00:00Z',
+            dataset_sha256: 'abc',
+            groups: { _pooled: { ...map, n_fit: 180, n_holdout: 45 } },
+        };
     }
 
     it('uses the group map, falls back to _pooled, and marks identity uncalibrated', () => {
@@ -252,7 +263,11 @@ describe('tuneThresholds', () => {
     function holdoutCase(
         calibratedProbability: number,
         label: 0 | 1,
-        overrides: Partial<{ safetyProbability: number; otherProbability: number; trueCauseSafetyCritical: boolean }> = {},
+        overrides: Partial<{
+            safetyProbability: number;
+            otherProbability: number;
+            trueCauseSafetyCritical: boolean;
+        }> = {},
     ) {
         return {
             calibratedProbability,
@@ -290,9 +305,7 @@ describe('tuneThresholds', () => {
 
     it('returns null when no candidate meets the bar', () => {
         const holdout = Array.from({ length: 10 }, () => holdoutCase(0.99, 0));
-        expect(
-            tuneThresholds(holdout, [{ tauFloor: 0.8, epsSafety: 0.01, otherEscalate: 0.25 }]),
-        ).toBeNull();
+        expect(tuneThresholds(holdout, [{ tauFloor: 0.8, epsSafety: 0.01, otherEscalate: 0.25 }])).toBeNull();
     });
 });
 

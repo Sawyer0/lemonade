@@ -47,6 +47,4 @@ export function resolveCalibrationConfig(raw: unknown): ResolvedCalibration {
 }
 
 /** The config the runtime reads: the generated file, resolved once. */
-export const CALIBRATION_CONFIG: ResolvedCalibration = resolveCalibrationConfig(
-    generatedJson as unknown,
-);
+export const CALIBRATION_CONFIG: ResolvedCalibration = resolveCalibrationConfig(generatedJson as unknown);

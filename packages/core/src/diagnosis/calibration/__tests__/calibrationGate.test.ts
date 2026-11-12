@@ -20,10 +20,7 @@ import {
 } from '../index';
 
 const FIT_CASES_PATH = path.resolve(process.cwd(), 'reports/calibration/fit-cases.json');
-const GENERATED_CONFIG_PATH = path.resolve(
-    process.cwd(),
-    'packages/core/src/config/calibration.generated.json',
-);
+const GENERATED_CONFIG_PATH = path.resolve(process.cwd(), 'packages/core/src/config/calibration.generated.json');
 
 describe('calibration CI gate', () => {
     it('passes on the committed fit: hash matches and holdout ECE is within 0.05', () => {
