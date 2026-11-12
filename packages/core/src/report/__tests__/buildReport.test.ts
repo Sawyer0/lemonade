@@ -1,40 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { appendGoldenLedgerEntry, buildGoldenCase } from '../../goal/__tests__/fixtures/goldenCase';
+import { buildGoldenCase } from '../../goal/__tests__/fixtures/goldenCase';
 import { buildCaseReport } from '../buildReport';
+import { buildClosedGoldenReport } from './goldenReport';
 import { CaseReportSchema, type CaseReport } from '../types';
 
 const GENERATED_AT = new Date('2026-11-11T12:00:00.000Z');
-
-/**
- * The closed golden case: the LM-25 misfire case, closed, with one captured
- * frame added so the report's evidence section has a frame to show.
- */
-function buildClosedGoldenReport(): {
-    report: CaseReport;
-    entryIds: Set<string>;
-    entryIdBySequence: Map<number, string>;
-} {
-    const { caseRecord, entries } = buildGoldenCase();
-    entries.push(
-        appendGoldenLedgerEntry(entries, 'frame_captured', {
-            media: {
-                storageUri: 'gs://lemonade-demo/frames/frame-001.jpg',
-                sha256: 'a'.repeat(64),
-            },
-            resolution: 'high',
-        }),
-    );
-    const report = buildCaseReport({
-        caseRecord: { ...caseRecord, status: 'closed' },
-        entries,
-        generatedAt: GENERATED_AT,
-    });
-    return {
-        report,
-        entryIds: new Set(entries.map((entry) => entry.id)),
-        entryIdBySequence: new Map(entries.map((entry) => [entry.sequence, entry.id])),
-    };
-}
 
 /**
  * The golden fixture mints fresh entry ids on every call, so a raw snapshot
