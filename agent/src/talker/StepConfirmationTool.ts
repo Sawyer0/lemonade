@@ -1,12 +1,6 @@
 import { llm } from '@livekit/agents';
 import { z } from 'zod';
-import type {
-    ConfirmationStore,
-    ICaseRepository,
-    ILogger,
-    PhysicalStep,
-    StepConfirmation,
-} from '@lemonade/core';
+import type { ConfirmationStore, ICaseRepository, ILogger, PhysicalStep, StepConfirmation } from '@lemonade/core';
 import type { SessionContext } from '../diagnosis/sessionContext';
 import type { PendingStep } from './ResultInjector';
 
@@ -52,9 +46,7 @@ export function createLedgerStepConfirmationRecorder(
                         vin: confirmation.vin,
                         instruction: step.instruction,
                         riskLevel: confirmation.riskLevel,
-                        ...(confirmation.confirmationText
-                            ? { confirmationText: confirmation.confirmationText }
-                            : {}),
+                        ...(confirmation.confirmationText ? { confirmationText: confirmation.confirmationText } : {}),
                     },
                 });
             } catch (error) {

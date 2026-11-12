@@ -48,7 +48,11 @@ describe('evaluatePreActionStep', () => {
 
     it('asks at high risk for a hazardous high-voltage step', () => {
         const decision = evaluatePreActionStep(
-            step({ safetyClass: 'hazardous', hazards: ['HIGH_VOLTAGE'], instruction: 'disconnect the orange HV cables' }),
+            step({
+                safetyClass: 'hazardous',
+                hazards: ['HIGH_VOLTAGE'],
+                instruction: 'disconnect the orange HV cables',
+            }),
             'live-session',
         );
         expect(decision.verdict).toBe('ask');
@@ -179,10 +183,12 @@ describe('stepIdFor', () => {
 
 describe('buildConfirmationPrompt', () => {
     it('names the risk and the instruction and requires the word confirmed', () => {
-        const prompt = buildConfirmationPrompt(
-            step({ instruction: 'disconnect the orange HV cables' }),
-            { verdict: 'ask', riskLevel: 'high', reason: 'r', requiresConfirmation: true },
-        );
+        const prompt = buildConfirmationPrompt(step({ instruction: 'disconnect the orange HV cables' }), {
+            verdict: 'ask',
+            riskLevel: 'high',
+            reason: 'r',
+            requiresConfirmation: true,
+        });
         expect(prompt).toBe(
             'Before you disconnect the orange HV cables, this is a high-risk step. ' +
                 'Say "confirmed" only when you are ready, and do not start until then.',

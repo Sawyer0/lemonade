@@ -21,10 +21,7 @@ import { describeVehicle, parseSessionContext } from './diagnosis/sessionContext
 import { JobClient } from './jobs/JobClient';
 import { createDiagnosticJobTools } from './talker/DiagnosticJobTools';
 import { ResultInjector } from './talker/ResultInjector';
-import {
-    createLedgerStepConfirmationRecorder,
-    createStepConfirmationTools,
-} from './talker/StepConfirmationTool';
+import { createLedgerStepConfirmationRecorder, createStepConfirmationTools } from './talker/StepConfirmationTool';
 import type { TalkerSession } from './talker/TalkerSession';
 import { masterTechInstructions } from './voice/instructions';
 import { createMasterTechTools } from './voice/tools';

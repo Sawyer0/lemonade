@@ -51,12 +51,14 @@ async function run<Args>(tool: { execute: (args: Args, ctx: never) => unknown },
     return tool.execute(args, undefined as never);
 }
 
-function setup(options: {
-    pending?: PendingStep;
-    sessionContext?: SessionContext;
-    recorder?: StepConfirmationRecorder;
-    release?: (stepId: string) => Promise<boolean>;
-} = {}) {
+function setup(
+    options: {
+        pending?: PendingStep;
+        sessionContext?: SessionContext;
+        recorder?: StepConfirmationRecorder;
+        release?: (stepId: string) => Promise<boolean>;
+    } = {},
+) {
     const held = new Map<string, PendingStep>();
     if (options.pending) held.set(options.pending.step.stepId, options.pending);
     const release = vi.fn(options.release ?? (async () => true));

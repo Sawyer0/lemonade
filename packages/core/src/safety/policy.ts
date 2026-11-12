@@ -107,7 +107,7 @@ export function evaluatePreActionStep(step: PhysicalStep, origin: StepOrigin): P
         const reason =
             category !== undefined
                 ? `This step is ${RISK_CATEGORY_COPY[category]} and requires the technician's spoken confirmation.`
-                : 'This step is hazardous and requires the technician\'s spoken confirmation.';
+                : "This step is hazardous and requires the technician's spoken confirmation.";
         if (!step.vin || step.vin.length !== 17) {
             return {
                 verdict: 'deny',
@@ -123,14 +123,14 @@ export function evaluatePreActionStep(step: PhysicalStep, origin: StepOrigin): P
             return {
                 verdict: 'deny',
                 riskLevel: 'high',
-                reason: 'This step needs caution and requires the technician\'s spoken confirmation. It is denied because there is no 17-character VIN to bind the confirmation to.',
+                reason: "This step needs caution and requires the technician's spoken confirmation. It is denied because there is no 17-character VIN to bind the confirmation to.",
                 requiresConfirmation: false,
             };
         }
         return {
             verdict: 'ask',
             riskLevel: 'elevated',
-            reason: 'This step needs caution and requires the technician\'s spoken confirmation.',
+            reason: "This step needs caution and requires the technician's spoken confirmation.",
             requiresConfirmation: true,
         };
     }
