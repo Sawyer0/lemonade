@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AppError } from '../errors/AppError';
 import { ErrorCode } from '../errors/codes';
-import type { LedgerEntry } from '../types/case';
+import { retractedEntryIds, type LedgerEntry } from '../types/case';
 import {
     BudgetSchema,
     CaseGoalSchema,
@@ -146,8 +146,8 @@ function isProofEntry(entry: LedgerEntry, admissible: ReadonlyArray<EvidenceSour
     return entry.source !== 'model' && admissible.includes(entry.source) && !ctx.correctedEntryIds.has(entry.id);
 }
 
-/** Ledger kinds that are audit records, never proof: a `ledger_has` check must never match them. */
-const NON_PROOF_ENTRY_KINDS: ReadonlySet<string> = new Set([
+/** Ledger kinds that are audit records, never proof: a `ledger_has` check must never match them. Exported for the LM-28 drift detector, which reuses the same proof rule for run progress. */
+export const NON_PROOF_ENTRY_KINDS: ReadonlySet<string> = new Set([
     'goal_set',
     'goal_amended',
     'criterion_met',
@@ -298,12 +298,7 @@ function evaluateJudge(criterion: Criterion, _check: JudgeCheck): CriterionEvalu
 
 export function evaluateGoal(goal: CaseGoal, ledger: ReadonlyArray<LedgerEntry>): GoalEvaluation {
     const ordered = [...ledger].sort((a, b) => a.sequence - b.sequence);
-    const correctedEntryIds = new Set<string>();
-    for (const entry of ordered) {
-        if (entry.type === 'correction' && entry.correctsEntryId !== undefined) {
-            correctedEntryIds.add(entry.correctsEntryId);
-        }
-    }
+    const correctedEntryIds = retractedEntryIds(ordered);
     const goalSetEntry = ordered.find((entry) => entry.type === 'goal_set' && entry.payload.goalId === goal.goalId);
     const ctx: EvaluationContext = {
         ordered,
@@ -459,6 +454,11 @@ export function amendGoal(current: CaseGoal, changes: GoalAmendment, confirmatio
               }
             : {}),
         version: current.version + 1,
+        // LM-28: a new goal version restarts the blocker streak. The old
+        // blocker was counted against the goal as it was; it must not carry
+        // over and hand a rewritten goal to the tech.
+        sameBlockerCount: 0,
+        lastBlocker: undefined,
     });
 }
 

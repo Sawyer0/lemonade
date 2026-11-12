@@ -62,6 +62,8 @@ export * from './types/evals';
 export * from './types/models';
 export * from './types/case';
 export * from './goal/goalSchema';
+export * from './goal/drift';
+export * from './goal/blocker';
 export * from './goal/evaluateGoal';
 export * from './diagnosis/priors/index';
 export * from './ports/IFixCountStore';

@@ -78,6 +78,37 @@ Proof rules:
 - Status changes do not bump the goal version; only tech-confirmed
   amendments do.
 
+## Drift and no-progress detection (LM-28)
+
+`detectDrift(goal, ledger, run)` in `goal/drift.ts` flags a reasoner run
+in exactly three cases, each only on a declared claim it can verify:
+
+- the leading hypothesis explains none of the complaint's symptoms
+  (from the hypothesis entry's `explainsSymptoms`, which names the
+  complaint symptoms it claims to cover — a hypothesis that never declares
+  coverage is unknown, not drift);
+- the proposed repair matches none of the committed cause's canonical
+  repair terms (LM-33 vocabulary — when either side names no known term,
+  the match is unknown and no flag is raised);
+- the reasoner targets a fault code unrelated to the complaint (codes
+  recorded in `dtc_read` / `obd_scan` ledger entries — a complaint with no
+  recorded codes cannot make a code unrelated).
+
+`assessReasonerRun` in `goal/blocker.ts` replays one run: it detects
+drift, judges progress, and records the blocker. A run made progress
+when it added at least one admissible ledger entry, reusing the LM-25
+proof rule — a non-audit, non-correction entry, from a non-model source,
+uncorrected, whose source some criterion admits as proof. A run that
+only cites its own computation therefore made no progress. A run is
+blocked when it drifts or adds no admissible entry. The same blocker
+three runs in a row moves the goal to `needs_tech` (code authority) and
+returns the one handoff, naming the missing evidence; a different
+blocker, a run that makes progress, or an amendment restarts the streak,
+and a goal already at `needs_tech` (or terminal) never hands off twice.
+The streak lives on the goal itself (`sameBlockerCount`, `lastBlocker`).
+Replay fixtures live in
+`packages/core/src/goal/__tests__/fixtures/driftCases.ts`.
+
 ## Ledger kinds and storage
 
 The goal ledger kinds are `goal_set` (carrying the full goal, so a replay

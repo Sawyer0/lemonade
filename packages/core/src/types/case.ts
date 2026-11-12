@@ -139,6 +139,12 @@ export type TestResultPayload = z.infer<typeof TestResultPayloadSchema>;
 export const HypothesisPayloadSchema = z.object({
     text: z.string().min(1),
     confidence: z.number().min(0).max(1),
+    // LM-28: the complaint symptoms this hypothesis claims to explain, as
+    // written in the goal's complaint. A hypothesis that names none of the
+    // complaint's symptoms is drifting off the goal. Absent means the
+    // coverage was never declared, which is unknown, not drift; an empty
+    // list is an explicit claim of no coverage.
+    explainsSymptoms: z.array(z.string().min(1)).optional(),
 });
 export type HypothesisPayload = z.infer<typeof HypothesisPayloadSchema>;
 
@@ -378,6 +384,21 @@ function stripUndefined(value: unknown): unknown {
         return cleaned;
     }
     return value;
+}
+
+/**
+ * Entry ids retracted by a later `correction`: a mistake is fixed by
+ * appending a correction, so the corrected entry no longer proves anything
+ * (LM-25) and no longer leads a hypothesis ranking (LM-28).
+ */
+export function retractedEntryIds(ledger: ReadonlyArray<LedgerEntry>): ReadonlySet<string> {
+    const retracted = new Set<string>();
+    for (const entry of ledger) {
+        if (entry.type === 'correction' && entry.correctsEntryId !== undefined) {
+            retracted.add(entry.correctsEntryId);
+        }
+    }
+    return retracted;
 }
 
 /**
