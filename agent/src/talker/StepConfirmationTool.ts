@@ -6,8 +6,8 @@ import type { PendingStep } from './ResultInjector';
 
 /** The held steps the tool releases: the injector owns them. */
 export interface PendingStepSource {
-    pendingStep(stepId: string): PendingStep | undefined;
-    releasePendingStep(stepId: string): Promise<boolean>;
+    pendingStep(stepId: string, jobId?: string): PendingStep | undefined;
+    releasePendingStep(stepId: string, jobId?: string): Promise<boolean>;
 }
 
 /** Durable record of a confirmation. The ledger is the proof it happened. */
@@ -82,13 +82,20 @@ export function createStepConfirmationTools(
                 'Record the technician\'s spoken confirmation of a held physical step. Call it only when the technician says "confirmed" (or the equivalent) for a step the injector is holding for confirmation — the step id comes from the silent context. The confirmation is logged in the case ledger, then the held step is spoken.',
             parameters: z.object({
                 step_id: z.string().describe('The id of the held step, e.g. "hv-isolation-test:step-2"'),
+                job_id: z
+                    .string()
+                    .optional()
+                    .describe(
+                        'The id of the job holding the step, when the silent context gives one. ' +
+                            'Two jobs can hold the same step id; the job id picks the right one.',
+                    ),
                 confirmation_text: z
                     .string()
                     .optional()
                     .describe('What the technician said, when the transcript captured it'),
             }),
-            execute: async ({ step_id, confirmation_text }) => {
-                const held = pending.pendingStep(step_id);
+            execute: async ({ step_id, job_id, confirmation_text }) => {
+                const held = pending.pendingStep(step_id, job_id);
                 if (!held) {
                     return (
                         `No physical step ${step_id} is waiting for confirmation. ` +
@@ -128,12 +135,12 @@ export function createStepConfirmationTools(
                     );
                 }
                 await confirmations.record(confirmation);
-                const released = await pending.releasePendingStep(step_id);
+                const released = await pending.releasePendingStep(step_id, job_id);
                 if (!released) {
                     logger.warn('Step confirmed and logged but not spoken yet', { stepId: step_id });
                     return (
                         `Step ${step_id} is confirmed and logged, but it could not be spoken yet. ` +
-                        'It will be spoken at the next idle gap. Do not start it until then.'
+                        'It stays held until the event replays and the hook re-evaluates it. Do not start it until then.'
                     );
                 }
                 return `Step ${step_id} is confirmed and logged. It is being spoken now.`;

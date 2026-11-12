@@ -312,6 +312,41 @@ describe('ResultInjector', () => {
         expect(injector.pendingStep('hv-isolation-test:step-2')).toBeUndefined();
     });
 
+    it('holds the same step id from two jobs independently', async () => {
+        const { session, calls } = fakeTalkerSession();
+        const jobs = fakeJobSource();
+        const store = new InMemoryConfirmationStore();
+        const injector = new ResultInjector(jobs.source, session, fakeLogger(), hookWith(store));
+        const JOB_ID_2 = '00000000-0000-0000-0000-000000000002';
+        injector.track(JOB_ID);
+        injector.track(JOB_ID_2);
+        const heldEvent = (jobId: string): DiagnosticJobEvent => ({
+            ...event(1, 'measure', 'Step 2 of 3. Disconnect the orange HV cables.', HV_STEP),
+            jobId,
+        });
+        jobs.emit(JOB_ID, heldEvent(JOB_ID));
+        jobs.emit(JOB_ID_2, heldEvent(JOB_ID_2));
+        await flush();
+        expect(injector.pendingStep('hv-isolation-test:step-2', JOB_ID)?.step.stepId).toBe('hv-isolation-test:step-2');
+        expect(injector.pendingStep('hv-isolation-test:step-2', JOB_ID_2)?.step.stepId).toBe(
+            'hv-isolation-test:step-2',
+        );
+        // Without a job id the lookup is ambiguous and resolves to nothing.
+        expect(injector.pendingStep('hv-isolation-test:step-2')).toBeUndefined();
+        await store.record({
+            stepId: 'hv-isolation-test:step-2',
+            vin: VIN,
+            riskLevel: 'high',
+            confirmedBy: 'voice',
+            confirmedAt: '2026-11-11T12:00:00.000Z',
+        });
+        // Releasing one job's step leaves the other's held.
+        expect(await injector.releasePendingStep('hv-isolation-test:step-2', JOB_ID)).toBe(true);
+        expect(injector.pendingStep('hv-isolation-test:step-2', JOB_ID)).toBeUndefined();
+        expect(injector.pendingStep('hv-isolation-test:step-2', JOB_ID_2)).toBeDefined();
+        expect(calls.map((call) => call.text)).toContain('Step 2 of 3. Disconnect the orange HV cables.');
+    });
+
     it('never speaks a step from a background job, and acks it as blocked', async () => {
         const { session, calls } = fakeTalkerSession();
         const jobs = fakeJobSource();
@@ -329,6 +364,7 @@ describe('ResultInjector', () => {
         expect(calls).toHaveLength(1);
         expect(calls[0].method).toBe('addSilentContext');
         expect(calls[0].text).toContain('blocked by the safety hook');
+        expect(calls[0].text).not.toContain(HV_STEP.instruction); // denied: the instruction never reaches the model
         expect(calls.map((call) => call.method)).not.toContain('speakAtIdle');
         expect(jobs.acks).toEqual([1]); // blocked, not lost: it must not replay
         expect(jobs.subscribed(JOB_ID)).toBe(false);
@@ -372,6 +408,7 @@ describe('ResultInjector', () => {
         jobs.emit(JOB_ID, event(1, 'measure', 'Step 2 of 3. Disconnect the orange HV cables.', HV_STEP));
         await flush();
         expect(calls.map((call) => call.method)).not.toContain('speakAtIdle');
+        expect(calls[0].text).not.toContain(HV_STEP.instruction); // hook failed: the instruction never reaches the model
         expect(jobs.acks).toEqual([1]);
     });
 

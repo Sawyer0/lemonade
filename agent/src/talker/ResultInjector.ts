@@ -26,6 +26,11 @@ const MAX_FINDING_ATTEMPTS = 3;
 /** Delivery acks are retried this many times, then only logged. */
 const ACK_ATTEMPTS = 3;
 
+/** Held steps are keyed by job + step: two jobs can hold the same step id. */
+function pendingStepKey(jobId: string, stepId: string): string {
+    return `${jobId}::${stepId}`;
+}
+
 /** Base delay between ack retries; doubled per attempt. */
 const ACK_RETRY_DELAY_MS = 200;
 
@@ -116,9 +121,16 @@ export class ResultInjector {
         for (const job of jobs) this.track(job.id, job.ackedSeq);
     }
 
-    /** A step held for spoken confirmation, for the confirmation tool to check. */
-    pendingStep(stepId: string): PendingStep | undefined {
-        return this.pendingSteps.get(stepId);
+    /**
+     * A step held for spoken confirmation, for the confirmation tool to
+     * check. With a job id, the exact held step resolves. Without one,
+     * only an unambiguous single match resolves: two jobs holding the
+     * same step id must never release each other's step.
+     */
+    pendingStep(stepId: string, jobId?: string): PendingStep | undefined {
+        if (jobId !== undefined) return this.pendingSteps.get(pendingStepKey(jobId, stepId));
+        const matches = [...this.pendingSteps.values()].filter((pending) => pending.step.stepId === stepId);
+        return matches.length === 1 ? matches[0] : undefined;
     }
 
     /**
@@ -127,8 +139,8 @@ export class ResultInjector {
      * the step stays pending, unacked, so a resume replays the event and
      * the hook re-evaluates it (the logged confirmation then allows it).
      */
-    async releasePendingStep(stepId: string): Promise<boolean> {
-        const pending = this.pendingSteps.get(stepId);
+    async releasePendingStep(stepId: string, jobId?: string): Promise<boolean> {
+        const pending = this.pendingStep(stepId, jobId);
         if (!pending || this.stopped) return false;
         const delivered = await this.deliverAtIdle(pending.jobId, pending.event.text);
         if (!delivered) {
@@ -139,7 +151,7 @@ export class ResultInjector {
             });
             return false;
         }
-        this.pendingSteps.delete(stepId);
+        this.pendingSteps.delete(pendingStepKey(pending.jobId, pending.step.stepId));
         pending.state.deliveredSeq = pending.event.seq;
         this.acknowledge(pending.jobId, pending.event.seq);
         if (TERMINAL_JOB_EVENT_KINDS.has(pending.event.kind)) this.untrack(pending.jobId);
@@ -232,13 +244,13 @@ export class ResultInjector {
             await this.session.addSilentContext(
                 `[Diagnostic update. Context only, do not answer this directly.]\n` +
                     `A physical step was blocked by the safety hook and must never be spoken or performed: ` +
-                    `step ${step.stepId}: ${step.instruction}. Reason: ${decision.reason}. ` +
+                    `step ${step.stepId}. Reason: ${decision.reason}. ` +
                     `Tell the technician the step is blocked and why, without describing how to perform it.`,
             );
             return true;
         }
         if (decision.verdict === 'ask') {
-            this.pendingSteps.set(step.stepId, { step, decision, jobId, event, state });
+            this.pendingSteps.set(pendingStepKey(jobId, step.stepId), { step, decision, jobId, event, state });
             const prompt = buildConfirmationPrompt(step, decision);
             const delivered = await this.deliverAtIdle(jobId, prompt);
             if (!delivered) {
@@ -253,7 +265,7 @@ export class ResultInjector {
                 `[Diagnostic update. Context only, do not answer this directly.]\n` +
                     `A physical step is held for spoken confirmation and must NOT be spoken yet: ` +
                     `step ${step.stepId}: ${step.instruction}. ${decision.reason} ` +
-                    `When the technician says confirmed, call confirm_physical_step with step_id "${step.stepId}". ` +
+                    `When the technician says confirmed, call confirm_physical_step with step_id "${step.stepId}" and job_id "${jobId}". ` +
                     `Do not describe the step or tell the technician to start it until the confirmation is recorded.`,
             );
             // Held, not delivered: no ack, no untrack. A resume replays the

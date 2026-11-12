@@ -199,7 +199,7 @@ export async function authorizeStep(
     const decision = evaluatePreActionStep(step, origin);
     if (decision.verdict !== 'ask' || !step.vin) return decision;
     const confirmation = await confirmations.find(step.stepId, step.vin);
-    if (!confirmation) return decision;
+    if (!confirmation || !confirmationMatches(confirmation, step.stepId, step.vin)) return decision;
     return {
         verdict: 'allow',
         riskLevel: decision.riskLevel,

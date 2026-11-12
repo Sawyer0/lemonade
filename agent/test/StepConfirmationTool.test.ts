@@ -100,7 +100,7 @@ describe('confirm_physical_step', () => {
             { caseId: CASE_ID, userId: 'user-1' },
         );
         expect(await confirmations.find('hv-isolation-test:step-2', VIN)).toBeDefined();
-        expect(release).toHaveBeenCalledWith('hv-isolation-test:step-2');
+        expect(release).toHaveBeenCalledWith('hv-isolation-test:step-2', undefined);
         const order = [
             recorderMock.mock.invocationCallOrder[0],
             recordSpy.mock.invocationCallOrder[0],
@@ -108,6 +108,17 @@ describe('confirm_physical_step', () => {
         ];
         expect(order[0]).toBeLessThan(order[1]);
         expect(order[1]).toBeLessThan(order[2]);
+    });
+
+    it('passes the job id through, so two jobs can hold the same step id', async () => {
+        const { release, tools } = setup({ pending: pendingStep() });
+        const result = await run(tools.confirm_physical_step, {
+            step_id: 'hv-isolation-test:step-2',
+            job_id: '00000000-0000-0000-0000-000000000001',
+            confirmation_text: 'confirmed',
+        });
+        expect(result).toContain('confirmed and logged');
+        expect(release).toHaveBeenCalledWith('hv-isolation-test:step-2', '00000000-0000-0000-0000-000000000001');
     });
 
     it('refuses when no step is pending, and records nothing', async () => {
@@ -170,6 +181,7 @@ describe('confirm_physical_step', () => {
         });
         const result = await run(tools.confirm_physical_step, { step_id: 'hv-isolation-test:step-2' });
         expect(result).toContain('confirmed and logged, but it could not be spoken yet');
+        expect(result).toContain('stays held until the event replays');
         expect(await confirmations.find('hv-isolation-test:step-2', VIN)).toBeDefined();
     });
 });

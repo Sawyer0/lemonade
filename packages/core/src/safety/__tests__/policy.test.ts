@@ -7,6 +7,7 @@ import {
     evaluatePreActionStep,
     riskCategoryForHazard,
     stepIdFor,
+    type ConfirmationStore,
     type PhysicalStep,
     type StepConfirmation,
 } from '../policy';
@@ -153,6 +154,16 @@ describe('authorizeStep', () => {
     it('does not allow a step on a confirmation for a different VIN', async () => {
         const store = new InMemoryConfirmationStore();
         await store.record(confirmation({ vin: '1HGCM82633A004353' }));
+        const decision = await authorizeStep(step({ hazards: ['HIGH_VOLTAGE'] }), 'live-session', store);
+        expect(decision.verdict).toBe('ask');
+    });
+
+    it('does not allow a step when the store returns a confirmation for another step', async () => {
+        const mismatched = confirmation({ stepId: 'other-test:step-1' });
+        const store: ConfirmationStore = {
+            record: async () => undefined,
+            find: async () => mismatched,
+        };
         const decision = await authorizeStep(step({ hazards: ['HIGH_VOLTAGE'] }), 'live-session', store);
         expect(decision.verdict).toBe('ask');
     });
