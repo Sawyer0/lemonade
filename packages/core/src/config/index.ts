@@ -129,6 +129,46 @@ export const SHARED_CONFIG = {
         SMOOTHING_ALPHA: 1,
     },
 
+    // Decision-theoretic diagnostic loop (LM-04): ranked differential,
+    // cost-based next test, stop/escalate. Every threshold here is a
+    // default the loop reads at run time; LM-37 owns calibrating the
+    // commit threshold against LemonadeBench, LM-29 owns the per-case
+    // budget the shop sets, LM-35 owns the escalation workflow these
+    // rules hand off to. Until those land, the defaults below govern.
+    DIAGNOSTIC_LOOP: {
+        // Mass reserved for the explicit OTHER bucket ("none of the listed
+        // causes") when a differential is built, before LLM proposals.
+        OTHER_FLOOR: 0.05,
+        // Probability each LLM-proposed hypothesis gets. The LLM names a
+        // cause; it never sets a number — every proposal gets this same
+        // floor, taken proportionally from the prior mass.
+        LLM_PROPOSAL_PRIOR: 0.02,
+        // Multiplier on a prior when a matching TSB exists for it.
+        TSB_BOOST: 1.5,
+        // Commit when the top hypothesis clears this. Calibrated by LM-37.
+        COMMIT_PROBABILITY_THRESHOLD: 0.85,
+        // Escalate when OTHER exceeds this: the listed causes probably do
+        // not include the real one.
+        OTHER_ESCALATE_THRESHOLD: 0.25,
+        // A safety-critical fault (brakes, steering, airbags, HV,
+        // hydraulics) may not be released while its probability is above
+        // this.
+        SAFETY_RELEASE_MAX_PROBABILITY: 0.01,
+        // A test must beat this hit rate to count as a challenger: a
+        // negative result has to be able to disprove the leader.
+        CHALLENGER_MIN_HIT_RATE: 0.8,
+        // Hard cap on workup rounds per run; hitting it escalates.
+        MAX_ROUNDS: 10,
+        // Shop labor rate, dollars per minute ($120/hour).
+        LABOR_RATE_USD_PER_MINUTE: 2,
+        // Downtime cost of the vehicle being out of service, per minute.
+        DOWNTIME_USD_PER_MINUTE: 1,
+        // Risk priced into a test by its safety class, dollars per run.
+        RISK_USD_BY_SAFETY_CLASS: { routine: 0, caution: 25, hazardous: 150 },
+        // Default per-case spend cap when the shop sets none (LM-29).
+        DEFAULT_BUDGET_USD: 500,
+    },
+
     THINKING_LEVEL: 'high' as 'high' | 'low', // 'high' for depth/default, 'low' for speed
 
     // Google Cloud

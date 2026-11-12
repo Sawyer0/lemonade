@@ -11,6 +11,10 @@ import type { AIAnalysis, SafetyRecall, VectorDocument } from '../types/models';
 import type { ParsedDtc } from '../dtc/types';
 import type { VerificationRequest, VerificationResponse, SearchRequest, SearchResponse } from '../types/verification';
 import type { LocalTriageResult } from '../types/localPerception';
+import type { TestDefinition } from '../diagnosis/tests/testSchema';
+import type { DiagnosticLoopInput, DiagnosticLoopState, TestResultInput } from '../diagnosis/loop/types';
+import { loopIsTerminal } from '../diagnosis/loop/loop';
+import { enterWorkup, applyWorkupResult } from '../diagnosis/loop/workup';
 
 export interface VisionInput {
     service: IMultimodalUploadAnalyzer;
@@ -71,6 +75,10 @@ export interface MechanicInput {
     // Recorded scan data for the reasoner loop (LM-16). Without it the
     // `investigating` state's reasoner region completes immediately.
     scanData?: ReasonerScanData;
+    // Decision-theoretic workup (LM-04): priors, the test library, and
+    // results already recorded. Without it the `workup` state completes
+    // immediately and the diagnosis runs as before.
+    diagnosticLoopInput?: DiagnosticLoopInput;
 }
 
 export interface MechanicContext extends MechanicInput {
@@ -95,10 +103,16 @@ export interface MechanicContext extends MechanicInput {
     // reasoner region ran (scan data present and a runner bound). Absent
     // when the region completed without running.
     reasonerResult?: ReasonerRegionResult;
+    // LM-04: the workup loop's state — ranked differential, next test,
+    // challenger, decision — exposed to the live agent through the shared
+    // case record, and the test definitions it plans against (plain data,
+    // so a stored snapshot round-trips).
+    diagnosticLoop?: DiagnosticLoopState | null;
+    loopTestDefinitions?: TestDefinition[];
 }
 
 /** Invoking states a crash resume can re-enter (LM-17). */
-export type ResumeTarget = 'gathering_context' | 'intuition' | 'investigating' | 'vision_verifying';
+export type ResumeTarget = 'gathering_context' | 'intuition' | 'workup' | 'investigating' | 'vision_verifying';
 
 export interface MechanicServices {
     vision: IMultimodalUploadAnalyzer;
@@ -122,6 +136,7 @@ export type MechanicEvent =
           dtcCodes?: ParsedDtc[];
           caseId?: string;
           scanData?: ReasonerScanData;
+          diagnosticLoopInput?: DiagnosticLoopInput;
       }
     | { type: 'UPDATE_SERVICES'; services: MechanicServices }
     // LM-17 checkpoint steering: appends one piece of queued evidence to the
@@ -137,7 +152,18 @@ export type MechanicEvent =
     // XState v5 and would not restart the invocation, so the round trip
     // through `resuming` is what forces the re-entry. Idle and synthesizing
     // ignore it.
-    | { type: 'RESUME' };
+    | { type: 'RESUME' }
+    // LM-04 workup: a recorded test result re-ranks the differential and
+    // re-plans the next test. Handled in the `workup` state; sent anywhere
+    // else it is ignored. END_WORKUP leaves the workup for repair
+    // guidance with the current plan in context.
+    | {
+          type: 'RECORD_TEST_RESULT';
+          testId: string;
+          outcome: TestResultInput['outcome'];
+          source?: TestResultInput['source'];
+      }
+    | { type: 'END_WORKUP' };
 
 export interface IntuitionInput {
     userQuery: string;
@@ -157,6 +183,14 @@ export interface ReasonerInput {
     sessionId: string;
     userId: string;
     scanData: ReasonerScanData;
+}
+
+/** Input to the `prepareDiagnosticLoop` actor (LM-04). */
+export interface PrepareLoopInput {
+    vehicleContext: Record<string, unknown>;
+    dtcCodes: ParsedDtc[];
+    userId: string;
+    sessionId: string;
 }
 
 export const mechanicMachine = setup({
@@ -217,6 +251,11 @@ export const mechanicMachine = setup({
             steps: [],
             citations: [],
         })),
+        // LM-04: the workup's loop input — priors plus the test library.
+        // The default resolves null, so without a bound preparer the
+        // workup completes immediately and the diagnosis runs as before.
+        // The service provides the real actor via createMechanicActors.
+        prepareDiagnosticLoop: fromPromise<DiagnosticLoopInput | null, PrepareLoopInput>(async () => null),
     },
 }).createMachine({
     id: 'mechanic',
@@ -234,6 +273,9 @@ export const mechanicMachine = setup({
         queuedEvidence: input.queuedEvidence ?? [],
         caseId: input.caseId,
         scanData: input.scanData,
+        diagnosticLoopInput: input.diagnosticLoopInput,
+        diagnosticLoop: null,
+        loopTestDefinitions: [],
         nhtsaResults: [],
         embeddingInfo: [],
         vehicleHistory: [],
@@ -265,7 +307,7 @@ export const mechanicMachine = setup({
             on: {
                 DIAGNOSE: {
                     target: 'gathering_context',
-                    actions: assign(({ event }: { event: MechanicEvent }) => {
+                    actions: assign(({ event, context }) => {
                         if (event.type === 'DIAGNOSE') {
                             return {
                                 sessionId: event.sessionId,
@@ -278,6 +320,7 @@ export const mechanicMachine = setup({
                                 dtcCodes: event.dtcCodes ?? [],
                                 caseId: event.caseId,
                                 scanData: event.scanData,
+                                diagnosticLoopInput: event.diagnosticLoopInput ?? context.diagnosticLoopInput,
                             };
                         }
                         return {};
@@ -336,7 +379,7 @@ export const mechanicMachine = setup({
                     queuedEvidence: context.queuedEvidence,
                 }),
                 onDone: {
-                    target: 'investigating',
+                    target: 'workup',
                     actions: assign({
                         // We store the intuition result (AIAnalysis format) in visualAnalysis for now,
                         // or we could add a specific 'intuitionResult' to context.
@@ -347,6 +390,93 @@ export const mechanicMachine = setup({
                 onError: {
                     target: 'synthesizing', // Fail safe
                     actions: assign({ error: ({ event }) => String(event.error) }),
+                },
+            },
+        },
+        workup: {
+            description:
+                'LM-04: decision-theoretic workup — ranked differential, cost-based next test, stop/escalate. Runs the loop over the recorded results, then either waits for the next result (interactive) or moves on to repair guidance with the plan in context.',
+            initial: 'checking',
+            // LM-17: exit to the transient `resuming` state, which re-enters
+            // this state and restarts the workup from the loop state in context.
+            on: { RESUME: { target: 'resuming', actions: assign({ resumeTarget: 'workup' as const }) } },
+            states: {
+                checking: {
+                    always: [
+                        {
+                            target: 'planning',
+                            guard: ({ context }) => Boolean(context.diagnosticLoop ?? context.diagnosticLoopInput),
+                        },
+                        { target: 'preparing' },
+                    ],
+                },
+                preparing: {
+                    invoke: {
+                        src: 'prepareDiagnosticLoop',
+                        input: ({ context }: { context: MechanicContext }) => ({
+                            vehicleContext: context.vehicleContext,
+                            dtcCodes: context.dtcCodes,
+                            userId: context.userId,
+                            sessionId: context.sessionId,
+                        }),
+                        onDone: {
+                            target: 'planning',
+                            actions: assign({
+                                diagnosticLoopInput: ({ event, context }) =>
+                                    event.output ?? context.diagnosticLoopInput,
+                            }),
+                        },
+                        onError: {
+                            target: 'planning',
+                            actions: [assign({ error: ({ event }) => String(event.error) })],
+                        },
+                    },
+                },
+                planning: {
+                    entry: assign(({ context }) => {
+                        const entry = enterWorkup(
+                            context.diagnosticLoop ?? null,
+                            context.loopTestDefinitions ?? [],
+                            context.diagnosticLoopInput,
+                        );
+                        return { diagnosticLoop: entry.loop, loopTestDefinitions: entry.definitions };
+                    }),
+                    always: [
+                        {
+                            target: '#mechanic.investigating',
+                            guard: ({ context }) =>
+                                !context.diagnosticLoop ||
+                                !context.diagnosticLoopInput?.interactive ||
+                                loopIsTerminal(context.diagnosticLoop),
+                        },
+                        { target: 'awaiting_result' },
+                    ],
+                },
+                awaiting_result: {
+                    on: {
+                        RECORD_TEST_RESULT: {
+                            target: 'planning',
+                            actions: assign(({ context, event }) => {
+                                if (event.type !== 'RECORD_TEST_RESULT' || !context.diagnosticLoop) {
+                                    return {};
+                                }
+                                const applied = applyWorkupResult(
+                                    context.diagnosticLoop,
+                                    context.loopTestDefinitions ?? [],
+                                    {
+                                        testId: event.testId,
+                                        outcome: event.outcome,
+                                        source: event.source ?? 'tech',
+                                    },
+                                );
+                                return {
+                                    diagnosticLoop: applied.state,
+                                    ...(applied.error ? { error: applied.error } : {}),
+                                };
+                            }),
+                        },
+                        END_WORKUP: '#mechanic.investigating',
+                    },
                 },
             },
         },
@@ -522,6 +652,7 @@ export const mechanicMachine = setup({
             always: [
                 { target: 'gathering_context', guard: ({ context }) => context.resumeTarget === 'gathering_context' },
                 { target: 'intuition', guard: ({ context }) => context.resumeTarget === 'intuition' },
+                { target: 'workup', guard: ({ context }) => context.resumeTarget === 'workup' },
                 { target: 'investigating', guard: ({ context }) => context.resumeTarget === 'investigating' },
                 { target: 'vision_verifying', guard: ({ context }) => context.resumeTarget === 'vision_verifying' },
                 { target: 'gathering_context' },

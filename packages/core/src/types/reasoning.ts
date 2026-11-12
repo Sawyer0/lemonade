@@ -1,6 +1,7 @@
 import { LocalTriageResult } from './localPerception';
 import type { ParsedDtc } from '../dtc/types';
 import type { ReasonerScanData } from '../reasoning/types';
+import type { DiagnosticLoopInput } from '../diagnosis/loop/types';
 
 export interface ReasoningInput {
     userQuery: string;
@@ -30,4 +31,11 @@ export interface ReasoningInput {
      * completes immediately and the diagnosis runs as before.
      */
     scanData?: ReasonerScanData;
+    /**
+     * Decision-theoretic workup (LM-04): priors, the test library, and
+     * results already recorded. Without it the `workup` state asks the
+     * prepare actor, and without a bound preparer it completes
+     * immediately and the diagnosis runs as before.
+     */
+    diagnosticLoopInput?: DiagnosticLoopInput;
 }
