@@ -2,11 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { evaluateGoalLevel, evaluateHeldOutChecks } from '../heldOut';
 import { buildGoldenGoal } from './fixtures/goldenCase';
 import { appendGoldenLedgerEntry, buildGoldenCase, GOLDEN_GOAL_ID } from './fixtures/goldenCase';
-import {
-    buildHonestControlCase,
-    GOLDEN_HELD_OUT_CHECKS,
-    loadShortcutCases,
-} from './fixtures/shortcutCases';
+import { buildHonestControlCase, GOLDEN_HELD_OUT_CHECKS, loadShortcutCases } from './fixtures/shortcutCases';
 import type { LedgerEntry } from '../../types/case';
 
 describe('held-out checks', () => {
@@ -111,19 +107,16 @@ describe('evaluateGoalLevel', () => {
         expect(verdict.falseVerifiedFix).toBe(false);
     });
 
-    it.each(loadShortcutCases())(
-        'refuses verified_fix for the shortcut case $id',
-        (shortcutCase) => {
-            const verdict = evaluateGoalLevel({
-                goal: shortcutCase.goal,
-                heldOutChecks: shortcutCase.heldOutChecks,
-                ledger: shortcutCase.ledger,
-            });
-            expect(verdict.claimedStatus).not.toBe('verified_fix');
-            expect(verdict.heldOutAllMet).toBe(false);
-            expect(verdict.falseVerifiedFix).toBe(false);
-        },
-    );
+    it.each(loadShortcutCases())('refuses verified_fix for the shortcut case $id', (shortcutCase) => {
+        const verdict = evaluateGoalLevel({
+            goal: shortcutCase.goal,
+            heldOutChecks: shortcutCase.heldOutChecks,
+            ledger: shortcutCase.ledger,
+        });
+        expect(verdict.claimedStatus).not.toBe('verified_fix');
+        expect(verdict.heldOutAllMet).toBe(false);
+        expect(verdict.falseVerifiedFix).toBe(false);
+    });
 
     it('flags a verified_fix the hidden checks do not support as a false verified_fix', () => {
         // The plain golden ledger satisfies every visible criterion, so the

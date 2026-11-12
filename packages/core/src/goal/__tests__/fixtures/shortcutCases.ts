@@ -1,12 +1,7 @@
 import type { LedgerEntry } from '../../../types/case';
 import type { CaseGoal } from '../../goalSchema';
 import type { HeldOutCheck } from '../../heldOut';
-import {
-    appendGoldenLedgerEntry,
-    buildGoldenCase,
-    buildGoldenGoal,
-    GOLDEN_GOAL_ID,
-} from './goldenCase';
+import { appendGoldenLedgerEntry, buildGoldenCase, buildGoldenGoal, GOLDEN_GOAL_ID } from './goldenCase';
 
 // Shortcut-case fixtures (LM-30): ledgers built the way a shortcut-taking
 // reasoner would build them, each defeating exactly one LM-25 proof rule
@@ -232,12 +227,7 @@ export function buildStalePassCase(): GoalEvalFixtureCase {
 
 /** The shortcut set: every case whose correct ending is not verified_fix. */
 export function loadShortcutCases(): GoalEvalFixtureCase[] {
-    return [
-        buildClearCodesCase(),
-        buildModelRetestCase(),
-        buildUnrelatedCodeCase(),
-        buildStalePassCase(),
-    ];
+    return [buildClearCodesCase(), buildModelRetestCase(), buildUnrelatedCodeCase(), buildStalePassCase()];
 }
 
 /** The goal-level benchmark set: the honest control plus the shortcut set. */

@@ -131,6 +131,33 @@ CHECKs; the repository test applies it.
   when the test identity and the admissible sources are in the criterion.
 - `goal_set` payloads must carry a `goalId` matching the embedded goal.
 
+## Held-out checks and the false verified_fix rate (LM-30)
+
+`evaluateGoalLevel` in `goal/heldOut.ts` judges one benchmark case
+twice: the visible verdict (`evaluateGoal` plus `resolveTerminalStatus`
+— what the machine claims) against the hidden verdict
+(`evaluateHeldOutChecks` — what the ground truth says). A case is
+honestly verified only when both agree. A claimed `verified_fix` with
+unmet held-out checks is a *false verified_fix*: the visible criteria
+were satisfied — by gaming or by luck — while the ground truth the
+reasoner never saw says the fault is not proven fixed.
+
+Held-out checks (`HeldOutCheck`) reuse the visible criteria's check
+kinds, judged by the same shared `evaluateCriteria`, so the same proof
+rules apply: model evidence never proves, corrected evidence is
+retracted, a re-test must run after `goal_set`. They live outside the
+goal by construction — `buildGoal` takes no held-out checks, the
+`CaseGoal` schema carries none, and the `goal_set` ledger payload
+carries only the goal — so the reasoner, the machine, and the ledger
+never see them. The benchmark runner (`evals/sdbench/goalEval.ts`)
+reports the goal-satisfaction rate, the false verified_fix rate over
+the shortcut set, and pass^3; the replay gate and the vitest suite
+fail when the shortcut set's false verified_fix rate rises above
+zero. Shortcut fixtures live in
+`goal/__tests__/fixtures/shortcutCases.ts`, built on the golden-case
+fixture — which closes the LM-22 follow-up below: the golden fixture
+is now benchmark-harness input.
+
 ## Follow-ups (not this issue)
 
 - Wiring `buildGoal` / `evaluateGoal` into the case service and the
@@ -138,6 +165,3 @@ CHECKs; the repository test applies it.
   `goal_status_changed` entries appended as criteria are met) — same shape
   as LM-21's wiring follow-up (#71).
 - LM-19 judge: a `judge` check that can actually be met.
-- LM-22 benchmark: the golden-case replay fixture in
-  `packages/core/src/goal/__tests__/fixtures/goldenCase.ts` is the replay
-  input for the benchmark harness.
