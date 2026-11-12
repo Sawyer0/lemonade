@@ -8,6 +8,7 @@
 // test rate, or a recorded result, and each update leaves a trace entry so
 // the number can be recomputed from the ledger.
 import { z } from 'zod';
+import { BudgetSchema } from '../../goal/goalSchema';
 import type { DisassemblyState, TestDefinition, TestStep } from '../tests/testSchema';
 
 export const HypothesisSourceSchema = z.enum(['field-fix-prior', 'llm-proposed', 'knowledge-graph']);
@@ -141,6 +142,16 @@ export const DiagnosticLoopStateSchema = z
         history: z.array(LoopTraceEntrySchema),
         decision: LoopDecisionSchema.nullable(),
         repairedHypothesisId: z.string().min(1).optional(),
+        // LM-29: per-case spend against the goal's Budget, for the
+        // benchmark to report (LM-22) and the stop rule to enforce.
+        // `techAsksUsed` counts recorded 'ask'-tier tests; each one is a
+        // question the tech answered, charged against maxTechAsks.
+        techAsksUsed: z.number().int().min(0).default(0),
+        // Labor minutes of recorded tests, charged against maxTestCostMinutes.
+        spentTestMinutes: z.number().int().min(0).default(0),
+        // The goal's Budget being enforced, when the caller bound one.
+        // Absent, the loop behaves as before: no ask or minute cap.
+        budget: BudgetSchema.optional(),
     })
     .strict();
 export type DiagnosticLoopState = z.infer<typeof DiagnosticLoopStateSchema>;
@@ -160,6 +171,10 @@ export const DiagnosticLoopInputSchema = z
         testDefinitions: z.array(z.custom<TestDefinition>()),
         recordedResults: z.array(TestResultInputSchema).optional(),
         budgetUsd: z.number().min(0).optional(),
+        // LM-29: the case goal's Budget, when the caller bound one. The
+        // loop enforces its maxTechAsks and maxTestCostMinutes; the other
+        // fields are enforced by the harness through checkCaseBudget.
+        budget: BudgetSchema.optional(),
         disassemblyState: z.custom<DisassemblyState>().optional(),
         satisfiedPreconditionIds: z.array(z.string().min(1)).optional(),
         safetyCriticalHypothesisIds: z.array(z.string().min(1)).optional(),

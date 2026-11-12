@@ -36,11 +36,15 @@ export function plannerStateFrom(state: DiagnosticLoopState): {
     disassemblyState: DiagnosticLoopState['disassemblyState'];
     satisfiedPreconditionIds: ReadonlySet<string>;
     completedTestIds: ReadonlySet<string>;
+    techAsksRemaining?: number;
 } {
     return {
         disassemblyState: state.disassemblyState,
         satisfiedPreconditionIds: new Set(state.satisfiedPreconditionIds),
         completedTestIds: new Set(state.completedTestIds),
+        // LM-29: the ask budget the planner enforces. No bound budget
+        // means no cap, so the key stays absent.
+        ...(state.budget ? { techAsksRemaining: state.budget.maxTechAsks - state.techAsksUsed } : {}),
     };
 }
 
@@ -58,6 +62,9 @@ export function createLoop(input: DiagnosticLoopInput): DiagnosticLoopState {
         completedTestIds: [],
         history: [],
         decision: null,
+        techAsksUsed: 0,
+        spentTestMinutes: 0,
+        budget: input.budget,
     };
     for (const result of input.recordedResults ?? []) {
         state = applyTestResult(state, library, result);
@@ -81,11 +88,17 @@ export function applyTestResult(
     }
     const { differential, trace } = bayesUpdate(state.differential, test, result, libraryRates(library));
     const spent = state.spentUsd + testCostUsd(test, library).totalUsd;
+    // LM-29: a recorded result charges the test. An 'ask' test charges one
+    // tech ask as well as its labor minutes; every test charges minutes.
+    const spentTestMinutes = state.spentTestMinutes + test.cost.laborMinutes;
+    const techAsksUsed = state.techAsksUsed + (test.costTier === 'ask' ? 1 : 0);
     return planLoop(
         {
             ...state,
             differential,
             spentUsd: spent,
+            techAsksUsed,
+            spentTestMinutes,
             completedTestIds: [...state.completedTestIds, test.id],
             history: [...state.history, ...trace],
         },
@@ -136,6 +149,13 @@ export function renderLoopSummary(state: DiagnosticLoopState): string {
     lines.push(`- OTHER (unlisted cause): ${(state.differential.otherProbability * 100).toFixed(1)}%`);
     lines.push(
         `Round ${state.differential.round}, spent $${state.spentUsd.toFixed(0)} of $${state.budgetUsd.toFixed(0)}.`,
+    );
+    // LM-29: the per-case counters the benchmark reports (LM-22 reads them
+    // from the loop state; the line here is the human-readable form).
+    lines.push(
+        state.budget
+            ? `Tech asks used ${state.techAsksUsed} of ${state.budget.maxTechAsks}; test minutes spent ${state.spentTestMinutes} of ${state.budget.maxTestCostMinutes}.`
+            : `Tech asks used ${state.techAsksUsed}; test minutes spent ${state.spentTestMinutes}.`,
     );
     const decision: LoopDecision | null = state.decision;
     if (decision?.kind === 'next-test') {
