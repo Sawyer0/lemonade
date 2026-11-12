@@ -117,7 +117,12 @@ export function findChallenger(
             continue;
         }
         const cost = testCostUsd(test, library);
-        disproofs.push({ test, cost, discrimination: discriminationProbability(differential, test, effectiveRates), gain: 0 });
+        disproofs.push({
+            test,
+            cost,
+            discrimination: discriminationProbability(differential, test, effectiveRates),
+            gain: 0,
+        });
     }
     disproofs.sort(
         (a, b) =>
@@ -151,15 +156,19 @@ export function planNextTest(
         .rankCandidates(ids, state)
         .filter((candidate) => !state.completedTestIds.has(candidate.test.id))
         .map((candidate) => {
-        const cost = testCostUsd(candidate.test, library);
-        return {
-            test: candidate.test,
-            cost,
-            discrimination: discriminationProbability(differential, candidate.test, effectiveRates),
-            gain: expectedInformationGain(differential, candidate.test, effectiveRates),
-        };
-    });
+            const cost = testCostUsd(candidate.test, library);
+            return {
+                test: candidate.test,
+                cost,
+                discrimination: discriminationProbability(differential, candidate.test, effectiveRates),
+                gain: expectedInformationGain(differential, candidate.test, effectiveRates),
+            };
+        });
     const discriminating = ranked.filter((plan) => plan.discrimination > 0);
+    // Gains below this are float noise from the entropy sums, not a real
+    // difference: treating them as zero keeps the fallback order
+    // deterministic (cheapest tier first) instead of noise-driven.
+    const gainValue = (plan: RankedPlan): number => (plan.gain < 1e-9 ? 0 : plan.gain);
     const ordered =
         discriminating.length > 0
             ? [...discriminating].sort(
@@ -171,7 +180,7 @@ export function planNextTest(
               )
             : [...ranked].sort(
                   (a, b) =>
-                      b.gain / Math.max(1, b.cost.totalUsd) - a.gain / Math.max(1, a.cost.totalUsd) ||
+                      gainValue(b) / Math.max(1, b.cost.totalUsd) - gainValue(a) / Math.max(1, a.cost.totalUsd) ||
                       COST_TIER_RANK[a.test.costTier] - COST_TIER_RANK[b.test.costTier] ||
                       a.test.id.localeCompare(b.test.id),
               );

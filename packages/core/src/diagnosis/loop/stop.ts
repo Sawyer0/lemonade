@@ -94,8 +94,7 @@ export function evaluateStop(state: DiagnosticLoopState, context: StopContext): 
             ? context.plan.nextTest.cost.totalUsd / Math.max(context.plan.nextTest.discriminationProbability, 0.01)
             : Number.POSITIVE_INFINITY;
     const repairNowCheapest =
-        repairCost !== undefined &&
-        expectedRepairCostUsd(leader.probability, repairCost, bestTestCost) < bestTestCost;
+        repairCost !== undefined && expectedRepairCostUsd(leader.probability, repairCost, bestTestCost) < bestTestCost;
     if (!blockingSafety && (leader.probability >= LOOP.COMMIT_PROBABILITY_THRESHOLD || repairNowCheapest)) {
         return {
             kind: 'repair',

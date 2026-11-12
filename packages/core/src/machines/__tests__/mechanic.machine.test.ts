@@ -335,15 +335,15 @@ describe('mechanicMachine', () => {
             const loop = snapshot.context.diagnosticLoop;
             expect(loop?.differential.round).toBe(1);
             // The ask test targets coil and cylinder-3, not the plugs: the
-            // plugs take the lead on renormalisation alone.
-            expect(loop?.differential.hypotheses[0]?.id).toBe('spark-plug-fouled');
+            // plugs take the mean false-alarm rate and fall behind the coil.
+            expect(loop?.differential.hypotheses[0]?.id).toBe('ignition-coil-failure');
             expect(loop?.completedTestIds).toEqual(['ask-misfire-conditions']);
             expect(loop?.decision?.kind).toBe('next-test');
             if (loop?.decision?.kind === 'next-test') {
                 expect(loop.decision.nextTest.testId).toBe('measure-spark-strength');
-                // No separate challenger: the only test that could disprove
-                // the new leader (the plugs) is the planned test itself.
-                expect(loop.decision.challenger).toBeNull();
+                // The swap can still disprove the coil leader, distinct
+                // from the planned measure test.
+                expect(loop.decision.challenger?.testId).toBe('swap-coil-cylinder');
             }
         });
 
@@ -404,12 +404,17 @@ describe('mechanicMachine', () => {
             await waitFor(actor, (s) => s.matches('workup'), { timeout: 5000 });
             expect(actor.getSnapshot().context.diagnosticLoop?.differential.round).toBe(1);
 
-            actor.send({ type: 'RECORD_TEST_RESULT', testId: 'measure-spark-strength', outcome: 'positive', source: 'tech' });
+            actor.send({
+                type: 'RECORD_TEST_RESULT',
+                testId: 'measure-spark-strength',
+                outcome: 'positive',
+                source: 'tech',
+            });
             await waitFor(actor, (s) => s.matches('workup') && s.context.diagnosticLoop?.differential.round === 2, {
                 timeout: 2000,
             });
             const loop = actor.getSnapshot().context.diagnosticLoop;
-            expect(loop?.differential.hypotheses[0]?.id).toBe('spark-plug-fouled');
+            expect(loop?.differential.hypotheses[0]?.id).toBe('ignition-coil-failure');
             expect(loop?.decision?.kind).toBe('next-test');
 
             actor.send({ type: 'END_WORKUP' });

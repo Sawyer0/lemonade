@@ -15,12 +15,7 @@ import { buildDifferential } from './hypotheses';
 import { bayesUpdate, type TestRates } from './update';
 import { planNextTest, testCostUsd, type PlanResult } from './planner';
 import { evaluateStop } from './stop';
-import type {
-    DiagnosticLoopInput,
-    DiagnosticLoopState,
-    LoopDecision,
-    TestResultInput,
-} from './types';
+import type { DiagnosticLoopInput, DiagnosticLoopState, LoopDecision, TestResultInput } from './types';
 
 const LOOP = SHARED_CONFIG.DIAGNOSTIC_LOOP;
 
@@ -139,7 +134,9 @@ export function renderLoopSummary(state: DiagnosticLoopState): string {
         );
     }
     lines.push(`- OTHER (unlisted cause): ${(state.differential.otherProbability * 100).toFixed(1)}%`);
-    lines.push(`Round ${state.differential.round}, spent $${state.spentUsd.toFixed(0)} of $${state.budgetUsd.toFixed(0)}.`);
+    lines.push(
+        `Round ${state.differential.round}, spent $${state.spentUsd.toFixed(0)} of $${state.budgetUsd.toFixed(0)}.`,
+    );
     const decision: LoopDecision | null = state.decision;
     if (decision?.kind === 'next-test') {
         const next = decision.nextTest;

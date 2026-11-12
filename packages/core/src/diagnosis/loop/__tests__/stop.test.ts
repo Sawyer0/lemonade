@@ -10,7 +10,10 @@ import { misfireDefinitions, misfirePriors } from './fixtures';
 
 const LOOP = SHARED_CONFIG.DIAGNOSTIC_LOOP;
 
-function stateFor(differential: ReturnType<typeof buildDifferential>, overrides: Partial<DiagnosticLoopState> = {}): DiagnosticLoopState {
+function stateFor(
+    differential: ReturnType<typeof buildDifferential>,
+    overrides: Partial<DiagnosticLoopState> = {},
+): DiagnosticLoopState {
     return {
         differential,
         disassemblyState: 'component-exposed',
@@ -28,11 +31,16 @@ function stateFor(differential: ReturnType<typeof buildDifferential>, overrides:
 
 function planFor(state: DiagnosticLoopState) {
     const library = TestLibrary.fromDefinitions(misfireDefinitions());
-    return planNextTest(state.differential, library, {
-        disassemblyState: state.disassemblyState,
-        satisfiedPreconditionIds: new Set(state.satisfiedPreconditionIds),
-        completedTestIds: new Set(state.completedTestIds),
-    }, libraryRates(library));
+    return planNextTest(
+        state.differential,
+        library,
+        {
+            disassemblyState: state.disassemblyState,
+            satisfiedPreconditionIds: new Set(state.satisfiedPreconditionIds),
+            completedTestIds: new Set(state.completedTestIds),
+        },
+        libraryRates(library),
+    );
 }
 
 describe('expectedRepairCostUsd', () => {
@@ -117,7 +125,12 @@ describe('evaluateStop', () => {
         const differential = buildDifferential({ priorHypotheses: misfirePriors(), testDefinitions: [] });
         const state = stateFor(differential, {
             safetyCriticalHypothesisIds: ['spark-plug-fouled'],
-            completedTestIds: ['ask-misfire-conditions', 'look-plug-coil-condition', 'swap-coil-cylinder', 'measure-spark-strength'],
+            completedTestIds: [
+                'ask-misfire-conditions',
+                'look-plug-coil-condition',
+                'swap-coil-cylinder',
+                'measure-spark-strength',
+            ],
         });
         const decision = evaluateStop(state, { plan: planFor(state) });
         expect(decision).toMatchObject({ kind: 'escalate', reason: 'safety-critical-unresolved' });
@@ -126,7 +139,12 @@ describe('evaluateStop', () => {
     it('escalates when no test is left at all', () => {
         const differential = buildDifferential({ priorHypotheses: misfirePriors(), testDefinitions: [] });
         const state = stateFor(differential, {
-            completedTestIds: ['ask-misfire-conditions', 'look-plug-coil-condition', 'swap-coil-cylinder', 'measure-spark-strength'],
+            completedTestIds: [
+                'ask-misfire-conditions',
+                'look-plug-coil-condition',
+                'swap-coil-cylinder',
+                'measure-spark-strength',
+            ],
         });
         const decision = evaluateStop(state, { plan: planFor(state) });
         expect(decision).toMatchObject({ kind: 'escalate', reason: 'no-discriminating-test' });

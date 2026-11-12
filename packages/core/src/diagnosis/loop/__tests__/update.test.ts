@@ -32,20 +32,20 @@ describe('bayesUpdate', () => {
         expect(coilAfterNegative).toBeLessThan(coilBefore);
     });
 
-    it('leaves a hypothesis the test does not target at likelihood 1, so renormalisation still moves it', () => {
+    it('gives a hypothesis the test does not target the mean false-alarm rate', () => {
         const library = TestLibrary.fromDefinitions(misfireDefinitions());
         const test = library.byId('swap-coil-cylinder') as NonNullable<ReturnType<TestLibrary['byId']>>;
         const before = rankedDifferential();
         const plugsBefore = before.hypotheses.find((h) => h.id === 'spark-plug-fouled')?.probability ?? 0;
-        const updated = bayesUpdate(
-            before,
-            test,
-            { testId: test.id, outcome: 'positive', source: 'tech' },
-            (t, id) => library.effectiveRates(t, id),
+        const updated = bayesUpdate(before, test, { testId: test.id, outcome: 'positive', source: 'tech' }, (t, id) =>
+            library.effectiveRates(t, id),
         );
-        // The coil gained mass, so the untouched plugs must lose share.
+        // The swap targets only the coil, so the plugs take the test's
+        // mean false-alarm rate (0.05) on a positive result: under
+        // single-fault the plugs being true means the coil is false.
         const plugsAfter = updated.differential.hypotheses.find((h) => h.id === 'spark-plug-fouled')?.probability;
         expect(plugsAfter).toBeLessThan(plugsBefore);
+        expect(plugsAfter).toBeCloseTo(0.039, 3);
         const total =
             updated.differential.hypotheses.reduce((sum, h) => sum + h.probability, 0) +
             updated.differential.otherProbability;
@@ -56,15 +56,17 @@ describe('bayesUpdate', () => {
         const library = TestLibrary.fromDefinitions(misfireDefinitions());
         const test = library.byId('ask-misfire-conditions') as NonNullable<ReturnType<TestLibrary['byId']>>;
         const before = rankedDifferential();
-        const updated = bayesUpdate(
-            before,
-            test,
-            { testId: test.id, outcome: 'negative', source: 'tech' },
-            (t, id) => library.effectiveRates(t, id),
+        const updated = bayesUpdate(before, test, { testId: test.id, outcome: 'negative', source: 'tech' }, (t, id) =>
+            library.effectiveRates(t, id),
         );
         expect(updated.trace).toHaveLength(3);
         const coilTrace = updated.trace.find((entry) => entry.hypothesisId === 'ignition-coil-failure');
-        expect(coilTrace).toMatchObject({ testId: 'ask-misfire-conditions', outcome: 'negative', hitRate: 0.7, falseAlarmRate: 0.35 });
+        expect(coilTrace).toMatchObject({
+            testId: 'ask-misfire-conditions',
+            outcome: 'negative',
+            hitRate: 0.7,
+            falseAlarmRate: 0.35,
+        });
         expect(coilTrace?.posteriorProbability).toBeCloseTo(
             updated.differential.hypotheses.find((h) => h.id === 'ignition-coil-failure')?.probability ?? 0,
             10,
@@ -72,7 +74,8 @@ describe('bayesUpdate', () => {
         // The trace recomputes the posterior: prior * (1 - hit) / total.
         // The third entry is OTHER, at the test's mean false-alarm rate;
         // the untargeted plugs hypothesis has no entry — its likelihood
-        // is 1, so its posterior is its prior over the same total.
+        // is the mean false-alarm rate, so its posterior is its prior
+        // times that rate over the same total.
         const otherTrace = updated.trace.find((entry) => entry.hypothesisId === 'other');
         expect(otherTrace?.hitRate).toBeCloseTo((0.35 + 0.3) / 2, 10);
         expect(updated.trace.some((entry) => entry.hypothesisId === 'spark-plug-fouled')).toBe(false);

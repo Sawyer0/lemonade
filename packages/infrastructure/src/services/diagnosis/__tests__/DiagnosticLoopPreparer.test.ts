@@ -94,10 +94,7 @@ describe('DiagnosticLoopPreparer', () => {
                 sessionId: 's1',
             }),
         ).toBeNull();
-        const noStore = new DiagnosticLoopPreparer(
-            { testLibrary: seedLibrary() },
-            logger,
-        );
+        const noStore = new DiagnosticLoopPreparer({ testLibrary: seedLibrary() }, logger);
         expect(
             await noStore.prepare({
                 vehicleContext: { year: 2015, make: 'Honda', model: 'Civic' },

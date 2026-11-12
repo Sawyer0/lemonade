@@ -74,16 +74,25 @@ export function buildDifferential(input: DiagnosticLoopInput): Differential {
     });
 
     // LLM proposals: names only. A proposal already in the priors adds
-    // nothing; a new one joins at the floor, its mass taken from the priors.
+    // nothing; a new one joins at the floor, its mass taken from the
+    // priors. The priors are scaled to exactly the mass left after
+    // OTHER and the proposals, so each proposal keeps the floor
+    // exactly — no later renormalisation touches it. When so many
+    // proposals arrive that the floor would exceed the available mass,
+    // they split it equally instead: still equal, still never a number
+    // from the model.
     const known = new Set(hypotheses.map((hypothesis) => hypothesis.id));
-    const proposals = (input.llmHypotheses ?? [])
-        .map(normalizeHypothesisId)
-        .filter((id) => id.length > 0 && !known.has(id));
-    const proposalMass = proposals.length * LOOP.LLM_PROPOSAL_PRIOR;
+    const proposals = [
+        ...new Set(
+            (input.llmHypotheses ?? []).map(normalizeHypothesisId).filter((id) => id.length > 0 && !known.has(id)),
+        ),
+    ];
+    const availableMass = 1 - LOOP.OTHER_FLOOR;
+    const priorSum = hypotheses.reduce((sum, hypothesis) => sum + hypothesis.probability, 0);
     if (proposals.length > 0) {
         if (hypotheses.length === 0) {
             // No priors at all: the proposals split what is left of OTHER.
-            const share = (1 - LOOP.OTHER_FLOOR) / proposals.length;
+            const share = availableMass / proposals.length;
             hypotheses = proposals.map((id) => ({
                 id,
                 label: id,
@@ -92,27 +101,21 @@ export function buildDifferential(input: DiagnosticLoopInput): Differential {
                 provenance: ['llm proposal: name only, floor probability'],
             }));
         } else {
-            hypotheses = scaleProbabilities(hypotheses, (1 - LOOP.OTHER_FLOOR - proposalMass) / (1 - LOOP.OTHER_FLOOR));
+            const proposalMass = Math.min(proposals.length * LOOP.LLM_PROPOSAL_PRIOR, availableMass);
+            const eachProposal = proposalMass / proposals.length;
+            hypotheses = scaleProbabilities(hypotheses, (availableMass - proposalMass) / priorSum);
             hypotheses.push(
                 ...proposals.map((id) => ({
                     id,
                     label: id,
-                    probability: LOOP.LLM_PROPOSAL_PRIOR,
+                    probability: eachProposal,
                     source: 'llm-proposed' as const,
                     provenance: ['llm proposal: name only, floor probability'],
                 })),
             );
         }
     } else if (hypotheses.length > 0) {
-        hypotheses = scaleProbabilities(hypotheses, 1 - LOOP.OTHER_FLOOR);
-    }
-
-    // Renormalise so the priors + OTHER sum to exactly 1: the TSB boost
-    // and the blend both move the prior mass before this step.
-    const priorSum = hypotheses.reduce((sum, hypothesis) => sum + hypothesis.probability, 0);
-    if (priorSum > 0) {
-        const target = 1 - LOOP.OTHER_FLOOR;
-        hypotheses = scaleProbabilities(hypotheses, target / priorSum);
+        hypotheses = scaleProbabilities(hypotheses, availableMass / priorSum);
     }
     hypotheses.sort((a, b) => b.probability - a.probability || a.id.localeCompare(b.id));
     return { hypotheses, otherProbability: LOOP.OTHER_FLOOR, round: 0 };
@@ -145,9 +148,11 @@ export interface LogicFilterResult {
 }
 
 /**
- * Drops hypotheses contradicted by the readings, moves their mass to
- * OTHER, and renormalises. The dropped ids and the rules that dropped
- * them are returned so the trace can name the evidence, not the model.
+ * Drops hypotheses contradicted by the readings and moves their mass to
+ * OTHER. Survivors keep their probabilities: they already sum to what
+ * is left of 1 once the dropped mass moves, so no renormalisation is
+ * needed. The dropped ids and the rules that dropped them are returned
+ * so the trace can name the evidence, not the model.
  */
 export function applyLogicFilter(
     differential: Differential,
@@ -173,14 +178,9 @@ export function applyLogicFilter(
     const droppedMass = differential.hypotheses
         .filter((hypothesis) => dropped.has(hypothesis.id))
         .reduce((sum, hypothesis) => sum + hypothesis.probability, 0);
-    const survivorMass = 1 - differential.otherProbability - droppedMass;
-    const rescaled =
-        survivorMass > 0
-            ? survivors.map((hypothesis) => ({ ...hypothesis, probability: hypothesis.probability / survivorMass }))
-            : survivors;
     return {
         differential: {
-            hypotheses: rescaled,
+            hypotheses: survivors,
             otherProbability: Math.min(1, differential.otherProbability + droppedMass),
             round: differential.round,
         },

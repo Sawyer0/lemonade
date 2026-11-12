@@ -157,8 +157,26 @@ export function misfireDefinitions(): TestDefinition[] {
 /** Priors as the store returns them: coil 7, plugs 5, cylinder-3 2 (P0300). */
 export function misfirePriors(): PriorHypothesis[] {
     return [
-        { hypothesis: 'ignition-coil-failure', n: 7, q: 7 / 14, pi: 8 / 17, sources: [{ source: 'autorepairbench', observationCount: 7 }] },
-        { hypothesis: 'spark-plug-fouled', n: 5, q: 5 / 14, pi: 6 / 17, sources: [{ source: 'autorepairbench', observationCount: 5 }] },
-        { hypothesis: 'misfire-cylinder-3', n: 2, q: 2 / 14, pi: 3 / 17, sources: [{ source: 'autorepairbench', observationCount: 2 }] },
+        {
+            hypothesis: 'ignition-coil-failure',
+            n: 7,
+            q: 7 / 14,
+            pi: 8 / 17,
+            sources: [{ source: 'autorepairbench', observationCount: 7 }],
+        },
+        {
+            hypothesis: 'spark-plug-fouled',
+            n: 5,
+            q: 5 / 14,
+            pi: 6 / 17,
+            sources: [{ source: 'autorepairbench', observationCount: 5 }],
+        },
+        {
+            hypothesis: 'misfire-cylinder-3',
+            n: 2,
+            q: 2 / 14,
+            pi: 3 / 17,
+            sources: [{ source: 'autorepairbench', observationCount: 2 }],
+        },
     ];
 }

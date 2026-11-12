@@ -57,7 +57,12 @@ describe('planNextTest', () => {
             targets: [{ hypothesisId: 'the-fault', hitRate: 0.6, falseAlarmRate: 0.4 }],
             cost: { laborMinutes: 10, tools: [], parts: [] },
             preconditions: [],
-            verification: { status: 'verified', source: 'expert', reviewedBy: 'master-tech-1', reviewedAt: '2026-11-11' },
+            verification: {
+                status: 'verified',
+                source: 'expert',
+                reviewedBy: 'master-tech-1',
+                reviewedAt: '2026-11-11',
+            },
         });
         const priceyStrong = validTestDefinition({
             id: 'pricey-strong-test',
@@ -69,7 +74,12 @@ describe('planNextTest', () => {
             targets: [{ hypothesisId: 'the-fault', hitRate: 0.95, falseAlarmRate: 0.05 }],
             cost: { laborMinutes: 30, tools: [], parts: [] },
             preconditions: [],
-            verification: { status: 'verified', source: 'expert', reviewedBy: 'master-tech-1', reviewedAt: '2026-11-11' },
+            verification: {
+                status: 'verified',
+                source: 'expert',
+                reviewedBy: 'master-tech-1',
+                reviewedAt: '2026-11-11',
+            },
         });
         const library = TestLibrary.fromDefinitions([cheapWeak, priceyStrong]);
         const differential = buildDifferential({
@@ -129,12 +139,7 @@ describe('planNextTest', () => {
     it('returns no next test when the library is empty', () => {
         const library = TestLibrary.fromDefinitions(misfireDefinitions());
         const differential = buildDifferential({ priorHypotheses: misfirePriors(), testDefinitions: [] });
-        const plan = planNextTest(
-            differential,
-            TestLibrary.fromDefinitions([]),
-            plannerState(),
-            libraryRates(library),
-        );
+        const plan = planNextTest(differential, TestLibrary.fromDefinitions([]), plannerState(), libraryRates(library));
         expect(plan.nextTest).toBeNull();
         expect(plan.challenger).toBeNull();
     });

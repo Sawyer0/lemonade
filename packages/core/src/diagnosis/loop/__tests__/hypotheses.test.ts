@@ -110,14 +110,32 @@ describe('applyLogicFilter', () => {
     it('drops hypotheses a present reading contradicts and moves their mass to OTHER', () => {
         const differential = buildDifferential({ priorHypotheses: misfirePriors(), testDefinitions: [] });
         const coilBefore = differential.hypotheses.find((h) => h.id === 'ignition-coil-failure')?.probability ?? 0;
+        const plugsBefore = differential.hypotheses.find((h) => h.id === 'spark-plug-fouled')?.probability ?? 0;
         const result = applyLogicFilter(
             differential,
             [{ id: 'compression-ok', present: true }],
-            [{ id: 'rule-1', hypothesisId: 'ignition-coil-failure', readingId: 'compression-ok', inconsistentWhen: 'present' }],
+            [
+                {
+                    id: 'rule-1',
+                    hypothesisId: 'ignition-coil-failure',
+                    readingId: 'compression-ok',
+                    inconsistentWhen: 'present',
+                },
+            ],
         );
         expect(result.dropped).toEqual(['ignition-coil-failure']);
         expect(result.differential.hypotheses.some((h) => h.id === 'ignition-coil-failure')).toBe(false);
         expect(result.differential.otherProbability).toBeCloseTo(LOOP.OTHER_FLOOR + coilBefore, 10);
+        // Survivors keep their probabilities — they already sum to what
+        // is left of 1 — so the differential still sums to exactly 1.
+        expect(result.differential.hypotheses.find((h) => h.id === 'spark-plug-fouled')?.probability).toBeCloseTo(
+            plugsBefore,
+            10,
+        );
+        const total =
+            result.differential.hypotheses.reduce((sum, h) => sum + h.probability, 0) +
+            result.differential.otherProbability;
+        expect(total).toBeCloseTo(1, 10);
     });
 
     it('keeps a hypothesis when the reading it depends on is absent', () => {
@@ -143,7 +161,14 @@ describe('applyLogicFilter', () => {
         const result = applyLogicFilter(
             differential,
             [],
-            [{ id: 'rule-1', hypothesisId: 'ignition-coil-failure', readingId: 'never-recorded', inconsistentWhen: 'present' }],
+            [
+                {
+                    id: 'rule-1',
+                    hypothesisId: 'ignition-coil-failure',
+                    readingId: 'never-recorded',
+                    inconsistentWhen: 'present',
+                },
+            ],
         );
         expect(result.dropped).toEqual([]);
     });

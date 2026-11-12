@@ -157,7 +157,12 @@ export type MechanicEvent =
     // re-plans the next test. Handled in the `workup` state; sent anywhere
     // else it is ignored. END_WORKUP leaves the workup for repair
     // guidance with the current plan in context.
-    | { type: 'RECORD_TEST_RESULT'; testId: string; outcome: TestResultInput['outcome']; source?: TestResultInput['source'] }
+    | {
+          type: 'RECORD_TEST_RESULT';
+          testId: string;
+          outcome: TestResultInput['outcome'];
+          source?: TestResultInput['source'];
+      }
     | { type: 'END_WORKUP' };
 
 export interface IntuitionInput {

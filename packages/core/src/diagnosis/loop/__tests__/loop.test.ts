@@ -66,22 +66,36 @@ describe('diagnostic loop golden case', () => {
 
         // Round 1: the driver says the shake is only under load. The ask
         // test targets coil and cylinder-3, not the plugs — so the plugs
-        // take the lead on renormalisation alone.
+        // take the mean false-alarm rate (0.325) and fall behind the coil.
         const round1 = applyTestResult(loop, library, {
             testId: 'ask-misfire-conditions',
             outcome: 'positive',
             source: 'tech',
         });
         expect(round1.differential.round).toBe(1);
-        expect(round1.differential.hypotheses[0]?.id).toBe('spark-plug-fouled');
+        expect(round1.differential.hypotheses[0]?.id).toBe('ignition-coil-failure');
+        expect(round1.differential.hypotheses.find((h) => h.id === 'ignition-coil-failure')?.probability).toBeCloseTo(
+            0.555,
+            3,
+        );
+        expect(round1.differential.hypotheses.find((h) => h.id === 'spark-plug-fouled')?.probability).toBeCloseTo(
+            0.193,
+            3,
+        );
+        expect(round1.differential.hypotheses.find((h) => h.id === 'misfire-cylinder-3')?.probability).toBeCloseTo(
+            0.223,
+            3,
+        );
+        expect(round1.differential.otherProbability).toBeCloseTo(0.029, 3);
         expect(round1.spentUsd).toBeCloseTo(15, 10);
         expect(round1.completedTestIds).toEqual(['ask-misfire-conditions']);
         expect(round1.decision?.kind).toBe('next-test');
         if (round1.decision?.kind !== 'next-test') throw new Error('expected a next-test decision');
         expect(round1.decision.nextTest.testId).toBe('measure-spark-strength');
+        expect(round1.decision.challenger?.testId).toBe('swap-coil-cylinder');
 
-        // Round 2: spark is strong on the tester. Both coil and plugs
-        // stay close — neither clears the commit threshold.
+        // Round 2: spark is strong on the tester. The coil pulls ahead
+        // of the plugs but still below the commit threshold.
         const round2 = applyTestResult(round1, library, {
             testId: 'measure-spark-strength',
             outcome: 'positive',
@@ -90,12 +104,33 @@ describe('diagnostic loop golden case', () => {
         expect(round2.differential.round).toBe(2);
         const coil = round2.differential.hypotheses.find((h) => h.id === 'ignition-coil-failure')?.probability ?? 0;
         const plugs = round2.differential.hypotheses.find((h) => h.id === 'spark-plug-fouled')?.probability ?? 0;
-        expect(Math.abs(coil - plugs)).toBeLessThan(0.05);
+        const cylinder = round2.differential.hypotheses.find((h) => h.id === 'misfire-cylinder-3')?.probability ?? 0;
+        expect(coil).toBeCloseTo(0.717, 3);
+        expect(plugs).toBeCloseTo(0.235, 3);
+        expect(cylinder).toBeCloseTo(0.042, 3);
         expect(round2.decision?.kind).toBe('next-test');
+        if (round2.decision?.kind !== 'next-test') throw new Error('expected a next-test decision');
+        expect(round2.decision.nextTest.testId).toBe('swap-coil-cylinder');
 
-        // The trace records every number the loop used.
+        // Round 3: the misfire follows the swapped coil, so the coil
+        // clears the commit threshold and the loop commits to repair.
+        const round3 = applyTestResult(round2, library, {
+            testId: 'swap-coil-cylinder',
+            outcome: 'positive',
+            source: 'tech',
+        });
+        expect(round3.differential.round).toBe(3);
+        expect(round3.differential.hypotheses.find((h) => h.id === 'ignition-coil-failure')?.probability).toBeCloseTo(
+            0.9786,
+            4,
+        );
+        expect(round3.decision).toMatchObject({ kind: 'repair', hypothesisId: 'ignition-coil-failure' });
+
+        // The trace records every number the loop used. Targeted entries
+        // always hit more than they false-alarm; OTHER takes the mean
+        // false-alarm rate as both, so it is excluded here.
         expect(round2.history.length).toBeGreaterThan(0);
-        for (const entry of round2.history) {
+        for (const entry of round2.history.filter((e) => e.hypothesisId !== 'other')) {
             expect(entry.hitRate).toBeGreaterThan(entry.falseAlarmRate);
         }
     });
@@ -103,7 +138,12 @@ describe('diagnostic loop golden case', () => {
     it('escalates when the tests run out without a commit', () => {
         const library = TestLibrary.fromDefinitions(misfireDefinitions());
         let loop = createLoop(goldenInput());
-        for (const testId of ['ask-misfire-conditions', 'measure-spark-strength', 'look-plug-coil-condition', 'swap-coil-cylinder']) {
+        for (const testId of [
+            'ask-misfire-conditions',
+            'measure-spark-strength',
+            'look-plug-coil-condition',
+            'swap-coil-cylinder',
+        ]) {
             loop = applyTestResult(loop, library, { testId, outcome: 'negative', source: 'tech' });
             if (loopIsTerminal(loop)) break;
         }

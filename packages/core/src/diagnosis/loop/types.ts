@@ -97,7 +97,9 @@ export const NextTestSchema = z
 export type NextTest = z.infer<typeof NextTestSchema>;
 
 export const LoopDecisionSchema = z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('next-test'), nextTest: NextTestSchema, challenger: NextTestSchema.nullable() }).strict(),
+    z
+        .object({ kind: z.literal('next-test'), nextTest: NextTestSchema, challenger: NextTestSchema.nullable() })
+        .strict(),
     z
         .object({
             kind: z.literal('repair'),
