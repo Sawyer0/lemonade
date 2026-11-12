@@ -63,11 +63,7 @@ function admissibleSourcesFor(goal: CaseGoal): ReadonlySet<EvidenceSource> {
  * never proves anything, so a run that only cites its own computation made
  * no progress toward the goal.
  */
-export function runMadeProgress(
-    goal: CaseGoal,
-    ledger: ReadonlyArray<LedgerEntry>,
-    run: ReasonerRunOutcome,
-): boolean {
+export function runMadeProgress(goal: CaseGoal, ledger: ReadonlyArray<LedgerEntry>, run: ReasonerRunOutcome): boolean {
     const retracted = retractedEntryIds(ledger);
     const admissible = admissibleSourcesFor(goal);
     return run.appendedEntries.some(

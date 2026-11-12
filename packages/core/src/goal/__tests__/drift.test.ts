@@ -80,9 +80,7 @@ describe('detectDrift', () => {
     it('raises no flag for a targeted code when the complaint recorded no codes', () => {
         const goal = buildGoldenGoal();
         const entries: LedgerEntry[] = [];
-        entries.push(
-            appendGoldenLedgerEntry(entries, 'observation', { text: 'Misfire on cylinder 1 at idle' }),
-        );
+        entries.push(appendGoldenLedgerEntry(entries, 'observation', { text: 'Misfire on cylinder 1 at idle' }));
         entries.push(appendGoldenLedgerEntry(entries, 'goal_set', { goalId: GOLDEN_GOAL_ID, goal }));
         const run: ReasonerRunOutcome = { runId: 'run-1', targetedFaultCodes: ['P0420'], appendedEntries: [] };
         expect(detectDrift(goal, entries, run)).toEqual([]);
@@ -244,7 +242,11 @@ describe('recordBlockedRun', () => {
 describe('LM-28 schema', () => {
     it('parses a hypothesis payload with explainsSymptoms, and without it', () => {
         expect(
-            HypothesisPayloadSchema.parse({ text: 'Dead battery', confidence: 0.85, explainsSymptoms: ['dim headlights'] }),
+            HypothesisPayloadSchema.parse({
+                text: 'Dead battery',
+                confidence: 0.85,
+                explainsSymptoms: ['dim headlights'],
+            }),
         ).toEqual({ text: 'Dead battery', confidence: 0.85, explainsSymptoms: ['dim headlights'] });
         expect(HypothesisPayloadSchema.parse({ text: 'Dead battery', confidence: 0.85 })).toEqual({
             text: 'Dead battery',

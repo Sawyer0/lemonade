@@ -132,11 +132,7 @@ function leadingLedgerHypothesis(ledger: ReadonlyArray<LedgerEntry>): LeadingHyp
  * declared claim it can verify; unknown coverage, unknown vocabulary, and a
  * complaint with no codes are all silent, never flagged.
  */
-export function detectDrift(
-    goal: CaseGoal,
-    ledger: ReadonlyArray<LedgerEntry>,
-    run: ReasonerRunOutcome,
-): DriftFlag[] {
+export function detectDrift(goal: CaseGoal, ledger: ReadonlyArray<LedgerEntry>, run: ReasonerRunOutcome): DriftFlag[] {
     const flags: DriftFlag[] = [];
     const hypothesis = run.leadingHypothesis ?? leadingLedgerHypothesis(ledger);
     if (hypothesis?.explainsSymptoms !== undefined) {
