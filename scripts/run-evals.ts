@@ -4,11 +4,20 @@ import { TYPES } from '../src/infrastructure/di/types';
 import { EvalRunner } from '../packages/infrastructure/src/observability/EvalRunner';
 import dotenv from 'dotenv';
 import * as fs from 'fs';
+import { runReplayBenchmark } from './run-replay-benchmark';
 
 dotenv.config({ path: '.env.local' });
 
 async function run() {
     console.log('--- Master Tech AI Behavioral Evaluation ---');
+
+    // Deterministic gate first: replay, safety regression, and the
+    // SDBench benchmark need no credentials. The live suite below only
+    // runs when the deterministic gate passes.
+    if (runReplayBenchmark() !== 0) {
+        process.exit(1);
+    }
+
     const runner = container.get<EvalRunner>(TYPES.EvalRunner);
     const datasetName = 'Master Tech Golden Set';
 
