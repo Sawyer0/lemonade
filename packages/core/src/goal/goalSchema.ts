@@ -13,18 +13,21 @@ import { z } from 'zod';
 // goal's admissible list directly against a ledger entry's source. Keep the
 // two enums in step: goalSchema.test.ts asserts they list the same values.
 // 'sandbox' is a test run in the sandbox, not a model opinion; 'model' is a
-// source an entry can carry, but it is never admissible as proof.
-export const EvidenceSourceSchema = z.enum(['tech', 'glasses', 'OBD', 'sandbox', 'NHTSA', 'model']);
+// source an entry can carry, but it is never admissible as proof. 'research'
+// (LM-18) is the same: a background evidence sub-agent's advisory summary
+// is a ledger source, but it is never admissible as proof.
+export const EvidenceSourceSchema = z.enum(['tech', 'glasses', 'OBD', 'sandbox', 'NHTSA', 'model', 'research']);
 export type EvidenceSource = z.infer<typeof EvidenceSourceSchema>;
 
-// Admissible sources for one proof criterion: nonempty, and 'model' is
-// rejected at the schema level as well as by the evaluator, so a goal that
-// lists model evidence as proof cannot even be constructed.
+// Admissible sources for one proof criterion: nonempty, and 'model' and
+// 'research' are rejected at the schema level as well as by the evaluator,
+// so a goal that lists model or research evidence as proof cannot even be
+// constructed.
 export const AdmissibleSourcesSchema = z
     .array(EvidenceSourceSchema)
     .nonempty()
-    .refine((sources) => !sources.includes('model'), {
-        message: 'model evidence is never admissible as proof',
+    .refine((sources) => !sources.includes('model') && !sources.includes('research'), {
+        message: 'model and research evidence is never admissible as proof',
     });
 export type AdmissibleSources = z.infer<typeof AdmissibleSourcesSchema>;
 
