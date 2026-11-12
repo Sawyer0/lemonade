@@ -240,6 +240,11 @@ export const UNCERTAIN_DIAGNOSIS: FakeDiagnosis = {
     confidence: 0.2,
 };
 
+/** The vehicle rule table, for benches that build a library over every rule. A copy: the table itself never mutates. */
+export function vehicleRules(): FakeRule[] {
+    return [...RULES];
+}
+
 /** First matching rule wins; no rule matches means the uncertain fallback. */
 export function diagnoseEvidence(evidence: string): FakeDiagnosis {
     const [rule] = matchingRules(evidence);
@@ -259,11 +264,13 @@ export function diagnoseEvidence(evidence: string): FakeDiagnosis {
  * Every rule whose match sets hit this evidence, in rule order. The
  * LemonadeBench proposer (LM-36) uses this, not the single winner: a
  * differential starts from every cause the complaint is consistent
- * with, and the engine has to work out which one it is.
+ * with, and the engine has to work out which one it is. A bench suite
+ * may pass its own rule table (heavy equipment, sensors); the vehicle
+ * table is the default.
  */
-export function matchingRules(evidence: string): FakeRule[] {
+export function matchingRules(evidence: string, rules: FakeRule[] = RULES): FakeRule[] {
     const lowered = evidence.toLowerCase();
-    return RULES.filter((rule) =>
+    return rules.filter((rule) =>
         rule.matchSets.some((keywords) => keywords.every((keyword) => lowered.includes(keyword))),
     );
 }
@@ -276,10 +283,10 @@ export function matchingRules(evidence: string): FakeRule[] {
  * test down, instead of a single-candidate differential that would
  * commit with no evidence at all.
  */
-export function nearMissRules(evidence: string): FakeRule[] {
+export function nearMissRules(evidence: string, rules: FakeRule[] = RULES): FakeRule[] {
     const lowered = evidence.toLowerCase();
-    const matched = new Set(matchingRules(evidence).map((rule) => rule.id));
-    return RULES.filter(
+    const matched = new Set(matchingRules(evidence, rules).map((rule) => rule.id));
+    return rules.filter(
         (rule) =>
             !matched.has(rule.id) &&
             rule.matchSets.some((keywords) => keywords.some((keyword) => lowered.includes(keyword))),
