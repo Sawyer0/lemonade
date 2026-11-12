@@ -32,6 +32,9 @@ export const EVIDENCE_SUBAGENT_ACTOR = { kind: 'agent', id: 'evidence-subagents'
  * recorded as 'unknown' by the core fan-out, never as 'none'; a failed
  * ledger append is logged and does not fail the other children.
  */
+/** What a launch caller passes: the request minus `startedFrom` — the launch fills that in. */
+export type EvidenceLaunchRequest = Omit<EvidenceChildRequestInput, 'startedFrom'>;
+
 @injectable()
 export class EvidenceSubagentRunner {
     private readonly launchedCases = new Set<string>();
@@ -47,7 +50,7 @@ export class EvidenceSubagentRunner {
      * summaries in the ledger before the tech's first test. Returns the
      * summaries filed. A second call for the same case files nothing.
      */
-    async launchOnVinDecoded(request: EvidenceChildRequestInput): Promise<EvidenceChildSummary[]> {
+    async launchOnVinDecoded(request: EvidenceLaunchRequest): Promise<EvidenceChildSummary[]> {
         return this.launch({ ...request, startedFrom: 'vin_decoded' });
     }
 
@@ -56,7 +59,7 @@ export class EvidenceSubagentRunner {
      * the VIN is decoded, from whatever the tech has said so far. Children
      * whose inputs are missing are skipped, not recorded.
      */
-    async launchEarlyFromPartialSpeech(request: EvidenceChildRequestInput): Promise<EvidenceChildSummary[]> {
+    async launchEarlyFromPartialSpeech(request: EvidenceLaunchRequest): Promise<EvidenceChildSummary[]> {
         return this.launch({ ...request, startedFrom: 'partial_speech' });
     }
 

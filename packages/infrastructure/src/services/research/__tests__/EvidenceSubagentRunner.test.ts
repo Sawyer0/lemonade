@@ -72,7 +72,6 @@ describe('EvidenceSubagentRunner', () => {
             year: 2020,
             make: 'Honda',
             model: 'Civic',
-            startedFrom: 'vin_decoded',
         });
         expect(summaries).toHaveLength(4);
         expect(filed).toHaveLength(4);
@@ -102,7 +101,6 @@ describe('EvidenceSubagentRunner', () => {
             year: 2020,
             make: 'Honda',
             model: 'Civic',
-            startedFrom: 'vin_decoded',
         });
         const recall = summaries.find((summary) => summary.kind === 'recall')!;
         expect(recall.status).toBe('unknown');
@@ -120,14 +118,12 @@ describe('EvidenceSubagentRunner', () => {
             year: 2020,
             make: 'Honda',
             model: 'Civic',
-            startedFrom: 'vin_decoded',
         });
         const second = await evidence.launchOnVinDecoded({
             caseId,
             year: 2020,
             make: 'Honda',
             model: 'Civic',
-            startedFrom: 'vin_decoded',
         });
         expect(first).toHaveLength(2);
         expect(second).toEqual([]);
@@ -138,7 +134,7 @@ describe('EvidenceSubagentRunner', () => {
         const { runner: evidence, filed } = runner([
             source('recall', undefined, (request) => request.year !== undefined),
         ]);
-        const early = await evidence.launchEarlyFromPartialSpeech({ caseId, startedFrom: 'partial_speech' });
+        const early = await evidence.launchEarlyFromPartialSpeech({ caseId });
         expect(early).toEqual([]);
         expect(filed).toHaveLength(0);
         // The empty early launch does not count as launched: the VIN decode
@@ -148,7 +144,6 @@ describe('EvidenceSubagentRunner', () => {
             year: 2020,
             make: 'Honda',
             model: 'Civic',
-            startedFrom: 'vin_decoded',
         });
         expect(summaries).toHaveLength(1);
         expect(filed).toHaveLength(1);
@@ -162,7 +157,6 @@ describe('EvidenceSubagentRunner', () => {
         const summaries = await evidence.launchEarlyFromPartialSpeech({
             caseId,
             symptom: 'rough idle',
-            startedFrom: 'partial_speech',
         });
         expect(summaries.map((summary) => summary.kind)).toEqual(['known_failure']);
         expect(filed).toHaveLength(1);
@@ -187,7 +181,6 @@ describe('EvidenceSubagentRunner', () => {
             year: 2020,
             make: 'Honda',
             model: 'Civic',
-            startedFrom: 'vin_decoded',
         });
         expect(summaries).toHaveLength(2);
         expect(appends).toBe(2);
