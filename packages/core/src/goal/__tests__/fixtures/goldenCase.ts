@@ -135,6 +135,12 @@ export interface GoldenCaseOptions {
     hypothesisConfidences?: [number, number, number];
     /** Include the tech observation that the symptom is gone. */
     symptomAbsent?: boolean;
+    /**
+     * The outcome entry closing the case. 'head-gasket' is the honest
+     * repair; 'cleared-codes' is the LM-30 shortcut — codes cleared,
+     * symptom claimed gone, no repair; 'absent' records no outcome.
+     */
+    outcome?: 'head-gasket' | 'cleared-codes' | 'absent';
 }
 
 export function buildGoldenCase(options: GoldenCaseOptions = {}): {
@@ -149,6 +155,7 @@ export function buildGoldenCase(options: GoldenCaseOptions = {}): {
         correctRetest = false,
         hypothesisConfidences = [0.55, 0.3, 0.8],
         symptomAbsent = true,
+        outcome = 'head-gasket',
     } = options;
     const goal = buildGoldenGoal();
     const caseRecord: Case = {
@@ -237,15 +244,29 @@ export function buildGoldenCase(options: GoldenCaseOptions = {}): {
     if (symptomAbsent) {
         entries.push(appendToChain(entries, 'observation', { text: 'No misfire at idle after repair' }));
     }
-    entries.push(
-        appendToChain(entries, 'outcome', {
-            repairPerformed: 'Replaced head gasket',
-            partsReplaced: ['Head gasket'],
-            codesCleared: true,
-            symptomGone: true,
-            retestPassed: true,
-            confirmed: true,
-        }),
-    );
+    if (outcome === 'head-gasket') {
+        entries.push(
+            appendToChain(entries, 'outcome', {
+                repairPerformed: 'Replaced head gasket',
+                partsReplaced: ['Head gasket'],
+                codesCleared: true,
+                symptomGone: true,
+                retestPassed: true,
+                confirmed: true,
+            }),
+        );
+    }
+    if (outcome === 'cleared-codes') {
+        entries.push(
+            appendToChain(entries, 'outcome', {
+                repairPerformed: 'Cleared fault codes',
+                partsReplaced: [],
+                codesCleared: true,
+                symptomGone: true,
+                retestPassed: true,
+                confirmed: true,
+            }),
+        );
+    }
     return { caseRecord, goal, entries };
 }
