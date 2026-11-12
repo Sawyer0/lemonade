@@ -33,6 +33,7 @@ export * from './ai/tools/startVideoStream';
 export * from './ai/tools/displayContent';
 export * from './ai/tools/googleSearch';
 export * from './services/ReactiveSafetyService';
+export * from './services/diagnosis/DiagnosisSafetyGate';
 export * from './services/MechanicReasoningService';
 export * from './services/CaseRunCoordinator';
 export * from './services/research/index'; // Background evidence sub-agents (LM-18)

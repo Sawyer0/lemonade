@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { LocalTriageResultSchema } from './localPerception';
 import type { NeurosymbolicState } from './neurosymbolic';
 import type { ReasoningInput } from './reasoning';
+import { SafetyClassSchema } from '../diagnosis/tests/testSchema';
+import { HazardTypeSchema } from './safety';
+import type { PhysicalStep, StepOrigin } from '../safety/policy';
 
 /**
  * Talker/reasoner job tickets (LM-14). Gemini Live is the talker; the
@@ -50,9 +53,48 @@ export const DiagnosticJobEventSchema = z.object({
     kind: DiagnosticJobEventKindSchema,
     /** Human-readable payload: what the talker should know, say, or do. */
     text: z.string().min(1),
+    /**
+     * LM-20: the scripted physical step behind a `measure` event, when the
+     * reasoner issued one. The talker's pre-action hook gates on this: a
+     * step without it is unstructured reasoner text, not a scripted step.
+     * `origin` is stamped where the job was filed: only the live talker's
+     * route files `live-session` jobs.
+     */
+    step: z
+        .object({
+            stepId: z.string().min(1),
+            testId: z.string().min(1).optional(),
+            instruction: z.string().min(1),
+            safetyClass: SafetyClassSchema,
+            hazards: z.array(HazardTypeSchema),
+            vin: z.string().min(1).optional(),
+            origin: z.enum(['live-session', 'background-job']),
+        })
+        .strict()
+        .optional(),
     createdAt: z.string().datetime(),
 });
 export type DiagnosticJobEvent = z.infer<typeof DiagnosticJobEventSchema>;
+
+/** A scripted step as carried on a job event: the policy's step plus its filing origin. */
+export type JobStep = NonNullable<DiagnosticJobEvent['step']>;
+
+/** The step the event carries, as the pre-action policy sees it. */
+export function jobStepToPhysicalStep(step: JobStep): PhysicalStep {
+    return {
+        stepId: step.stepId,
+        testId: step.testId,
+        instruction: step.instruction,
+        safetyClass: step.safetyClass,
+        hazards: step.hazards,
+        vin: step.vin,
+    };
+}
+
+/** The origin the event's step was filed with: background unless stamped live. */
+export function jobStepOrigin(step: JobStep | undefined): StepOrigin {
+    return step?.origin ?? 'background-job';
+}
 
 export const DiagnosticJobSchema = z.object({
     id: z.string().uuid(),
@@ -117,6 +159,8 @@ export type AcknowledgeDiagnosticJobRequest = z.infer<typeof AcknowledgeDiagnost
 export interface DiagnosticJobEventDraft {
     kind: DiagnosticJobEventKind;
     text: string;
+    /** LM-20: the scripted step behind a `measure` event, when there is one. */
+    step?: JobStep;
 }
 
 /** Short human summary of what a job is about, sent as the snapshot event. */
@@ -136,8 +180,17 @@ export function vehicleSummaryText(vehicle: ReasoningInput['vehicleContext']): s
  * STOP_DANGER verdict is a safety stop (interrupt); REQUEST_MORE_INFO is a
  * "measure this" step (speak at the next idle gap); anything else is a
  * finding. Manual safety alerts ride along with a finding, never silently.
+ *
+ * LM-20: `origin` is where the job was filed. A background job can never
+ * issue a physical step — there is no technician present to confirm it —
+ * so a background REQUEST_MORE_INFO becomes a finding that says the check
+ * must be requested in a live session, never a `measure` event. The default
+ * is background: a caller must explicitly claim a live session.
  */
-export function diagnosisToJobEvents(state: NeurosymbolicState): DiagnosticJobEventDraft[] {
+export function diagnosisToJobEvents(
+    state: NeurosymbolicState,
+    origin: StepOrigin = 'background-job',
+): DiagnosticJobEventDraft[] {
     const decision = state.finalDiagnosis.decision;
     const alerts = state.authorityData.safetyAlerts.filter(Boolean);
     if (decision === 'STOP_DANGER') {
@@ -147,6 +200,15 @@ export function diagnosisToJobEvents(state: NeurosymbolicState): DiagnosticJobEv
         return [{ kind: 'safety_stop', text }];
     }
     if (decision === 'REQUEST_MORE_INFO') {
+        if (origin === 'background-job') {
+            const text = state.finalDiagnosis.userOutput;
+            return [
+                {
+                    kind: 'finding',
+                    text: `${text}\nThe next check needs a measurement, but a background job cannot issue a physical step. Ask for it in a live session.`,
+                },
+            ];
+        }
         const actions = state.finalDiagnosis.requiredActions.filter(Boolean);
         const text = actions.length
             ? `${state.finalDiagnosis.userOutput}\nMeasure or check next: ${actions.join('; ')}`

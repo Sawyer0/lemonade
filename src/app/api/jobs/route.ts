@@ -32,11 +32,16 @@ export const POST = withContext(async (req: NextRequest) => {
         const job = diagnosticJobStore.create(request);
         logger.info('Diagnostic job created', { jobId: job.id, caseId: job.caseId });
         // The reasoner runs in the background; the 202 already carries the job id.
+        // LM-20: this route is agent-only and only the live talker files
+        // jobs here, so the job's origin is a live session — the only origin
+        // that may issue a physical step. Anything filed elsewhere is a
+        // background job and its steps are rejected in the runner.
         void runDiagnosticJob(
             {
                 store: diagnosticJobStore,
                 reasoner: container.get<IMechanicReasoningService>(TYPES.MechanicReasoningService),
                 logger,
+                origin: 'live-session',
             },
             job,
             request,

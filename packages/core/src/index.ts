@@ -86,6 +86,7 @@ export * from './types/neurosymbolic';
 export * from './types/reasoning'; // Exports ReasoningInput
 export * from './reasoning/index'; // Bounded model-driven tool loop (LM-16)
 export * from './types/safety'; // Exports SafetyAssessment, SAFETY_RAW_SCHEMA
+export * from './safety/policy'; // Pre-action safety policy (LM-20): deny, ask, allow per step
 export * from './types/tools';
 export * from './tools/index'; // Typed, namespaced tool registry shared by chat, Live and the reasoner (LM-16)
 export * from './types/verification';

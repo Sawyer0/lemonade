@@ -5,6 +5,7 @@ import {
     type DiagnosticJob,
     type IMechanicReasoningService,
     type ILogger,
+    type StepOrigin,
 } from '@lemonade/core';
 import type { DiagnosticJobStore } from './DiagnosticJobStore';
 
@@ -12,6 +13,12 @@ export interface DiagnosticJobRunnerDeps {
     store: DiagnosticJobStore;
     reasoner: IMechanicReasoningService;
     logger: ILogger;
+    /**
+     * LM-20: where the job was filed. Only a live talker session can issue
+     * a physical step. Defaults to background: a caller must explicitly
+     * claim a live session, and a background job's step is rejected.
+     */
+    origin?: StepOrigin;
 }
 
 /**
@@ -20,7 +27,7 @@ export interface DiagnosticJobRunnerDeps {
  * that lands after a cancel is dropped, never spoken.
  */
 export async function runDiagnosticJob(
-    { store, reasoner, logger }: DiagnosticJobRunnerDeps,
+    { store, reasoner, logger, origin = 'background-job' }: DiagnosticJobRunnerDeps,
     job: DiagnosticJob,
     request: CreateDiagnosticJobRequest,
 ): Promise<void> {
@@ -40,7 +47,10 @@ export async function runDiagnosticJob(
         });
         const current = store.get(job.id);
         if (!current || current.status === 'cancelled') return;
-        for (const draft of diagnosisToJobEvents(state)) store.appendEvent(job.id, draft);
+        // LM-20: the reasoner's step is gated on the job's origin here, at
+        // emission. A background job's REQUEST_MORE_INFO never becomes a
+        // `measure` event (see diagnosisToJobEvents).
+        for (const draft of diagnosisToJobEvents(state, origin)) store.appendEvent(job.id, draft);
     } catch (error) {
         const current = store.get(job.id);
         if (!current || current.status === 'cancelled') return;

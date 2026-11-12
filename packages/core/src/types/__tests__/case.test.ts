@@ -429,6 +429,56 @@ describe('AppendLedgerEntryInputSchema', () => {
         });
         expect(result.success).toBe(true);
     });
+
+    it('accepts a spoken step confirmation bound to a step id and VIN', () => {
+        const result = AppendLedgerEntryInputSchema.safeParse({
+            type: 'step_confirmation',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                stepId: 'hv-isolation-test:step-2',
+                testId: 'hv-isolation-test',
+                vin: '1HGCM82633A004352',
+                instruction: 'disconnect the orange HV cables',
+                riskLevel: 'high',
+                confirmationText: 'confirmed',
+            },
+        });
+        expect(result.success).toBe(true);
+    });
+
+    it('rejects a step confirmation with a short VIN', () => {
+        const result = AppendLedgerEntryInputSchema.safeParse({
+            type: 'step_confirmation',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                stepId: 'hv-isolation-test:step-2',
+                vin: 'ABC123',
+                instruction: 'disconnect the orange HV cables',
+                riskLevel: 'high',
+            },
+        });
+        expect(result.success).toBe(false);
+    });
+
+    it('rejects a step confirmation with no step id', () => {
+        const result = AppendLedgerEntryInputSchema.safeParse({
+            type: 'step_confirmation',
+            actor,
+            source: 'tech',
+            occurredAt,
+            payload: {
+                stepId: '',
+                vin: '1HGCM82633A004352',
+                instruction: 'disconnect the orange HV cables',
+                riskLevel: 'high',
+            },
+        });
+        expect(result.success).toBe(false);
+    });
 });
 
 describe('canonicalJson', () => {

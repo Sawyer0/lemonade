@@ -71,6 +71,7 @@ export class DiagnosticJobStore {
             seq: stored.length + 1,
             kind: draft.kind,
             text: draft.text,
+            ...(draft.step ? { step: draft.step } : {}),
             createdAt: new Date().toISOString(),
         };
         stored.push(event);

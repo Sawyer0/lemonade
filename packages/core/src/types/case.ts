@@ -12,6 +12,7 @@ import {
     ObdScanResultSchema,
     VerifyFixResultSchema,
 } from '../obd/types';
+import { RiskLevelSchema } from '../safety/policy';
 
 // --- Case aggregate ---
 // A case is the long-lived record of one vehicle's problem. One case can span
@@ -75,6 +76,10 @@ export const LedgerEventTypeSchema = z.enum([
     'obd_fault_window',
     'guided_test',
     'verify_fix',
+    // LM-20: the tech's spoken confirmation of a risky physical step,
+    // bound to the exact step id and VIN. A step is only spoken after
+    // this entry exists: the ledger is the proof the confirmation happened.
+    'step_confirmation',
     // LM-18: background evidence sub-agents (recalls, TSBs, known failures,
     // similar closed cases). An `advisory` entry is a schema-validated child
     // summary. It carries no authority: it can never instruct the tech or
@@ -203,6 +208,22 @@ export const TranscriptPayloadSchema = z.object({
 });
 export type TranscriptPayload = z.infer<typeof TranscriptPayloadSchema>;
 
+// LM-20: a spoken confirmation of a risky physical step. `stepId` is the
+// exact step the tech confirmed, `vin` the vehicle it was performed on,
+// and `riskLevel` the level the pre-action hook assigned the step. The
+// confirmation is only valid for that step on that VIN.
+export const StepConfirmationPayloadSchema = z
+    .object({
+        stepId: z.string().min(1),
+        testId: z.string().min(1).optional(),
+        vin: z.string().length(17),
+        instruction: z.string().min(1),
+        riskLevel: RiskLevelSchema,
+        confirmationText: z.string().min(1).optional(),
+    })
+    .strict();
+export type StepConfirmationPayload = z.infer<typeof StepConfirmationPayloadSchema>;
+
 // LM-03: OBD payloads are the scan / window / guided-test / verify-fix
 // schemas from the OBD module, reused verbatim so the ledger and the
 // adapter can never disagree about the shape of a reading.
@@ -257,6 +278,10 @@ export const LedgerEntrySchema = z
         LedgerEntryBaseSchema.extend({ type: z.literal('obd_fault_window'), payload: ObdFaultWindowPayloadSchema }),
         LedgerEntryBaseSchema.extend({ type: z.literal('guided_test'), payload: GuidedTestPayloadSchema }),
         LedgerEntryBaseSchema.extend({ type: z.literal('verify_fix'), payload: VerifyFixPayloadSchema }),
+        LedgerEntryBaseSchema.extend({
+            type: z.literal('step_confirmation'),
+            payload: StepConfirmationPayloadSchema,
+        }),
         LedgerEntryBaseSchema.extend({ type: z.literal('advisory'), payload: AdvisoryPayloadSchema }),
     ])
     .superRefine((entry, ctx) => {
@@ -315,6 +340,10 @@ export const AppendLedgerEntryInputSchema = z.discriminatedUnion('type', [
     }).strict(),
     AppendEntryBaseSchema.extend({ type: z.literal('guided_test'), payload: GuidedTestPayloadSchema }).strict(),
     AppendEntryBaseSchema.extend({ type: z.literal('verify_fix'), payload: VerifyFixPayloadSchema }).strict(),
+    AppendEntryBaseSchema.extend({
+        type: z.literal('step_confirmation'),
+        payload: StepConfirmationPayloadSchema,
+    }).strict(),
     AppendEntryBaseSchema.extend({ type: z.literal('advisory'), payload: AdvisoryPayloadSchema }).strict(),
 ]);
 export type AppendLedgerEntryInput = z.infer<typeof AppendLedgerEntryInputSchema>;

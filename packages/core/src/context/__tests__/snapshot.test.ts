@@ -82,6 +82,26 @@ describe('renderCaseSnapshot', () => {
         expect(snapshot).toContain('provider: "gemini"');
     });
 
+    it('renders a spoken step confirmation with its step id, VIN, and risk', () => {
+        const caseRecord = buildCase();
+        const entries: LedgerEntry[] = [];
+        const entry = appendToChain(entries, 'step_confirmation', {
+            stepId: 'hv-isolation-test:step-2',
+            testId: 'hv-isolation-test',
+            vin: '1HGCM82633A004352',
+            instruction: 'disconnect the orange HV cables',
+            riskLevel: 'high',
+            confirmationText: 'confirmed',
+        });
+        entries.push(entry);
+        const snapshot = renderCaseSnapshot({ ...caseRecord, id: entry.caseId }, entries);
+        expect(snapshot).toContain('step: "hv-isolation-test:step-2"');
+        expect(snapshot).toContain('vin: "1HGCM82633A004352"');
+        expect(snapshot).toContain('instruction: "disconnect the orange HV cables"');
+        expect(snapshot).toContain('risk: high');
+        expect(snapshot).toContain('confirmed: "confirmed"');
+    });
+
     it('renders goal events with the outcome, version step, and status change', () => {
         const { caseRecord, goal, entries } = buildGoldenCase();
         const ledger = [...entries];
