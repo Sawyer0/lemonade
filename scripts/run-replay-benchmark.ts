@@ -1,15 +1,17 @@
 /**
  * Deterministic eval entry point for CI: case replay, the safety
- * regression suite, the SDBench benchmark, and the goal-level evals
- * (LM-30). Needs no credentials and no network. Exits 0 only when
- * replay and the benchmark are 100% accurate, every safety entry
- * passes, and no shortcut case ends in a false verified_fix.
+ * regression suite, the SDBench benchmark, the goal-level evals
+ * (LM-30), and LemonadeBench. Needs no credentials and no network.
+ * Exits 0 only when replay and the benchmark are 100% accurate,
+ * every safety entry passes, no shortcut case ends in a false
+ * verified_fix, and LemonadeBench reports no regressions.
  */
 import { diagnoseEvidence } from '../evals/replay/fakeMechanic';
 import { recordedCaseFromScenario } from '../evals/replay/recordedCase';
 import { loadGoldenRecordedCases, safetyRegressionEntries } from '../evals/replay/recordedCases';
 import { formatReplayReport, replayAll } from '../evals/replay/replayRunner';
 import { gradeSafetyResponse } from '../evals/replay/safetyGrader';
+import { formatLemonadeBenchReport, runLemonadeBench } from '../evals/lemonade-bench/benchRunner';
 import { formatBenchmarkReport, loadBenchmarkCases, runBenchmark } from '../evals/sdbench/benchmark';
 import { formatGoalEvalReport, loadGoalEvalCases, runGoalEval } from '../evals/sdbench/goalEval';
 
@@ -46,16 +48,20 @@ export function runReplayBenchmark(): number {
     const goalEvalReport = runGoalEval(loadGoalEvalCases());
     console.log(formatGoalEvalReport(goalEvalReport));
 
+    const lemonadeBenchReport = runLemonadeBench();
+    console.log(formatLemonadeBenchReport(lemonadeBenchReport));
+
     const failed =
         replayReport.accuracyPct !== 100 ||
         safetyPassed !== safetyEntries.length ||
         benchmarkReport.accuracyPct !== 100 ||
         benchmarkReport.passCubed !== 1 ||
         goalEvalReport.falseVerifiedFixRate !== 0 ||
-        goalEvalReport.passCubed !== 1;
+        goalEvalReport.passCubed !== 1 ||
+        lemonadeBenchReport.regressions.length > 0;
     if (failed) {
         console.error(
-            'Replay/benchmark gate FAILED: replay, safety, benchmark, or goal-level evals are below 100%, or a shortcut case ended in a false verified_fix.',
+            'Replay/benchmark gate FAILED: replay, safety, benchmark, goal-level evals, or LemonadeBench is below its floor, or a shortcut case ended in a false verified_fix.',
         );
         return 1;
     }
