@@ -5,7 +5,7 @@ import type { GatherAllContextOutput, MechanicInput, MechanicServices } from '..
 import type { AIAnalysis } from '../../types/models';
 import { misfireDefinitions, misfirePriors } from '../../diagnosis/loop/__tests__/fixtures';
 import { buildGoldenCase } from '../../goal/__tests__/fixtures/goldenCase';
-import { amendGoal } from '../../goal/evaluateGoal';
+import { amendGoal, type CriterionEvaluation } from '../../goal/evaluateGoal';
 import type { LedgerEntry } from '../../types/case';
 
 describe('mechanicMachine', () => {
@@ -916,7 +916,7 @@ describe('mechanicMachine', () => {
             return { actor, calls: () => ({ gateCalls, intuitionCalls }) };
         };
 
-        function gateResult(outcome: 'pass' | 'retry' | 'abstain') {
+        function gateResult(outcome: 'pass' | 'retry' | 'abstain', unmetCriteria: CriterionEvaluation[] = []) {
             if (outcome === 'pass') {
                 return {
                     passed: true,
@@ -924,6 +924,7 @@ describe('mechanicMachine', () => {
                     objections: [],
                     checklistFailures: [],
                     reasons: [],
+                    unmetCriteria,
                     candidate: { ...gatedDiagnosis },
                 };
             }
@@ -940,6 +941,7 @@ describe('mechanicMachine', () => {
                     ],
                     checklistFailures: [],
                     reasons: ['Challenger: Fuel pressure held, so the pump lead is out'],
+                    unmetCriteria,
                     handoff: {
                         reason: 'Challenger: Fuel pressure held, so the pump lead is out',
                         confirmed: ['DTC P0300 was read from the vehicle'],
@@ -961,6 +963,7 @@ describe('mechanicMachine', () => {
                 ],
                 checklistFailures: [],
                 reasons: ['Challenger: Fuel pressure held, so the pump lead is out'],
+                unmetCriteria,
             };
         }
 
@@ -980,6 +983,34 @@ describe('mechanicMachine', () => {
             expect(context.gateAttempts).toBe(1);
             expect(context.queuedEvidence.map((item) => item.summary)).toEqual([
                 'Finish gate objection: Fuel pressure held, so the pump lead is out',
+            ]);
+            expect(context.gatedDiagnosis).toEqual({ ...gatedDiagnosis });
+            actor.stop();
+        });
+
+        it('retries with the unmet goal criteria as evidence, alongside the objections (LM-27)', async () => {
+            const unmetCriteria: CriterionEvaluation[] = [
+                {
+                    criterionId: 'verify.retest',
+                    phase: 'verify',
+                    verdict: 'unmet',
+                    blocking: true,
+                    evidence: [],
+                    reason: 'no passing compression-cylinder-1 result after the goal was set',
+                },
+            ];
+            const { actor, calls } = await driveWithGate([
+                gateResult('retry', unmetCriteria),
+                gateResult('pass'),
+            ]);
+            await waitFor(actor, (s) => s.matches('diagnosed_unverified'), { timeout: 5000 });
+            const context = actor.getSnapshot().context;
+            expect(calls().gateCalls).toBe(2);
+            expect(calls().intuitionCalls).toBe(2);
+            expect(context.gateAttempts).toBe(1);
+            expect(context.queuedEvidence.map((item) => item.summary)).toEqual([
+                'Finish gate objection: Fuel pressure held, so the pump lead is out',
+                'Goal criterion verify.retest unmet: no passing compression-cylinder-1 result after the goal was set',
             ]);
             expect(context.gatedDiagnosis).toEqual({ ...gatedDiagnosis });
             actor.stop();

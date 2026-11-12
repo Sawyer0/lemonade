@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { AppError } from '../../errors/AppError';
 import { ErrorCode } from '../../errors/codes';
 import type { LedgerEntry } from '../../types/case';
-import { amendGoal, buildGoal, evaluateGoal, transitionGoalStatus, type CriterionEvaluation } from '../evaluateGoal';
+import { amendGoal, buildGoal, evaluateGoal, transitionGoalStatus, unmetDeterministicBlockers, type CriterionEvaluation } from '../evaluateGoal';
 import type { CaseGoal } from '../goalSchema';
 import {
     buildGoldenCase,
@@ -208,6 +208,76 @@ describe('evaluateGoal on the golden case', () => {
         const evaluation = evaluateGoal(judged, entries);
         expect(evaluation.allMet).toBe(false);
         expect(verdictOf(evaluation, 'verify.root_cause_explained')).toBe('unmet');
+    });
+
+    describe('unmetDeterministicBlockers (LM-27)', () => {
+        it('lists the unmet blocking deterministic criteria, with a criterion-level reason each', () => {
+            const { goal, entries } = buildGoldenCase({ retestResult: 'absent', symptomAbsent: false });
+            const blockers = unmetDeterministicBlockers(goal, evaluateGoal(goal, entries));
+            expect(blockers.map((blocker) => blocker.criterionId)).toEqual([
+                'verify.retest',
+                'verify.symptom_absent',
+            ]);
+            expect(blockers[0].reason).toContain('compression-cylinder-1');
+            expect(blockers[1].reason).toContain('observation');
+        });
+
+        it('is empty when every blocking deterministic criterion is met', () => {
+            const { goal, entries } = buildGoldenCase();
+            expect(unmetDeterministicBlockers(goal, evaluateGoal(goal, entries))).toEqual([]);
+        });
+
+        it('never lists a judge criterion, even though the pure evaluator marks it unmet', () => {
+            const goal = buildGoldenGoal();
+            const judged = {
+                ...goal,
+                criteria: [
+                    ...goal.criteria,
+                    {
+                        id: 'verify.root_cause_explained',
+                        phase: 'verify' as const,
+                        description: 'The repair explanation addresses the root cause',
+                        blocking: true,
+                        check: { kind: 'judge' as const, rubric: 'The repair addresses the root cause' },
+                    },
+                ],
+            };
+            const { entries } = buildGoldenCase();
+            const blockers = unmetDeterministicBlockers(judged, evaluateGoal(judged, entries));
+            expect(blockers.map((blocker) => blocker.criterionId)).not.toContain('verify.root_cause_explained');
+        });
+
+        it('never lists a non-blocking criterion, even when it is unmet', () => {
+            const goal = buildGoldenGoal();
+            const withNonBlocking = {
+                ...goal,
+                criteria: [
+                    ...goal.criteria,
+                    {
+                        id: 'verify.notes_filed',
+                        phase: 'verify' as const,
+                        description: 'Repair notes filed for the record',
+                        blocking: false,
+                        check: {
+                            kind: 'ledger_has' as const,
+                            entryKind: 'observation',
+                            where: { text: 'Notes filed' },
+                            admissible: ['tech'],
+                        },
+                    },
+                ],
+            };
+            const { entries } = buildGoldenCase({ retestResult: 'absent' });
+            const blockers = unmetDeterministicBlockers(withNonBlocking, evaluateGoal(withNonBlocking, entries));
+            expect(blockers.map((blocker) => blocker.criterionId)).toEqual(['verify.retest']);
+        });
+
+        it('lists a contradicted criterion: a failed re-test blocks like a missing one', () => {
+            const { goal, entries } = buildGoldenCase({ retestResult: 'fail' });
+            const blockers = unmetDeterministicBlockers(goal, evaluateGoal(goal, entries));
+            expect(blockers.map((blocker) => blocker.criterionId)).toEqual(['verify.retest']);
+            expect(blockers[0].verdict).toBe('contradicted');
+        });
     });
 
     it('reports blockingMet from blocking criteria only', () => {

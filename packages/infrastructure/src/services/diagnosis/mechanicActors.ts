@@ -149,6 +149,7 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                     reasons: [
                         'The case ledger could not be read, so no claim in the diagnosis can be checked against it',
                     ],
+                    unmetCriteria: [],
                 };
             }
             const skipped: FinishGateRunResult = {
@@ -157,6 +158,7 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                 objections: [],
                 checklistFailures: [],
                 reasons: [],
+                unmetCriteria: [],
             };
             if (!finishGate || !input.visual || input.ledger.length === 0) {
                 return skipped;
@@ -169,6 +171,7 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                 localTriage: input.localTriage,
                 dtcCodes: input.dtcCodes,
                 ledger: input.ledger,
+                goal: input.goal,
                 loopState: input.loopState,
                 loopDecision: input.loopDecision,
                 testDefinitions: input.testDefinitions,

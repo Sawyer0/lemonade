@@ -6,6 +6,7 @@ import {
     BudgetSchema,
     CaseGoalSchema,
     CriterionSchema,
+    GoalPhaseSchema,
     type Budget,
     type CaseGoal,
     type Criterion,
@@ -48,24 +49,27 @@ import {
 //   hypothesis entries from any source (including the model) — it is a
 //   belief check, not proof about the world.
 
-export type CriterionVerdict = 'met' | 'unmet' | 'contradicted';
+export const CriterionVerdictSchema = z.enum(['met', 'unmet', 'contradicted']);
+export type CriterionVerdict = z.infer<typeof CriterionVerdictSchema>;
 
 /** One ledger entry cited as evidence for a verdict. */
-export interface LedgerReference {
-    entryId: string;
-    sequence: number;
-    type: string;
-}
+export const LedgerReferenceSchema = z.object({
+    entryId: z.string().min(1),
+    sequence: z.number().int(),
+    type: z.string().min(1),
+});
+export type LedgerReference = z.infer<typeof LedgerReferenceSchema>;
 
-export interface CriterionEvaluation {
-    criterionId: string;
-    phase: Criterion['phase'];
-    verdict: CriterionVerdict;
-    blocking: boolean;
-    evidence: LedgerReference[];
+export const CriterionEvaluationSchema = z.object({
+    criterionId: z.string().min(1),
+    phase: GoalPhaseSchema,
+    verdict: CriterionVerdictSchema,
+    blocking: z.boolean(),
+    evidence: z.array(LedgerReferenceSchema),
     /** Why this verdict, in one line: the counts or the failing threshold. */
-    reason: string;
-}
+    reason: z.string().min(1),
+});
+export type CriterionEvaluation = z.infer<typeof CriterionEvaluationSchema>;
 
 export interface GoalEvaluation {
     goalId: string;
@@ -334,6 +338,25 @@ export function evaluateGoal(goal: CaseGoal, ledger: ReadonlyArray<LedgerEntry>)
             .every((criterion) => criterion.verdict === 'met'),
         criteria,
     };
+}
+
+/**
+ * The blocking criteria the pure evaluator can decide that are still
+ * unmet: every blocking criterion except `judge` checks, which need the
+ * LM-19 semantic judge. The finish gate (LM-27) blocks on these before
+ * any model call: a code-checkable fact must never depend on a model's
+ * reading. A `contradicted` criterion counts as unmet here — a failed
+ * pre-registered re-test blocks the gate the same way a missing one
+ * does. Non-blocking criteria never appear here, matching evaluateGoal's
+ * blockingMet.
+ */
+export function unmetDeterministicBlockers(goal: CaseGoal, evaluation: GoalEvaluation): CriterionEvaluation[] {
+    const judgeIds = new Set(
+        goal.criteria.filter((criterion) => criterion.check.kind === 'judge').map((criterion) => criterion.id),
+    );
+    return evaluation.criteria.filter(
+        (criterion) => criterion.blocking && criterion.verdict !== 'met' && !judgeIds.has(criterion.criterionId),
+    );
 }
 
 // --- Goal lifecycle ---
