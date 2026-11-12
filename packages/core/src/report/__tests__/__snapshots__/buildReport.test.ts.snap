@@ -1,0 +1,129 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildCaseReport > renders the closed golden case to the exact report shape 1`] = `
+{
+  "caseId": "case-id",
+  "caseStatus": "closed",
+  "codes": [
+    {
+      "citation": {
+        "entryId": "entry-2",
+        "occurredAt": "2026-11-11T10:00:00.000Z",
+        "sequence": 2,
+      },
+      "code": "P0300",
+      "state": "read",
+    },
+  ],
+  "complaint": {
+    "citation": {
+      "entryId": "entry-7",
+      "occurredAt": "2026-11-11T10:00:00.000Z",
+      "sequence": 7,
+    },
+    "text": "Misfire on cylinder 1 at idle",
+  },
+  "corrections": [],
+  "differential": [
+    {
+      "citation": {
+        "entryId": "entry-6",
+        "occurredAt": "2026-11-11T10:00:00.000Z",
+        "sequence": 6,
+      },
+      "confidence": 0.8,
+      "hypothesis": "Head gasket leak",
+    },
+    {
+      "citation": {
+        "entryId": "entry-5",
+        "occurredAt": "2026-11-11T10:00:00.000Z",
+        "sequence": 5,
+      },
+      "confidence": 0.3,
+      "hypothesis": "Ignition coil failure",
+    },
+  ],
+  "entryCount": 11,
+  "evidence": [
+    {
+      "citation": {
+        "entryId": "entry-3",
+        "occurredAt": "2026-11-11T10:00:00.000Z",
+        "sequence": 3,
+      },
+      "kind": "observation",
+      "occurredAt": "2026-11-11T10:00:00.000Z",
+      "text": "Misfire on cylinder 1 at idle",
+    },
+    {
+      "citation": {
+        "entryId": "entry-9",
+        "occurredAt": "2026-11-11T10:00:00.000Z",
+        "sequence": 9,
+      },
+      "kind": "observation",
+      "occurredAt": "2026-11-11T10:00:00.000Z",
+      "text": "No misfire at idle after repair",
+    },
+    {
+      "citation": {
+        "entryId": "entry-11",
+        "occurredAt": "2026-11-11T10:00:00.000Z",
+        "sequence": 11,
+      },
+      "kind": "frame",
+      "mediaSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mediaUri": "gs://lemonade-demo/frames/frame-001.jpg",
+      "occurredAt": "2026-11-11T10:00:00.000Z",
+    },
+  ],
+  "generatedAt": "2026-11-11T12:00:00.000Z",
+  "outcome": {
+    "citation": {
+      "entryId": "entry-10",
+      "occurredAt": "2026-11-11T10:00:00.000Z",
+      "sequence": 10,
+    },
+    "codesCleared": true,
+    "confirmed": true,
+    "retestPassed": true,
+    "symptomGone": true,
+  },
+  "repair": {
+    "citation": {
+      "entryId": "entry-10",
+      "occurredAt": "2026-11-11T10:00:00.000Z",
+      "sequence": 10,
+    },
+    "partsReplaced": [
+      "Head gasket",
+    ],
+    "repairPerformed": "Replaced head gasket",
+  },
+  "tests": [
+    {
+      "citation": {
+        "entryId": "entry-8",
+        "occurredAt": "2026-11-11T10:00:00.000Z",
+        "sequence": 8,
+      },
+      "measuredValue": 185,
+      "name": "compression-cylinder-1",
+      "result": "pass",
+      "unit": "psi",
+    },
+  ],
+  "vehicle": {
+    "citation": {
+      "entryId": "entry-1",
+      "occurredAt": "2026-11-11T10:00:00.000Z",
+      "sequence": 1,
+    },
+    "make": "Honda",
+    "model": "Accord",
+    "vin": "1HGCM82633A004352",
+    "year": 2003,
+  },
+}
+`;

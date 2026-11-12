@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-    appendGoldenLedgerEntry,
-    buildGoldenCase,
-} from '../../goal/__tests__/fixtures/goldenCase';
+import { appendGoldenLedgerEntry, buildGoldenCase } from '../../goal/__tests__/fixtures/goldenCase';
 import { buildCaseReport } from '../buildReport';
 import { CaseReportSchema, type CaseReport } from '../types';
 
@@ -12,7 +9,11 @@ const GENERATED_AT = new Date('2026-11-11T12:00:00.000Z');
  * The closed golden case: the LM-25 misfire case, closed, with one captured
  * frame added so the report's evidence section has a frame to show.
  */
-function buildClosedGoldenReport(): { report: CaseReport; entryIds: Set<string> } {
+function buildClosedGoldenReport(): {
+    report: CaseReport;
+    entryIds: Set<string>;
+    entryIdBySequence: Map<number, string>;
+} {
     const { caseRecord, entries } = buildGoldenCase();
     entries.push(
         appendGoldenLedgerEntry(entries, 'frame_captured', {
@@ -28,7 +29,43 @@ function buildClosedGoldenReport(): { report: CaseReport; entryIds: Set<string> 
         entries,
         generatedAt: GENERATED_AT,
     });
-    return { report, entryIds: new Set(entries.map((entry) => entry.id)) };
+    return {
+        report,
+        entryIds: new Set(entries.map((entry) => entry.id)),
+        entryIdBySequence: new Map(entries.map((entry) => [entry.sequence, entry.id])),
+    };
+}
+
+/**
+ * The golden fixture mints fresh entry ids on every call, so a raw snapshot
+ * would differ on every run. Rewrite each id to `entry-<sequence>` — the
+ * sequence is the stable identity — and the case id to a fixed placeholder,
+ * so the snapshot pins the report's shape and content, not random ids. The
+ * citation-link test separately proves the ids are real ledger ids.
+ */
+function normalizeForSnapshot(report: CaseReport, entryIdBySequence: Map<number, string>): CaseReport {
+    const idBySequence = new Map([...entryIdBySequence.entries()].map(([sequence, id]) => [id, `entry-${sequence}`]));
+    const clone = JSON.parse(JSON.stringify(report)) as CaseReport;
+    const visit = (value: unknown): void => {
+        if (value === null || typeof value !== 'object') {
+            return;
+        }
+        if (Array.isArray(value)) {
+            value.forEach(visit);
+            return;
+        }
+        const record = value as Record<string, unknown>;
+        if (typeof record['entryId'] === 'string') {
+            record['entryId'] = idBySequence.get(record['entryId']) ?? 'entry-unknown';
+        }
+        if (typeof record['correctedEntryId'] === 'string') {
+            record['correctedEntryId'] = idBySequence.get(record['correctedEntryId']) ?? 'entry-unknown';
+        }
+        Object.values(record).forEach(visit);
+    };
+    clone.caseId = 'case-id';
+    visit(clone);
+    return clone;
 }
 
 /** Every `citation` object in the report, however deeply nested. */
@@ -43,11 +80,7 @@ function collectCitations(report: CaseReport): { entryId: string; sequence: numb
             return;
         }
         const record = value as Record<string, unknown>;
-        if (
-            typeof record['entryId'] === 'string' &&
-            typeof record['sequence'] === 'number' &&
-            'occurredAt' in record
-        ) {
+        if (typeof record['entryId'] === 'string' && typeof record['sequence'] === 'number' && 'occurredAt' in record) {
             found.push({ entryId: record['entryId'], sequence: record['sequence'] });
             return;
         }
@@ -59,9 +92,9 @@ function collectCitations(report: CaseReport): { entryId: string; sequence: numb
 
 describe('buildCaseReport', () => {
     it('renders the closed golden case to the exact report shape', () => {
-        const { report } = buildClosedGoldenReport();
+        const { report, entryIdBySequence } = buildClosedGoldenReport();
         expect(CaseReportSchema.parse(report)).toEqual(report);
-        expect(report).toMatchSnapshot();
+        expect(normalizeForSnapshot(report, entryIdBySequence)).toMatchSnapshot();
     });
 
     it('links every statement to a ledger entry', () => {

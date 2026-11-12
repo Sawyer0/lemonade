@@ -6,7 +6,7 @@ import { container } from '@/infrastructure/di/container';
 import { TYPES } from '@/infrastructure/di/types';
 import type { Case } from '@lemonade/core';
 import { AppError, ErrorCode } from '@lemonade/core';
-import { buildGoldenCase } from '@lemonade/core/goal/__tests__/fixtures/goldenCase';
+import { buildGoldenCase } from '../../../../../../../packages/core/src/goal/__tests__/fixtures/goldenCase';
 import { NextRequest } from 'next/server';
 
 // Mock adminAuth
@@ -57,6 +57,10 @@ function createRequest(token?: string) {
 }
 
 describe('GET /api/cases/[caseId]/report', () => {
+    // The entries the mock case service returns, so the citation test
+    // checks the report against the same ledger the route read — a fresh
+    // buildGoldenCase() call mints new entry ids and would never match.
+    let mockedEntryIds: Set<string> = new Set();
     beforeEach(() => {
         container.snapshot();
 
@@ -73,6 +77,7 @@ describe('GET /api/cases/[caseId]/report', () => {
 
         (adminAuth.verifyIdToken as Mock).mockResolvedValue({ uid: 'user-123' });
         const { entries } = buildGoldenCase();
+        mockedEntryIds = new Set(entries.map((entry) => entry.id));
         mockCaseService.getCase.mockResolvedValue({ caseRecord: closedCase, entries });
     });
 
@@ -93,9 +98,7 @@ describe('GET /api/cases/[caseId]/report', () => {
         expect(body.data.complaint.text).toBe('Misfire on cylinder 1 at idle');
         expect(body.data.codes.map((code: { code: string }) => code.code)).toContain('P0300');
         expect(body.data.differential[0].hypothesis).toBe('Head gasket leak');
-        expect(body.data.tests.map((test: { name: string }) => test.name)).toContain(
-            'compression-cylinder-1',
-        );
+        expect(body.data.tests.map((test: { name: string }) => test.name)).toContain('compression-cylinder-1');
         expect(body.data.repair.repairPerformed).toBe('Replaced head gasket');
         expect(body.data.outcome.confirmed).toBe(true);
         expect(mockCaseService.getCase).toHaveBeenCalledWith(caseId, 'user-123');
@@ -105,8 +108,7 @@ describe('GET /api/cases/[caseId]/report', () => {
         const req = createRequest('valid-token');
         const res = await GET(req as unknown as NextRequest, { params: { caseId } });
         const body = await res.json();
-        const { entries } = buildGoldenCase();
-        const entryIds = new Set(entries.map((entry) => entry.id));
+        const entryIds = mockedEntryIds;
 
         const collectCitations = (value: unknown): string[] => {
             if (value === null || typeof value !== 'object') {

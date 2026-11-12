@@ -4,10 +4,7 @@ import type { CaseReport, ReportCitation } from '@lemonade/core';
 /** The ledger entry a line came from, shown as its place in the chain. */
 function Citation({ citation }: { citation: ReportCitation }) {
     return (
-        <span
-            className="ml-2 font-mono text-xs text-zinc-500"
-            title={`Ledger entry ${citation.entryId}`}
-        >
+        <span className="ml-2 font-mono text-xs text-zinc-500" title={`Ledger entry ${citation.entryId}`}>
             #{citation.sequence}
         </span>
     );
@@ -44,9 +41,7 @@ export function CaseReportView({ report }: { report: CaseReport }) {
                 <p className="text-sm text-zinc-500">
                     Case {report.caseId} · {report.caseStatus} · {report.entryCount} ledger entries
                 </p>
-                <p className="text-sm text-zinc-500">
-                    Generated {formatWhen(report.generatedAt)}
-                </p>
+                <p className="text-sm text-zinc-500">Generated {formatWhen(report.generatedAt)}</p>
             </header>
             <div className="mt-4 space-y-4">
                 {report.vehicle && (
@@ -70,9 +65,7 @@ export function CaseReportView({ report }: { report: CaseReport }) {
                         {report.codes.map((code, index) => (
                             <p key={`${code.code}-${index}`}>
                                 {code.code} ({code.state})
-                                {code.freezeFrame
-                                    ? ` · freeze frame ${JSON.stringify(code.freezeFrame)}`
-                                    : ''}
+                                {code.freezeFrame ? ` · freeze frame ${JSON.stringify(code.freezeFrame)}` : ''}
                                 <Citation citation={code.citation} />
                             </p>
                         ))}
@@ -128,8 +121,8 @@ export function CaseReportView({ report }: { report: CaseReport }) {
                 {report.outcome && (
                     <Section title="Outcome">
                         <p>
-                            Codes cleared: {report.outcome.codesCleared ? 'yes' : 'no'} · Symptom
-                            gone: {report.outcome.symptomGone ? 'yes' : 'no'} · Re-test passed:{' '}
+                            Codes cleared: {report.outcome.codesCleared ? 'yes' : 'no'} · Symptom gone:{' '}
+                            {report.outcome.symptomGone ? 'yes' : 'no'} · Re-test passed:{' '}
                             {report.outcome.retestPassed ? 'yes' : 'no'} · Confirmed:{' '}
                             {report.outcome.confirmed ? 'yes' : 'no'}
                             {report.outcome.notes ? ` · ${report.outcome.notes}` : ''}

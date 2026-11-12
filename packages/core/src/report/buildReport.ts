@@ -47,18 +47,12 @@ export function buildCaseReport(input: BuildCaseReportInput): CaseReport {
         usable,
         (entry): entry is VinDecodedEntry => entry.type === 'vin_decoded',
     );
-    const goalEntry = firstOf<GoalSetEntry>(
-        usable,
-        (entry): entry is GoalSetEntry => entry.type === 'goal_set',
-    );
+    const goalEntry = firstOf<GoalSetEntry>(usable, (entry): entry is GoalSetEntry => entry.type === 'goal_set');
     const complaintObservation = firstOf<ObservationEntry>(
         usable,
         (entry): entry is ObservationEntry => entry.type === 'observation',
     );
-    const outcomeEntry = lastOf<OutcomeEntry>(
-        usable,
-        (entry): entry is OutcomeEntry => entry.type === 'outcome',
-    );
+    const outcomeEntry = lastOf<OutcomeEntry>(usable, (entry): entry is OutcomeEntry => entry.type === 'outcome');
     const complaint = complaintOf(goalEntry, complaintObservation, citationOf);
 
     return {
@@ -71,18 +65,10 @@ export function buildCaseReport(input: BuildCaseReportInput): CaseReport {
             : {
                   vehicle: {
                       vin: vehicleEntry.payload.vin,
-                      ...(vehicleEntry.payload.year === undefined
-                          ? {}
-                          : { year: vehicleEntry.payload.year }),
-                      ...(vehicleEntry.payload.make === undefined
-                          ? {}
-                          : { make: vehicleEntry.payload.make }),
-                      ...(vehicleEntry.payload.model === undefined
-                          ? {}
-                          : { model: vehicleEntry.payload.model }),
-                      ...(vehicleEntry.payload.trim === undefined
-                          ? {}
-                          : { trim: vehicleEntry.payload.trim }),
+                      ...(vehicleEntry.payload.year === undefined ? {} : { year: vehicleEntry.payload.year }),
+                      ...(vehicleEntry.payload.make === undefined ? {} : { make: vehicleEntry.payload.make }),
+                      ...(vehicleEntry.payload.model === undefined ? {} : { model: vehicleEntry.payload.model }),
+                      ...(vehicleEntry.payload.trim === undefined ? {} : { trim: vehicleEntry.payload.trim }),
                       citation: citationOf(vehicleEntry),
                   },
               }),
@@ -104,9 +90,7 @@ export function buildCaseReport(input: BuildCaseReportInput): CaseReport {
                       symptomGone: outcomeEntry.payload.symptomGone,
                       retestPassed: outcomeEntry.payload.retestPassed,
                       confirmed: outcomeEntry.payload.confirmed,
-                      ...(outcomeEntry.payload.notes === undefined
-                          ? {}
-                          : { notes: outcomeEntry.payload.notes }),
+                      ...(outcomeEntry.payload.notes === undefined ? {} : { notes: outcomeEntry.payload.notes }),
                       citation: citationOf(outcomeEntry),
                   },
               }),
@@ -158,10 +142,7 @@ function lastOf<T extends LedgerEntry>(
     return found;
 }
 
-function codesOf(
-    usable: LedgerEntry[],
-    citationOf: (entry: LedgerEntry) => ReportCitation,
-): ReportCode[] {
+function codesOf(usable: LedgerEntry[], citationOf: (entry: LedgerEntry) => ReportCitation): ReportCode[] {
     const codes: ReportCode[] = [];
     for (const entry of usable) {
         if (entry.type === 'dtc_read') {
@@ -169,9 +150,7 @@ function codesOf(
                 codes.push({
                     code,
                     state: 'read',
-                    ...(entry.payload.freezeFrame === undefined
-                        ? {}
-                        : { freezeFrame: entry.payload.freezeFrame }),
+                    ...(entry.payload.freezeFrame === undefined ? {} : { freezeFrame: entry.payload.freezeFrame }),
                     citation: citationOf(entry),
                 });
             }
@@ -192,10 +171,7 @@ function codesOf(
     return codes;
 }
 
-function evidenceOf(
-    usable: LedgerEntry[],
-    citationOf: (entry: LedgerEntry) => ReportCitation,
-): ReportEvidenceItem[] {
+function evidenceOf(usable: LedgerEntry[], citationOf: (entry: LedgerEntry) => ReportCitation): ReportEvidenceItem[] {
     const evidence: ReportEvidenceItem[] = [];
     for (const entry of usable) {
         if (entry.type === 'observation') {
@@ -235,24 +211,18 @@ function differentialOf(
         });
     }
     return [...latestByText.values()].sort(
-        (left, right) =>
-            right.confidence - left.confidence || right.citation.sequence - left.citation.sequence,
+        (left, right) => right.confidence - left.confidence || right.citation.sequence - left.citation.sequence,
     );
 }
 
-function testsOf(
-    usable: LedgerEntry[],
-    citationOf: (entry: LedgerEntry) => ReportCitation,
-): ReportTestItem[] {
+function testsOf(usable: LedgerEntry[], citationOf: (entry: LedgerEntry) => ReportCitation): ReportTestItem[] {
     const tests: ReportTestItem[] = [];
     for (const entry of usable) {
         if (entry.type === 'test_result') {
             tests.push({
                 name: entry.payload.testName,
                 result: entry.payload.result,
-                ...(entry.payload.measuredValue === undefined
-                    ? {}
-                    : { measuredValue: entry.payload.measuredValue }),
+                ...(entry.payload.measuredValue === undefined ? {} : { measuredValue: entry.payload.measuredValue }),
                 ...(entry.payload.unit === undefined ? {} : { unit: entry.payload.unit }),
                 citation: citationOf(entry),
             });
@@ -275,10 +245,7 @@ function testsOf(
     return tests;
 }
 
-function correctionsOf(
-    ordered: LedgerEntry[],
-    citationOf: (entry: LedgerEntry) => ReportCitation,
-): ReportCorrection[] {
+function correctionsOf(ordered: LedgerEntry[], citationOf: (entry: LedgerEntry) => ReportCitation): ReportCorrection[] {
     const corrections: ReportCorrection[] = [];
     for (const entry of ordered) {
         if (entry.type === 'correction') {
