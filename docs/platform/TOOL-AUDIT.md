@@ -11,7 +11,7 @@ This document summarizes the audit of AI tools and their orchestration within th
 | `google_search` | `packages/infrastructure/src/ai/tools/googleSearch.ts` | **OK** | Server-side search. Functional. |
 | `start_video_stream` | `packages/infrastructure/src/ai/tools/startVideoStream.ts` | **OK (client)** | Request camera. Handled by the mobile app (`mobile/hooks/useToolHandler.ts`). |
 | `verify_safe_support` | `packages/infrastructure/src/ai/tools/verifySafeSupport.ts` | **OK (client)** | Verify jack stands. Client-side since LM-16: the mobile app opens the camera for it. The server used to intercept it with a canned failure; that branch is deleted and the registry marks it client-side. |
-| `save_to_memory` | — (schema in `packages/core/src/types/tools.ts`) | **OK** | Server-side save to vehicle memory. Functional. |
+| `save_to_memory` | — (schema in `packages/core/src/types/tools.ts`) | **REMOVED** | Removed with the Supermemory integration (LM-31): memory is typed records in the shop's own database with vector search; the chat no longer writes to a third-party memory store. |
 | `inspect_vehicle_component` | `agent/src/livekit-agent.ts` | **REMOVED** | No longer exists anywhere in the repo; the LiveKit agent no longer declares it. Nothing to delete. |
 
 One typed, namespaced tool registry (`packages/core/src/tools/`, LM-16) is
