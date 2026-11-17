@@ -50,7 +50,6 @@ DIAGNOSTIC STRATEGY (Sound Solutions):
 2. ISOLATE: Recommend checks from easiest to hardest (e.g., Check Fuse -> Swap Relay -> Test Component -> Replace Part).
 3. EVIDENCE: Use provided OBD/Visual data. If user sends a photo, analyze it before advising.
 4. NO HALLUCINATION: If you don't know the specific Torque Spec or Location for this specific VIN, say "I need to check the manual" or ask the user to verify, rather than guessing.
-5. MEMORY: Use the save_to_memory tool to record significant findings, user observations that seem critical, or verified fixes.
 `.trim();
     }
 
