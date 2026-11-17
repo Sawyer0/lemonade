@@ -238,7 +238,7 @@ In GitHub it runs only on demand: add those four as repository secrets and start
 | `/api/analysis/trigger`                     | POST       | Start video analysis (Pro)                            |
 | `/api/stripe/portal`                        | POST       | Stripe billing portal                                 |
 | `/api/profile`                              | GET, PATCH | Read or update the user profile                       |
-| `/api/search`, `/api/vector` | POST       | Web search and similar-case lookups |
+| `/api/search`, `/api/vector`                | POST       | Web search and similar-case lookups                   |
 
 ## License
 

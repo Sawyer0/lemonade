@@ -692,7 +692,6 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         }
     }
 
-
     /**
      * Prior confirmed fixes for this vehicle (LM-31): the case ledger's
      * confirmed outcomes — only outcomes the tech confirmed fixed count as
