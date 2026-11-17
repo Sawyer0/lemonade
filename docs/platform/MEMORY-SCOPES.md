@@ -104,14 +104,16 @@ the LM-01 adapter.
   ports; `packages/core/src/memory/memoryStore.ts` is the in-memory
   reference implementation for tests. No Firestore adapter ships in this
   issue.
-- `packages/core/src/memory/memoryTags.ts` — Supermemory tags gain a `shop`
-  tag; `DiagnosisMemoryWriter` takes an optional shop scope and tags the
-  diagnostic log `shop:<id>` / `vin:<vin>`. The log is marked
-  `ledger-grounded` only when the caller cites ledger event ids; the writer
-  cannot verify the ids until the LM-01 adapter lands, and the
-  embedding/vector-store write stays collective: shop scoping applies to
-  the memory document, not to the embedding surface. The writer persists
-  diagnostic logs, never vehicle facts.
+- `packages/core/src/types/vehicleHistory.ts` — the vehicle history the
+  reasoner reads: prior confirmed fixes from the case ledger, rendered as
+  citable lines. `DiagnosisMemoryWriter` takes an optional shop scope and
+  attaches the diagnostic log and (for verified cases) the session's video
+  and image references as metadata on the shop-owned vector case record.
+  The log is marked `ledger-grounded` only when the caller cites ledger
+  event ids; the writer cannot verify the ids until the LM-01 adapter
+  lands, and the embedding/vector-store write stays collective: shop
+  scoping applies to the record metadata, not to the embedding surface.
+  The writer persists diagnostic logs, never vehicle facts.
 - `firestore.rules` — `shops/{shopId}` with `members/{uid}` (role owner or
   tech), `vehicleRecords/{vin}`, `techProfiles/{techId}`, `settings/{docId}`,
   `playbook/{entryId}`, `wiki/{family}`. Vehicle records, tech profiles,

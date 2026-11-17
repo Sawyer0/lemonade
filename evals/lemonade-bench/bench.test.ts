@@ -2,25 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { formatLemonadeBenchReport, loadVehicleSnapshots, runLemonadeBench } from './benchRunner';
 
 describe('LemonadeBench', () => {
-    it('loads 20 golden vehicle snapshots with a true cause each', () => {
+    it('loads 19 golden vehicle snapshots with a true cause each', () => {
         const snapshots = loadVehicleSnapshots();
-        expect(snapshots).toHaveLength(20);
+        expect(snapshots).toHaveLength(19);
         for (const snapshot of snapshots) {
             expect(snapshot.trueHypothesisId).not.toBe('');
             expect(snapshot.recordedTests).toHaveLength(2);
         }
     });
 
-    it('runs 20 golden cases against the LM-04 engine and reports accuracy, cost and process scores', () => {
+    it('runs 19 golden cases against the LM-04 engine and reports accuracy, cost and process scores', () => {
         const report = runLemonadeBench();
         const [vehicle] = report.suites.filter((suite) => suite.suiteId === 'lemonade-bench');
         expect(vehicle).toBeDefined();
-        expect(vehicle!.totalCases).toBe(20);
+        expect(vehicle!.totalCases).toBe(19);
         expect(vehicle!.accuracy).toBe(1);
         expect(vehicle!.safetyViolations).toBe(0);
         expect(vehicle!.meanProcessScore).toBe(1);
-        expect(vehicle!.meanSteps).toBeCloseTo(2.45, 2);
-        expect(vehicle!.meanCostUsd).toBeCloseTo(545, 0);
+        expect(vehicle!.meanSteps).toBeCloseTo(2.47, 2);
+        expect(vehicle!.meanCostUsd).toBeCloseTo(548, 0);
         expect(vehicle!.cases.every((entry) => entry.decisionKind === 'repair')).toBe(true);
     });
 
@@ -28,7 +28,7 @@ describe('LemonadeBench', () => {
         const report = runLemonadeBench();
         const [autoRepair] = report.suites.filter((suite) => suite.suiteId === 'auto-repair-bench');
         expect(autoRepair).toBeDefined();
-        expect(autoRepair!.totalCases).toBe(20);
+        expect(autoRepair!.totalCases).toBe(19);
         expect(autoRepair!.jointAccuracy).toBe(1);
         expect(autoRepair!.repairVerificationRate).toBe(1);
     });
@@ -70,9 +70,9 @@ describe('LemonadeBench', () => {
 
     it('prints accuracy, cost, steps, violations and process scores in the formatted report', () => {
         const text = formatLemonadeBenchReport(runLemonadeBench());
-        expect(text).toContain('lemonade-bench: 20/20 accurate (100.0%)');
-        expect(text).toContain('mean cost $545');
-        expect(text).toContain('mean steps 2.45');
+        expect(text).toContain('lemonade-bench: 19/19 accurate (100.0%)');
+        expect(text).toContain('mean cost $548');
+        expect(text).toContain('mean steps 2.47');
         expect(text).toContain('safety violations 0');
         expect(text).toContain('mean process 1.00');
         expect(text).toContain('LemonadeBench gate PASSED.');

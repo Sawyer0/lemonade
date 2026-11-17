@@ -29,7 +29,6 @@ AVAILABLE TOOLS:
 - google_search: Use when you need real-world technical data, recalls, or TSBs.
 - display_content: Use to show the user a specific diagram, manual page, or PDF.
 - verify_safe_support: Use to verify the vehicle is on jack stands before undercarriage work.
-- save_to_memory: Use to explicitly save important diagnostic observations, verified fixes, or significant vehicle history milestones to the long-term memory.
 `.trim();
     }
 }

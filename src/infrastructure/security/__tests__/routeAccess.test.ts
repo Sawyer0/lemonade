@@ -9,7 +9,7 @@ describe('routeAccess', () => {
         },
     );
 
-    it.each(['/api/memory', '/api/vector', '/api/search'])('requires auth for data and paid-API proxy %s', (path) => {
+    it.each(['/api/vector', '/api/search'])('requires auth for data and paid-API proxy %s', (path) => {
         expect(isProtectedApiPath(path)).toBe(true);
     });
 

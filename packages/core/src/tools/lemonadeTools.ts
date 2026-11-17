@@ -1,7 +1,6 @@
 import {
     DisplayContentArgsSchema,
     GoogleSearchArgsSchema,
-    SaveToMemoryArgsSchema,
     StartVideoStreamArgsSchema,
     VerifySafeSupportArgsSchema,
 } from '../types/tools';
@@ -49,13 +48,6 @@ export const CHAT_TOOL_DEFINITIONS: ToolDefinition[] = [
             'Ask the client to show the vehicle support on camera before undercarriage work. Runs on the client, which holds the camera.',
         side: 'client',
         argsSchema: VerifySafeSupportArgsSchema,
-    },
-    {
-        name: 'chat.save_to_memory',
-        modelName: 'save_to_memory',
-        description: 'Save an important diagnostic observation, verified fix, or vehicle history milestone.',
-        side: 'server',
-        argsSchema: SaveToMemoryArgsSchema,
     },
 ];
 

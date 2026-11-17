@@ -19,7 +19,7 @@ import type { IMultimodalUploadAnalyzer, IChatAssistantAI } from '../interfaces/
 import type { INHTSAService } from '../interfaces/INHTSAService';
 import type { IVectorRepository } from '../interfaces/IVectorRepository';
 import type { IGoogleSearchService } from '../interfaces/IGoogleSearchService';
-import type { IMemoryService, MemorySearchResult } from '../interfaces/IMemoryService';
+import type { VehicleHistoryEntry } from '../types/vehicleHistory';
 import type { AIAnalysis, SafetyRecall, VectorDocument } from '../types/models';
 import type { ParsedDtc } from '../dtc/types';
 import type { VerificationRequest, VerificationResponse, SearchRequest, SearchResponse } from '../types/verification';
@@ -52,10 +52,6 @@ export interface VerificationInput {
     service: IChatAssistantAI;
     data: VerificationRequest;
 }
-export interface MemoryInput {
-    service: IMemoryService;
-    data: { query: string; userId: string; vin?: string };
-}
 export interface GatherAllContextInput {
     services: MechanicServices;
     vehicleContext: Record<string, unknown>;
@@ -64,7 +60,6 @@ export interface GatherAllContextInput {
 }
 export interface GatherAllContextOutput {
     recalls: SafetyRecall[];
-    history: MemorySearchResult[];
     vectors: VectorDocument[];
 }
 
@@ -108,6 +103,11 @@ export interface MechanicInput {
     // genuinely empty — no case, or a still-empty case — and the gate
     // skips as before.
     ledgerReadFailed?: boolean;
+    // Prior confirmed fixes for this vehicle (LM-31): the case ledger's
+    // confirmed outcomes, rendered as lines the reasoner can cite. The
+    // caller reads them from the case ledger; the machine never fetches
+    // history itself.
+    vehicleHistory?: VehicleHistoryEntry[];
     // Budget already spent on this case (LM-26): the machine counts its
     // own reasoner runs and test minutes on top of this.
     budgetUsage?: BudgetUsage;
@@ -116,7 +116,7 @@ export interface MechanicInput {
 export interface MechanicContext extends MechanicInput {
     nhtsaResults: SafetyRecall[];
     embeddingInfo: VectorDocument[];
-    vehicleHistory: MemorySearchResult[];
+    vehicleHistory: VehicleHistoryEntry[];
     visualAnalysis?: AIAnalysis;
     searchResults?: SearchResponse;
     verificationResult?: VerificationResponse;
@@ -252,7 +252,6 @@ export interface MechanicServices {
     vector: IVectorRepository;
     chat: IChatAssistantAI;
     search: IGoogleSearchService;
-    memory: IMemoryService;
 }
 
 export type MechanicEvent =
@@ -274,6 +273,7 @@ export type MechanicEvent =
           goal?: CaseGoal;
           ledger?: LedgerEntry[];
           ledgerReadFailed?: boolean;
+          vehicleHistory?: VehicleHistoryEntry[];
           budgetUsage?: BudgetUsage;
       }
     | { type: 'UPDATE_SERVICES'; services: MechanicServices }
@@ -331,7 +331,7 @@ export interface IntuitionInput {
     userQuery: string;
     vehicleContext: Record<string, unknown>;
     nhtsaResults: SafetyRecall[];
-    vehicleHistory: MemorySearchResult[];
+    vehicleHistory: VehicleHistoryEntry[];
     videoUrl?: string;
     userId: string;
     sessionId: string;
@@ -391,14 +391,6 @@ export const mechanicMachine = setup({
         }),
         webVerification: fromPromise(async ({ input }: { input: VerificationInput }) => {
             return input.service.verifyHypothesis(input.data);
-        }),
-        supermemorySearch: fromPromise(async ({ input }: { input: MemoryInput }) => {
-            return input.service.search(
-                `Vehicle VIN: ${input.data.vin || 'Unknown'}. Component/Issue: ${input.data.query}`,
-                {
-                    tags: [`user:${input.data.userId}`, `vin:${input.data.vin || 'unknown'}`],
-                },
-            );
         }),
         gatherAllContext: fromPromise<GatherAllContextOutput, GatherAllContextInput>(async () => {
             throw new Error('gatherAllContext implementation missing'); // To be provided in service
@@ -465,7 +457,7 @@ export const mechanicMachine = setup({
         gateReasons: [],
         nhtsaResults: [],
         embeddingInfo: [],
-        vehicleHistory: [],
+        vehicleHistory: input.vehicleHistory ?? [],
     }),
     // Root-level events, handled in every state. UPDATE_SERVICES lives here
     // (not only in idle) so a snapshot-restored actor can receive live
@@ -566,6 +558,7 @@ export const mechanicMachine = setup({
                                 goal: event.goal ?? context.goal,
                                 ledger: event.ledger ?? context.ledger,
                                 ledgerReadFailed: event.ledgerReadFailed ?? context.ledgerReadFailed,
+                                vehicleHistory: event.vehicleHistory ?? context.vehicleHistory,
                                 budgetUsage: event.budgetUsage ?? context.budgetUsage,
                                 phase: 'intake' as const,
                                 terminalStatus: undefined,
@@ -606,7 +599,6 @@ export const mechanicMachine = setup({
                     actions: [
                         assign({
                             nhtsaResults: ({ event }) => event.output.recalls,
-                            vehicleHistory: ({ event }) => event.output.history,
                             embeddingInfo: ({ event }) => event.output.vectors,
                         }),
                     ],

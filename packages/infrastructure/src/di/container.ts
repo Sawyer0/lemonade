@@ -5,7 +5,6 @@ import {
     IMechanicReasoningService,
     ISessionRepository,
     IGoogleSearchService,
-    IMemoryService,
     IReactiveSafetyService,
     ISafetyMonitor,
     ITracingService,
@@ -29,7 +28,6 @@ import { EvidenceSubagentRunner } from '../services/research/EvidenceSubagentRun
 import { createDefaultEvidenceSources } from '../services/research/sources/createDefaultEvidenceSources';
 import { FirestoreSessionRepository } from '../repositories/FirestoreSessionRepository';
 import { TavilySearchService } from '../external/TavilySearchService';
-import { SupermemoryService } from '../external/SupermemoryService';
 import { ReactiveSafetyService } from '../services/ReactiveSafetyService';
 import { SafetyMonitor } from '../ai/SafetyMonitor';
 import { TracingService } from '../observability/TracingService';
@@ -79,7 +77,6 @@ export function createContainer(): Container {
     bindCaseLedger(container);
     container.bind<IUserRepository>(TYPES.UserRepo).to(FirestoreUserRepository).inSingletonScope();
     container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(TavilySearchService).inSingletonScope();
-    container.bind<IMemoryService>(TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
     container.bind<INHTSAService>(TYPES.NHTSAService).to(NHTSAService).inSingletonScope();
 
     // 4. Vector / Knowledge

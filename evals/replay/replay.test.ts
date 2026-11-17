@@ -8,10 +8,10 @@ import { parseGoldenScenarios } from './recordedCases';
 import { replayAll, replayRecordedCase } from './replayRunner';
 
 describe('case replay', () => {
-    it('replays all 20 golden cases and every one passes', () => {
+    it('replays all 19 golden cases and every one passes', () => {
         const report = replayAll(loadGoldenRecordedCases());
-        expect(report.totalCases).toBe(20);
-        expect(report.passedCases).toBe(20);
+        expect(report.totalCases).toBe(19);
+        expect(report.passedCases).toBe(19);
         expect(report.accuracyPct).toBe(100);
         expect(report.safetyPct).toBe(100);
     });

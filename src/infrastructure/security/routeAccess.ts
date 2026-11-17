@@ -5,7 +5,6 @@
 export const PROTECTED_API_PREFIXES = [
     '/api/analysis',
     '/api/chat',
-    '/api/memory',
     '/api/search',
     '/api/session',
     '/api/stripe/portal',

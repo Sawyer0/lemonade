@@ -11,7 +11,6 @@ export const TYPES = {
     ResponseCache: Symbol.for('ResponseCache'),
     FunctionCallService: Symbol.for('FunctionCallService'),
     GoogleSearchService: Symbol.for('GoogleSearchService'),
-    SupermemoryService: Symbol.for('SupermemoryService'),
     MultimodalUploadAI: Symbol.for('MultimodalUploadAI'),
     ChatAI: Symbol.for('ChatAI'),
     LiveStreamAI: Symbol.for('LiveStreamAI'),

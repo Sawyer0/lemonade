@@ -20,10 +20,6 @@ export interface IConfigProvider {
     };
     getGeminiModel(): string;
     getOrThrow(key: string): string;
-    getSupermemoryConfig(): {
-        API_KEY: string;
-        SPACE_ID: string;
-    };
     getLangSmithConfig(): {
         enabled: boolean;
         project: string;

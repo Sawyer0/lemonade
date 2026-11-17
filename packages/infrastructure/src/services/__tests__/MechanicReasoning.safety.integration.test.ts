@@ -24,7 +24,6 @@ import {
     IEmbeddingService,
     IVectorRepository,
     IGoogleSearchService,
-    IMemoryService,
     ITracingService,
     ISessionRepository,
 } from '@lemonade/core';
@@ -47,10 +46,6 @@ const mockDependencies = {
     embeddingService: { embed: () => Promise.resolve([]) } as unknown as IEmbeddingService,
     vectorRepo: { search: () => Promise.resolve([]), addCase: () => Promise.resolve() } as unknown as IVectorRepository,
     searchService: { search: () => Promise.resolve({ results: [] }) } as unknown as IGoogleSearchService,
-    memoryService: {
-        search: () => Promise.resolve([]),
-        addDocument: () => Promise.resolve(),
-    } as unknown as IMemoryService,
     tracer: { traceAiCall: (opts: { exec: () => unknown }) => opts.exec() } as unknown as ITracingService,
     sessionRepo: {
         saveXStateSnapshot: () => Promise.resolve(),
@@ -81,7 +76,6 @@ describe('MechanicReasoning Safety Redundancy', () => {
             mockDependencies.embeddingService,
             mockDependencies.vectorRepo,
             mockDependencies.searchService,
-            mockDependencies.memoryService,
             mockDependencies.sessionRepo,
             reactiveSafety,
             safetyMonitor,

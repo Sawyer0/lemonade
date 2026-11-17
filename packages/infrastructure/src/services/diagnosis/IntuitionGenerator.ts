@@ -1,4 +1,4 @@
-import type { AIAnalysis, ILogger, MemorySearchResult, ReasoningInput, SafetyRecall } from '@lemonade/core';
+import type { AIAnalysis, ILogger, ReasoningInput, SafetyRecall, VehicleHistoryEntry } from '@lemonade/core';
 import type { CaseEvidence } from '@lemonade/core';
 import { getModelForState } from '@lemonade/core';
 import type { GeminiCoreAdapter } from '../../ai/GeminiCoreAdapter';
@@ -10,7 +10,7 @@ function buildIntuitionPrompt(
     query: string,
     vehicleContext: ReasoningInput['vehicleContext'],
     recalls: SafetyRecall[],
-    history: MemorySearchResult[],
+    history: VehicleHistoryEntry[],
     queuedEvidence: CaseEvidence[] = [],
 ): string {
     const recallText =
@@ -111,7 +111,7 @@ export class IntuitionGenerator {
         query: string,
         vehicleContext: ReasoningInput['vehicleContext'],
         recalls: SafetyRecall[],
-        history: MemorySearchResult[],
+        history: VehicleHistoryEntry[],
         sessionId: string,
         queuedEvidence: CaseEvidence[] = [],
     ): Promise<AIAnalysis> {

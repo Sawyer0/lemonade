@@ -14,7 +14,6 @@ export * from './ai/GeminiCoreAdapter';
 export * from './cache/InMemoryResponseCache';
 export * from './ai/FunctionCallHandler'; // Add FunctionCallHandler
 export * from './external/TavilySearchService';
-export * from './external/SupermemoryService';
 export * from './services/BillingService';
 export * from './logging/Logger';
 export * from './observability/TracingService';

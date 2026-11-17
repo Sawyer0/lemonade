@@ -96,7 +96,6 @@ describe('ToolRegistry', () => {
         expect(registry.listByNamespace('chat').map((tool) => tool.name)).toEqual([
             'chat.display_content',
             'chat.google_search',
-            'chat.save_to_memory',
             'chat.start_video_stream',
             'chat.verify_safe_support',
         ]);

@@ -1,12 +1,10 @@
 import type {
     IEmbeddingService,
     ILogger,
-    IMemoryService,
     ISessionRepository,
     IVectorRepository,
     NeurosymbolicState,
 } from '@lemonade/core';
-import { MemoryTags } from '@lemonade/core';
 
 function formatDiagnosticLog(text: string, state: NeurosymbolicState): string {
     return `
@@ -22,13 +20,15 @@ Meta Confidence: ${state.finalDiagnosis.metaConfidence}
 }
 
 /**
- * Persists a confident diagnosis: an embedding in the collective vector store,
- * a diagnostic log in long-term memory scoped to the user and vehicle, and, for
- * verified cases, the session's video and images as observations.
+ * Persists a confident diagnosis in the shop-owned vector store (LM-31):
+ * an embedding of the complaint for similar-case recall, with the
+ * diagnostic log and — for verified cases — the session's video and image
+ * references attached as record metadata, so the log and its artifacts
+ * are recalled with the case instead of living in a third-party store.
  *
  * This writer persists diagnostic logs, never vehicle facts. A vehicle fact is
  * created only by the core write policy (LM-31) from ledger events. When the
- * caller passes a shop scope, the log is tagged to the shop that holds the
+ * caller passes a shop scope, the record is scoped to the shop that holds the
  * vehicle record instead of the user, and the metadata records which ledger
  * events the diagnosis is grounded in.
  */
@@ -41,7 +41,6 @@ export class DiagnosisMemoryWriter {
     constructor(
         private readonly embeddingService: IEmbeddingService,
         private readonly vectorRepo: IVectorRepository,
-        private readonly memoryService: IMemoryService,
         private readonly sessionRepo: ISessionRepository,
         private readonly logger: ILogger,
     ) {}
@@ -54,68 +53,49 @@ export class DiagnosisMemoryWriter {
         scope?: DiagnosisMemoryScope,
     ): Promise<void> {
         const vector = await this.embeddingService.embed(text);
-
-        await this.vectorRepo.addCase(text, vector, {
-            userId: userId,
-            diagnosis: state.finalDiagnosis.userOutput,
-            vehicle: state.authorityData.vin || 'unknown',
-            timestamp: new Date().toISOString(),
-        });
-
         const vin = state.authorityData.vin || 'unknown';
-        const isolationTags = scope
-            ? MemoryTags.forVehicleAtShop(scope.shopId, vin)
-            : MemoryTags.forVehicle(userId, vin);
         // Ledger-grounded only when the caller cites ledger events. The
         // writer cannot verify the ids (the LM-01 adapter has not landed
         // yet), so an empty citation stays model-sourced, and the
         // vector-store write below stays collective: shop scoping applies
-        // to the memory document tags, not to the embedding surface.
+        // to the record metadata, not to the embedding surface.
         const ledgerGrounded = (scope?.ledgerEventIds?.length ?? 0) > 0;
 
-        try {
-            await this.memoryService.addDocument({
-                content: formatDiagnosticLog(text, state),
-                tags: [
-                    MemoryTags.type('diagnostic'),
-                    ...isolationTags,
-                    ...(state.verification.isVerified
-                        ? [MemoryTags.status('verified')]
-                        : [MemoryTags.status('session')]),
-                ],
-                metadata: {
-                    sessionId,
-                    isVerified: state.verification.isVerified,
-                    provenance: ledgerGrounded ? 'ledger-grounded' : 'model',
-                    ...(scope ? { shopId: scope.shopId, ledgerEventIds: scope.ledgerEventIds ?? [] } : {}),
-                },
-            });
-
-            if (state.verification.isVerified) {
-                await this.saveSessionArtifacts(sessionId, isolationTags);
+        // Verified cases carry their session artifacts on the vector
+        // record, so the video and images are recalled with the diagnosis.
+        // A failed artifact read degrades to a record without them.
+        let videoUrl: string | undefined;
+        let imageUrls: string[] = [];
+        if (state.verification.isVerified) {
+            try {
+                const artifacts = await this.collectSessionArtifacts(sessionId);
+                videoUrl = artifacts.videoUrl;
+                imageUrls = artifacts.imageUrls;
+            } catch (error) {
+                this.logger.warn('Failed to collect session artifacts', { error, sessionId });
             }
-
-            this.logger.info('Diagnostic session saved to Supermemory', { vin: state.authorityData.vin, sessionId });
-        } catch (error) {
-            this.logger.error('Failed to save to Supermemory', error as Error);
         }
+
+        await this.vectorRepo.addCase(text, vector, {
+            userId: userId,
+            diagnosis: state.finalDiagnosis.userOutput,
+            vehicle: vin,
+            timestamp: new Date().toISOString(),
+            sessionId,
+            isVerified: state.verification.isVerified,
+            provenance: ledgerGrounded ? 'ledger-grounded' : 'model',
+            ...(scope ? { shopId: scope.shopId, ledgerEventIds: scope.ledgerEventIds ?? [] } : {}),
+            diagnosticLog: formatDiagnosticLog(text, state),
+            ...(videoUrl ? { videoUrl } : {}),
+            ...(imageUrls.length > 0 ? { imageUrls } : {}),
+        });
+
+        this.logger.info('Diagnostic session saved to vector store', { vin, sessionId });
     }
 
-    private async saveSessionArtifacts(sessionId: string, isolationTags: string[]): Promise<void> {
+    private async collectSessionArtifacts(sessionId: string): Promise<{ videoUrl?: string; imageUrls: string[] }> {
         const session = await this.sessionRepo.findById(sessionId);
-        if (!session) return;
-
-        const observationTags = [MemoryTags.type('observation'), ...isolationTags, MemoryTags.status('verified')];
-
-        if (session.videoUrl) {
-            await this.memoryService
-                .addDocument({
-                    url: session.videoUrl,
-                    tags: observationTags,
-                    metadata: { sessionId, artifactType: 'video' },
-                })
-                .catch((e) => this.logger.warn('Failed to ingest session video', { error: e }));
-        }
+        if (!session) return { imageUrls: [] };
 
         const imageUrls = new Set<string>();
         session.messages.forEach((msg) => {
@@ -126,14 +106,6 @@ export class DiagnosisMemoryWriter {
             }
         });
 
-        for (const url of imageUrls) {
-            await this.memoryService
-                .addDocument({
-                    url,
-                    tags: observationTags,
-                    metadata: { sessionId, artifactType: 'image' },
-                })
-                .catch((e) => this.logger.warn('Failed to ingest session image', { error: e, url }));
-        }
+        return { videoUrl: session.videoUrl ?? undefined, imageUrls: [...imageUrls] };
     }
 }

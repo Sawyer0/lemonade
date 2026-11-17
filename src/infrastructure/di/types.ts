@@ -41,7 +41,6 @@ export const TYPES = {
     ResponseCache: Symbol.for('ResponseCache'),
     NHTSAService: Symbol.for('NHTSAService'),
     GoogleSearchService: Symbol.for('GoogleSearchService'),
-    SupermemoryService: Symbol.for('SupermemoryService'),
     ReactiveSafetyService: Symbol.for('ReactiveSafetyService'),
     EmbeddingService: Symbol.for('EmbeddingService'),
     MechanicReasoningService: Symbol.for('MechanicReasoningService'),

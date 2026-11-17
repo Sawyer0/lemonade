@@ -4,7 +4,7 @@ import type {
     IChatAssistantAI,
     ILogger,
     IMultimodalUploadAnalyzer,
-    MemorySearchResult,
+    VehicleHistoryEntry,
     ReasoningInput,
     SafetyRecall,
     SearchResponse,
@@ -18,7 +18,7 @@ const LOCAL_TRIAGE_TRUST_THRESHOLD = 0.7;
 /** Folds history, recalls and web results into the context the vision or text model reads. */
 export function buildEnhancedContext(
     vehicleContext: ReasoningInput['vehicleContext'],
-    vehicleHistory: MemorySearchResult[] | undefined,
+    vehicleHistory: VehicleHistoryEntry[] | undefined,
     recalls: SafetyRecall[],
     searchContext: SearchResponse | undefined,
 ): string {
@@ -68,7 +68,7 @@ export class EvidenceAnalyzer {
         input: ReasoningInput,
         searchContext?: SearchResponse,
         verificationContext?: VerificationResponse,
-        vehicleHistory?: MemorySearchResult[],
+        vehicleHistory?: VehicleHistoryEntry[],
         recalls: SafetyRecall[] = [],
         queuedEvidence: CaseEvidence[] = [],
     ): Promise<AIAnalysis> {

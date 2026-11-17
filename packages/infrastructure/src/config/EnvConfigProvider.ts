@@ -67,13 +67,6 @@ export class EnvConfigProvider implements IConfigProvider {
         return GEMINI_PRO_MODEL; // Default thinking model for backend
     }
 
-    getSupermemoryConfig() {
-        return {
-            API_KEY: process.env.SUPERMEMORY_API_KEY || '',
-            SPACE_ID: process.env.SUPERMEMORY_SPACE_ID || '',
-        };
-    }
-
     getLangSmithApiKey(): string {
         return process.env.LANGSMITH_API_KEY || '';
     }

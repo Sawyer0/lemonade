@@ -116,14 +116,14 @@ describe('simulated technician', () => {
 });
 
 describe('benchmark', () => {
-    it('covers 24 cases: 20 golden plus 4 safety paraphrases', () => {
-        expect(loadBenchmarkCases()).toHaveLength(24);
+    it('covers 23 cases: 19 golden plus 4 safety paraphrases', () => {
+        expect(loadBenchmarkCases()).toHaveLength(23);
     });
 
-    it('reports accuracy, cost and pass^3 for all 24 cases', () => {
+    it('reports accuracy, cost and pass^3 for all 23 cases', () => {
         const report = runBenchmark(loadBenchmarkCases());
-        expect(report.totalCases).toBe(24);
-        expect(report.passedCases).toBe(24);
+        expect(report.totalCases).toBe(23);
+        expect(report.passedCases).toBe(23);
         expect(report.accuracyPct).toBe(100);
         expect(report.passCubed).toBe(1);
         expect(report.attempts).toBe(3);

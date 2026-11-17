@@ -8,7 +8,6 @@ import type {
     IEmbeddingService,
     IVectorRepository,
     IGoogleSearchService,
-    IMemoryService,
     IReactiveSafetyService,
     ISessionRepository,
     ISafetyMonitor,
@@ -21,6 +20,7 @@ import type {
     SafetyRecall,
     ICaseRepository,
     IFixCountStore,
+    VehicleHistoryEntry,
 } from '@lemonade/core';
 import {
     AppError,
@@ -59,6 +59,9 @@ import { CaseRunCoordinator } from './CaseRunCoordinator';
 
 const DIAGNOSIS_TIMEOUT_MS = 120_000;
 const MEMORY_SAVE_CONFIDENCE = 0.8;
+// How many prior confirmed fixes the reasoner reads for one vehicle
+// (LM-31): the context stays small, the same cap SimilarCaseSource uses.
+const MAX_VEHICLE_HISTORY_ITEMS = 5;
 // How often a running case run polls its queue for evidence that arrived
 // mid-run, so it can be forwarded to the actor at the next checkpoint
 // (LM-17). Short enough that evidence reaches the next model call, long
@@ -122,7 +125,6 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         @inject(TYPES.EmbeddingService) embeddingService: IEmbeddingService,
         @inject(TYPES.VectorRepository) private vectorRepo: IVectorRepository,
         @inject(TYPES.GoogleSearchService) private searchService: IGoogleSearchService,
-        @inject(TYPES.SupermemoryService) private memoryService: IMemoryService,
         @inject(TYPES.SessionRepository) private sessionRepo: ISessionRepository,
         @inject(TYPES.ReactiveSafetyService) reactiveSafety: IReactiveSafetyService,
         @inject(TYPES.SafetyMonitor) safetyMonitor: ISafetyMonitor,
@@ -142,7 +144,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         @inject(TYPES.FixCountStore) @optional() private fixCountStore?: IFixCountStore,
     ) {
         this.safetyGate = new DiagnosisSafetyGate(reactiveSafety, safetyMonitor, logger);
-        this.memoryWriter = new DiagnosisMemoryWriter(embeddingService, vectorRepo, memoryService, sessionRepo, logger);
+        this.memoryWriter = new DiagnosisMemoryWriter(embeddingService, vectorRepo, sessionRepo, logger);
         this.actors = createMechanicActors({
             intuition: new IntuitionGenerator(coreAdapter, logger),
             evidence: new EvidenceAnalyzer(videoAI, chatAI, logger),
@@ -457,7 +459,6 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             nhtsa: this.nhtsaService,
             vector: this.vectorRepo,
             search: this.searchService,
-            memory: this.memoryService,
         };
 
         // The stored snapshot comes first: when one exists, its context
@@ -471,6 +472,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
         // `ledgerReadFailed` alongside the entries, so the gate abstains
         // (fail closed) instead of skipping and speaking ungated.
         const ledgerRead = await this.readLedger(input.caseId);
+        const vehicleHistory = await this.readVehicleHistory(input.caseId);
 
         const providedMachine = mechanicMachine.provide({
             actors: this.actors,
@@ -494,6 +496,7 @@ export class MechanicReasoningService implements IMechanicReasoningService {
             diagnosticLoopInput: input.diagnosticLoopInput,
             ledger: ledgerRead.entries,
             ledgerReadFailed: ledgerRead.readFailed,
+            vehicleHistory,
         };
         let actor = createActor(providedMachine, {
             input: actorInput,
@@ -686,6 +689,40 @@ export class MechanicReasoningService implements IMechanicReasoningService {
                 },
             );
             return { entries: [], readFailed: true };
+        }
+    }
+
+    /**
+     * Prior confirmed fixes for this vehicle (LM-31): the case ledger's
+     * confirmed outcomes — only outcomes the tech confirmed fixed count as
+     * proof a repair worked — rendered as lines the reasoner can cite. A
+     * failed read degrades to no history (the old memory source failed
+     * soft the same way); the diagnosis never blocks on it.
+     */
+    private async readVehicleHistory(caseId: string | undefined): Promise<VehicleHistoryEntry[]> {
+        if (!caseId || !this.caseRepo) {
+            return [];
+        }
+        try {
+            const caseRecord = await this.caseRepo.findCaseById(caseId);
+            if (!caseRecord) {
+                return [];
+            }
+            const outcomes = await this.caseRepo.findConfirmedOutcomes(caseRecord.vehicleId);
+            return outcomes.slice(0, MAX_VEHICLE_HISTORY_ITEMS).map((entry) => {
+                const repair = entry.type === 'outcome' ? entry.payload.repairPerformed : 'confirmed fix';
+                return {
+                    content: `Confirmed fix: ${repair} (Case ${entry.caseId}, entry #${entry.sequence})`,
+                    caseId: entry.caseId,
+                    sequence: entry.sequence,
+                };
+            });
+        } catch (error) {
+            this.logger.warn('[MechanicReasoning] Could not read vehicle history; diagnosing without it', {
+                caseId,
+                error,
+            });
+            return [];
         }
     }
 
