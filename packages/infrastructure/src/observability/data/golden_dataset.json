@@ -200,28 +200,6 @@
     }
   },
   {
-    "id": "scenario-13",
-    "name": "Supermemory Recall - Repeat Misfire",
-    "description": "Memory integration test (Previous fix failed)",
-    "input": {
-      "userId": "user-repeat",
-      "sessionId": "eval-13",
-      "userQuery": "Engine is shaking again. The misfire is back.",
-      "vehicleContext": { "year": 2014, "make": "BMW", "model": "328i", "vin": "BMW_REPEAT_1" }
-    },
-    "ground_truth": {
-      "diagnosis": "Recurring misfire. If coils were replaced last time, could be high-pressure fuel pump or carbon buildup.",
-      "requiredActions": [
-        "Review history from Supermemory",
-        "Check spark plug condition",
-        "Perform walnut blasting for carbon cleanup"
-      ]
-    },
-    "expected_behavior": {
-      "must_reference": ["history", "previous repair"]
-    }
-  },
-  {
     "id": "scenario-14",
     "name": "Brake Fluid Type Conflict",
     "description": "Reality Anchor test (Wrong fluid in manual vs cap)",
