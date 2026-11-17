@@ -10,10 +10,6 @@ export const CONFIG = {
     FIREBASE: {
         SERVICE_ACCOUNT_KEY: process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '',
     },
-    SUPERMEMORY: {
-        API_KEY: process.env.SUPERMEMORY_API_KEY || '',
-        SPACE_ID: process.env.SUPERMEMORY_SPACE_ID || '',
-    },
     LANGSMITH: {
         API_KEY: process.env.LANGSMITH_API_KEY || process.env.LANGCHAIN_API_KEY || '',
     },

@@ -7,7 +7,6 @@ import type {
     IEmbeddingService,
     IGoogleSearchService,
     ILogger,
-    IMemoryService,
     INHTSAService,
     IResponseCache,
     ISafetyMonitor,
@@ -31,7 +30,6 @@ import {
     Logger,
     NHTSAService,
     SafetyMonitor,
-    SupermemoryService,
     TracingService,
     VectorRepository,
     TYPES as INFRA_TYPES,
@@ -53,7 +51,6 @@ export function createContainer(): Container {
     container.bind<GeminiCoreAdapter>(INFRA_TYPES.GeminiCoreAdapter).to(GeminiCoreAdapter).inSingletonScope();
     container.bind<FunctionCallService>(INFRA_TYPES.FunctionCallService).to(FunctionCallService).inSingletonScope();
     container.bind<IGoogleSearchService>(INFRA_TYPES.GoogleSearchService).to(TavilySearchService).inSingletonScope();
-    container.bind<IMemoryService>(INFRA_TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
     container.bind<IResponseCache>(INFRA_TYPES.ResponseCache).toConstantValue(new InMemoryResponseCache());
 
     container.bind<ISessionRepository>(TYPES.SessionRepo).to(FirestoreSessionRepository).inSingletonScope();

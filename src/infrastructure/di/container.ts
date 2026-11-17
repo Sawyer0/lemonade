@@ -14,7 +14,6 @@ import type {
     IBillingService,
     IServerAuthService,
     IGoogleSearchService,
-    IMemoryService,
     IResponseCache,
     ISafetyMonitor,
     INHTSAService,
@@ -48,7 +47,6 @@ import {
     EnvConfigProvider,
     TracingService,
     EvalRunner,
-    SupermemoryService,
     ReactiveSafetyService,
     MechanicReasoningService,
     CaseRunCoordinator,
@@ -122,7 +120,6 @@ container.bind<IBillingRepository>(TYPES.BillingRepository).to(BillingFirestoreR
 // LLM_PROVIDER=groq switches them to Groq (GROQ_API_KEY required).
 bindAiProviders(container);
 container.bind<IGoogleSearchService>(TYPES.GoogleSearchService).to(TavilySearchService).inSingletonScope();
-container.bind<IMemoryService>(TYPES.SupermemoryService).to(SupermemoryService).inSingletonScope();
 container.bind<FunctionCallService>(TYPES.FunctionCallService).to(FunctionCallService).inSingletonScope();
 
 // --- 3. Bind Core Services (The "Logic") ---
