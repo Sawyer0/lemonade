@@ -32,6 +32,7 @@ The `MechanicReasoningService` orchestrates these four specialized nodes:
 * **Mechanism**: `VectorRepository` searches a database of verified fixes from other users/mechanics.
 * **Output**: A "Consensus Fix" (e.g., "95% of F-150s with this noise needed a new water pump, not an alternator").
 * **Logic**: Used to challenge Node 1. *If Intuition says A, but 90% of History says B, flag a "Community Consensus Alert".*
+* **Memory backend**: Supermemory was removed as the memory service (decision 2026-11-11, removal tracked in issue #58). Memory is typed records the shop owns in its own database, with vector search for recall (LM-31), not a third-party memory service.
 
 ### Node 4: Reality Anchor (Visual Grounding)
 * **Role**: The "Eyes".
@@ -66,7 +67,7 @@ This system effectively "simulates" a Master Mechanic who knows the book, knows 
 
 ## State Machine Architecture
 
-While we do not use an explicit Finite State Machine (FSM) library like XState, the `MechanicReasoningService` implements a **Strictly Typed Accumulator State Machine**.
+The `MechanicReasoningService` runs on an XState state machine (`packages/core/src/machines/mechanic.machine.ts`), a **Strictly Typed Accumulator State Machine**.
 
 ### The "NeurosymbolicState" Accumulator
 
