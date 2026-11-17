@@ -223,22 +223,22 @@ In GitHub it runs only on demand: add those four as repository secrets and start
 
 ## API routes
 
-| Route                                       | Method     | Purpose                                               |
-| ------------------------------------------- | ---------- | ----------------------------------------------------- |
-| `/api/chat`                                 | POST       | Streamed chat reply behind both safety gates          |
-| `/api/chat/message`                         | POST       | Non-streamed chat reply                               |
-| `/api/session`                              | GET, POST  | List or start diagnostic sessions                     |
-| `/api/session/[sessionId]`                  | GET        | Read a session                                        |
-| `/api/session/[sessionId]/summarize`        | POST       | Summarise a session                                   |
-| `/api/session/token`                        | GET        | LiveKit room token (Pro)                              |
-| `/api/vehicles`                             | GET        | List the user's vehicles                              |
-| `/api/vehicles/scan`                        | POST       | Decode a VIN via NHTSA and add the vehicle            |
-| `/api/nhtsa/recalls`                        | GET        | NHTSA recalls by year, make and model                 |
-| `/api/upload/sign`                          | POST       | Signed URL for direct upload to Cloud Storage         |
-| `/api/analysis/trigger`                     | POST       | Start video analysis (Pro)                            |
-| `/api/stripe/portal`                        | POST       | Stripe billing portal                                 |
-| `/api/profile`                              | GET, PATCH | Read or update the user profile                       |
-| `/api/search`, `/api/vector`                | POST       | Web search and similar-case lookups                   |
+| Route                                | Method     | Purpose                                       |
+| ------------------------------------ | ---------- | --------------------------------------------- |
+| `/api/chat`                          | POST       | Streamed chat reply behind both safety gates  |
+| `/api/chat/message`                  | POST       | Non-streamed chat reply                       |
+| `/api/session`                       | GET, POST  | List or start diagnostic sessions             |
+| `/api/session/[sessionId]`           | GET        | Read a session                                |
+| `/api/session/[sessionId]/summarize` | POST       | Summarise a session                           |
+| `/api/session/token`                 | GET        | LiveKit room token (Pro)                      |
+| `/api/vehicles`                      | GET        | List the user's vehicles                      |
+| `/api/vehicles/scan`                 | POST       | Decode a VIN via NHTSA and add the vehicle    |
+| `/api/nhtsa/recalls`                 | GET        | NHTSA recalls by year, make and model         |
+| `/api/upload/sign`                   | POST       | Signed URL for direct upload to Cloud Storage |
+| `/api/analysis/trigger`              | POST       | Start video analysis (Pro)                    |
+| `/api/stripe/portal`                 | POST       | Stripe billing portal                         |
+| `/api/profile`                       | GET, PATCH | Read or update the user profile               |
+| `/api/search`, `/api/vector`         | POST       | Web search and similar-case lookups           |
 
 ## License
 
