@@ -11,7 +11,6 @@ import type { LedgerEntry } from '../../types/case';
 describe('mechanicMachine', () => {
     const createMockServices = (
         overrides: Partial<{
-            memory: { search: ReturnType<typeof vi.fn> };
             nhtsa: { checkRecalls: ReturnType<typeof vi.fn> };
             vector: { search: ReturnType<typeof vi.fn> };
             search: { search: ReturnType<typeof vi.fn> };
@@ -20,7 +19,6 @@ describe('mechanicMachine', () => {
         }> = {},
     ): MechanicServices =>
         ({
-            memory: { search: vi.fn().mockResolvedValue([]) },
             nhtsa: { checkRecalls: vi.fn().mockResolvedValue([]) },
             vector: { search: vi.fn().mockResolvedValue([]) },
             search: { search: vi.fn().mockResolvedValue({ results: [], queryUsed: '', totalFound: 0 }) },
@@ -105,7 +103,7 @@ describe('mechanicMachine', () => {
 
     describe('gathering_context state', () => {
         it('should store context data', async () => {
-            const mockHistory = [{ content: 'history' }];
+            const mockHistory = [{ content: 'history', caseId: 'case-1', sequence: 1 }];
             const mockRecalls = [{ id: 'recall-1' }];
             const mockVectors = [{ id: 'doc-1' }];
 
@@ -115,14 +113,13 @@ describe('mechanicMachine', () => {
                         gatherAllContext: fromPromise(
                             async () =>
                                 ({
-                                    history: mockHistory,
                                     recalls: mockRecalls,
                                     vectors: mockVectors,
                                 }) as unknown as GatherAllContextOutput,
                         ),
                     },
                 }),
-                { input: createDefaultInput() },
+                { input: createDefaultInput({ vehicleHistory: mockHistory }) },
             );
 
             actor.start();
