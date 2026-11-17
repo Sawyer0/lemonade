@@ -1,5 +1,4 @@
 import {
-    MobileMemoryAdapter,
     MobileNHTSAAdapter,
     MobileSearchAdapter,
     MobileVectorAdapter,
@@ -39,10 +38,7 @@ describe('mobile service adapters', () => {
         expect(body).toEqual({ action: 'search', query: 'squeal', limit: 3 });
     });
 
-    it('authorizes memory, search and analysis trigger calls', async () => {
-        await new MobileMemoryAdapter().search('brakes');
-        expect(lastRequest().headers.get('Authorization')).toBe('Bearer id-token');
-
+    it('authorizes search and analysis trigger calls', async () => {
         await new MobileSearchAdapter().search({ query: 'p0420' } as Parameters<MobileSearchAdapter['search']>[0]);
         expect(lastRequest().url).toBe('https://api.test/api/search');
         expect(lastRequest().headers.get('Authorization')).toBe('Bearer id-token');

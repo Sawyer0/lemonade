@@ -11,7 +11,6 @@ import {
     IEmbeddingService,
     IVectorRepository,
     IGoogleSearchService,
-    IMemoryService,
     IReactiveSafetyService,
     ISessionRepository,
     ISafetyMonitor,
@@ -30,7 +29,6 @@ describe('MechanicReasoningService', () => {
     let mockEmbedding: IEmbeddingService;
     let mockVector: IVectorRepository;
     let mockSearch: IGoogleSearchService;
-    let mockMemory: IMemoryService;
     let mockReactive: IReactiveSafetyService;
     let mockSessionRepo: ISessionRepository;
     let mockSafetyMonitor: ISafetyMonitor;
@@ -73,11 +71,6 @@ describe('MechanicReasoningService', () => {
             search: vi.fn().mockResolvedValue({ results: [], queryUsed: '', totalFound: 0 }),
         } as unknown as IGoogleSearchService;
 
-        mockMemory = {
-            search: vi.fn().mockResolvedValue([]),
-            addDocument: vi.fn().mockResolvedValue(undefined),
-        } as unknown as IMemoryService;
-
         mockReactive = { checkSafety: vi.fn().mockReturnValue(null) } as unknown as IReactiveSafetyService;
 
         mockSessionRepo = {
@@ -100,7 +93,6 @@ describe('MechanicReasoningService', () => {
             mockEmbedding,
             mockVector,
             mockSearch,
-            mockMemory,
             mockSessionRepo,
             mockReactive,
             mockSafetyMonitor,
@@ -222,7 +214,7 @@ describe('MechanicReasoningService', () => {
         expect(result.finalDiagnosis.decision).toBe('PROCEED');
     });
 
-    it('should recall vehicle history from Supermemory before diagnosing', async () => {
+    it('should recall vehicle history from the case ledger before diagnosing', async () => {
         const input: ReasoningInput = {
             sessionId: 'session-recall',
             userId: 'user-1',
@@ -230,25 +222,46 @@ describe('MechanicReasoningService', () => {
             userQuery: 'battery light is on',
             complaint: 'Battery light',
             videoUrl: 'http://example.com/video.mp4',
+            caseId: 'case-recall',
         };
 
-        const mockHistory = [
-            { content: '[DIAGNOSTIC LOG] Alternator was replaced 2 months ago.', metadata: { date: '2025-10-21' } },
-        ];
-        mockMemory.search = vi.fn().mockResolvedValue(mockHistory);
-
-        await service.diagnose(input);
-
-        expect(mockMemory.search).toHaveBeenCalledWith(
-            expect.stringContaining('VIN_HONDA'),
-            expect.objectContaining({
-                tags: expect.arrayContaining(['user:user-1', 'vin:VIN_HONDA']),
-            }),
+        const mockCaseRepo = {
+            findCaseById: vi.fn().mockResolvedValue({ id: 'case-recall', vehicleId: 'VIN_HONDA', version: 1 }),
+            findConfirmedOutcomes: vi.fn().mockResolvedValue([
+                {
+                    id: 'e-1',
+                    caseId: 'case-recall',
+                    sequence: 2,
+                    type: 'outcome',
+                    payload: { repairPerformed: 'Alternator replaced', confirmed: true },
+                },
+            ]),
+            listEntries: vi.fn().mockResolvedValue([]),
+            advanceCaseVersion: vi.fn().mockResolvedValue(2),
+        } as unknown as ICaseRepository;
+        const ledgerService = new MechanicReasoningService(
+            mockVideoAI,
+            mockChatAI,
+            mockNHTSA,
+            mockEmbedding,
+            mockVector,
+            mockSearch,
+            mockSessionRepo,
+            mockReactive,
+            mockSafetyMonitor,
+            mockTracing,
+            mockLogger,
+            undefined as unknown as GeminiCoreAdapter,
+            new CaseRunCoordinator(),
+            mockCaseRepo,
         );
 
+        await ledgerService.diagnose(input);
+
+        expect(mockCaseRepo.findConfirmedOutcomes).toHaveBeenCalledWith('VIN_HONDA');
         expect(mockVideoAI.analyzeUploadedVideo).toHaveBeenCalledWith(
             expect.any(String),
-            expect.stringContaining('Alternator was replaced 2 months ago'),
+            expect.stringContaining('Alternator replaced'),
             expect.any(String),
             expect.any(String),
             expect.any(String),
@@ -331,10 +344,37 @@ describe('MechanicReasoningService', () => {
             expect(result.finalDiagnosis).toBeDefined();
         });
 
-        it('should continue diagnosis even if Supermemory fails', async () => {
-            mockMemory.search = vi.fn().mockRejectedValue(new Error('Memory service down'));
-
-            const result = await service.diagnose(baseInput);
+        it('should continue diagnosis even if the vehicle-history read fails', async () => {
+            const failingCaseRepo = {
+                findCaseById: vi.fn().mockResolvedValue({ id: 'case-1', vehicleId: 'v-1', version: 1 }),
+                findConfirmedOutcomes: vi.fn().mockRejectedValue(new Error('Ledger down')),
+                listEntries: vi.fn().mockResolvedValue([]),
+                advanceCaseVersion: vi.fn().mockResolvedValue(2),
+            } as unknown as ICaseRepository;
+            const ledgerService = new MechanicReasoningService(
+                mockVideoAI,
+                mockChatAI,
+                mockNHTSA,
+                mockEmbedding,
+                mockVector,
+                mockSearch,
+                mockSessionRepo,
+                mockReactive,
+                mockSafetyMonitor,
+                mockTracing,
+                mockLogger,
+                undefined as unknown as GeminiCoreAdapter,
+                new CaseRunCoordinator(),
+                failingCaseRepo,
+            );
+            const result = await ledgerService.diagnose({
+                sessionId: 'session-history-fail',
+                userId: 'user-1',
+                vehicleContext: { year: 2015, make: 'Honda', model: 'Civic', vin: 'VIN_HONDA' },
+                userQuery: 'battery light is on',
+                complaint: 'Battery light',
+                caseId: 'case-1',
+            });
 
             expect(result).toBeDefined();
             expect(result.finalDiagnosis).toBeDefined();
@@ -363,7 +403,6 @@ describe('MechanicReasoningService', () => {
             mockNHTSA.checkRecalls = vi.fn().mockRejectedValue(new Error('NHTSA down'));
             mockVector.search = vi.fn().mockRejectedValue(new Error('Vector down'));
             mockSearch.search = vi.fn().mockRejectedValue(new Error('Search down'));
-            mockMemory.search = vi.fn().mockRejectedValue(new Error('Memory down'));
             mockChatAI.verifyHypothesis = vi.fn().mockRejectedValue(new Error('Chat down'));
 
             const result = await service.diagnose(baseInput);
@@ -494,7 +533,6 @@ describe('MechanicReasoningService', () => {
                 mockEmbedding,
                 mockVector,
                 mockSearch,
-                mockMemory,
                 mockSessionRepo,
                 mockReactive,
                 mockSafetyMonitor,
@@ -547,11 +585,11 @@ describe('MechanicReasoningService', () => {
             const gatherGate = new Promise<[]>((resolve) => {
                 releaseGather = () => resolve([]);
             });
-            mockMemory.search = vi.fn().mockImplementation(() => gatherGate);
+            mockVector.search = vi.fn().mockImplementation(() => gatherGate);
 
             const runningService = caseService(caseCoordinator);
             const first = runningService.diagnose(caseInput({ caseId: CASE_ID }));
-            await waitForMockCall(mockMemory.search as unknown as { mock: { calls: unknown[][] } });
+            await waitForMockCall(mockVector.search as unknown as { mock: { calls: unknown[][] } });
 
             const second = runningService.diagnose(
                 caseInput({ sessionId: 'session-case-2', userQuery: 'and a grinding noise', caseId: CASE_ID }),
@@ -560,7 +598,7 @@ describe('MechanicReasoningService', () => {
 
             const [firstResult, secondResult] = await Promise.all([first, second]);
             expect(secondResult).toBe(firstResult);
-            expect(mockMemory.search).toHaveBeenCalledTimes(1);
+            expect(mockVector.search).toHaveBeenCalledTimes(1);
             expect(mockCaseRepo.advanceCaseVersion).toHaveBeenCalledTimes(1);
             expect(mockCaseRepo.advanceCaseVersion).toHaveBeenCalledWith(CASE_ID, 3);
         });
@@ -641,11 +679,11 @@ describe('MechanicReasoningService', () => {
             const gatherGate = new Promise<[]>((resolve) => {
                 releaseGather = () => resolve([]);
             });
-            mockMemory.search = vi.fn().mockImplementation(() => gatherGate);
+            mockVector.search = vi.fn().mockImplementation(() => gatherGate);
 
             const firstService = caseService(new CaseRunCoordinator());
             const firstRun = firstService.diagnose(caseInput({ sessionId: 'session-crash', caseId: CASE_ID }));
-            await waitForMockCall(mockMemory.search as unknown as { mock: { calls: unknown[][] } });
+            await waitForMockCall(mockVector.search as unknown as { mock: { calls: unknown[][] } });
 
             // The crash: the session repository holds the snapshot saved
             // while the gather call was still in flight. The worker dies
@@ -657,7 +695,7 @@ describe('MechanicReasoningService', () => {
             expect(storedSnapshot.value).toBe('gathering_context');
 
             // A new worker starts: fresh coordinator, the stored snapshot.
-            mockMemory.search = vi.fn().mockResolvedValue([]);
+            mockVector.search = vi.fn().mockResolvedValue([]);
             (mockSessionRepo as unknown as Record<string, unknown>).getXStateSnapshot = vi
                 .fn()
                 .mockResolvedValue(storedSnapshot);
@@ -768,7 +806,6 @@ describe('MechanicReasoningService', () => {
                 mockEmbedding,
                 mockVector,
                 mockSearch,
-                mockMemory,
                 mockSessionRepo,
                 mockReactive,
                 mockSafetyMonitor,
@@ -821,7 +858,6 @@ describe('MechanicReasoningService', () => {
                 mockEmbedding,
                 mockVector,
                 mockSearch,
-                mockMemory,
                 mockSessionRepo,
                 mockReactive,
                 mockSafetyMonitor,
@@ -877,7 +913,6 @@ describe('MechanicReasoningService', () => {
                 mockEmbedding,
                 mockVector,
                 mockSearch,
-                mockMemory,
                 mockSessionRepo,
                 mockReactive,
                 mockSafetyMonitor,

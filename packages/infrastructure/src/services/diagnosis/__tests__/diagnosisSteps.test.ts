@@ -7,7 +7,6 @@ import type {
     IEmbeddingService,
     IGoogleSearchService,
     ILogger,
-    IMemoryService,
     IMultimodalUploadAnalyzer,
     INHTSAService,
     ISessionRepository,
@@ -272,54 +271,57 @@ describe('DiagnosisMemoryWriter', () => {
         const deps = {
             embedding: { embed: vi.fn().mockResolvedValue([0.1]) },
             vectors: { addCase: vi.fn().mockResolvedValue(undefined) },
-            memory: { addDocument: vi.fn().mockResolvedValue(undefined) },
             sessions: { findById: vi.fn().mockResolvedValue(session) },
             log: logger(),
         };
         const subject = new DiagnosisMemoryWriter(
             deps.embedding as unknown as IEmbeddingService,
             deps.vectors as unknown as IVectorRepository,
-            deps.memory as unknown as IMemoryService,
             deps.sessions as unknown as ISessionRepository,
             deps.log,
         );
         return { subject, ...deps };
     }
 
-    it('stores the case vector and a session-scoped diagnostic log', async () => {
-        const { subject, vectors, memory, sessions } = writer();
+    it('stores the case vector with the diagnostic log as record metadata', async () => {
+        const { subject, vectors, sessions } = writer();
         await subject.save('grinding', state(false), 'u-1', 's-1');
         expect(vectors.addCase).toHaveBeenCalledWith(
             'grinding',
             [0.1],
-            expect.objectContaining({ userId: 'u-1', diagnosis: 'Worn pads', vehicle: '19XFB2F59FE000000' }),
+            expect.objectContaining({
+                userId: 'u-1',
+                diagnosis: 'Worn pads',
+                vehicle: '19XFB2F59FE000000',
+                sessionId: 's-1',
+                isVerified: false,
+                provenance: 'model',
+            }),
         );
-        const doc = memory.addDocument.mock.calls[0][0];
-        expect(doc.content).toContain('Final Diagnosis: Worn pads');
-        expect(doc.tags).toEqual(expect.arrayContaining(['user:u-1', 'vin:19XFB2F59FE000000', 'status:session']));
+        const metadata = vectors.addCase.mock.calls[0][2] as Record<string, unknown>;
+        expect(metadata.diagnosticLog).toContain('Final Diagnosis: Worn pads');
         expect(sessions.findById).not.toHaveBeenCalled();
     });
 
-    it('ingests the video and unique images of a verified session', async () => {
+    it('attaches the video and unique images of a verified session to the record', async () => {
         const image = { type: 'image', image: 'https://x/p.jpg' };
-        const { subject, memory } = writer({
+        const { subject, vectors } = writer({
             videoUrl: 'gs://b/v.mp4',
             messages: [{ content: [image, image] }, { content: 'text only' }],
         });
-        memory.addDocument
-            .mockResolvedValueOnce(undefined)
-            .mockRejectedValueOnce(new Error('video too large'))
-            .mockResolvedValueOnce(undefined);
         await subject.save('grinding', state(true), 'u-1', 's-1');
-        const urls = memory.addDocument.mock.calls.map((c) => c[0].url).filter(Boolean);
-        expect(urls).toEqual(['gs://b/v.mp4', 'https://x/p.jpg']);
+        const metadata = vectors.addCase.mock.calls[0][2] as Record<string, unknown>;
+        expect(metadata.videoUrl).toBe('gs://b/v.mp4');
+        expect(metadata.imageUrls).toEqual(['https://x/p.jpg']);
     });
 
-    it('keeps going when long-term memory is down', async () => {
-        const { subject, memory, log } = writer();
-        memory.addDocument.mockRejectedValueOnce(new Error('503'));
-        await expect(subject.save('grinding', state(false), 'u-1', 's-1')).resolves.toBeUndefined();
-        expect(log.error).toHaveBeenCalled();
+    it('saves the record without artifacts when the session cannot be read', async () => {
+        const { subject, vectors, sessions } = writer();
+        sessions.findById.mockRejectedValueOnce(new Error('session store down'));
+        await expect(subject.save('grinding', state(true), 'u-1', 's-1')).resolves.toBeUndefined();
+        const metadata = vectors.addCase.mock.calls[0][2] as Record<string, unknown>;
+        expect(metadata.videoUrl).toBeUndefined();
+        expect(metadata.imageUrls).toBeUndefined();
     });
 });
 
@@ -377,7 +379,7 @@ describe('createMechanicActors', () => {
         expect(deps.evidence.analyze).toHaveBeenCalledTimes(1);
     });
 
-    it('fails soft on search, vector and memory outages', async () => {
+    it('fails soft on search and vector outages', async () => {
         const { logic } = actors();
         const broken = { search: vi.fn().mockRejectedValue(new Error('down')) };
         expect(await run(logic.googleSearch, { data: { query: 'q' } })).toEqual({
@@ -386,10 +388,9 @@ describe('createMechanicActors', () => {
             totalFound: 0,
         });
         expect(await run(logic.vectorSearch, { service: broken, data: { query: 'q', userId: 'u' } })).toEqual([]);
-        expect(await run(logic.supermemorySearch, { service: broken, data: { query: 'q' } })).toEqual([]);
     });
 
-    it('gathers recalls, history and similar cases in parallel, tolerating failures', async () => {
+    it('gathers recalls and similar cases in parallel, tolerating failures', async () => {
         const { logic } = actors();
         const result = await run(logic.gatherAllContext, {
             vehicleContext: { year: 2015, make: 'Honda', model: 'Civic', vin: 'VIN' },
@@ -397,10 +398,9 @@ describe('createMechanicActors', () => {
             userId: 'u-1',
             services: {
                 nhtsa: { checkRecalls: vi.fn().mockResolvedValue([recall()]) },
-                memory: { search: vi.fn().mockRejectedValue(new Error('down')) },
                 vector: { search: vi.fn().mockResolvedValue([{ id: 'c1' }]) },
             },
         });
-        expect(result).toEqual({ recalls: [recall()], history: [], vectors: [{ id: 'c1' }] });
+        expect(result).toEqual({ recalls: [recall()], vectors: [{ id: 'c1' }] });
     });
 });
