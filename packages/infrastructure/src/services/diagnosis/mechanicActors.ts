@@ -10,7 +10,6 @@ import type {
     ILogger,
     INHTSAService,
     IntuitionInput,
-    MemoryInput,
     NhtsaInput,
     PrepareLoopInput,
     ReasonerActorRunner,
@@ -25,7 +24,6 @@ import type {
     VerificationInput,
     VisionInput,
 } from '@lemonade/core';
-import { MemoryTags } from '@lemonade/core';
 import type { IntuitionGenerator } from './IntuitionGenerator';
 import type { EvidenceAnalyzer } from './EvidenceAnalyzer';
 import type { DiagnosticLoopPreparer } from './DiagnosticLoopPreparer';
@@ -236,23 +234,11 @@ export function createMechanicActors(deps: MechanicActorDeps) {
             chatAI.verifyHypothesis(input.data),
         ),
 
-        supermemorySearch: fromPromise(async ({ input }: { input: MemoryInput }) => {
-            try {
-                const query = `Vehicle VIN: ${input.data.vin || 'Unknown'}. Component/Issue: ${input.data.query}`;
-                return await input.service.search(query, {
-                    tags: [MemoryTags.vin(input.data.vin || 'unknown')],
-                });
-            } catch (e) {
-                logger.warn('Supermemory search failed', { error: e });
-                return [];
-            }
-        }),
-
         // One actor gathers all context with Promise.all; the machine's parallel
         // states did not reliably join, so the fan-out lives here instead.
         gatherAllContext: fromPromise(async ({ input }: { input: GatherAllContextInput }) => {
             const { vehicleContext, userQuery, userId, services } = input;
-            const [recalls, history, vectors] = await Promise.all([
+            const [recalls, vectors] = await Promise.all([
                 orEmpty(logger, 'NHTSA', () =>
                     services.nhtsa.checkRecalls(
                         Number(vehicleContext.year || 0),
@@ -260,20 +246,13 @@ export function createMechanicActors(deps: MechanicActorDeps) {
                         String(vehicleContext.model || ''),
                     ),
                 ),
-                orEmpty(logger, 'Memory', () =>
-                    services.memory.search(
-                        `Vehicle VIN: ${vehicleContext.vin || 'Unknown'}. Component/Issue: ${userQuery}`,
-                        { tags: MemoryTags.forVehicle(userId, String(vehicleContext.vin || 'unknown')) },
-                    ),
-                ),
                 orEmpty(logger, 'Vector', () => services.vector.search(userQuery, SIMILAR_CASE_LIMIT, { userId })),
             ]);
             logger.debug('[Actor] gatherAllContext completed', {
                 recalls: recalls.length,
-                history: history.length,
                 vectors: vectors.length,
             });
-            return { recalls, history, vectors };
+            return { recalls, vectors };
         }),
     };
 }
