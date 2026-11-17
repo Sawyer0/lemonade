@@ -4,7 +4,6 @@ import {
     INHTSAService,
     IVectorRepository,
     IGoogleSearchService,
-    IMemoryService,
     AIAnalysis,
     MessagePart,
     VerificationRequest,
@@ -12,9 +11,6 @@ import {
     SafetyRecall,
     SearchRequest,
     SearchResponse,
-    MemorySearchOptions,
-    MemorySearchResult,
-    MemoryDocument,
     StreamingEvent,
     VectorDocument,
     SimilarCase,
@@ -203,37 +199,6 @@ export class MobileSearchAdapter implements IGoogleSearchService {
         } catch (e) {
             console.error('[MobileSearchAdapter] Search failed', e);
             return { results: [], queryUsed: request.query, totalFound: 0 };
-        }
-    }
-}
-
-// --- Memory Adapter ---
-export class MobileMemoryAdapter implements IMemoryService {
-    async addDocument(doc: MemoryDocument, spaceId?: string): Promise<void> {
-        try {
-            await postJson('/api/memory', {
-                action: 'add',
-                doc,
-                spaceId,
-            });
-        } catch (e) {
-            console.error('[MobileMemoryAdapter] Add document failed', e);
-        }
-    }
-
-    async search(query: string, options?: MemorySearchOptions): Promise<MemorySearchResult[]> {
-        try {
-            const response = await postJson('/api/memory', {
-                action: 'search',
-                query,
-                options,
-            });
-            if (!response.ok) return [];
-            const data = await response.json();
-            return data.results || [];
-        } catch (e) {
-            console.error('[MobileMemoryAdapter] Memory search failed', e);
-            return [];
         }
     }
 }

@@ -14,8 +14,6 @@ import {
     SearchResponse,
     VerificationInput,
     VerificationResponse,
-    MemoryInput,
-    MemorySearchResult,
 } from '@lemonade/core';
 import { LocalPerceptionService } from '../services/LocalPerceptionService';
 import { PerformanceMonitor } from '../services/PerformanceMonitor';
@@ -28,7 +26,6 @@ import {
     MobileNHTSAAdapter,
     MobileVectorAdapter,
     MobileSearchAdapter,
-    MobileMemoryAdapter,
 } from '../services/MobileServiceAdapters';
 
 // Mock Logger for mobile
@@ -64,7 +61,6 @@ export function useMechanicAgent(sessionId: string, userId: string) {
             nhtsa: new MobileNHTSAAdapter(),
             vector: new MobileVectorAdapter(),
             search: new MobileSearchAdapter(),
-            memory: new MobileMemoryAdapter(),
         }),
         [],
     );
@@ -116,23 +112,16 @@ export function useMechanicAgent(sessionId: string, userId: string) {
                 webVerification: fromPromise<VerificationResponse, VerificationInput>(async ({ input }) => {
                     return mobileServices.chat.verifyHypothesis(input.data);
                 }),
-                supermemorySearch: fromPromise<MemorySearchResult[], MemoryInput>(async ({ input }) => {
-                    // Note: mechanic.machine.ts was updated to use tags, but MobileMemoryAdapter stub needs to match signature
-                    return mobileServices.memory.search(input.data.query);
-                }),
                 gatherAllContext: fromPromise<GatherAllContextOutput, GatherAllContextInput>(async ({ input }) => {
-                    const [recalls, history, vectors] = await Promise.all([
+                    const [recalls, vectors] = await Promise.all([
                         mobileServices.nhtsa.checkRecalls(
                             Number(input.vehicleContext.year || 0),
                             String(input.vehicleContext.make || ''),
                             String(input.vehicleContext.model || ''),
                         ),
-                        mobileServices.memory.search(
-                            `Vehicle VIN: ${input.vehicleContext.vin || 'Unknown'}. Component/Issue: ${input.userQuery}`,
-                        ),
                         mobileServices.vector.search(input.userQuery, 3, { userId: input.userId }),
                     ]);
-                    return { recalls, history, vectors };
+                    return { recalls, vectors };
                 }),
             },
         }),

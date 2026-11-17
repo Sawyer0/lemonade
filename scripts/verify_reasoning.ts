@@ -6,7 +6,6 @@ import type {
     ReasoningInput,
     ISessionRepository,
     IVectorRepository,
-    IMemoryService,
 } from '../packages/core/src/index';
 
 // --- MOCKS ---
@@ -45,14 +44,6 @@ const MockVectorRepo = {
     findSimilar: async () => [],
 };
 
-const MockSupermemory = {
-    search: async () => {
-        console.log('   [MockMemory] Search returning empty.');
-        return [];
-    },
-    addDocument: async () => {},
-};
-
 async function verifyReasoning() {
     console.log('🔧 Verifying Mechanic Reasoning (System 2)...\n');
 
@@ -63,7 +54,6 @@ async function verifyReasoning() {
     console.log('🔄 Rebinding mocks for isolated testing...');
     if (container.isBound(TYPES.SessionRepository)) await container.unbind(TYPES.SessionRepository);
     if (container.isBound(TYPES.VectorRepository)) await container.unbind(TYPES.VectorRepository);
-    if (container.isBound(TYPES.SupermemoryService)) await container.unbind(TYPES.SupermemoryService);
 
     // Bind mocks
     container
@@ -72,9 +62,6 @@ async function verifyReasoning() {
     container
         .bind<IVectorRepository>(TYPES.VectorRepository)
         .toConstantValue(MockVectorRepo as unknown as IVectorRepository);
-    container
-        .bind<IMemoryService>(TYPES.SupermemoryService)
-        .toConstantValue(MockSupermemory as unknown as IMemoryService);
     console.log('✅ Mocks bound successfully.\n');
 
     // 3. NOW resolve the service (it will receive the mocked dependencies)
